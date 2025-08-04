@@ -50,6 +50,48 @@ static void gfx_label_clear_cached_lines(gfx_label_property_t *font_info)
     }
 }
 
+static bool gfx_utf8_get_glyph_index(const char **p, FT_Face face, int *bytes_consumed, FT_UInt *glyph_index)
+{
+    const char *ptr = *p;
+    uint8_t c = (uint8_t) * ptr;
+    int bytes_in_char = 1;
+
+    if (c < 0x80) {
+        // ASCII character (1 byte)
+        *glyph_index = FT_Get_Char_Index(face, c);
+    } else if ((c & 0xE0) == 0xC0) {
+        // 2-byte UTF-8 character
+        bytes_in_char = 2;
+        if (*(ptr + 1) == 0) {
+            return false;
+        }
+        uint32_t unicode = ((c & 0x1F) << 6) | (*(ptr + 1) & 0x3F);
+        *glyph_index = FT_Get_Char_Index(face, unicode);
+    } else if ((c & 0xF0) == 0xE0) {
+        // 3-byte UTF-8 character
+        bytes_in_char = 3;
+        if (*(ptr + 1) == 0 || *(ptr + 2) == 0) {
+            return false;
+        }
+        uint32_t unicode = ((c & 0x0F) << 12) | ((*(ptr + 1) & 0x3F) << 6) | (*(ptr + 2) & 0x3F);
+        *glyph_index = FT_Get_Char_Index(face, unicode);
+    } else if ((c & 0xF8) == 0xF0) {
+        // 4-byte UTF-8 character
+        bytes_in_char = 4;
+        if (*(ptr + 1) == 0 || *(ptr + 2) == 0 || *(ptr + 3) == 0) {
+            return false;
+        }
+        uint32_t unicode = ((c & 0x07) << 18) | ((*(ptr + 1) & 0x3F) << 12) | ((*(ptr + 2) & 0x3F) << 6) | (*(ptr + 3) & 0x3F);
+        *glyph_index = FT_Get_Char_Index(face, unicode);
+    } else {
+        *glyph_index = 0;
+    }
+
+    *bytes_consumed = bytes_in_char;
+    *p += bytes_in_char;
+    return true;
+}
+
 static void gfx_label_scroll_timer_callback(void *arg)
 {
     gfx_obj_t *obj = (gfx_obj_t *)arg;
@@ -469,7 +511,6 @@ esp_err_t gfx_label_set_scroll_loop(gfx_obj_t *obj, bool loop)
     return ESP_OK;
 }
 
-// Function to render parsed lines to mask buffer
 static esp_err_t gfx_render_lines_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, char **lines, int line_count,
                                           FT_Face face, int line_height, int base_line, int total_line_height, int *cached_line_widths)
 {
@@ -492,33 +533,11 @@ static esp_err_t gfx_render_lines_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, char 
             const char *p_calc = line_text;
             while (*p_calc) {
                 FT_UInt glyph_index;
-                uint8_t c = (uint8_t) * p_calc;
-                int bytes_in_char = 1;
+                int bytes_in_char;
 
-                if (c < 0x80) {
-                    glyph_index = FT_Get_Char_Index(face, c);
-                } else if ((c & 0xE0) == 0xC0) {
-                    bytes_in_char = 2;
-                    if (*(p_calc + 1) == 0) {
-                        break;
-                    }
-                    glyph_index = FT_Get_Char_Index(face, ((c & 0x1F) << 6) | (*(p_calc + 1) & 0x3F));
-                } else if ((c & 0xF0) == 0xE0) {
-                    bytes_in_char = 3;
-                    if (*(p_calc + 1) == 0 || *(p_calc + 2) == 0) {
-                        break;
-                    }
-                    glyph_index = FT_Get_Char_Index(face, ((c & 0x0F) << 12) | ((*(p_calc + 1) & 0x3F) << 6) | (*(p_calc + 2) & 0x3F));
-                } else if ((c & 0xF8) == 0xF0) {
-                    bytes_in_char = 4;
-                    if (*(p_calc + 1) == 0 || *(p_calc + 2) == 0 || *(p_calc + 3) == 0) {
-                        break;
-                    }
-                    glyph_index = FT_Get_Char_Index(face, ((c & 0x07) << 18) | ((*(p_calc + 1) & 0x3F) << 12) | ((*(p_calc + 2) & 0x3F) << 6) | (*(p_calc + 3) & 0x3F));
-                } else {
-                    glyph_index = 0;
+                if (!gfx_utf8_get_glyph_index(&p_calc, face, &bytes_in_char, &glyph_index)) {
+                    break;
                 }
-                p_calc += bytes_in_char;
 
                 if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT) == 0) {
                     line_width += face->glyph->advance.x >> 6;
@@ -526,7 +545,6 @@ static esp_err_t gfx_render_lines_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, char 
             }
         }
 
-        // Calculate starting x position based on alignment
         int start_x = 0;
         switch (font_info->text_align) {
         case GFX_TEXT_ALIGN_LEFT:
@@ -552,52 +570,28 @@ static esp_err_t gfx_render_lines_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, char 
             start_x -= font_info->scroll_offset;
         }
 
-        // Render characters in current line
         int x = start_x;
         const char *p = line_text;
 
         while (*p) {
             FT_UInt glyph_index;
-            uint8_t c = (uint8_t) * p;
-            int bytes_in_char = 1;
+            int bytes_in_char;
 
-            if (c < 0x80) {
-                glyph_index = FT_Get_Char_Index(face, c);
-            } else if ((c & 0xE0) == 0xC0) {
-                bytes_in_char = 2;
-                if (*(p + 1) == 0) {
-                    break;
-                }
-                glyph_index = FT_Get_Char_Index(face, ((c & 0x1F) << 6) | (*(p + 1) & 0x3F));
-            } else if ((c & 0xF0) == 0xE0) {
-                bytes_in_char = 3;
-                if (*(p + 1) == 0 || *(p + 2) == 0) {
-                    break;
-                }
-                glyph_index = FT_Get_Char_Index(face, ((c & 0x0F) << 12) | ((*(p + 1) & 0x3F) << 6) | (*(p + 2) & 0x3F));
-            } else if ((c & 0xF8) == 0xF0) {
-                bytes_in_char = 4;
-                if (*(p + 1) == 0 || *(p + 2) == 0 || *(p + 3) == 0) {
-                    break;
-                }
-                glyph_index = FT_Get_Char_Index(face, ((c & 0x07) << 18) | ((*(p + 1) & 0x3F) << 12) | ((*(p + 2) & 0x3F) << 6) | (*(p + 3) & 0x3F));
-            } else {
-                glyph_index = 0;
+            if (!gfx_utf8_get_glyph_index(&p, face, &bytes_in_char, &glyph_index)) {
+                break;
             }
-            p += bytes_in_char;
 
             // Load and render glyph
             FT_Error error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
             if (error) {
-                continue; // Skip failed glyphs
+                continue;
             }
 
             error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
             if (error) {
-                continue; // Skip failed glyphs
+                continue;
             }
 
-            // Copy glyph bitmap to mask buffer
             FT_GlyphSlot slot = face->glyph;
             int ofs_x = slot->bitmap_left;
             int ofs_y = line_height - base_line - slot->bitmap_top;
@@ -639,42 +633,18 @@ static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, FT_Face face, int total_li
 
     while (*p_width) {
         FT_UInt glyph_index;
-        uint8_t c = (uint8_t) * p_width;
-        int bytes_in_char = 1;
+        int bytes_in_char;
 
-        // Handle UTF-8 encoding for width calculation
-        if (c < 0x80) {
-            glyph_index = FT_Get_Char_Index(face, c);
-        } else if ((c & 0xE0) == 0xC0) {
-            bytes_in_char = 2;
-            if (*(p_width + 1) == 0) {
-                break;
-            }
-            glyph_index = FT_Get_Char_Index(face, ((c & 0x1F) << 6) | (*(p_width + 1) & 0x3F));
-        } else if ((c & 0xF0) == 0xE0) {
-            bytes_in_char = 3;
-            if (*(p_width + 1) == 0 || *(p_width + 2) == 0) {
-                break;
-            }
-            glyph_index = FT_Get_Char_Index(face, ((c & 0x0F) << 12) | ((*(p_width + 1) & 0x3F) << 6) | (*(p_width + 2) & 0x3F));
-        } else if ((c & 0xF8) == 0xF0) {
-            bytes_in_char = 4;
-            if (*(p_width + 1) == 0 || *(p_width + 2) == 0 || *(p_width + 3) == 0) {
-                break;
-            }
-            glyph_index = FT_Get_Char_Index(face, ((c & 0x07) << 18) | ((*(p_width + 1) & 0x3F) << 12) | ((*(p_width + 2) & 0x3F) << 6) | (*(p_width + 3) & 0x3F));
-        } else {
-            glyph_index = 0;
+        if (!gfx_utf8_get_glyph_index(&p_width, face, &bytes_in_char, &glyph_index)) {
+            break;
         }
 
         if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT) == 0) {
             total_text_width += face->glyph->advance.x >> 6;
         }
 
-        p_width += bytes_in_char;
-
         // Break at newlines for single line width calculation
-        if (c == '\n') {
+        if (*(p_width - bytes_in_char) == '\n') {
             break;
         }
     }
@@ -726,32 +696,11 @@ static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, FT_Face face, int total_li
             while (*line_end) {
                 FT_UInt glyph_index;
                 uint8_t c = (uint8_t) * line_end;
-                int bytes_in_char = 1;
+                int bytes_in_char;
                 int char_width = 0;
 
-                // Handle UTF-8 encoding
-                if (c < 0x80) {
-                    glyph_index = FT_Get_Char_Index(face, c);
-                } else if ((c & 0xE0) == 0xC0) {
-                    bytes_in_char = 2;
-                    if (*(line_end + 1) == 0) {
-                        break;
-                    }
-                    glyph_index = FT_Get_Char_Index(face, ((c & 0x1F) << 6) | (*(line_end + 1) & 0x3F));
-                } else if ((c & 0xF0) == 0xE0) {
-                    bytes_in_char = 3;
-                    if (*(line_end + 1) == 0 || *(line_end + 2) == 0) {
-                        break;
-                    }
-                    glyph_index = FT_Get_Char_Index(face, ((c & 0x0F) << 12) | ((*(line_end + 1) & 0x3F) << 6) | (*(line_end + 2) & 0x3F));
-                } else if ((c & 0xF8) == 0xF0) {
-                    bytes_in_char = 4;
-                    if (*(line_end + 1) == 0 || *(line_end + 2) == 0 || *(line_end + 3) == 0) {
-                        break;
-                    }
-                    glyph_index = FT_Get_Char_Index(face, ((c & 0x07) << 18) | ((*(line_end + 1) & 0x3F) << 12) | ((*(line_end + 2) & 0x3F) << 6) | (*(line_end + 3) & 0x3F));
-                } else {
-                    glyph_index = 0;
+                if (!gfx_utf8_get_glyph_index(&line_end, face, &bytes_in_char, &glyph_index)) {
+                    break;
                 }
 
                 if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT) == 0) {
@@ -763,6 +712,9 @@ static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, FT_Face face, int total_li
                     // Try to break at last space
                     if (last_space && last_space > line_start) {
                         line_end = last_space;
+                    } else {
+                        // Back up to before this character
+                        line_end -= bytes_in_char;
                     }
                     break;
                 }
@@ -771,10 +723,8 @@ static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, FT_Face face, int total_li
 
                 // Remember last space position for word wrapping
                 if (c == ' ') {
-                    last_space = line_end;
+                    last_space = line_end - bytes_in_char;
                 }
-
-                line_end += bytes_in_char;
 
                 // Handle explicit line breaks
                 if (c == '\n') {
@@ -852,39 +802,15 @@ static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, FT_Face face, int total_li
                         const char *p_calc = lines[line_count];
                         while (*p_calc) {
                             FT_UInt glyph_index;
-                            uint8_t c = (uint8_t) * p_calc;
-                            int bytes_in_char = 1;
+                            int bytes_in_char;
 
-                            // Handle UTF-8 encoding
-                            if (c < 0x80) {
-                                glyph_index = FT_Get_Char_Index(face, c);
-                            } else if ((c & 0xE0) == 0xC0) {
-                                bytes_in_char = 2;
-                                if (*(p_calc + 1) == 0) {
-                                    break;
-                                }
-                                glyph_index = FT_Get_Char_Index(face, ((c & 0x1F) << 6) | (*(p_calc + 1) & 0x3F));
-                            } else if ((c & 0xF0) == 0xE0) {
-                                bytes_in_char = 3;
-                                if (*(p_calc + 1) == 0 || *(p_calc + 2) == 0) {
-                                    break;
-                                }
-                                glyph_index = FT_Get_Char_Index(face, ((c & 0x0F) << 12) | ((*(p_calc + 1) & 0x3F) << 6) | (*(p_calc + 2) & 0x3F));
-                            } else if ((c & 0xF8) == 0xF0) {
-                                bytes_in_char = 4;
-                                if (*(p_calc + 1) == 0 || *(p_calc + 2) == 0 || *(p_calc + 3) == 0) {
-                                    break;
-                                }
-                                glyph_index = FT_Get_Char_Index(face, ((c & 0x07) << 18) | ((*(p_calc + 1) & 0x3F) << 12) | ((*(p_calc + 2) & 0x3F) << 6) | (*(p_calc + 3) & 0x3F));
-                            } else {
-                                glyph_index = 0;
+                            if (!gfx_utf8_get_glyph_index(&p_calc, face, &bytes_in_char, &glyph_index)) {
+                                break;
                             }
 
                             if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT) == 0) {
                                 current_line_width += face->glyph->advance.x >> 6;
                             }
-
-                            p_calc += bytes_in_char;
                         }
                         line_widths[line_count] = current_line_width;
                     }
@@ -908,6 +834,8 @@ static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, FT_Face face, int total_li
     return ESP_OK;
 }
 
+#include "../../include_priv/widget/gfx_font_parser.h"
+
 esp_err_t gfx_get_glphy_dsc(gfx_obj_t * obj)
 {
     ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
@@ -922,10 +850,89 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t * obj)
 
     gfx_label_property_t *font_info = (gfx_label_property_t *)obj->src;
     FT_Face face = (FT_Face)font_info->face;
-    if(!face) {
+
+    if (!face) {
         return ESP_ERR_INVALID_STATE;
     }
 
+    // case 1: font c map
+    gfx_lvgl_font_t *font_map = (gfx_lvgl_font_t *)font_info->face;
+    ESP_LOGI(TAG, "font_map: %p, text: %s", font_map, font_info->text);
+
+    const char *p_width = font_info->text;
+
+    while (*p_width) {
+        uint32_t unicode = 0;
+        ESP_LOGI(TAG, "p_width: %c", *p_width);
+        gfx_font_glyph_dsc_t glyph_dsc;
+        
+        unicode = *p_width;
+        gfx_lvgl_font_get_glyph_dsc(font_map, unicode, &glyph_dsc);
+        ESP_LOGI(TAG, "glyph_dsc: %p, adv_w: %"PRIu32", box_w: %"PRIu16", box_h: %"PRIu16", ofs_x: %"PRId16", ofs_y: %"PRId16"", \
+                        &glyph_dsc, glyph_dsc.adv_w, glyph_dsc.box_w, glyph_dsc.box_h, glyph_dsc.ofs_x, glyph_dsc.ofs_y);
+
+        const uint8_t *glyph_bitmap = gfx_lvgl_font_get_glyph_bitmap(font_map, &glyph_dsc);
+
+        if (glyph_bitmap && font_map->dsc) {
+            uint16_t bpp = font_map->dsc->bpp;
+            ESP_LOGI(TAG, "Font bpp: %d", bpp);
+            
+            for(int i = 0; i < glyph_dsc.box_h; i++) {
+                for(int j = 0; j < glyph_dsc.box_w; j++) {
+                    uint8_t pixel_value = 0;
+                    
+                    if (bpp == 1) {
+                        uint32_t bit_index = i * glyph_dsc.box_w + j;
+                        uint32_t byte_index = bit_index / 8;
+                        uint8_t bit_pos = bit_index % 8;
+                        pixel_value = (glyph_bitmap[byte_index] >> (7 - bit_pos)) & 0x01;
+                        pixel_value = pixel_value ? 255 : 0;  // Convert to 0 or 255
+                    } else if (bpp == 2) {
+                        uint32_t bit_index = (i * glyph_dsc.box_w + j) * 2;
+                        uint32_t byte_index = bit_index / 8;
+                        uint8_t bit_pos = bit_index % 8;
+                        pixel_value = (glyph_bitmap[byte_index] >> (6 - bit_pos)) & 0x03;
+                        pixel_value = pixel_value * 85;  // Convert 0-3 to 0-255 (85*3=255)
+                    } else if (bpp == 4) {
+                        uint32_t bit_index = (i * glyph_dsc.box_w + j) * 4;
+                        uint32_t byte_index = bit_index / 8;
+                        uint8_t bit_pos = bit_index % 8;
+                        if (bit_pos == 0) {
+                            pixel_value = (glyph_bitmap[byte_index] >> 4) & 0x0F;
+                        } else {
+                            pixel_value = glyph_bitmap[byte_index] & 0x0F;
+                        }
+                        pixel_value = pixel_value * 17;  // Convert 0-15 to 0-255 (17*15=255)
+                    } else if (bpp == 8) {
+                        pixel_value = glyph_bitmap[i * glyph_dsc.box_w + j];
+                    } else {
+                        ESP_LOGW(TAG, "Unsupported bpp: %d", bpp);
+                        pixel_value = 0;
+                    }
+                    
+                    // Print character based on pixel intensity
+                    if (pixel_value > 200) {
+                        putc('#', stdout);  // Very dark
+                    } else if (pixel_value > 150) {
+                        putc('*', stdout);  // Dark
+                    } else if (pixel_value > 100) {
+                        putc('+', stdout);  // Medium
+                    } else if (pixel_value > 50) {
+                        putc('.', stdout);  // Light
+                    } else {
+                        putc(' ', stdout);  // Background
+                    }
+                }
+                putc('\n', stdout);
+            }
+        }
+
+        p_width++;
+    }
+
+    return ESP_OK;
+
+    // case 2: freetype font
     error = FT_Set_Pixel_Sizes(face, 0, font_info->font_size);
     ESP_GOTO_ON_FALSE(!error, ESP_ERR_INVALID_STATE, err, TAG, "error setting font size");
 
@@ -947,7 +954,6 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t * obj)
         return ESP_OK;
     }
 
-    // Always free old mask before creating new one (even when using cached lines)
     if (font_info->mask) {
         free(font_info->mask);
         font_info->mask = NULL;
@@ -963,7 +969,6 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t * obj)
     int total_line_height = line_height + font_info->line_spacing;
 
     if (can_use_cached) {
-        // Reuse cached line data, skip to rendering
         lines = font_info->cached_lines;
         line_count = font_info->cached_line_count;
         line_widths = font_info->cached_line_widths;
@@ -1058,7 +1063,7 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t * obj)
             if (font_info->scroll_timer) {
                 gfx_timer_reset(font_info->scroll_timer);
                 gfx_timer_resume(font_info->scroll_timer);
-                ESP_LOGI(TAG, "auto started scroll: text_width=%ld, obj_width=%d", font_info->text_width, obj->width);
+                ESP_LOGI(TAG, "auto started scroll: text_width=%"PRIu32", obj_width=%d", font_info->text_width, obj->width);
             }
         }
     } else if (font_info->scroll_active) {
@@ -1156,7 +1161,7 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
     }
 
     gfx_get_glphy_dsc(obj);
-    if(!font_info->mask) {
+    if (!font_info->mask) {
         return ESP_ERR_INVALID_STATE;
     }
 

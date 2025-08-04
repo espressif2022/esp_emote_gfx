@@ -6,9 +6,7 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <stdbool.h>
-#include "esp_err.h"
+#include "widget/gfx_font_parser.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,19 +16,15 @@ extern "C" {
  *      DEFINES
  *********************/
 
-#define GFX_FONT_SUBPX_NONE    0
+#define GFX_ATTRIBUTE_LARGE_CONST   const   /**< Attribute for large constant data */
 
 /**********************
  *      TYPEDEFS
  **********************/
 
-/**
- * Font type enumeration
- */
-typedef enum {
-    GFX_FONT_TYPE_FREETYPE,    /**< FreeType font (TTF/OTF) */
-    GFX_FONT_TYPE_LVGL_C,      /**< LVGL C format font */
-} gfx_font_type_t;
+/* Function pointer types for font operations */
+typedef bool (*gfx_font_get_glyph_dsc_cb_t)(const gfx_lvgl_font_t *, gfx_font_glyph_dsc_t *, uint32_t letter, uint32_t letter_next);
+typedef const void * (*gfx_font_get_glyph_bitmap_cb_t)(const gfx_font_glyph_dsc_t *, void *);
 
 /**
  * LVGL character mapping types (from LVGL)
@@ -41,18 +35,6 @@ typedef enum {
     GFX_FONT_FMT_TXT_CMAP_SPARSE_TINY,
     GFX_FONT_FMT_TXT_CMAP_SPARSE_FULL,
 } gfx_font_fmt_txt_cmap_type_t;
-
-/**
- * LVGL glyph description structure (mirrors lv_font_fmt_txt_glyph_dsc_t)
- */
-typedef struct {
-    uint32_t bitmap_index;      /**< Start index in the bitmap array */
-    uint32_t adv_w;            /**< Advance width */
-    uint16_t box_w;            /**< Width of the glyph's bounding box */
-    uint16_t box_h;            /**< Height of the glyph's bounding box */
-    int16_t ofs_x;             /**< X offset of the bounding box */
-    int16_t ofs_y;             /**< Y offset of the bounding box */
-} gfx_font_glyph_dsc_t;
 
 /**
  * LVGL character mapping structure (mirrors lv_font_fmt_txt_cmap_t)
@@ -83,11 +65,11 @@ typedef struct {
 } gfx_font_fmt_txt_dsc_t;
 
 /**
- * LVGL font structure (mirrors lv_font_t)
+ * LVGL font structure (mirrors lv_font_t) - Internal definition
  */
-typedef struct {
-    const void *get_glyph_dsc;     /**< Function pointer to get glyph's data */
-    const void *get_glyph_bitmap;  /**< Function pointer to get glyph's bitmap */
+struct _gfx_lvgl_font_t {
+    gfx_font_get_glyph_dsc_cb_t get_glyph_dsc;     /**< Function pointer to get glyph's data */
+    gfx_font_get_glyph_bitmap_cb_t get_glyph_bitmap;  /**< Function pointer to get glyph's bitmap */
     uint16_t line_height;          /**< The maximum line height required by the font */
     uint16_t base_line;            /**< Baseline measured from the bottom of the line */
     uint8_t subpx;                 /**< Subpixel configuration */
@@ -97,58 +79,18 @@ typedef struct {
     bool static_bitmap;            /**< Static bitmap flag */
     const void *fallback;          /**< Fallback font */
     const void *user_data;         /**< User data */
-} gfx_lvgl_font_t;
-
-/**
- * Unified font handle structure
- */
-typedef struct {
-    gfx_font_type_t type;          /**< Font type */
-    union {
-        void *freetype_face;       /**< FreeType face handle */
-        const gfx_lvgl_font_t *lvgl_font; /**< LVGL font structure */
-    } font;
-    const char *name;              /**< Font name */
-} gfx_font_handle_t;
+};
 
 /**********************
- * GLOBAL PROTOTYPES
+ * INTERNAL PROTOTYPES
  **********************/
 
 /**
- * @brief Parse LVGL C format font data
- * @param font_data Pointer to the font structure (e.g., &font_16)
- * @param font_name Name for the font
- * @param ret_handle Pointer to store the created font handle
- * @return ESP_OK on success, error code otherwise
+ * @brief Standard LVGL-compatible functions for font rendering
  */
-esp_err_t gfx_parse_lvgl_font(const gfx_lvgl_font_t *font_data, const char *font_name, gfx_font_handle_t **ret_handle);
+bool gfx_font_get_glyph_dsc_fmt_txt(const gfx_lvgl_font_t *font, gfx_font_glyph_dsc_t *dsc_out, uint32_t unicode_letter, uint32_t unicode_letter_next);
 
-/**
- * @brief Get glyph information from LVGL font
- * @param font LVGL font structure
- * @param unicode Unicode character
- * @param glyph_dsc Output glyph descriptor
- * @return true if glyph found, false otherwise
- */
-bool gfx_lvgl_font_get_glyph_dsc(const gfx_lvgl_font_t *font, uint32_t unicode, gfx_font_glyph_dsc_t *glyph_dsc);
-
-/**
- * @brief Get glyph bitmap from LVGL font
- * @param font LVGL font structure
- * @param glyph_dsc Glyph descriptor
- * @return Pointer to glyph bitmap data
- */
-const uint8_t *gfx_lvgl_font_get_glyph_bitmap(const gfx_lvgl_font_t *font, const gfx_font_glyph_dsc_t *glyph_dsc);
-
-/**
- * @brief Convert external LVGL font (like your font_16) to internal format
- * @param external_font Pointer to external font structure
- * @param font_name Name for the font  
- * @param ret_handle Pointer to store the created font handle
- * @return ESP_OK on success, error code otherwise
- */
-esp_err_t gfx_convert_external_lvgl_font(const void *external_font, const char *font_name, gfx_font_handle_t **ret_handle);
+const void *gfx_font_get_bitmap_fmt_txt(const gfx_font_glyph_dsc_t *dsc_in, void *draw_buf);
 
 #ifdef __cplusplus
 }

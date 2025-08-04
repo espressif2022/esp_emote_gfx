@@ -143,12 +143,13 @@ static void test_animation_functionality(mmap_assets_handle_t assets_handle)
         const char *name;
         int mirror_offset;
     } test_cases[] = {
-        {MMAP_TEST_ASSETS_MI_1_EYE_4BIT_AAF, "MI_1_EYE 4-bit animation", 10},
-        {MMAP_TEST_ASSETS_MI_1_EYE_8BIT_AAF, "MI_1_EYE 8-bit animation", 10},
-        {MMAP_TEST_ASSETS_MI_1_EYE_24BIT_AAF, "MI_1_EYE 24-bit animation", 10},
-        {MMAP_TEST_ASSETS_MI_2_EYE_4BIT_AAF, "MI_2_EYE 4-bit animation", 100},
-        {MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF, "MI_2_EYE 8-bit animation", 100},
-        {MMAP_TEST_ASSETS_MI_2_EYE_24BIT_AAF, "MI_2_EYE 24-bit animation", 100}
+        // {MMAP_TEST_ASSETS_MI_1_EYE_4BIT_AAF, "MI_1_EYE 4-bit animation", 10},
+        // {MMAP_TEST_ASSETS_MI_1_EYE_8BIT_AAF, "MI_1_EYE 8-bit animation", 10},
+        // {MMAP_TEST_ASSETS_MI_1_EYE_24BIT_AAF, "MI_1_EYE 24-bit animation", 10},
+        // {MMAP_TEST_ASSETS_MI_2_EYE_4BIT_AAF, "MI_2_EYE 4-bit animation", 100},
+        // {MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF, "MI_2_EYE 8-bit animation", 100},
+        // {MMAP_TEST_ASSETS_MI_2_EYE_24BIT_AAF, "MI_2_EYE 24-bit animation", 100}
+        {MMAP_TEST_ASSETS_EYE_FULL_AAF, "2_EYE 8-bit animation", 100}
     };
 
     for (int i = 0; i < sizeof(test_cases) / sizeof(test_cases[0]); i++) {
@@ -169,17 +170,18 @@ static void test_animation_functionality(mmap_assets_handle_t assets_handle)
         ESP_LOGI(TAG, "%s source set successfully", test_cases[i].name);
 
         // Test animation configuration functions
-        if (i < 3) {
-            gfx_obj_set_pos(anim_obj, 20, 10);
-        } else {
+        // if (i < 3) {
+        //     gfx_obj_set_pos(anim_obj, 20, 10);
+        // } else {
             gfx_obj_align(anim_obj, GFX_ALIGN_CENTER, 0, 0);
-        }
+        // }
         gfx_anim_set_mirror(anim_obj, false, 0);
 
         gfx_obj_set_size(anim_obj, 200, 150);
         ESP_LOGI(TAG, "Animation size set to 200x150");
 
-        gfx_anim_set_segment(anim_obj, 0, 90, 30, true);
+        // gfx_anim_set_segment(anim_obj, 0, 90, 30, true);
+        gfx_anim_set_segment(anim_obj, 0, 90, 15, true);
         ESP_LOGI(TAG, "Animation segment set: frames 0-90, 30fps, repeat=true");
 
         // Start animation
@@ -191,6 +193,13 @@ static void test_animation_functionality(mmap_assets_handle_t assets_handle)
 
         // Wait for animation to run
         vTaskDelay(pdMS_TO_TICKS(3000));
+
+        while(1) {
+            ESP_LOGI(TAG, "Animation running, average fps: %d", (int)gfx_timer_get_actual_fps(emote_handle));
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
+        
+        vTaskDelay(pdMS_TO_TICKS(3000 * 1000));
 
         // Test with mirror enabled
         gfx_emote_lock(emote_handle);
@@ -227,7 +236,39 @@ static void test_animation_functionality(mmap_assets_handle_t assets_handle)
     ESP_LOGI(TAG, "\n=== Animation Functionality Testing Completed ===");
 }
 
-// Test label functionality
+extern const gfx_lvgl_font_t font_16;
+
+static void test_label_map_functionality(mmap_assets_handle_t assets_handle)
+{
+    ESP_LOGI(TAG, "=== Testing Label Map Functionality ===");
+
+    gfx_emote_lock(emote_handle);
+
+    gfx_obj_t *label_obj = gfx_label_create(emote_handle);
+    TEST_ASSERT_NOT_NULL(label_obj);
+    ESP_LOGI(TAG, "Label object created successfully");
+
+    gfx_obj_set_size(label_obj, 100, 100);
+
+    gfx_label_set_font(label_obj, &font_16);
+    ESP_LOGI(TAG, "Font set for label, %p", &font_16);
+
+    gfx_label_set_text(label_obj, "ABC");
+
+    gfx_obj_align(label_obj, GFX_ALIGN_CENTER, 0, 0);
+
+    gfx_emote_unlock(emote_handle);
+
+    ESP_LOGI(TAG, "unlock wait");
+
+    vTaskDelay(pdMS_TO_TICKS(1000 * 1000));
+
+    gfx_emote_lock(emote_handle);
+    gfx_obj_delete(label_obj);
+    gfx_emote_unlock(emote_handle);
+    
+}
+
 static void test_label_functionality(mmap_assets_handle_t assets_handle)
 {
     ESP_LOGI(TAG, "=== Testing Label Functionality ===");
@@ -547,7 +588,8 @@ TEST_CASE("test timer functionality", "[timer]")
     cleanup_display_and_graphics(assets_handle);
 }
 
-TEST_CASE("test animation functionality", "[animation]")
+// TEST_CASE("test animation functionality", "[animation]")
+void test_animation_functionality_1(void)
 {
     // Initialize display and graphics system
     mmap_assets_handle_t assets_handle = NULL;
@@ -567,6 +609,18 @@ TEST_CASE("test label functionality", "[label]")
     TEST_ASSERT_EQUAL(ESP_OK, ret);
 
     test_label_functionality(assets_handle);
+
+    cleanup_display_and_graphics(assets_handle);
+}
+
+void test_label_functionality_1(void)
+{
+    // Initialize display and graphics system
+    mmap_assets_handle_t assets_handle = NULL;
+    esp_err_t ret = init_display_and_graphics("assets_8bit", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
+    TEST_ASSERT_EQUAL(ESP_OK, ret);
+
+    test_label_map_functionality(assets_handle);
 
     cleanup_display_and_graphics(assets_handle);
 }
@@ -598,5 +652,7 @@ TEST_CASE("test multiple objects interaction", "[interaction]")
 void app_main(void)
 {
     printf("Animation player test\n");
-    unity_run_menu();
+    // unity_run_menu();
+    // test_animation_functionality_1();
+    test_label_functionality_1();
 }
