@@ -43,7 +43,7 @@ typedef struct {
     uint32_t range_start;               /**< First character code in this range */
     uint32_t range_length;              /**< Number of characters in this range */
     uint32_t glyph_id_start;           /**< First glyph ID for this range */
-    const uint32_t *unicode_list;      /**< List of unicode values (if sparse) */
+    const uint16_t *unicode_list;      /**< List of unicode values (if sparse) */
     const void *glyph_id_ofs_list;     /**< List of glyph ID offsets (if sparse) */
     uint32_t list_length;              /**< Length of unicode_list and glyph_id_ofs_list */
     gfx_font_fmt_txt_cmap_type_t type; /**< Type of this character map */

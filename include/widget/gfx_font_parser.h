@@ -107,6 +107,37 @@ const uint8_t *gfx_lvgl_font_get_glyph_bitmap(const gfx_lvgl_font_t *font, const
  */
 uint32_t gfx_lvgl_font_get_glyph_width(const gfx_lvgl_font_t *font, uint32_t unicode);
 
+/**
+ * @brief Get glyph information from FreeType font (unified interface)
+ * @param face FreeType face handle
+ * @param font_size Font size in pixels
+ * @param unicode Unicode character
+ * @param glyph_dsc Output glyph descriptor
+ * @return true if glyph found, false otherwise
+ */
+bool gfx_freetype_font_get_glyph_dsc(void *face, uint8_t font_size, uint32_t unicode, gfx_font_glyph_dsc_t *glyph_dsc);
+
+/**
+ * @brief Get glyph bitmap from FreeType font (unified interface)
+ * @param face FreeType face handle
+ * @param font_size Font size in pixels
+ * @param glyph_dsc Glyph descriptor
+ * @param bitmap_buffer Output buffer for bitmap data
+ * @param buffer_size Size of the output buffer
+ * @return Pointer to glyph bitmap data, or NULL on error
+ */
+const uint8_t *gfx_freetype_font_get_glyph_bitmap(void *face, uint8_t font_size, const gfx_font_glyph_dsc_t *glyph_dsc, 
+                                                   uint8_t *bitmap_buffer, size_t buffer_size);
+
+/**
+ * @brief Get advance width for a character from FreeType font (unified interface)
+ * @param face FreeType face handle
+ * @param font_size Font size in pixels
+ * @param unicode Unicode character
+ * @return Advance width in pixels (multiplied by 256 for sub-pixel precision)
+ */
+uint32_t gfx_freetype_font_get_glyph_width(void *face, uint8_t font_size, uint32_t unicode);
+
 #ifdef __cplusplus
 }
 #endif 

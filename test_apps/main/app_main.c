@@ -253,7 +253,7 @@ static void test_label_map_functionality(mmap_assets_handle_t assets_handle)
     gfx_label_set_font(label_obj, &font_16);
     ESP_LOGI(TAG, "Font set for label, %p", &font_16);
 
-    gfx_label_set_text(label_obj, "ABC");
+    gfx_label_set_text(label_obj, "ABC乐鑫");
 
     gfx_obj_align(label_obj, GFX_ALIGN_CENTER, 0, 0);
 

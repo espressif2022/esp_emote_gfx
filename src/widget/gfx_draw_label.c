@@ -50,6 +50,53 @@ static void gfx_label_clear_cached_lines(gfx_label_property_t *font_info)
     }
 }
 
+/**
+ * @brief Convert UTF-8 string to Unicode code point for LVGL font processing
+ * @param p Pointer to the current position in the string (updated after conversion)
+ * @param unicode Pointer to store the Unicode code point
+ * @return Number of bytes consumed from the string, or 0 on error
+ */
+static int gfx_utf8_to_unicode(const char **p, uint32_t *unicode)
+{
+    const char *ptr = *p;
+    uint8_t c = (uint8_t) * ptr;
+    int bytes_in_char = 1;
+
+    if (c < 0x80) {
+        // ASCII character (1 byte)
+        *unicode = c;
+    } else if ((c & 0xE0) == 0xC0) {
+        // 2-byte UTF-8 character
+        bytes_in_char = 2;
+        if (*(ptr + 1) == 0) {
+            return 0; // Invalid sequence
+        }
+        *unicode = ((c & 0x1F) << 6) | (*(ptr + 1) & 0x3F);
+    } else if ((c & 0xF0) == 0xE0) {
+        // 3-byte UTF-8 character (most Chinese characters)
+        bytes_in_char = 3;
+        if (*(ptr + 1) == 0 || *(ptr + 2) == 0) {
+            return 0; // Invalid sequence
+        }
+        *unicode = ((c & 0x0F) << 12) | ((*(ptr + 1) & 0x3F) << 6) | (*(ptr + 2) & 0x3F);
+    } else if ((c & 0xF8) == 0xF0) {
+        // 4-byte UTF-8 character
+        bytes_in_char = 4;
+        if (*(ptr + 1) == 0 || *(ptr + 2) == 0 || *(ptr + 3) == 0) {
+            return 0; // Invalid sequence
+        }
+        *unicode = ((c & 0x07) << 18) | ((*(ptr + 1) & 0x3F) << 12) |
+                   ((*(ptr + 2) & 0x3F) << 6) | (*(ptr + 3) & 0x3F);
+    } else {
+        // Invalid UTF-8 sequence
+        *unicode = 0xFFFD; // Unicode replacement character
+        bytes_in_char = 1; // Skip this byte
+    }
+
+    *p += bytes_in_char;
+    return bytes_in_char;
+}
+
 static bool gfx_utf8_get_glyph_index(const char **p, FT_Face face, int *bytes_consumed, FT_UInt *glyph_index)
 {
     const char *ptr = *p;
@@ -883,10 +930,18 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t * obj)
 
     while (*p_width) {
         uint32_t unicode = 0;
-        ESP_LOGI(TAG, "p: %c", *p_width);
         gfx_font_glyph_dsc_t glyph_dsc;
 
-        unicode = *p_width;
+        // Correctly parse UTF-8 to Unicode
+        int bytes_consumed = gfx_utf8_to_unicode(&p_width, &unicode);
+        if (bytes_consumed == 0) {
+            ESP_LOGW(TAG, "Invalid UTF-8 sequence detected, skipping");
+            p_width++; // Skip invalid byte
+            continue;
+        }
+
+        ESP_LOGI(TAG, "unicode: 0x%04lX (%lu), bytes: %d", unicode, unicode, bytes_consumed);
+
         bool glyph_found = gfx_lvgl_font_get_glyph_dsc(font_map, unicode, &glyph_dsc);
         ESP_LOGI(TAG, "glyph_dsc: %p, adv_w: %"PRIu32", box_w: %"PRIu16", box_h: %"PRIu16", ofs_x: %"PRId16", ofs_y: %"PRId16"", \
                  &glyph_dsc, glyph_dsc.adv_w, glyph_dsc.box_w, glyph_dsc.box_h, glyph_dsc.ofs_x, glyph_dsc.ofs_y);
@@ -954,7 +1009,7 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t * obj)
             break;
         }
 
-        p_width++;
+        // Note: p_width is already advanced by gfx_utf8_to_unicode()
     }
 
     // Store the mask
