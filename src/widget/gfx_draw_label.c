@@ -859,76 +859,107 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t * obj)
     gfx_lvgl_font_t *font_map = (gfx_lvgl_font_t *)font_info->face;
     ESP_LOGI(TAG, "font_map: %p, text: %s", font_map, font_info->text);
 
+    if (!font_map || !font_map->dsc) {
+        ESP_LOGE(TAG, "Invalid LVGL font");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // Allocate mask buffer for LVGL font rendering
+    if (font_info->mask) {
+        free(font_info->mask);
+        font_info->mask = NULL;
+    }
+
+    mask_buf = (gfx_opa_t *)malloc(obj->width * obj->height);
+    ESP_RETURN_ON_FALSE(mask_buf, ESP_ERR_NO_MEM, TAG, "no mem for mask_buf");
+    gfx_opa_t *mask = (gfx_opa_t *)mask_buf;
+    memset(mask, 0x00, obj->height * obj->width);
+
+    // Calculate text metrics (simplified for LVGL fonts)
+    int x_offset = 0;
+    int y_offset = 0;
+
     const char *p_width = font_info->text;
 
     while (*p_width) {
         uint32_t unicode = 0;
-        ESP_LOGI(TAG, "p_width: %c", *p_width);
+        ESP_LOGI(TAG, "p: %c", *p_width);
         gfx_font_glyph_dsc_t glyph_dsc;
-        
+
         unicode = *p_width;
-        gfx_lvgl_font_get_glyph_dsc(font_map, unicode, &glyph_dsc);
+        bool glyph_found = gfx_lvgl_font_get_glyph_dsc(font_map, unicode, &glyph_dsc);
         ESP_LOGI(TAG, "glyph_dsc: %p, adv_w: %"PRIu32", box_w: %"PRIu16", box_h: %"PRIu16", ofs_x: %"PRId16", ofs_y: %"PRId16"", \
-                        &glyph_dsc, glyph_dsc.adv_w, glyph_dsc.box_w, glyph_dsc.box_h, glyph_dsc.ofs_x, glyph_dsc.ofs_y);
+                 &glyph_dsc, glyph_dsc.adv_w, glyph_dsc.box_w, glyph_dsc.box_h, glyph_dsc.ofs_x, glyph_dsc.ofs_y);
 
-        const uint8_t *glyph_bitmap = gfx_lvgl_font_get_glyph_bitmap(font_map, &glyph_dsc);
+        if (glyph_found) {
+            const uint8_t *glyph_bitmap = gfx_lvgl_font_get_glyph_bitmap(font_map, &glyph_dsc);
 
-        if (glyph_bitmap && font_map->dsc) {
-            uint16_t bpp = font_map->dsc->bpp;
-            ESP_LOGI(TAG, "Font bpp: %d", bpp);
-            
-            for(int i = 0; i < glyph_dsc.box_h; i++) {
-                for(int j = 0; j < glyph_dsc.box_w; j++) {
-                    uint8_t pixel_value = 0;
-                    
-                    if (bpp == 1) {
-                        uint32_t bit_index = i * glyph_dsc.box_w + j;
-                        uint32_t byte_index = bit_index / 8;
-                        uint8_t bit_pos = bit_index % 8;
-                        pixel_value = (glyph_bitmap[byte_index] >> (7 - bit_pos)) & 0x01;
-                        pixel_value = pixel_value ? 255 : 0;  // Convert to 0 or 255
-                    } else if (bpp == 2) {
-                        uint32_t bit_index = (i * glyph_dsc.box_w + j) * 2;
-                        uint32_t byte_index = bit_index / 8;
-                        uint8_t bit_pos = bit_index % 8;
-                        pixel_value = (glyph_bitmap[byte_index] >> (6 - bit_pos)) & 0x03;
-                        pixel_value = pixel_value * 85;  // Convert 0-3 to 0-255 (85*3=255)
-                    } else if (bpp == 4) {
-                        uint32_t bit_index = (i * glyph_dsc.box_w + j) * 4;
-                        uint32_t byte_index = bit_index / 8;
-                        uint8_t bit_pos = bit_index % 8;
-                        if (bit_pos == 0) {
-                            pixel_value = (glyph_bitmap[byte_index] >> 4) & 0x0F;
+            if (glyph_bitmap && font_map->dsc) {
+                uint16_t bpp = font_map->dsc->bpp;
+
+                // Render bitmap to mask
+                for (int i = 0; i < glyph_dsc.box_h; i++) {
+                    for (int j = 0; j < glyph_dsc.box_w; j++) {
+                        uint8_t pixel_value = 0;
+
+                        if (bpp == 1) {
+                            uint32_t bit_index = i * glyph_dsc.box_w + j;
+                            uint32_t byte_index = bit_index / 8;
+                            uint8_t bit_pos = bit_index % 8;
+                            pixel_value = (glyph_bitmap[byte_index] >> (7 - bit_pos)) & 0x01;
+                            pixel_value = pixel_value ? 255 : 0;
+                        } else if (bpp == 2) {
+                            uint32_t bit_index = (i * glyph_dsc.box_w + j) * 2;
+                            uint32_t byte_index = bit_index / 8;
+                            uint8_t bit_pos = bit_index % 8;
+                            pixel_value = (glyph_bitmap[byte_index] >> (6 - bit_pos)) & 0x03;
+                            pixel_value = pixel_value * 85;
+                        } else if (bpp == 4) {
+                            uint32_t bit_index = (i * glyph_dsc.box_w + j) * 4;
+                            uint32_t byte_index = bit_index / 8;
+                            uint8_t bit_pos = bit_index % 8;
+                            if (bit_pos == 0) {
+                                pixel_value = (glyph_bitmap[byte_index] >> 4) & 0x0F;
+                            } else {
+                                pixel_value = glyph_bitmap[byte_index] & 0x0F;
+                            }
+                            pixel_value = pixel_value * 17;
+                        } else if (bpp == 8) {
+                            pixel_value = glyph_bitmap[i * glyph_dsc.box_w + j];
                         } else {
-                            pixel_value = glyph_bitmap[byte_index] & 0x0F;
+                            ESP_LOGW(TAG, "Unsupported bpp: %d", bpp);
+                            pixel_value = 0;
                         }
-                        pixel_value = pixel_value * 17;  // Convert 0-15 to 0-255 (17*15=255)
-                    } else if (bpp == 8) {
-                        pixel_value = glyph_bitmap[i * glyph_dsc.box_w + j];
-                    } else {
-                        ESP_LOGW(TAG, "Unsupported bpp: %d", bpp);
-                        pixel_value = 0;
-                    }
-                    
-                    // Print character based on pixel intensity
-                    if (pixel_value > 200) {
-                        putc('#', stdout);  // Very dark
-                    } else if (pixel_value > 150) {
-                        putc('*', stdout);  // Dark
-                    } else if (pixel_value > 100) {
-                        putc('+', stdout);  // Medium
-                    } else if (pixel_value > 50) {
-                        putc('.', stdout);  // Light
-                    } else {
-                        putc(' ', stdout);  // Background
+
+                        // Calculate position in mask buffer
+                        int mask_x = x_offset + j + glyph_dsc.ofs_x;
+                        int mask_y = y_offset + i + glyph_dsc.ofs_y;
+
+                        // Check bounds
+                        if (mask_x >= 0 && mask_x < obj->width && mask_y >= 0 && mask_y < obj->height) {
+                            *(mask + mask_y * obj->width + mask_x) = pixel_value;
+                        }
                     }
                 }
-                putc('\n', stdout);
             }
+        }
+
+        int advance_pixels = (glyph_dsc.adv_w >> 8);  // Convert from 1/256 pixels to pixels
+        int actual_width = glyph_dsc.box_w + glyph_dsc.ofs_x;
+        x_offset += (advance_pixels > actual_width) ? advance_pixels : actual_width;
+
+        // Handle line wrapping if needed
+        if (x_offset >= obj->width) {
+            ESP_LOGI(TAG, "x_offset >= obj->width, break, x_offset: %d, obj->width: %d", x_offset, obj->width);
+            break;
         }
 
         p_width++;
     }
+
+    // Store the mask
+    font_info->mask = mask;
+    obj->is_dirty = false;
 
     return ESP_OK;
 
@@ -961,7 +992,7 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t * obj)
 
     mask_buf = (gfx_opa_t *)malloc(obj->width * obj->height);
     ESP_RETURN_ON_FALSE(mask_buf, ESP_ERR_NO_MEM, TAG, "no mem for mask_buf");
-    gfx_opa_t *mask = (gfx_opa_t *)mask_buf;
+    mask = (gfx_opa_t *)mask_buf;
     memset(mask, 0x00, obj->height * obj->width);
 
     int line_height = (face->size->metrics.height >> 6);
@@ -1063,7 +1094,7 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t * obj)
             if (font_info->scroll_timer) {
                 gfx_timer_reset(font_info->scroll_timer);
                 gfx_timer_resume(font_info->scroll_timer);
-                ESP_LOGI(TAG, "auto started scroll: text_width=%"PRIu32", obj_width=%d", font_info->text_width, obj->width);
+                ESP_LOGI(TAG, "auto started scroll: text_width=%"PRId32", obj_width=%d", font_info->text_width, obj->width);
             }
         }
     } else if (font_info->scroll_active) {
