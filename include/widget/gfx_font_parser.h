@@ -126,17 +126,23 @@ bool gfx_freetype_font_get_glyph_dsc(void *face, uint8_t font_size, uint32_t uni
  * @param buffer_size Size of the output buffer
  * @return Pointer to glyph bitmap data, or NULL on error
  */
-const uint8_t *gfx_freetype_font_get_glyph_bitmap(void *face, uint8_t font_size, const gfx_font_glyph_dsc_t *glyph_dsc, 
-                                                   uint8_t *bitmap_buffer, size_t buffer_size);
+const uint8_t *gfx_freetype_font_get_glyph_bitmap(void *face, uint8_t font_size, uint32_t unicode, gfx_font_glyph_dsc_t *glyph_dsc);
 
 /**
- * @brief Get advance width for a character from FreeType font (unified interface)
+ * @brief Get advance width for a character from FreeType font
  * @param face FreeType face handle
  * @param font_size Font size in pixels
  * @param unicode Unicode character
  * @return Advance width in pixels (multiplied by 256 for sub-pixel precision)
  */
 uint32_t gfx_freetype_font_get_glyph_width(void *face, uint8_t font_size, uint32_t unicode);
+
+/**
+ * @brief Detect font type based on font pointer structure
+ * @param font_ptr Pointer to font (either gfx_lvgl_font_t* or FT_Face)
+ * @return Font type
+ */
+gfx_font_type_t gfx_detect_font_type(void *font_ptr);
 
 #ifdef __cplusplus
 }

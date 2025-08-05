@@ -21,8 +21,16 @@
 #include "widget/gfx_comm.h"
 #include "core/gfx_blend_internal.h"
 #include "core/gfx_obj_internal.h"
+#include "../../include_priv/widget/gfx_font_parser.h"
 
 static const char *TAG = "gfx_label";
+
+// Forward declarations for unified functions
+static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, gfx_font_type_t font_type, int total_line_height,
+                                      char ***ret_lines, int *ret_line_count, int *ret_text_width, int **ret_line_widths);
+static esp_err_t gfx_render_lines_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, char **lines, int line_count,
+                                          gfx_font_type_t font_type, int line_height, int base_line,
+                                          int total_line_height, int *cached_line_widths);
 
 // Default font configuration (internal use)
 static gfx_font_t g_default_font = NULL;
@@ -95,48 +103,6 @@ static int gfx_utf8_to_unicode(const char **p, uint32_t *unicode)
 
     *p += bytes_in_char;
     return bytes_in_char;
-}
-
-static bool gfx_utf8_get_glyph_index(const char **p, FT_Face face, int *bytes_consumed, FT_UInt *glyph_index)
-{
-    const char *ptr = *p;
-    uint8_t c = (uint8_t) * ptr;
-    int bytes_in_char = 1;
-
-    if (c < 0x80) {
-        // ASCII character (1 byte)
-        *glyph_index = FT_Get_Char_Index(face, c);
-    } else if ((c & 0xE0) == 0xC0) {
-        // 2-byte UTF-8 character
-        bytes_in_char = 2;
-        if (*(ptr + 1) == 0) {
-            return false;
-        }
-        uint32_t unicode = ((c & 0x1F) << 6) | (*(ptr + 1) & 0x3F);
-        *glyph_index = FT_Get_Char_Index(face, unicode);
-    } else if ((c & 0xF0) == 0xE0) {
-        // 3-byte UTF-8 character
-        bytes_in_char = 3;
-        if (*(ptr + 1) == 0 || *(ptr + 2) == 0) {
-            return false;
-        }
-        uint32_t unicode = ((c & 0x0F) << 12) | ((*(ptr + 1) & 0x3F) << 6) | (*(ptr + 2) & 0x3F);
-        *glyph_index = FT_Get_Char_Index(face, unicode);
-    } else if ((c & 0xF8) == 0xF0) {
-        // 4-byte UTF-8 character
-        bytes_in_char = 4;
-        if (*(ptr + 1) == 0 || *(ptr + 2) == 0 || *(ptr + 3) == 0) {
-            return false;
-        }
-        uint32_t unicode = ((c & 0x07) << 18) | ((*(ptr + 1) & 0x3F) << 12) | ((*(ptr + 2) & 0x3F) << 6) | (*(ptr + 3) & 0x3F);
-        *glyph_index = FT_Get_Char_Index(face, unicode);
-    } else {
-        *glyph_index = 0;
-    }
-
-    *bytes_consumed = bytes_in_char;
-    *p += bytes_in_char;
-    return true;
 }
 
 static void gfx_label_scroll_timer_callback(void *arg)
@@ -478,9 +444,7 @@ esp_err_t gfx_label_set_long_mode(gfx_obj_t *obj, gfx_label_long_mode_t long_mod
     gfx_label_long_mode_t old_mode = font_info->long_mode;
     font_info->long_mode = long_mode;
 
-    // Handle mode transitions
     if (old_mode != long_mode) {
-        // Reset scroll state when changing modes
         if (font_info->scroll_active) {
             font_info->scroll_active = false;
             if (font_info->scroll_timer) {
@@ -558,118 +522,7 @@ esp_err_t gfx_label_set_scroll_loop(gfx_obj_t *obj, bool loop)
     return ESP_OK;
 }
 
-static esp_err_t gfx_render_lines_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, char **lines, int line_count,
-                                          FT_Face face, int line_height, int base_line, int total_line_height, int *cached_line_widths)
-{
-    gfx_label_property_t *font_info = (gfx_label_property_t *)obj->src;
-
-    // Render each line
-    int current_y = 0;
-    for (int line_idx = 0; line_idx < line_count; line_idx++) {
-        if (current_y + line_height > obj->height) {
-            break; // No more space for lines
-        }
-
-        const char *line_text = lines[line_idx];
-
-        // Calculate line width for alignment (use cached if available)
-        int line_width = 0;
-        if (cached_line_widths) {
-            line_width = cached_line_widths[line_idx];
-        } else {
-            const char *p_calc = line_text;
-            while (*p_calc) {
-                FT_UInt glyph_index;
-                int bytes_in_char;
-
-                if (!gfx_utf8_get_glyph_index(&p_calc, face, &bytes_in_char, &glyph_index)) {
-                    break;
-                }
-
-                if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT) == 0) {
-                    line_width += face->glyph->advance.x >> 6;
-                }
-            }
-        }
-
-        int start_x = 0;
-        switch (font_info->text_align) {
-        case GFX_TEXT_ALIGN_LEFT:
-        case GFX_TEXT_ALIGN_AUTO:
-            start_x = 0;
-            break;
-        case GFX_TEXT_ALIGN_CENTER:
-            start_x = (obj->width - line_width) / 2;
-            if (start_x < 0) {
-                start_x = 0;
-            }
-            break;
-        case GFX_TEXT_ALIGN_RIGHT:
-            start_x = obj->width - line_width;
-            if (start_x < 0) {
-                start_x = 0;
-            }
-            break;
-        }
-
-        // Apply horizontal scroll offset if scrolling is enabled
-        if (font_info->long_mode == GFX_LABEL_LONG_SCROLL && font_info->scroll_active) {
-            start_x -= font_info->scroll_offset;
-        }
-
-        int x = start_x;
-        const char *p = line_text;
-
-        while (*p) {
-            FT_UInt glyph_index;
-            int bytes_in_char;
-
-            if (!gfx_utf8_get_glyph_index(&p, face, &bytes_in_char, &glyph_index)) {
-                break;
-            }
-
-            // Load and render glyph
-            FT_Error error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
-            if (error) {
-                continue;
-            }
-
-            error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
-            if (error) {
-                continue;
-            }
-
-            FT_GlyphSlot slot = face->glyph;
-            int ofs_x = slot->bitmap_left;
-            int ofs_y = line_height - base_line - slot->bitmap_top;
-
-            for (int32_t iy = 0; iy < slot->bitmap.rows; iy++) {
-                for (int32_t ix = 0; ix < slot->bitmap.width; ix++) {
-                    int32_t res_x = ix + x + ofs_x;
-                    int32_t res_y = iy + current_y + ofs_y;
-                    if (res_x >= 0 && res_x < obj->width && res_y >= 0 && res_y < obj->height) {
-                        uint8_t value = slot->bitmap.buffer[ix + iy * slot->bitmap.width];
-                        *(mask + res_y * obj->width + res_x) = value;
-                    }
-                }
-            }
-
-            // Advance x position
-            x += slot->advance.x >> 6;
-            if (x >= obj->width) {
-                break;
-            }
-        }
-
-        // Move to next line
-        current_y += total_line_height;
-    }
-
-    return ESP_OK;
-}
-
-// Function to parse text into lines and calculate width
-static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, FT_Face face, int total_line_height,
+static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, gfx_font_type_t font_type, int total_line_height,
                                       char ***ret_lines, int *ret_line_count, int *ret_text_width, int **ret_line_widths)
 {
     gfx_label_property_t *font_info = (gfx_label_property_t *)obj->src;
@@ -679,15 +532,25 @@ static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, FT_Face face, int total_li
     const char *p_width = font_info->text;
 
     while (*p_width) {
-        FT_UInt glyph_index;
-        int bytes_in_char;
-
-        if (!gfx_utf8_get_glyph_index(&p_width, face, &bytes_in_char, &glyph_index)) {
-            break;
+        uint32_t unicode = 0;
+        int bytes_in_char = gfx_utf8_to_unicode(&p_width, &unicode);
+        if (bytes_in_char == 0) {
+            p_width++;
+            continue;
         }
 
-        if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT) == 0) {
-            total_text_width += face->glyph->advance.x >> 6;
+        // Get glyph width based on font type
+        if (font_type == GFX_FONT_TYPE_LVGL_C) {
+            gfx_font_glyph_dsc_t glyph_dsc;
+            gfx_lvgl_font_t *lvgl_font = (gfx_lvgl_font_t *)font_info->face;
+            if (gfx_lvgl_font_get_glyph_dsc(lvgl_font, unicode, &glyph_dsc)) {
+                int advance_pixels = (glyph_dsc.adv_w >> 8);
+                int actual_width = glyph_dsc.box_w + glyph_dsc.ofs_x;
+                total_text_width += (advance_pixels > actual_width) ? advance_pixels : actual_width;
+            }
+        } else {
+            uint32_t glyph_width = gfx_freetype_font_get_glyph_width(font_info->face, font_info->font_size, unicode);
+            total_text_width += (glyph_width >> 8); // Convert from 1/256 to pixels
         }
 
         // Break at newlines for single line width calculation
@@ -698,7 +561,7 @@ static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, FT_Face face, int total_li
 
     *ret_text_width = total_text_width;
 
-    // Parse text into lines
+    // Parse text into lines (reuse existing logic from gfx_parse_text_lines)
     const char *text = font_info->text;
     int max_lines = obj->height / total_line_height;
     if (max_lines <= 0) {
@@ -741,17 +604,28 @@ static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, FT_Face face, int total_li
 
             // Find the end of current line
             while (*line_end) {
-                FT_UInt glyph_index;
+                uint32_t unicode = 0;
                 uint8_t c = (uint8_t) * line_end;
                 int bytes_in_char;
                 int char_width = 0;
 
-                if (!gfx_utf8_get_glyph_index(&line_end, face, &bytes_in_char, &glyph_index)) {
+                bytes_in_char = gfx_utf8_to_unicode(&line_end, &unicode);
+                if (bytes_in_char == 0) {
                     break;
                 }
 
-                if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT) == 0) {
-                    char_width = face->glyph->advance.x >> 6;
+                // Get character width based on font type
+                if (font_type == GFX_FONT_TYPE_LVGL_C) {
+                    gfx_font_glyph_dsc_t glyph_dsc;
+                    gfx_lvgl_font_t *lvgl_font = (gfx_lvgl_font_t *)font_info->face;
+                    if (gfx_lvgl_font_get_glyph_dsc(lvgl_font, unicode, &glyph_dsc)) {
+                        int advance_pixels = (glyph_dsc.adv_w >> 8);
+                        int actual_width = glyph_dsc.box_w + glyph_dsc.ofs_x;
+                        char_width = (advance_pixels > actual_width) ? advance_pixels : actual_width;
+                    }
+                } else {
+                    uint32_t glyph_width = gfx_freetype_font_get_glyph_width(font_info->face, font_info->font_size, unicode);
+                    char_width = (glyph_width >> 8); // Convert from 1/256 to pixels
                 }
 
                 // Check if adding this character would exceed line width
@@ -799,7 +673,7 @@ static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, FT_Face face, int total_li
                 memcpy(lines[line_count], line_start, line_len);
                 lines[line_count][line_len] = '\0';
 
-                // Calculate and store line width if needed
+                // Store line width if needed
                 if (line_widths) {
                     line_widths[line_count] = line_width;
                 }
@@ -848,15 +722,25 @@ static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, FT_Face face, int total_li
                         int current_line_width = 0;
                         const char *p_calc = lines[line_count];
                         while (*p_calc) {
-                            FT_UInt glyph_index;
-                            int bytes_in_char;
-
-                            if (!gfx_utf8_get_glyph_index(&p_calc, face, &bytes_in_char, &glyph_index)) {
-                                break;
+                            uint32_t unicode = 0;
+                            int bytes_consumed = gfx_utf8_to_unicode(&p_calc, &unicode);
+                            if (bytes_consumed == 0) {
+                                p_calc++;
+                                continue;
                             }
 
-                            if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT) == 0) {
-                                current_line_width += face->glyph->advance.x >> 6;
+                            // Get character width based on font type
+                            if (font_type == GFX_FONT_TYPE_LVGL_C) {
+                                gfx_font_glyph_dsc_t glyph_dsc;
+                                gfx_lvgl_font_t *lvgl_font = (gfx_lvgl_font_t *)font_info->face;
+                                if (gfx_lvgl_font_get_glyph_dsc(lvgl_font, unicode, &glyph_dsc)) {
+                                    int advance_pixels = (glyph_dsc.adv_w >> 8);
+                                    int actual_width = glyph_dsc.box_w + glyph_dsc.ofs_x;
+                                    current_line_width += (advance_pixels > actual_width) ? advance_pixels : actual_width;
+                                }
+                            } else {
+                                uint32_t glyph_width = gfx_freetype_font_get_glyph_width(font_info->face, font_info->font_size, unicode);
+                                current_line_width += (glyph_width >> 8);
                             }
                         }
                         line_widths[line_count] = current_line_width;
@@ -881,148 +765,204 @@ static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, FT_Face face, int total_li
     return ESP_OK;
 }
 
-#include "../../include_priv/widget/gfx_font_parser.h"
+static esp_err_t gfx_render_lines_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, char **lines, int line_count,
+                                          gfx_font_type_t font_type, int line_height, int base_line,
+                                          int total_line_height, int *cached_line_widths)
+{
+    gfx_label_property_t *font_info = (gfx_label_property_t *)obj->src;
+
+    // Render each line
+    int current_y = 0;
+    for (int line_idx = 0; line_idx < line_count; line_idx++) {
+        if (current_y + line_height > obj->height) {
+            break; // No more space for lines
+        }
+
+        const char *line_text = lines[line_idx];
+
+        // Calculate line width for alignment (use cached if available)
+        int line_width = 0;
+        if (cached_line_widths) {
+            line_width = cached_line_widths[line_idx];
+        } else {
+            const char *p_calc = line_text;
+            while (*p_calc) {
+                uint32_t unicode = 0;
+                int bytes_consumed = gfx_utf8_to_unicode(&p_calc, &unicode);
+                if (bytes_consumed == 0) {
+                    p_calc++;
+                    continue;
+                }
+
+                // Get character width based on font type
+                if (font_type == GFX_FONT_TYPE_LVGL_C) {
+                    gfx_font_glyph_dsc_t glyph_dsc;
+                    gfx_lvgl_font_t *lvgl_font = (gfx_lvgl_font_t *)font_info->face;
+                    if (gfx_lvgl_font_get_glyph_dsc(lvgl_font, unicode, &glyph_dsc)) {
+                        int advance_pixels = (glyph_dsc.adv_w >> 8);
+                        int actual_width = glyph_dsc.box_w + glyph_dsc.ofs_x;
+                        line_width += (advance_pixels > actual_width) ? advance_pixels : actual_width;
+                    }
+                } else {
+                    uint32_t glyph_width = gfx_freetype_font_get_glyph_width(font_info->face, font_info->font_size, unicode);
+                    line_width += (glyph_width >> 8);
+                }
+            }
+        }
+
+        int start_x = 0;
+        switch (font_info->text_align) {
+        case GFX_TEXT_ALIGN_LEFT:
+        case GFX_TEXT_ALIGN_AUTO:
+            start_x = 0;
+            break;
+        case GFX_TEXT_ALIGN_CENTER:
+            start_x = (obj->width - line_width) / 2;
+            if (start_x < 0) {
+                start_x = 0;
+            }
+            break;
+        case GFX_TEXT_ALIGN_RIGHT:
+            start_x = obj->width - line_width;
+            if (start_x < 0) {
+                start_x = 0;
+            }
+            break;
+        }
+
+        // Apply horizontal scroll offset if scrolling is enabled
+        if (font_info->long_mode == GFX_LABEL_LONG_SCROLL && font_info->scroll_active) {
+            start_x -= font_info->scroll_offset;
+        }
+
+        int x = start_x;
+        const char *p = line_text;
+
+        while (*p) {
+            uint32_t unicode = 0;
+            int bytes_consumed = gfx_utf8_to_unicode(&p, &unicode);
+            if (bytes_consumed == 0) {
+                p++;
+                continue;
+            }
+
+            gfx_font_glyph_dsc_t glyph_dsc;
+            const uint8_t *glyph_bitmap = NULL;
+            bool glyph_found = false;
+
+            // Get glyph information and bitmap based on font type
+            if (font_type == GFX_FONT_TYPE_LVGL_C) {
+                gfx_lvgl_font_t *lvgl_font = (gfx_lvgl_font_t *)font_info->face;
+                glyph_found = gfx_lvgl_font_get_glyph_dsc(lvgl_font, unicode, &glyph_dsc);
+                if (glyph_found) {
+                    glyph_bitmap = gfx_lvgl_font_get_glyph_bitmap(lvgl_font, &glyph_dsc);
+                }
+            } else {
+                glyph_found = gfx_freetype_font_get_glyph_dsc(font_info->face, font_info->font_size, unicode, &glyph_dsc);
+                if (glyph_found) {
+                    glyph_bitmap = gfx_freetype_font_get_glyph_bitmap(font_info->face, font_info->font_size, unicode, &glyph_dsc);
+                }
+            }
+
+            if (!glyph_found || !glyph_bitmap) {
+                continue;
+            }
+
+            // Render glyph bitmap to mask
+            int ofs_x = glyph_dsc.ofs_x;
+            int ofs_y = glyph_dsc.ofs_y;
+
+            if (font_type == GFX_FONT_TYPE_FREETYPE) {
+                // ofs_y = line_height - base_line - glyph_dsc.bitmap_top;
+            } else {
+                ofs_y += base_line;
+            }
+
+            for (int32_t iy = 0; iy < glyph_dsc.box_h; iy++) {
+                for (int32_t ix = 0; ix < glyph_dsc.box_w; ix++) {
+                    int32_t res_x = ix + x + ofs_x;
+                    int32_t res_y = iy + current_y + ofs_y;
+                    if (res_x >= 0 && res_x < obj->width && res_y >= 0 && res_y < obj->height) {
+                        uint8_t pixel_value = 0;
+
+                        if (font_type == GFX_FONT_TYPE_LVGL_C) {
+                            gfx_lvgl_font_t *lvgl_font = (gfx_lvgl_font_t *)font_info->face;
+                            uint16_t bpp = lvgl_font->dsc->bpp;
+
+                            if (bpp == 1) {
+                                uint32_t bit_index = iy * glyph_dsc.box_w + ix;
+                                uint32_t byte_index = bit_index / 8;
+                                uint8_t bit_pos = bit_index % 8;
+                                pixel_value = (glyph_bitmap[byte_index] >> (7 - bit_pos)) & 0x01;
+                                pixel_value = pixel_value ? 255 : 0;
+                            } else if (bpp == 2) {
+                                uint32_t bit_index = (iy * glyph_dsc.box_w + ix) * 2;
+                                uint32_t byte_index = bit_index / 8;
+                                uint8_t bit_pos = bit_index % 8;
+                                pixel_value = (glyph_bitmap[byte_index] >> (6 - bit_pos)) & 0x03;
+                                pixel_value = pixel_value * 85;
+                            } else if (bpp == 4) {
+                                uint32_t bit_index = (iy * glyph_dsc.box_w + ix) * 4;
+                                uint32_t byte_index = bit_index / 8;
+                                uint8_t bit_pos = bit_index % 8;
+                                if (bit_pos == 0) {
+                                    pixel_value = (glyph_bitmap[byte_index] >> 4) & 0x0F;
+                                } else {
+                                    pixel_value = glyph_bitmap[byte_index] & 0x0F;
+                                }
+                                pixel_value = pixel_value * 17;
+                            } else if (bpp == 8) {
+                                pixel_value = glyph_bitmap[iy * glyph_dsc.box_w + ix];
+                            }
+                        } else {
+                            pixel_value = glyph_bitmap[iy * glyph_dsc.box_w + ix];
+                        }
+
+                        *(mask + res_y * obj->width + res_x) = pixel_value;
+                    }
+                }
+            }
+
+            // Advance x position - use original LVGL logic for better spacing
+            if (font_type == GFX_FONT_TYPE_LVGL_C) {
+                int advance_pixels = (glyph_dsc.adv_w >> 8);  // Convert from 1/256 pixels to pixels
+                int actual_width = glyph_dsc.box_w + glyph_dsc.ofs_x;
+                x += (advance_pixels > actual_width) ? advance_pixels : actual_width;
+            } else {
+                x += (glyph_dsc.adv_w >> 8);
+            }
+
+            if (x >= obj->width) {
+                break;
+            }
+        }
+
+        // Move to next line
+        current_y += total_line_height;
+    }
+
+    return ESP_OK;
+}
 
 esp_err_t gfx_get_glphy_dsc(gfx_obj_t * obj)
 {
     ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
 
     esp_err_t ret = ESP_OK;
-    FT_Error error;
-
     char **lines = NULL;
     int line_count = 0;
     int *line_widths = NULL;
     gfx_opa_t *mask_buf = NULL;
 
     gfx_label_property_t *font_info = (gfx_label_property_t *)obj->src;
-    FT_Face face = (FT_Face)font_info->face;
 
-    if (!face) {
+    if (!font_info->face) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    // case 1: font c map
-    gfx_lvgl_font_t *font_map = (gfx_lvgl_font_t *)font_info->face;
-    ESP_LOGI(TAG, "font_map: %p, text: %s", font_map, font_info->text);
+    // Detect font type
+    gfx_font_type_t font_type = gfx_detect_font_type(font_info->face);
 
-    if (!font_map || !font_map->dsc) {
-        ESP_LOGE(TAG, "Invalid LVGL font");
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    // Allocate mask buffer for LVGL font rendering
-    if (font_info->mask) {
-        free(font_info->mask);
-        font_info->mask = NULL;
-    }
-
-    mask_buf = (gfx_opa_t *)malloc(obj->width * obj->height);
-    ESP_RETURN_ON_FALSE(mask_buf, ESP_ERR_NO_MEM, TAG, "no mem for mask_buf");
-    gfx_opa_t *mask = (gfx_opa_t *)mask_buf;
-    memset(mask, 0x00, obj->height * obj->width);
-
-    // Calculate text metrics (simplified for LVGL fonts)
-    int x_offset = 0;
-    int y_offset = 0;
-
-    const char *p_width = font_info->text;
-
-    while (*p_width) {
-        uint32_t unicode = 0;
-        gfx_font_glyph_dsc_t glyph_dsc;
-
-        // Correctly parse UTF-8 to Unicode
-        int bytes_consumed = gfx_utf8_to_unicode(&p_width, &unicode);
-        if (bytes_consumed == 0) {
-            ESP_LOGW(TAG, "Invalid UTF-8 sequence detected, skipping");
-            p_width++; // Skip invalid byte
-            continue;
-        }
-
-        ESP_LOGI(TAG, "unicode: 0x%04lX (%lu), bytes: %d", unicode, unicode, bytes_consumed);
-
-        bool glyph_found = gfx_lvgl_font_get_glyph_dsc(font_map, unicode, &glyph_dsc);
-        ESP_LOGI(TAG, "glyph_dsc: %p, adv_w: %"PRIu32", box_w: %"PRIu16", box_h: %"PRIu16", ofs_x: %"PRId16", ofs_y: %"PRId16"", \
-                 &glyph_dsc, glyph_dsc.adv_w, glyph_dsc.box_w, glyph_dsc.box_h, glyph_dsc.ofs_x, glyph_dsc.ofs_y);
-
-        if (glyph_found) {
-            const uint8_t *glyph_bitmap = gfx_lvgl_font_get_glyph_bitmap(font_map, &glyph_dsc);
-
-            if (glyph_bitmap && font_map->dsc) {
-                uint16_t bpp = font_map->dsc->bpp;
-
-                // Render bitmap to mask
-                for (int i = 0; i < glyph_dsc.box_h; i++) {
-                    for (int j = 0; j < glyph_dsc.box_w; j++) {
-                        uint8_t pixel_value = 0;
-
-                        if (bpp == 1) {
-                            uint32_t bit_index = i * glyph_dsc.box_w + j;
-                            uint32_t byte_index = bit_index / 8;
-                            uint8_t bit_pos = bit_index % 8;
-                            pixel_value = (glyph_bitmap[byte_index] >> (7 - bit_pos)) & 0x01;
-                            pixel_value = pixel_value ? 255 : 0;
-                        } else if (bpp == 2) {
-                            uint32_t bit_index = (i * glyph_dsc.box_w + j) * 2;
-                            uint32_t byte_index = bit_index / 8;
-                            uint8_t bit_pos = bit_index % 8;
-                            pixel_value = (glyph_bitmap[byte_index] >> (6 - bit_pos)) & 0x03;
-                            pixel_value = pixel_value * 85;
-                        } else if (bpp == 4) {
-                            uint32_t bit_index = (i * glyph_dsc.box_w + j) * 4;
-                            uint32_t byte_index = bit_index / 8;
-                            uint8_t bit_pos = bit_index % 8;
-                            if (bit_pos == 0) {
-                                pixel_value = (glyph_bitmap[byte_index] >> 4) & 0x0F;
-                            } else {
-                                pixel_value = glyph_bitmap[byte_index] & 0x0F;
-                            }
-                            pixel_value = pixel_value * 17;
-                        } else if (bpp == 8) {
-                            pixel_value = glyph_bitmap[i * glyph_dsc.box_w + j];
-                        } else {
-                            ESP_LOGW(TAG, "Unsupported bpp: %d", bpp);
-                            pixel_value = 0;
-                        }
-
-                        // Calculate position in mask buffer
-                        int mask_x = x_offset + j + glyph_dsc.ofs_x;
-                        int mask_y = y_offset + i + glyph_dsc.ofs_y;
-
-                        // Check bounds
-                        if (mask_x >= 0 && mask_x < obj->width && mask_y >= 0 && mask_y < obj->height) {
-                            *(mask + mask_y * obj->width + mask_x) = pixel_value;
-                        }
-                    }
-                }
-            }
-        }
-
-        int advance_pixels = (glyph_dsc.adv_w >> 8);  // Convert from 1/256 pixels to pixels
-        int actual_width = glyph_dsc.box_w + glyph_dsc.ofs_x;
-        x_offset += (advance_pixels > actual_width) ? advance_pixels : actual_width;
-
-        // Handle line wrapping if needed
-        if (x_offset >= obj->width) {
-            ESP_LOGI(TAG, "x_offset >= obj->width, break, x_offset: %d, obj->width: %d", x_offset, obj->width);
-            break;
-        }
-
-        // Note: p_width is already advanced by gfx_utf8_to_unicode()
-    }
-
-    // Store the mask
-    font_info->mask = mask;
-    obj->is_dirty = false;
-
-    return ESP_OK;
-
-    // case 2: freetype font
-    error = FT_Set_Pixel_Sizes(face, 0, font_info->font_size);
-    ESP_GOTO_ON_FALSE(!error, ESP_ERR_INVALID_STATE, err, TAG, "error setting font size");
-
-    // Optimization for scroll mode: check if we can reuse cached data
     bool can_use_cached = false;
     if (font_info->long_mode == GFX_LABEL_LONG_SCROLL &&
             font_info->cached_lines != NULL &&
@@ -1047,11 +987,25 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t * obj)
 
     mask_buf = (gfx_opa_t *)malloc(obj->width * obj->height);
     ESP_RETURN_ON_FALSE(mask_buf, ESP_ERR_NO_MEM, TAG, "no mem for mask_buf");
-    mask = (gfx_opa_t *)mask_buf;
+    gfx_opa_t *mask = (gfx_opa_t *)mask_buf;
     memset(mask, 0x00, obj->height * obj->width);
 
-    int line_height = (face->size->metrics.height >> 6);
-    int base_line = -(face->size->metrics.descender >> 6);
+    int line_height = 0;
+    int base_line = 0;
+
+    if (font_type == GFX_FONT_TYPE_LVGL_C) {
+        gfx_lvgl_font_t *lvgl_font = (gfx_lvgl_font_t *)font_info->face;
+        line_height = lvgl_font->line_height;
+        base_line = lvgl_font->base_line;
+    } else {
+        FT_Face ft_face = (FT_Face)font_info->face;
+        FT_Error error = FT_Set_Pixel_Sizes(ft_face, 0, font_info->font_size);
+        ESP_GOTO_ON_FALSE(!error, ESP_ERR_INVALID_STATE, err, TAG, "error setting font size");
+
+        line_height = (ft_face->size->metrics.height >> 6);
+        base_line = -(ft_face->size->metrics.descender >> 6);
+    }
+
     int total_line_height = line_height + font_info->line_spacing;
 
     if (can_use_cached) {
@@ -1060,20 +1014,19 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t * obj)
         line_widths = font_info->cached_line_widths;
         ESP_LOGD(TAG, "Reusing %d cached lines for scroll", line_count);
 
-        // Call rendering function with cached data
-        esp_err_t render_ret = gfx_render_lines_to_mask(obj, mask, lines, line_count, face, line_height, base_line, total_line_height, line_widths);
+        esp_err_t render_ret = gfx_render_lines_to_mask(obj, mask, lines, line_count,
+                                                        font_type, line_height, base_line,
+                                                        total_line_height, line_widths);
         if (render_ret != ESP_OK) {
             free(mask_buf);
             return render_ret;
         }
     } else {
         // Calculate total text width and parse lines
-        char **lines = NULL;
-        int line_count = 0;
         int total_text_width = 0;
-        int *line_widths = NULL;
 
-        esp_err_t parse_ret = gfx_parse_text_lines(obj, face, total_line_height, &lines, &line_count, &total_text_width, &line_widths);
+        esp_err_t parse_ret = gfx_parse_text_lines(obj, font_type, total_line_height,
+                                                   &lines, &line_count, &total_text_width, &line_widths);
         if (parse_ret != ESP_OK) {
             free(mask_buf);
             return parse_ret;
@@ -1081,12 +1034,9 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t * obj)
 
         font_info->text_width = total_text_width;
 
-        // Cache the parsed lines for scroll optimization (only in scroll mode)
         if (font_info->long_mode == GFX_LABEL_LONG_SCROLL) {
-            // Clear old cached data first
             gfx_label_clear_cached_lines(font_info);
 
-            // Cache the new line data
             if (line_count > 0) {
                 font_info->cached_lines = (char **)malloc(line_count * sizeof(char *));
                 font_info->cached_line_widths = (int *)malloc(line_count * sizeof(int));
@@ -1109,8 +1059,10 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t * obj)
             }
         }
 
-        // Call rendering function with parsed data
-        esp_err_t render_ret = gfx_render_lines_to_mask(obj, mask, lines, line_count, face, line_height, base_line, total_line_height, line_widths);
+        // Call unified rendering function with parsed data
+        esp_err_t render_ret = gfx_render_lines_to_mask(obj, mask, lines, line_count,
+                                                        font_type, line_height, base_line,
+                                                        total_line_height, line_widths);
         if (render_ret != ESP_OK) {
             // Cleanup on error
             for (int i = 0; i < line_count; i++) {
@@ -1143,6 +1095,8 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t * obj)
     font_info->scroll_dirty = false;  // Clear scroll dirty flag after rendering
 
     // Auto start scrolling if enabled and text width exceeds object width
+    // ESP_LOGI(TAG, "long_mode=%d, text_width=%"PRId32", obj_width=%d", font_info->long_mode, font_info->text_width, obj->width);
+
     if (font_info->long_mode == GFX_LABEL_LONG_SCROLL && font_info->text_width > obj->width) {
         if (!font_info->scroll_active) {
             font_info->scroll_active = true;
