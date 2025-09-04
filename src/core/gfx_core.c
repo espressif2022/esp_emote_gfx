@@ -60,7 +60,6 @@ static bool gfx_event_handler(gfx_core_context_t *ctx)
                                                  NEED_DELETE, pdTRUE, pdFALSE, pdMS_TO_TICKS(0));
 
     if (event_bits & NEED_DELETE) {
-        ESP_LOGW(TAG, "Player deletion requested");
         xEventGroupSetBits(ctx->sync.event_group, DELETE_DONE);
         vTaskDeleteWithCaps(NULL);
         return true;
@@ -91,6 +90,7 @@ static bool gfx_object_handler(gfx_core_context_t *ctx)
                 needs_rendering = true;
 
                 if (!gfx_anim_preprocess_frame(anim)) {
+                    child_node = child_node->next;
                     continue;
                 }
             }
@@ -205,16 +205,6 @@ static void gfx_buf_free_frame(gfx_core_context_t *ctx)
     }
     ctx->disp.buf_pixels = 0;
     ctx->disp.ext_bufs = false;
-}
-
-gfx_ft_lib_handle_t gfx_get_font_lib(gfx_handle_t handle)
-{
-    gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
-    if (ctx == NULL) {
-        ESP_LOGE(TAG, "gfx_get_font_lib: ctx is NULL");
-        return NULL;
-    }
-    return ctx->disp.font_lib;
 }
 
 void gfx_draw_child(gfx_core_context_t *ctx, int x1, int y1, int x2, int y2, const void *dest_buf)
@@ -379,7 +369,8 @@ gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
         return NULL;
     }
 
-    esp_err_t font_ret = gfx_ft_lib_create(&disp_ctx->disp.font_lib);
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
+    esp_err_t font_ret = gfx_ft_lib_create();
     if (font_ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to create font library");
         gfx_buf_free_frame(disp_ctx);
@@ -388,12 +379,15 @@ gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
         free(disp_ctx);
         return NULL;
     }
+#endif
 
     // Initialize image decoder system
     esp_err_t decoder_ret = gfx_image_decoder_init();
     if (decoder_ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize image decoder system");
-        gfx_ft_lib_cleanup(disp_ctx->disp.font_lib);
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
+        gfx_ft_lib_cleanup();
+#endif
         gfx_buf_free_frame(disp_ctx);
         vSemaphoreDelete(disp_ctx->sync.lock_mutex);
         vEventGroupDelete(disp_ctx->sync.event_group);
@@ -438,10 +432,9 @@ void gfx_emote_deinit(gfx_handle_t handle)
     gfx_buf_free_frame(ctx);
 
     // Delete font library
-    if (ctx->disp.font_lib) {
-        gfx_ft_lib_cleanup(ctx->disp.font_lib);
-        ctx->disp.font_lib = NULL;
-    }
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
+    gfx_ft_lib_cleanup();
+#endif
 
     // Delete mutex
     if (ctx->sync.lock_mutex) {

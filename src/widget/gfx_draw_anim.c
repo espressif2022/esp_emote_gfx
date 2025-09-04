@@ -41,17 +41,17 @@ static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_
                                         const uint8_t *src_buf, gfx_coord_t src_stride,
                                         const gfx_aaf_header_t *header, uint32_t *palette_cache,
                                         gfx_area_t *clip_area, bool swap_color,
-                                        bool mirror_enabled, int16_t mirror_offset, int dest_x_offset);
+                                        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
 static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                                         const uint8_t *src_buf, gfx_coord_t src_stride,
                                         const gfx_aaf_header_t *header, uint32_t *palette_cache,
                                         gfx_area_t *clip_area, bool swap_color,
-                                        bool mirror_enabled, int16_t mirror_offset, int dest_x_offset);
+                                        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
 
 static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                                          const uint8_t *src_buf, gfx_coord_t src_stride,
                                          gfx_area_t *clip_area, bool swap_color,
-                                         bool mirror_enabled, int16_t mirror_offset, int dest_x_offset);
+                                         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
 
 /**
  * @brief Free frame processing information and allocated resources
@@ -107,8 +107,7 @@ bool gfx_anim_preprocess_frame(gfx_anim_property_t *anim)
     anim->frame.frame_size = frame_size;
 
     gfx_aaf_format_t format = gfx_aaf_parse_header(frame_data, frame_size, &anim->frame.header);
-    if (format != GFX_AAF_FORMAT_SBMP) {
-        ESP_LOGW(TAG, "Failed to parse header for frame %lu, format: %d", anim->current_frame, format);
+    if (format != GFX_AAF_FORMAT_VALID) {
         return false;
     }
 
@@ -336,7 +335,7 @@ void gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const vo
                 source_buffer_stride,
                 header, palette_cache,
                 &clip_block,
-                swap_color, anim->mirror_enabled, anim->mirror_offset, dest_x_offset);
+                swap_color, anim->mirror_mode, anim->mirror_offset, dest_x_offset);
         } else if (header->bit_depth == 8) {
             gfx_anim_render_8bit_pixels(
                 dest_pixels,
@@ -346,7 +345,7 @@ void gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const vo
                 header, palette_cache,
                 &clip_block,
                 swap_color,
-                anim->mirror_enabled, anim->mirror_offset, dest_x_offset);
+                anim->mirror_mode, anim->mirror_offset, dest_x_offset);
         } else if (header->bit_depth == 24) {
             gfx_anim_render_24bit_pixels(
                 dest_pixels,
@@ -355,7 +354,7 @@ void gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const vo
                 source_buffer_stride,
                 &clip_block,
                 swap_color,
-                anim->mirror_enabled, anim->mirror_offset, dest_x_offset);
+                anim->mirror_mode, anim->mirror_offset, dest_x_offset);
         } else {
             ESP_LOGE(TAG, "Unsupported bit depth: %d", header->bit_depth);
             continue;
@@ -450,7 +449,7 @@ static esp_err_t gfx_anim_decode_block(const uint8_t *data, const uint32_t *offs
  * @param palette_cache Palette cache
  * @param clip_area Clipping area
  * @param swap_color Whether to swap color bytes
- * @param mirror_enabled Whether mirror is enabled
+ * @param mirror_mode Whether mirror is enabled
  * @param mirror_offset Mirror offset
  * @param dest_x_offset Destination buffer x offset
  */
@@ -458,11 +457,15 @@ static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_
                                         const uint8_t *src_buf, gfx_coord_t src_stride,
                                         const gfx_aaf_header_t *header, uint32_t *palette_cache,
                                         gfx_area_t *clip_area, bool swap_color,
-                                        bool mirror_enabled, int16_t mirror_offset, int dest_x_offset)
+                                        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
 {
     int width = header->width;
     int clip_w = clip_area->x2 - clip_area->x1;
     int clip_h = clip_area->y2 - clip_area->y1;
+
+    if (mirror_mode == GFX_MIRROR_AUTO) {
+        mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
+    }
 
     for (int y = 0; y < clip_h; y++) {
         for (int x = 0; x < clip_w; x += 2) {
@@ -480,7 +483,8 @@ static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_
             dest_buf[y * dest_stride + x] = color_val1;
 
             // Sync write to mirror position if mirror is enabled
-            if (mirror_enabled) {
+            if (mirror_mode != GFX_MIRROR_DISABLED) {
+
                 int mirror_x = width + mirror_offset + width - 1 - x;
 
                 if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
@@ -497,7 +501,7 @@ static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_
             color_val2.full = (uint16_t)palette_cache[index2];
             dest_buf[y * dest_stride + x + 1] = color_val2;
 
-            if (mirror_enabled) {
+            if (mirror_mode != GFX_MIRROR_DISABLED) {
                 int mirror_x = width + mirror_offset + width - 1 - (x + 1);
 
                 if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
@@ -518,7 +522,7 @@ static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_
  * @param palette_cache Palette cache
  * @param clip_area Clipping area
  * @param swap_color Whether to swap color bytes
- * @param mirror_enabled Whether mirror is enabled
+ * @param mirror_mode Whether mirror is enabled
  * @param mirror_offset Mirror offset
  * @param dest_x_offset Destination buffer x offset
  */
@@ -526,11 +530,15 @@ static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_
                                         const uint8_t *src_buf, gfx_coord_t src_stride,
                                         const gfx_aaf_header_t *header, uint32_t *palette_cache,
                                         gfx_area_t *clip_area, bool swap_color,
-                                        bool mirror_enabled, int16_t mirror_offset, int dest_x_offset)
+                                        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
 {
     int32_t w = clip_area->x2 - clip_area->x1;
     int32_t h = clip_area->y2 - clip_area->y1;
     int32_t width = header->width;
+
+    if (mirror_mode == GFX_MIRROR_AUTO) {
+        mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
+    }
 
     for (int32_t y = 0; y < h; y++) {
         for (int32_t x = 0; x < w; x++) {
@@ -545,7 +553,8 @@ static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_
             dest_buf[y * dest_stride + x] = color_val;
 
             // Sync write to mirror position if mirror is enabled
-            if (mirror_enabled) {
+            if (mirror_mode != GFX_MIRROR_DISABLED) {
+
                 int mirror_x = width + mirror_offset + width - 1 - x;
 
                 // Check boundary for mirror position
@@ -560,11 +569,15 @@ static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_
 static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                                          const uint8_t *src_buf, gfx_coord_t src_stride,
                                          gfx_area_t *clip_area, bool swap_color,
-                                         bool mirror_enabled, int16_t mirror_offset, int dest_x_offset)
+                                         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
 {
     int32_t w = clip_area->x2 - clip_area->x1;
     int32_t h = clip_area->y2 - clip_area->y1;
     int32_t width = src_stride;
+
+    if (mirror_mode == GFX_MIRROR_AUTO) {
+        mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
+    }
 
     uint16_t *src_buf_16 = (uint16_t *)src_buf;
     uint16_t *dest_buf_16 = (uint16_t *)dest_buf;
@@ -574,7 +587,8 @@ static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest
             dest_buf_16[y * dest_stride + x] = src_buf_16[y * src_stride + x];
 
             // Sync write to mirror position if mirror is enabled
-            if (mirror_enabled) {
+            if (mirror_mode != GFX_MIRROR_DISABLED) {
+
                 int mirror_x = width + mirror_offset + width - 1 - x;
 
                 // Check boundary for mirror position

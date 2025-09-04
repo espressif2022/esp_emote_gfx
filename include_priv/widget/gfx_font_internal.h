@@ -3,22 +3,63 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+
 #pragma once
 
+#include <stdint.h>
+#include <stdbool.h>
 #include "esp_err.h"
+#include "widget/gfx_font_lvgl.h"
 #include "core/gfx_types.h"
-#include "core/gfx_core.h"
-#include "core/gfx_obj.h"
-#include "widget/gfx_label.h"
-#include "ft2build.h"
 
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
+#include <ft2build.h>
 #include FT_FREETYPE_H
+#include FT_SIZES_H
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// Forward declarations
+/**********************
+ *      TYPEDEFS
+ **********************/
+
+/* Forward declaration */
+typedef struct _gfx_font_ctx_t gfx_font_ctx_t;
+
+/**
+ * Universal glyph descriptor structure
+ */
+typedef struct {
+    uint32_t bitmap_index;      /**< Start index of the bitmap */
+    uint32_t adv_w;             /**< Advance width in 1/256 pixels */
+    uint16_t box_w;             /**< Width of the glyph's bounding box */
+    uint16_t box_h;             /**< Height of the glyph's bounding box */
+    int16_t ofs_x;              /**< X offset of the bounding box */
+    int16_t ofs_y;              /**< Y offset of the bounding box */
+} gfx_glyph_dsc_t;
+
+/**
+ * Font context structure with function pointers
+ */
+typedef struct _gfx_font_ctx_t {
+    void *font;
+    
+    bool (*get_glyph_dsc)(struct _gfx_font_ctx_t *font, void *glyph_dsc, uint32_t unicode, uint32_t unicode_next);
+    const uint8_t *(*get_glyph_bitmap)(struct _gfx_font_ctx_t *font, uint32_t unicode, void *glyph_dsc);
+    int (*get_glyph_width)(struct _gfx_font_ctx_t *font, uint32_t unicode);
+    int (*get_line_height)(struct _gfx_font_ctx_t *font);
+    int (*get_base_line)(struct _gfx_font_ctx_t *font);
+    uint8_t (*get_pixel_value)(struct _gfx_font_ctx_t *font, const uint8_t *bitmap, int32_t x, int32_t y, int32_t box_w);
+    int (*adjust_baseline_offset)(struct _gfx_font_ctx_t *font, void *glyph_dsc);
+    int (*get_advance_width)(struct _gfx_font_ctx_t *font, void *glyph_dsc);
+} gfx_font_ctx_t;
+
+typedef gfx_font_ctx_t *gfx_font_handle_t;
+
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
 typedef void *gfx_ft_handle_t;
 typedef void *gfx_ft_lib_handle_t;
 
@@ -33,38 +74,34 @@ typedef struct {
     void *ft_library;
 } gfx_ft_lib_t;
 
-/* Default font configuration */
 typedef struct {
-    const char *name;      /*!< Font name */
-    const void *mem;       /*!< Font data pointer */
-    size_t mem_size;       /*!< Font data size */
-    uint16_t default_size; /*!< Default font size */
-    gfx_color_t bg_color; /*!< Default font color */
-    gfx_opa_t default_opa; /*!< Default opacity */
-} gfx_default_font_cfg_t;
+    FT_Face face;
+    int size;
+    int line_height;
+    int base_line;
+    int underline_position;
+    int underline_thickness;
+} gfx_font_ft_t;
+#endif
 
-// Internal function declarations
-esp_err_t gfx_ft_lib_create(gfx_ft_lib_handle_t *ret_lib);
-esp_err_t gfx_ft_lib_cleanup(gfx_ft_lib_handle_t lib_handle);
+/**********************
+ * GLOBAL PROTOTYPES
+ **********************/
 
-esp_err_t gfx_get_glphy_dsc(gfx_obj_t * obj);
+// Font type detection
+bool gfx_is_lvgl_font(const void *font);
 
-/**
- * @brief Get default font handle (internal use)
- * @param handle Animation player handle
- * @param ret_font Pointer to store the default font handle
- * @return ESP_OK on success, error code otherwise
- */
-esp_err_t gfx_get_default_font(gfx_handle_t handle, gfx_font_t *ret_font);
+// LVGL font interface
+void gfx_font_lv_init_context(gfx_font_ctx_t *font_ctx, const void *font);
 
-/**
- * @brief Get default font configuration (internal use)
- * @param font Pointer to store default font handle
- * @param size Pointer to store default font size
- * @param color Pointer to store default font color
- * @param opa Pointer to store default font opacity
- */
-void gfx_get_default_font_config(gfx_font_t *font, uint16_t *size, gfx_color_t *color, gfx_opa_t *opa);
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
+// FreeType library management
+esp_err_t gfx_ft_lib_create(void);
+esp_err_t gfx_ft_lib_cleanup(void);
+
+// FreeType font interface
+void gfx_font_ft_init_context(gfx_font_ctx_t *font_ctx, const void *font);
+#endif
 
 #ifdef __cplusplus
 }

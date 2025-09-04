@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "sdkconfig.h"
 #include "core/gfx_types.h"
 #include "core/gfx_core.h"
 #include "core/gfx_obj.h"
@@ -26,6 +27,7 @@ typedef struct {
     const char * name;      /**< The name of the font file */
     const void * mem;       /**< The pointer to the font file */
     size_t mem_size;        /**< The size of the memory */
+    uint16_t font_size;     /**< The size of the font */
 } gfx_label_cfg_t;
 
 /**********************
@@ -67,14 +69,22 @@ typedef enum {
  */
 gfx_obj_t * gfx_label_create(gfx_handle_t handle);
 
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
 /**
  * @brief Create a new font
- * @param handle Animation player handle
  * @param cfg Font configuration
  * @param ret_font Pointer to store the font handle
  * @return ESP_OK on success, error code otherwise
  */
-esp_err_t gfx_label_new_font(gfx_handle_t handle, const gfx_label_cfg_t *cfg, gfx_font_t *ret_font);
+esp_err_t gfx_label_new_font(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font);
+
+/**
+ * @brief Delete a font and free its resources
+ * @param font Font handle to delete
+ * @return ESP_OK on success, error code otherwise
+ */
+esp_err_t gfx_label_delete_font(gfx_font_t font);
+#endif
 
 /*=====================
  * Label setter functions
@@ -127,14 +137,6 @@ esp_err_t gfx_label_set_bg_enable(gfx_obj_t *obj, bool enable);
  * @return ESP_OK on success, error code otherwise
  */
 esp_err_t gfx_label_set_opa(gfx_obj_t *obj, gfx_opa_t opa);
-
-/**
- * @brief Set the font size for a label object
- * @param obj Pointer to the label object
- * @param font_size Font size in points
- * @return ESP_OK on success, error code otherwise
- */
-esp_err_t gfx_label_set_font_size(gfx_obj_t *obj, uint8_t font_size);
 
 /**
  * @brief Set the font for a label object

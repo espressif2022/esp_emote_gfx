@@ -80,6 +80,15 @@ esp_err_t gfx_anim_stop(gfx_obj_t *obj);
  */
 esp_err_t gfx_anim_set_mirror(gfx_obj_t *obj, bool enabled, int16_t offset);
 
+/**
+ * @brief Set auto mirror alignment for animation object
+ * 
+ * @param obj Animation object
+ * @param enabled Whether to enable auto mirror alignment
+ * @return ESP_OK on success, ESP_ERR_* otherwise
+ */
+esp_err_t gfx_anim_set_auto_mirror(gfx_obj_t *obj, bool enabled);
+
 #ifdef __cplusplus
 }
 #endif 
