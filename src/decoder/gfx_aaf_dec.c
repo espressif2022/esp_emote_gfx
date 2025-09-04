@@ -171,7 +171,7 @@ gfx_aaf_format_t gfx_aaf_parse_header(const uint8_t *data, size_t data_len, gfx_
             memcpy(header->palette, data + 18 + header->blocks * 4, header->num_colors * 4);
         }
         header->data_offset = 18 + header->blocks * 4 + header->num_colors * 4;
-        return GFX_AAF_FORMAT_SBMP;
+        return GFX_AAF_FORMAT_VALID;
 
     } else if (strncmp(header->format, "_R", 2) == 0) {
         uint8_t file_length = *(uint8_t *)(data + 2);
@@ -187,7 +187,8 @@ gfx_aaf_format_t gfx_aaf_parse_header(const uint8_t *data, size_t data_len, gfx_
         header->num_colors = file_length + 1;
 
         return GFX_AAF_FORMAT_REDIRECT;
-
+    } else if (strncmp(header->format, "_C", 2) == 0) {
+        return GFX_AAF_FORMAT_INVALID;
     } else {
         ESP_LOGE(TAG, "Invalid format: %s", header->format);
         printf("%02X %02X %02X\r\n", header->format[0], header->format[1], header->format[2]);

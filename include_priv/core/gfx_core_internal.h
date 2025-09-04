@@ -62,7 +62,6 @@ typedef struct {
     
     /* Graphics rendering */
     struct {
-        gfx_ft_lib_handle_t font_lib;  /**< Font library handle */
         gfx_core_child_t *child_list;  /**< Child object list */
         uint16_t *buf1;                /**< Frame buffer 1 */
         uint16_t *buf2;                /**< Frame buffer 2 */
@@ -118,13 +117,6 @@ esp_err_t gfx_emote_remove_child(gfx_handle_t handle, void *src);
  * @param dest_buf Destination buffer
  */
 void gfx_draw_child(gfx_core_context_t *ctx, int x1, int y1, int x2, int y2, const void *dest_buf);
-
-/**
- * @brief Get the font library handle from graphics context
- * @param handle Graphics handle
- * @return gfx_ft_lib_handle_t Font library handle, NULL on error
- */
-gfx_ft_lib_handle_t gfx_get_font_lib(gfx_handle_t handle);
 
 #ifdef __cplusplus
 }

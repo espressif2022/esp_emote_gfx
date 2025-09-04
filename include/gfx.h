@@ -25,6 +25,7 @@
 #include "widget/gfx_img.h"
 #include "widget/gfx_label.h"
 #include "widget/gfx_anim.h"
+#include "widget/gfx_font_lvgl.h"
 
 #ifdef __cplusplus
 extern "C" {

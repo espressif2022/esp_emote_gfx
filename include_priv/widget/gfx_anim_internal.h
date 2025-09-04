@@ -43,6 +43,12 @@ typedef struct {
     int last_block;                  /*!< Last decoded block index to avoid repeated decoding */
 } gfx_anim_frame_info_t;
 
+typedef enum {
+    GFX_MIRROR_DISABLED = 0,     /*!< Mirror disabled */
+    GFX_MIRROR_MANUAL = 1,       /*!< Manual mirror with fixed offset */
+    GFX_MIRROR_AUTO = 2          /*!< Auto mirror with calculated offset */
+} gfx_mirror_mode_t;
+
 typedef struct {
     uint32_t start_frame;            /*!< Start frame index */
     uint32_t end_frame;              /*!< End frame index */
@@ -57,7 +63,7 @@ typedef struct {
     gfx_anim_frame_info_t frame;     /*!< Frame processing info */
     
     /*!< Widget-specific display properties */
-    bool mirror_enabled;             /*!< Whether mirror display is enabled */
+    gfx_mirror_mode_t mirror_mode;   /*!< Mirror mode */
     int16_t mirror_offset;          /*!< Mirror buffer offset for positioning */
 } gfx_anim_property_t;
 

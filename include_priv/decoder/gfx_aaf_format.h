@@ -4,6 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/**
+ * @file gfx_aaf_format.h
+ * @brief AAF/EEF Format Decoder
+ * 
+ * This decoder supports both AAF (Animation Asset Format) and EEF format files.
+ * Both formats use the same file structure with different format string identifiers.
+ */
+
 #pragma once
 
 #include <stdint.h>

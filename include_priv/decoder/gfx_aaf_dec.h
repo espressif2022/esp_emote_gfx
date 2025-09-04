@@ -16,7 +16,7 @@ extern "C" {
 #endif
 
 typedef enum {
-    GFX_AAF_FORMAT_SBMP = 0,      // Split BMP format
+    GFX_AAF_FORMAT_VALID = 0,      // Split BMP format
     GFX_AAF_FORMAT_REDIRECT = 1,  // Redirect format
     GFX_AAF_FORMAT_INVALID = 2
 } gfx_aaf_format_t;

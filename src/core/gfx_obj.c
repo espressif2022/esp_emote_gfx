@@ -60,7 +60,7 @@ gfx_obj_t * gfx_img_create(gfx_handle_t handle)
     memset(obj, 0, sizeof(gfx_obj_t));
     obj->type = GFX_OBJ_TYPE_IMAGE;
     obj->parent_handle = handle;
-    obj->is_visible = true;  // Default to hidden
+    obj->is_visible = true;
     gfx_emote_add_chlid(handle, GFX_OBJ_TYPE_IMAGE, obj);
     ESP_LOGD(TAG, "Created image object");
     return obj;
@@ -77,56 +77,39 @@ gfx_obj_t * gfx_label_create(gfx_handle_t handle)
     memset(obj, 0, sizeof(gfx_obj_t));
     obj->type = GFX_OBJ_TYPE_LABEL;
     obj->parent_handle = handle;
-    obj->is_visible = true;  // Default to hidden
+    obj->is_visible = true;
 
-    gfx_label_property_t *label = (gfx_label_property_t *)malloc(sizeof(gfx_label_property_t));
+    gfx_label_t *label = (gfx_label_t *)malloc(sizeof(gfx_label_t));
     if (label == NULL) {
         ESP_LOGE(TAG, "Failed to allocate memory for label object");
         free(obj);
         return NULL;
     }
-    memset(label, 0, sizeof(gfx_label_property_t));
+    memset(label, 0, sizeof(gfx_label_t));
 
-    // Apply default font configuration
-    gfx_font_t default_font;
-    uint16_t default_size;
-    gfx_color_t bg_color;
-    gfx_opa_t default_opa;
 
-    // Get default font configuration from internal function
-    gfx_get_default_font_config(&default_font, &default_size, &bg_color, &default_opa);
-
-    label->font_size = default_size;
-    label->color = bg_color;
-    label->opa = default_opa;
+    label->opa = 0xFF;
     label->mask = NULL;
     label->bg_color = (gfx_color_t) {
         .full = 0x0000
-    }; // Default: black background
-    label->bg_enable = false; // Default: background disabled
-    label->bg_dirty = false;  // Default: background not dirty
-    label->text_align = GFX_TEXT_ALIGN_LEFT;  // Initialize with default left alignment
-    label->long_mode = GFX_LABEL_LONG_CLIP;   // Default to clipping
+    };
+    label->bg_enable = false;
+    label->bg_dirty = false;
+    label->text_align = GFX_TEXT_ALIGN_LEFT;
+    label->long_mode = GFX_LABEL_LONG_CLIP;
     label->line_spacing = 2;
 
-    // Initialize horizontal scroll properties
     label->scroll_offset = 0;
-    label->scroll_speed_ms = 50;  // Default: 50ms per pixel
+    label->scroll_speed = 50;
     label->scroll_loop = true;
-    label->scroll_active = false;
-    label->scroll_dirty = false;  // Default: scroll position not dirty
+    label->scrolling = false;
+    label->scroll_changed = false;
     label->scroll_timer = NULL;
     label->text_width = 0;
 
-    // Initialize cached line data
-    label->cached_lines = NULL;
-    label->cached_line_count = 0;
-    label->cached_line_widths = NULL;
-
-    // Set default font automatically
-    if (default_font) {
-        label->face = (void *)default_font;
-    }
+    label->lines = NULL;
+    label->line_count = 0;
+    label->line_widths = NULL;
 
     obj->src = label;
 
@@ -153,7 +136,7 @@ gfx_obj_t * gfx_img_set_src(gfx_obj_t *obj, void *src)
 
     obj->src = src;
 
-    // Update object size based on image data using unified decoder
+
     if (src != NULL) {
         gfx_image_header_t header;
         gfx_image_decoder_dsc_t dsc = {
@@ -215,13 +198,10 @@ void gfx_obj_align(gfx_obj_t *obj, uint8_t align, gfx_coord_t x_ofs, gfx_coord_t
         return;
     }
 
-    // Validate alignment type
     if (align > GFX_ALIGN_OUT_BOTTOM_RIGHT) {
         ESP_LOGW(TAG, "Unknown alignment type: %d", align);
         return;
     }
-
-    // Set alignment properties instead of directly setting position
     obj->align_type = align;
     obj->align_x_ofs = x_ofs;
     obj->align_y_ofs = y_ofs;
@@ -262,7 +242,6 @@ void gfx_obj_calculate_aligned_position(gfx_obj_t *obj, uint32_t parent_width, u
     }
 
     if (!obj->use_align) {
-        // Use absolute position if alignment is not enabled
         *x = obj->x;
         *y = obj->y;
         return;
@@ -270,8 +249,6 @@ void gfx_obj_calculate_aligned_position(gfx_obj_t *obj, uint32_t parent_width, u
 
     gfx_coord_t calculated_x = 0;
     gfx_coord_t calculated_y = 0;
-
-    // Calculate position based on alignment
     switch (obj->align_type) {
     case GFX_ALIGN_TOP_LEFT:
         calculated_x = obj->align_x_ofs;
@@ -359,7 +336,6 @@ void gfx_obj_calculate_aligned_position(gfx_obj_t *obj, uint32_t parent_width, u
         break;
     default:
         ESP_LOGW(TAG, "Unknown alignment type: %d", obj->align_type);
-        // Fall back to absolute position
         calculated_x = obj->x;
         calculated_y = obj->y;
         break;
@@ -408,37 +384,19 @@ void gfx_obj_delete(gfx_obj_t *obj)
 
     ESP_LOGD(TAG, "Deleting object type: %d", obj->type);
 
-    // Remove object from parent's child list first
     if (obj->parent_handle != NULL) {
         gfx_emote_remove_child(obj->parent_handle, obj);
     }
 
     if (obj->type == GFX_OBJ_TYPE_LABEL) {
-        gfx_label_property_t *label = (gfx_label_property_t *)obj->src;
+        gfx_label_t *label = (gfx_label_t *)obj->src;
         if (label) {
-            // Clean up scroll timer
             if (label->scroll_timer) {
                 gfx_timer_delete(obj->parent_handle, label->scroll_timer);
                 label->scroll_timer = NULL;
             }
 
-            // Clean up cached line data
-            if (label->cached_lines) {
-                for (int i = 0; i < label->cached_line_count; i++) {
-                    if (label->cached_lines[i]) {
-                        free(label->cached_lines[i]);
-                    }
-                }
-                free(label->cached_lines);
-                label->cached_lines = NULL;
-                label->cached_line_count = 0;
-            }
-
-            // Clean up cached line widths
-            if (label->cached_line_widths) {
-                free(label->cached_line_widths);
-                label->cached_line_widths = NULL;
-            }
+            gfx_label_clear_cached_lines(label);
 
             if (label->text) {
                 free(label->text);
@@ -451,21 +409,17 @@ void gfx_obj_delete(gfx_obj_t *obj)
     } else if (obj->type == GFX_OBJ_TYPE_ANIMATION) {
         gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
         if (anim) {
-            // Stop animation if playing
             if (anim->is_playing) {
                 gfx_anim_stop(obj);
             }
 
-            // Delete timer
             if (anim->timer != NULL) {
                 gfx_timer_delete((void *)obj->parent_handle, anim->timer);
                 anim->timer = NULL;
             }
 
-            // Free frame processing information
             gfx_anim_free_frame_info(&anim->frame);
 
-            // Free file descriptor
             if (anim->file_desc) {
                 gfx_aaf_format_deinit(anim->file_desc);
             }
@@ -493,7 +447,6 @@ static void gfx_anim_timer_callback(void *arg)
     anim->current_frame++;
     ESP_LOGD("anim cb", " %lu (%lu / %lu)", anim->current_frame, anim->start_frame, anim->end_frame);
 
-    // Check if we've reached the end
     if (anim->current_frame > anim->end_frame) {
         if (anim->repeat) {
             ESP_LOGD(TAG, "REPEAT");
@@ -505,7 +458,6 @@ static void gfx_anim_timer_callback(void *arg)
         }
     }
 
-    // Mark object as dirty to trigger redraw
     obj->is_dirty = true;
 }
 
@@ -519,7 +471,7 @@ gfx_obj_t * gfx_anim_create(gfx_handle_t handle)
 
     memset(obj, 0, sizeof(gfx_obj_t));
     obj->parent_handle = handle;
-    obj->is_visible = true;  // Default to hidden
+    obj->is_visible = true;
 
     gfx_anim_property_t *anim = (gfx_anim_property_t *)malloc(sizeof(gfx_anim_property_t));
     if (anim == NULL) {
@@ -529,17 +481,19 @@ gfx_obj_t * gfx_anim_create(gfx_handle_t handle)
     }
     memset(anim, 0, sizeof(gfx_anim_property_t));
 
-    // Initialize animation properties
     anim->file_desc = NULL;
     anim->start_frame = 0;
     anim->end_frame = 0;
     anim->current_frame = 0;
-    anim->fps = 30; // Default FPS
+    anim->fps = 30;
     anim->repeat = true;
     anim->is_playing = false;
+    
+    // Initialize mirror properties
+    anim->mirror_mode = GFX_MIRROR_DISABLED;
+    anim->mirror_offset = 0;
 
-    // Create timer during object creation
-    uint32_t period_ms = 1000 / anim->fps; // Convert FPS to period in milliseconds
+    uint32_t period_ms = 1000 / anim->fps;
     anim->timer = gfx_timer_create((void *)obj->parent_handle, gfx_anim_timer_callback, period_ms, obj);
     if (anim->timer == NULL) {
         ESP_LOGE(TAG, "Failed to create animation timer");
@@ -548,23 +502,18 @@ gfx_obj_t * gfx_anim_create(gfx_handle_t handle)
         return NULL;
     }
 
-    // Initialize pre-parsed header fields
     memset(&anim->frame.header, 0, sizeof(gfx_aaf_header_t));
 
-    // Initialize pre-fetched frame data fields
     anim->frame.frame_data = NULL;
     anim->frame.frame_size = 0;
 
-    // Initialize pre-allocated parsing resources fields
     anim->frame.block_offsets = NULL;
     anim->frame.pixel_buffer = NULL;
     anim->frame.color_palette = NULL;
 
-    // Initialize decoding state
     anim->frame.last_block = -1;
 
-    // Initialize widget-specific display properties
-    anim->mirror_enabled = false;
+    anim->mirror_mode = GFX_MIRROR_DISABLED;
     anim->mirror_offset = 0;
 
     obj->src = anim;
@@ -592,19 +541,15 @@ esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
         return ESP_ERR_INVALID_STATE;
     }
 
-    // Stop current animation if playing
     if (anim->is_playing) {
         ESP_LOGD(TAG, "stop current animation");
         gfx_anim_stop(obj);
     }
 
-    // Free previously parsed header if exists
-    if (anim->frame.header.width > 0) {  // Check if header data exists instead of header_valid flag
+    if (anim->frame.header.width > 0) {
         gfx_aaf_free_header(&anim->frame.header);
-        memset(&anim->frame.header, 0, sizeof(gfx_aaf_header_t));  // Clear header data
+        memset(&anim->frame.header, 0, sizeof(gfx_aaf_header_t));
     }
-
-    // Clear pre-fetched frame data
     anim->frame.frame_data = NULL;
     anim->frame.frame_size = 0;
 
@@ -615,7 +560,6 @@ esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
         return ESP_FAIL;
     }
 
-    //delete old file_desc
     if (anim->file_desc) {
         gfx_aaf_format_deinit(anim->file_desc);
         anim->file_desc = NULL;
@@ -624,7 +568,8 @@ esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
     anim->file_desc = new_desc;
     anim->start_frame = 0;
     anim->current_frame = 0;
-    anim->end_frame = gfx_aaf_format_get_total_frames(new_desc) - 1;
+    //last block is empty
+    anim->end_frame = gfx_aaf_format_get_total_frames(new_desc) - 2;
 
     ESP_LOGD(TAG, "set src, start: %lu, end: %lu, file_desc: %p", anim->start_frame, anim->end_frame, anim->file_desc);
     return ESP_OK;
@@ -651,7 +596,7 @@ esp_err_t gfx_anim_set_segment(gfx_obj_t *obj, uint32_t start, uint32_t end, uin
     int total_frames = gfx_aaf_format_get_total_frames(anim->file_desc);
 
     anim->start_frame = start;
-    anim->end_frame = (end > total_frames - 1) ? (total_frames - 1) : end;
+    anim->end_frame = (end > total_frames - 2) ? (total_frames - 2) : end;
     anim->current_frame = start;
 
     if (anim->fps != fps) {
@@ -753,10 +698,33 @@ esp_err_t gfx_anim_set_mirror(gfx_obj_t *obj, bool enabled, int16_t offset)
         return ESP_ERR_INVALID_STATE;
     }
 
-    // Set mirror properties
-    anim->mirror_enabled = enabled;
+    anim->mirror_mode = enabled ? GFX_MIRROR_MANUAL : GFX_MIRROR_DISABLED;
     anim->mirror_offset = offset;
 
     ESP_LOGD(TAG, "Set animation mirror: enabled=%s, offset=%d", enabled ? "true" : "false", offset);
+    return ESP_OK;
+}
+
+esp_err_t gfx_anim_set_auto_mirror(gfx_obj_t *obj, bool enabled)
+{
+    if (obj == NULL) {
+        ESP_LOGE(TAG, "Object is NULL");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (obj->type != GFX_OBJ_TYPE_ANIMATION) {
+        ESP_LOGE(TAG, "Object is not an animation type");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+    if (anim == NULL) {
+        ESP_LOGE(TAG, "Animation property is NULL");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    anim->mirror_mode = enabled ? GFX_MIRROR_AUTO : GFX_MIRROR_DISABLED;
+
+    ESP_LOGD(TAG, "Set auto mirror alignment: enabled=%s", enabled ? "true" : "false");
     return ESP_OK;
 }

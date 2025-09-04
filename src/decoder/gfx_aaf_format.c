@@ -13,11 +13,11 @@
 static const char *TAG = "gfx_aaf_format";
 
 /*
- * AAF File Format Structure:
+ * AAF/EEF File Format Structure:
  *
  * Offset  Size    Description
  * 0       1       Magic number (0x89)
- * 1       3       Format string ("AAF")
+ * 1       3       Format string ("AAF" or "EEF")
  * 4       4       Total number of frames
  * 8       4       Checksum of table + data
  * 12      4       Length of table + data
@@ -28,9 +28,10 @@ static const char *TAG = "gfx_aaf_format";
 #define GFX_AAF_MAGIC_HEAD          0x5A5A
 #define GFX_AAF_MAGIC_LEN           2
 
-/* File format magic number: 0x89 "AAF" */
+/* File format magic number: 0x89 "AAF" or "EEF" */
 #define GFX_AAF_FORMAT_MAGIC        0x89
 #define GFX_AAF_FORMAT_STR          "AAF"
+#define GFX_EEF_FORMAT_STR          "EEF"
 
 #define GFX_AAF_FORMAT_OFFSET       0
 #define GFX_AAF_STR_OFFSET          1
@@ -77,9 +78,13 @@ esp_err_t gfx_aaf_format_init(const uint8_t *data, size_t data_len, gfx_aaf_form
     gfx_aaf_format_ctx_t *parser = (gfx_aaf_format_ctx_t *)calloc(1, sizeof(gfx_aaf_format_ctx_t));
     ESP_GOTO_ON_FALSE(parser, ESP_ERR_NO_MEM, err, TAG, "no mem for parser handle");
 
-    // Check file format magic number: 0x89 "AAF"
+    // Check file format magic number: 0x89 "AAF" or "EEF"
     ESP_GOTO_ON_FALSE(data[GFX_AAF_FORMAT_OFFSET] == GFX_AAF_FORMAT_MAGIC, ESP_ERR_INVALID_CRC, err, TAG, "bad file format magic");
-    ESP_GOTO_ON_FALSE(memcmp(data + GFX_AAF_STR_OFFSET, GFX_AAF_FORMAT_STR, 3) == 0, ESP_ERR_INVALID_CRC, err, TAG, "bad file format string");
+    
+    // Check for either AAF or EEF format string
+    bool valid_format = (memcmp(data + GFX_AAF_STR_OFFSET, GFX_AAF_FORMAT_STR, 3) == 0) ||
+                       (memcmp(data + GFX_AAF_STR_OFFSET, GFX_EEF_FORMAT_STR, 3) == 0);
+    ESP_GOTO_ON_FALSE(valid_format, ESP_ERR_INVALID_CRC, err, TAG, "bad file format string (expected AAF or EEF)");
 
     int total_frames = *(int *)(data + GFX_AAF_NUM_OFFSET);
     uint32_t stored_chk = *(uint32_t *)(data + GFX_AAF_CHECKSUM_OFFSET);
