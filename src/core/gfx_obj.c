@@ -87,7 +87,6 @@ gfx_obj_t * gfx_label_create(gfx_handle_t handle)
     }
     memset(label, 0, sizeof(gfx_label_t));
 
-
     label->opa = 0xFF;
     label->mask = NULL;
     label->bg_color = (gfx_color_t) {
@@ -135,7 +134,6 @@ gfx_obj_t * gfx_img_set_src(gfx_obj_t *obj, void *src)
     }
 
     obj->src = src;
-
 
     if (src != NULL) {
         gfx_image_header_t header;
@@ -401,6 +399,9 @@ void gfx_obj_delete(gfx_obj_t *obj)
             if (label->text) {
                 free(label->text);
             }
+            if (label->font_ctx) {
+                free(label->font_ctx);
+            }
             if (label->mask) {
                 free(label->mask);
             }
@@ -488,7 +489,7 @@ gfx_obj_t * gfx_anim_create(gfx_handle_t handle)
     anim->fps = 30;
     anim->repeat = true;
     anim->is_playing = false;
-    
+
     // Initialize mirror properties
     anim->mirror_mode = GFX_MIRROR_DISABLED;
     anim->mirror_offset = 0;

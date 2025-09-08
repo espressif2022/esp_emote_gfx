@@ -81,10 +81,10 @@ esp_err_t gfx_aaf_format_init(const uint8_t *data, size_t data_len, gfx_aaf_form
 
     // Check file format magic number: 0x89 "AAF" or "EEF"
     ESP_GOTO_ON_FALSE(data[GFX_AAF_FORMAT_OFFSET] == GFX_AAF_FORMAT_MAGIC, ESP_ERR_INVALID_CRC, err, TAG, "bad file format magic");
-    
+
     // Check for either AAF or EEF format string
     bool valid_format = (memcmp(data + GFX_AAF_STR_OFFSET, GFX_AAF_FORMAT_STR, 3) == 0) ||
-                       (memcmp(data + GFX_AAF_STR_OFFSET, GFX_EAF_FORMAT_STR, 3) == 0);
+                        (memcmp(data + GFX_AAF_STR_OFFSET, GFX_EAF_FORMAT_STR, 3) == 0);
     ESP_GOTO_ON_FALSE(valid_format, ESP_ERR_INVALID_CRC, err, TAG, "bad file format string (expected AAF or EEF)");
 
     int total_frames = *(int *)(data + GFX_AAF_NUM_OFFSET);

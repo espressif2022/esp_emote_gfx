@@ -1,0 +1,41 @@
+PROJECT_NAME           = "ESP Emote GFX"
+PROJECT_NUMBER         = "v1.0"
+PROJECT_BRIEF          = "Lightweight graphics framework for ESP-IDF"
+
+INPUT                  = include/ README.md API_REFERENCE.md
+RECURSIVE              = YES
+FILE_PATTERNS          = *.h *.md
+USE_MDFILE_AS_MAINPAGE = README.md
+
+OUTPUT_DIRECTORY       = docs/
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = NO
+
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = YES
+
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = NO
+SEARCH_INCLUDES        = YES
+
+PREDEFINED             = CONFIG_GFX_FONT_FREETYPE_SUPPORT
+
+HTML_OUTPUT            = html
+HTML_FILE_EXTENSION    = .html
+HTML_HEADER            = 
+HTML_FOOTER            = 
+HTML_STYLESHEET        = 
+HTML_COLORSTYLE_HUE    = 220
+HTML_COLORSTYLE_SAT    = 100
+HTML_COLORSTYLE_GAMMA  = 80
+
+GENERATE_TREEVIEW      = YES
+TREEVIEW_WIDTH         = 250
+
+SEARCHENGINE           = YES
+SERVER_BASED_SEARCH    = NO

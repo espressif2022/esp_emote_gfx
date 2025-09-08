@@ -1,19 +1,17 @@
 # ESP Emote GFX
 
 ## Introduction
-`esp_emote_gfx` is a lightweight and efficient graphics framework component designed for ESP-IDF embedded systems. It provides a comprehensive graphics API with object system, drawing functions, color utilities, and animation capabilities. This module ensures high performance and flexibility for modern embedded applications that require efficient graphics rendering.
+A lightweight graphics framework for ESP-IDF with support for images, labels, animations, and fonts.
 
 [![Component Registry](https://components.espressif.com/components/espressif2022/esp_emote_gfx/badge.svg)](https://components.espressif.com/components/espressif2022/esp_emote_gfx)
 
 ## Features
 
-- **Object System**: Support for images, labels, and other graphics objects
-- **Drawing Functions**: Efficient rendering to frame buffers
-- **Color Utilities**: Comprehensive color management and type definitions
-- **Software Blending**: Advanced blending capabilities for smooth graphics
-- **Animation Support**: Built-in animation framework for dynamic graphics
-- **Timer System**: Integrated timing functions for smooth animations
-- **Memory Efficient**: Optimized for embedded systems with limited resources
+- **Images**: Display images in RGB565A8 format
+- **Animations**: GIF animations with [ESP32 tools](https://esp32-gif.espressif.com/)
+- **Fonts**: LVGL fonts and FreeType TTF/OTF support
+- **Timers**: Built-in timing system for smooth animations
+- **Memory Optimized**: Designed for embedded systems
 
 ## Dependencies
 
@@ -34,25 +32,89 @@
 #include "gfx.h"
 
 // Initialize the GFX framework
-// Your initialization code here
+gfx_core_config_t gfx_cfg = {
+    .flush_cb = flush_callback,
+    .h_res = BSP_LCD_H_RES,
+    .v_res = BSP_LCD_V_RES,
+    .fps = 50,
+    // other configuration...
+};
+gfx_handle_t emote_handle = gfx_emote_init(&gfx_cfg);
 ```
 
-### Creating Graphics Objects
+### Label Widget
+
+The framework supports both LVGL fonts and FreeType rendering:
+
+```c
+// Create a label object
+gfx_obj_t *label_obj = gfx_label_create(emote_handle);
+
+// Using LVGL fonts
+gfx_label_set_font(label_obj, (gfx_font_t)&font_puhui_16_4);
+
+// Using FreeType fonts
+gfx_label_cfg_t font_cfg = {
+    .name = "DejaVuSans.ttf",
+    .mem = font_data,
+    .mem_size = font_size,
+    .font_size = 20,
+};
+gfx_font_t font_freetype;
+gfx_label_new_font(&font_cfg, &font_freetype);
+gfx_label_set_font(label_obj, font_freetype);
+
+// Set text and properties
+gfx_label_set_text(label_obj, "Hello World");
+gfx_label_set_color(label_obj, GFX_COLOR_HEX(0x00FF00));
+gfx_obj_set_pos(label_obj, 100, 200);
+```
+
+### Image Widget (RGB565A8 Format)
 
 ```c
 // Create an image object
-gfx_img_t *img = gfx_img_create();
+gfx_obj_t *img_obj = gfx_img_create(emote_handle);
 
-// Create a label object
-gfx_label_t *label = gfx_label_create();
+// Set image source (supports RGB565A8 format)
+gfx_img_set_src(img_obj, (void*)&image_data);
+gfx_obj_set_pos(img_obj, 100, 100);
 ```
 
-### Animation
+### Animation Widget
+
+Create animations using the [ESP32 GIF animation tools](https://esp32-gif.espressif.com/) (converts GIF files to EAF animation format):
 
 ```c
-// Create and configure animations
-gfx_anim_t *anim = gfx_anim_create();
-// Configure your animation parameters
+// Create animation object
+gfx_obj_t *anim_obj = gfx_anim_create(emote_handle);
+
+// Set animation source data
+gfx_anim_set_src(anim_obj, anim_data, anim_size);
+gfx_obj_set_size(anim_obj, 200, 150);
+
+// Configure animation segment
+gfx_anim_set_segment(anim_obj, 0, 90, 15, true);
+
+// Start animation
+gfx_anim_start(anim_obj);
+```
+
+### Timer System
+
+```c
+// Create timer callback
+void timer_callback(void *user_data) {
+    // Timer callback code
+}
+
+// Create and configure timer
+gfx_timer_handle_t timer = gfx_timer_create(emote_handle, timer_callback, 1000, user_data);
+
+// Control timer
+gfx_timer_pause(timer);
+gfx_timer_resume(timer);
+gfx_timer_delete(emote_handle, timer);
 ```
 
 ## API Reference
@@ -66,10 +128,6 @@ The main API is exposed through the `gfx.h` header file, which includes:
 - `widget/gfx_img.h` - Image widget functionality
 - `widget/gfx_label.h` - Label widget functionality
 - `widget/gfx_anim.h` - Animation framework
-
-## Font Support
-
-This component includes support for LVGL fonts. For detailed information about font integration and usage, please refer to [LVGL_FONT_SUPPORT.md](docs/LVGL_FONT_SUPPORT.md).
 
 ## License
 

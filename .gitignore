@@ -102,3 +102,7 @@ dist/
 .bmp
 .gif
 sdkconfig.old
+
+# Generated documentation
+docs/
+API_REFERENCE.md

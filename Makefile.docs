@@ -1,0 +1,50 @@
+# Documentation generation Makefile for ESP Emote GFX
+
+.PHONY: docs api-docs doxygen clean-docs help
+
+# Default target
+help:
+	@echo "Documentation Generation Commands:"
+	@echo ""
+	@echo "  make docs        - Generate both API docs and Doxygen documentation"
+	@echo "  make api-docs    - Generate API reference table from headers"
+	@echo "  make doxygen     - Generate Doxygen HTML documentation"
+	@echo "  make clean-docs  - Clean generated documentation"
+	@echo "  make help        - Show this help message"
+	@echo ""
+
+# Generate all documentation
+docs: api-docs doxygen
+	@echo "✅ All documentation generated successfully!"
+
+# Generate API reference table
+api-docs:
+	@echo "🔧 Generating API reference from header files..."
+	@python3 scripts/generate_api_docs.py
+	@echo "✅ API reference generated: API_REFERENCE.md"
+
+# Generate Doxygen documentation
+doxygen: api-docs
+	@echo "🔧 Generating Doxygen documentation..."
+	@if command -v doxygen >/dev/null 2>&1; then \
+		doxygen Doxyfile; \
+		echo "✅ Doxygen documentation generated in docs/html/"; \
+		echo "📖 Open docs/html/index.html to view the documentation"; \
+	else \
+		echo "❌ Doxygen not found. Please install doxygen:"; \
+		echo "   Ubuntu/Debian: sudo apt-get install doxygen"; \
+		echo "   macOS: brew install doxygen"; \
+		echo "   Other: https://www.doxygen.nl/download.html"; \
+	fi
+
+# Clean generated documentation
+clean-docs:
+	@echo "🧹 Cleaning generated documentation..."
+	@rm -rf docs/
+	@rm -f API_REFERENCE.md
+	@echo "✅ Documentation cleaned"
+
+# Test the API extraction script
+test-api:
+	@echo "🧪 Testing API extraction..."
+	@python3 -c "import scripts.generate_api_docs; print('✅ Script syntax is valid')"

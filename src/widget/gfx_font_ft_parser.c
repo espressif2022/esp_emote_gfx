@@ -162,7 +162,15 @@ esp_err_t gfx_label_new_font(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
 
 esp_err_t gfx_label_delete_font(gfx_font_t font)
 {
-    if (!font) return ESP_ERR_INVALID_ARG;
+    ESP_RETURN_ON_FALSE(font, ESP_ERR_INVALID_ARG, TAG, "font is NULL");
+
+    if (gfx_is_lvgl_font(font)) {
+        return ESP_OK;
+    }
+
+    gfx_font_ft_t *ft_font = (gfx_font_ft_t *)font;
+    free(ft_font);
+
     return ESP_OK;
 }
 
@@ -173,7 +181,7 @@ esp_err_t gfx_label_delete_font(gfx_font_t font)
 static bool gfx_font_ft_get_glyph_dsc(gfx_font_ctx_t *font, void *glyph_dsc, uint32_t unicode, uint32_t unicode_next)
 {
     gfx_glyph_dsc_t *dsc_out = (gfx_glyph_dsc_t *)glyph_dsc;
-    
+
     if (unicode < 0x20) {
         dsc_out->adv_w = 0;
         dsc_out->box_h = 0;
@@ -255,12 +263,12 @@ static int gfx_font_ft_get_glyph_width(gfx_font_ctx_t *font, uint32_t unicode)
     if (!ft_font || !ft_font->face) {
         return 0;
     }
-    
+
     gfx_glyph_dsc_t glyph_dsc;
     if (!gfx_font_ft_get_glyph_dsc(font, &glyph_dsc, unicode, 0)) {
         return 0;
     }
-    
+
     return (glyph_dsc.adv_w >> 8);
 }
 
@@ -281,7 +289,7 @@ static uint8_t gfx_font_ft_get_pixel_value(gfx_font_ctx_t *font, const uint8_t *
     if (!bitmap || x < 0 || y < 0 || x >= box_w) {
         return 0;
     }
-    
+
     uint8_t pixel_value = bitmap[y * box_w + x];
     return pixel_value;
 }
@@ -291,7 +299,7 @@ static int gfx_font_ft_adjust_baseline_offset(gfx_font_ctx_t *font, void *glyph_
     if (!font || !glyph_dsc) {
         return 0;
     }
-    
+
     gfx_glyph_dsc_t *dsc = (gfx_glyph_dsc_t *)glyph_dsc;
     return dsc->ofs_y;
 }
@@ -301,7 +309,7 @@ static int gfx_font_ft_get_advance_width(gfx_font_ctx_t *font, void *glyph_dsc)
     if (!font || !glyph_dsc) {
         return 0;
     }
-    
+
     gfx_glyph_dsc_t *dsc = (gfx_glyph_dsc_t *)glyph_dsc;
     int advance_pixels = (dsc->adv_w >> 8);
     return advance_pixels;

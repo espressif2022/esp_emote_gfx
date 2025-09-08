@@ -1,0 +1,43 @@
+name: Generate and Deploy Documentation
+
+on:
+  push:
+    branches: [ main, feat/add_docs ]
+  pull_request:
+    branches: [ main, feat/add_docs ]
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y doxygen graphviz python3
+    
+    - name: Generate complete documentation
+      run: |
+        make -f Makefile.docs docs
+    
+    - name: Deploy to GitHub Pages
+      # if: github.ref == 'refs/heads/main'
+      if: github.ref == 'refs/heads/feat/add_docs'
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./docs/html
+        destination_dir: api-docs
+        force_orphan: true
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: documentation
+        path: docs/html/

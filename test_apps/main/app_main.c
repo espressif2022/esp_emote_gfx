@@ -84,12 +84,10 @@ void clock_tm_callback(void *user_data)
     ESP_LOGI("FPS", "%d*%d: %" PRIu32 "", BSP_LCD_H_RES, BSP_LCD_V_RES, gfx_timer_get_actual_fps(emote_handle));
 }
 
-// Test timer function
 static void test_timer_function(void)
 {
-    ESP_LOGI(TAG, "=== Testing Timer Functionality ===");
+    ESP_LOGI(TAG, "=== Testing Timer Function ===");
 
-    ESP_LOGI(TAG, "Timer created\r\n");
     gfx_emote_lock(emote_handle);
     gfx_timer_handle_t timer = gfx_timer_create(emote_handle, clock_tm_callback, 1000, label_tips);
     TEST_ASSERT_NOT_NULL(timer);
@@ -97,51 +95,44 @@ static void test_timer_function(void)
 
     vTaskDelay(pdMS_TO_TICKS(3000));
 
-    ESP_LOGI(TAG, "Timer period set to 500ms\r\n");
     gfx_emote_lock(emote_handle);
     gfx_timer_set_period(timer, 500);
     gfx_emote_unlock(emote_handle);
 
     vTaskDelay(pdMS_TO_TICKS(3000));
 
-    ESP_LOGI(TAG, "Timer repeat count set to 5\r\n");
     gfx_emote_lock(emote_handle);
     gfx_timer_set_repeat_count(timer, 5);
     gfx_emote_unlock(emote_handle);
 
     vTaskDelay(pdMS_TO_TICKS(3000));
 
-    ESP_LOGI(TAG, "Timer paused\r\n");
     gfx_emote_lock(emote_handle);
     gfx_timer_pause(timer);
     gfx_emote_unlock(emote_handle);
 
     vTaskDelay(pdMS_TO_TICKS(3000));
 
-    ESP_LOGI(TAG, "Timer resumed\r\n");
     gfx_emote_lock(emote_handle);
     gfx_timer_resume(timer);
     gfx_emote_unlock(emote_handle);
 
     vTaskDelay(pdMS_TO_TICKS(3000));
 
-    ESP_LOGI(TAG, "Timer reset\r\n");
     gfx_emote_lock(emote_handle);
     gfx_timer_reset(timer);
     gfx_emote_unlock(emote_handle);
 
     vTaskDelay(pdMS_TO_TICKS(3000));
 
-    ESP_LOGI(TAG, "Timer deleted\r\n");
     gfx_emote_lock(emote_handle);
     gfx_timer_delete(emote_handle, timer);
     gfx_emote_unlock(emote_handle);
 }
 
-// Test animation function
 static void test_animation_function(mmap_assets_handle_t assets_handle)
 {
-    ESP_LOGI(TAG, "=== Testing Animation Functionality ===");
+    ESP_LOGI(TAG, "=== Testing Animation Function ===");
 
     // Define test cases for different bit depths and animation files
     struct {
@@ -162,16 +153,13 @@ static void test_animation_function(mmap_assets_handle_t assets_handle)
 
         gfx_emote_lock(emote_handle);
 
-        // Create animation object
         gfx_obj_t *anim_obj = gfx_anim_create(emote_handle);
         TEST_ASSERT_NOT_NULL(anim_obj);
-        ESP_LOGI(TAG, "Animation object created successfully");
 
         const void *anim_data = mmap_assets_get_mem(assets_handle, test_cases[i].asset_id);
         size_t anim_size = mmap_assets_get_size(assets_handle, test_cases[i].asset_id);
         esp_err_t ret = gfx_anim_set_src(anim_obj, anim_data, anim_size);
         TEST_ASSERT_EQUAL(ESP_OK, ret);
-        ESP_LOGI(TAG, "%s source set successfully", test_cases[i].name);
 
         if (i < 3) {
             gfx_obj_set_pos(anim_obj, 20, 10);
@@ -181,59 +169,46 @@ static void test_animation_function(mmap_assets_handle_t assets_handle)
         gfx_anim_set_mirror(anim_obj, false, 0);
 
         gfx_obj_set_size(anim_obj, 200, 150);
-        ESP_LOGI(TAG, "Animation size set to 200x150");
 
         gfx_anim_set_segment(anim_obj, 0, 90, 15, true);
-        ESP_LOGI(TAG, "Animation segment set: frames 0-90, 30fps, repeat=true");
 
-        // Start animation
         ret = gfx_anim_start(anim_obj);
         TEST_ASSERT_EQUAL(ESP_OK, ret);
-        ESP_LOGI(TAG, "%s started successfully", test_cases[i].name);
 
         gfx_emote_unlock(emote_handle);
 
-        // Wait for animation to run
         vTaskDelay(pdMS_TO_TICKS(3000));
 
-        // Test with mirror enabled
         gfx_emote_lock(emote_handle);
         gfx_anim_set_mirror(anim_obj, true, test_cases[i].mirror_offset);
-        ESP_LOGI(TAG, "Animation mirror enabled with offset %d", test_cases[i].mirror_offset);
         gfx_emote_unlock(emote_handle);
 
-        // Wait for mirror animation to run
         vTaskDelay(pdMS_TO_TICKS(3000));
 
-        // Stop animation
         gfx_emote_lock(emote_handle);
 
         ret = gfx_anim_stop(anim_obj);
         TEST_ASSERT_EQUAL(ESP_OK, ret);
-        ESP_LOGI(TAG, "%s stopped successfully", test_cases[i].name);
 
         gfx_emote_unlock(emote_handle);
 
         vTaskDelay(pdMS_TO_TICKS(3000));
 
-        // Delete animation object
         gfx_emote_lock(emote_handle);
 
         gfx_obj_delete(anim_obj);
-        ESP_LOGI(TAG, "%s object deleted successfully", test_cases[i].name);
 
         gfx_emote_unlock(emote_handle);
 
-        // Wait before next test
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
-    ESP_LOGI(TAG, "\n=== Animation Functionality Testing Completed ===");
+    ESP_LOGI(TAG, "\n=== Animation Function Testing Completed ===");
 }
 
 static void test_label_map_function(mmap_assets_handle_t assets_handle)
 {
-    ESP_LOGI(TAG, "=== Testing Label Map Functionality ===");
+    ESP_LOGI(TAG, "=== Testing Label Map Function ===");
 
     gfx_emote_lock(emote_handle);
 
@@ -272,16 +247,14 @@ static void test_label_map_function(mmap_assets_handle_t assets_handle)
 
 static void test_label_freetype_function(mmap_assets_handle_t assets_handle)
 {
-    ESP_LOGI(TAG, "=== Testing Label Functionality ===");
+    ESP_LOGI(TAG, "=== Testing Label Function ===");
 
     gfx_emote_lock(emote_handle);
 
-    // Create label object
     gfx_obj_t *label_obj = gfx_label_create(emote_handle);
     TEST_ASSERT_NOT_NULL(label_obj);
     ESP_LOGI(TAG, "Label object created successfully");
 
-    // Set font
     gfx_label_cfg_t font_cfg = {
         .name = "DejaVuSans.ttf",
         .mem = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_DEJAVUSANS_TTF),
@@ -295,57 +268,40 @@ static void test_label_freetype_function(mmap_assets_handle_t assets_handle)
     TEST_ASSERT_EQUAL(ESP_OK, ret);
     gfx_label_set_font(label_obj, font_DejaVuSans);
 #endif
-    ESP_LOGI(TAG, "Font set for label");
 
     gfx_label_set_bg_enable(label_obj, true);
     gfx_label_set_bg_color(label_obj, GFX_COLOR_HEX(0xFF0000));
-
     gfx_label_set_long_mode(label_obj, GFX_LABEL_LONG_WRAP);
-
     gfx_label_set_text(label_obj, "Hello World");
-    ESP_LOGI(TAG, "Label text set to 'Hello World!'");
-
     gfx_label_set_color(label_obj, GFX_COLOR_HEX(0x00FF00));
-    ESP_LOGI(TAG, "Label color set to green");
-
     gfx_obj_set_pos(label_obj, 100, 200);
-    ESP_LOGI(TAG, "Label position set to (100, 200)");
-
     gfx_obj_align(label_obj, GFX_ALIGN_TOP_MID, 0, 100);
-    ESP_LOGI(TAG, "Label aligned to top center with 20px offset");
-
     gfx_obj_set_size(label_obj, 200, 100);
-    ESP_LOGI(TAG, "Label size set to 300x50");
 
     gfx_emote_unlock(emote_handle);
 
-    vTaskDelay(pdMS_TO_TICKS(1000 * 10));
+    vTaskDelay(pdMS_TO_TICKS(1000 * 3));
 
     gfx_emote_lock(emote_handle);
 
-    // Test formatted text
     gfx_label_set_text_fmt(label_obj, "Count: %d, Float: %.2f", 42, 3.14);
-    
     gfx_label_set_long_mode(label_obj, GFX_LABEL_LONG_SCROLL);
-    ESP_LOGI(TAG, "Label formatted text set");
 
     gfx_emote_unlock(emote_handle);
 
-    // Wait for display
     vTaskDelay(pdMS_TO_TICKS(2000));
 
     gfx_emote_lock(emote_handle);
     gfx_label_set_color(label_obj, GFX_COLOR_HEX(0x0000FF));
-    ESP_LOGI(TAG, "Label color set to blue");
     gfx_emote_unlock(emote_handle);
 
-    // Wait for display
     vTaskDelay(pdMS_TO_TICKS(2000));
 
     gfx_emote_lock(emote_handle);
-    // Delete label object
     gfx_obj_delete(label_obj);
-    ESP_LOGI(TAG, "Label object deleted successfully");
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
+    gfx_label_delete_font(font_DejaVuSans);
+#endif
     gfx_emote_unlock(emote_handle);
 }
 
@@ -353,11 +309,10 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
 {
     gfx_image_dsc_t img_dsc;
 
-    ESP_LOGI(TAG, "=== Testing Image Functionality ===");
+    ESP_LOGI(TAG, "=== Testing Image Function ===");
 
     gfx_emote_lock(emote_handle);
 
-    // Test 1: C_ARRAY format image
     ESP_LOGI(TAG, "--- Testing C_ARRAY format image ---");
     gfx_obj_t *img_obj_c_array = gfx_img_create(emote_handle);
     TEST_ASSERT_NOT_NULL(img_obj_c_array);
@@ -368,7 +323,6 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
 
     uint16_t width, height;
     gfx_obj_get_size(img_obj_c_array, &width, &height);
-    ESP_LOGI(TAG, "C_ARRAY image size: %dx%d", width, height);
 
     gfx_emote_unlock(emote_handle);
     vTaskDelay(pdMS_TO_TICKS(2000));
@@ -376,7 +330,6 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
     gfx_emote_lock(emote_handle);
     gfx_obj_delete(img_obj_c_array);
 
-    // Test 2: BIN format image
     ESP_LOGI(TAG, "--- Testing BIN format image ---");
     gfx_obj_t *img_obj_bin = gfx_img_create(emote_handle);
     TEST_ASSERT_NOT_NULL(img_obj_bin);
@@ -392,7 +345,6 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
     gfx_obj_set_pos(img_obj_bin, 100, 180);
 
     gfx_obj_get_size(img_obj_bin, &width, &height);
-    ESP_LOGI(TAG, "BIN image size: %dx%d", width, height);
 
     gfx_emote_unlock(emote_handle);
     vTaskDelay(pdMS_TO_TICKS(2000));
@@ -400,7 +352,6 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
     gfx_emote_lock(emote_handle);
     gfx_obj_delete(img_obj_bin);
 
-    // Test 3: Multiple images with different formats
     ESP_LOGI(TAG, "--- Testing multiple images with different formats ---");
     gfx_obj_t *img_obj1 = gfx_img_create(emote_handle);
     gfx_obj_t *img_obj2 = gfx_img_create(emote_handle);
@@ -430,14 +381,12 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
     gfx_emote_unlock(emote_handle);
 }
 
-// Comprehensive test: Create multiple objects and test interaction
 static void test_multiple_objects_interaction(mmap_assets_handle_t assets_handle)
 {
     ESP_LOGI(TAG, "=== Testing Multiple Objects Interaction ===");
 
     gfx_emote_lock(emote_handle);
 
-    // Create multiple objects
     gfx_obj_t *anim_obj = gfx_anim_create(emote_handle);
     gfx_obj_t *label_obj = gfx_label_create(emote_handle);
     gfx_obj_t *img_obj = gfx_img_create(emote_handle);
@@ -449,7 +398,6 @@ static void test_multiple_objects_interaction(mmap_assets_handle_t assets_handle
     TEST_ASSERT_NOT_NULL(timer);
     ESP_LOGI(TAG, "Multiple objects created successfully");
 
-    // Configure animation
     const void *anim_data = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF);
     size_t anim_size = mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF);
 
@@ -476,7 +424,6 @@ static void test_multiple_objects_interaction(mmap_assets_handle_t assets_handle
     gfx_label_set_color(label_obj, GFX_COLOR_HEX(0xFF0000));
     gfx_obj_align(label_obj, GFX_ALIGN_BOTTOM_MID, 0, 0);
 
-    // Configure image
     gfx_image_dsc_t img_dsc;
     const void *img_data = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_ICON1_BIN);
     img_dsc.data_size = mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_ICON1_BIN);
@@ -489,26 +436,24 @@ static void test_multiple_objects_interaction(mmap_assets_handle_t assets_handle
     gfx_img_set_src(img_obj, (void*)&img_dsc);  // Use BIN format image
     gfx_obj_align(img_obj, GFX_ALIGN_TOP_MID, 0, 0);
 
-    ESP_LOGI(TAG, "All objects configured and started");
 
     gfx_emote_unlock(emote_handle);
 
-    // Run for a while to observe interaction
     vTaskDelay(pdMS_TO_TICKS(1000 * 10));
 
     gfx_emote_lock(emote_handle);
-    // Clean up all objects
     gfx_timer_delete(emote_handle, timer);
     gfx_obj_delete(anim_obj);
     gfx_obj_delete(label_obj);
     gfx_obj_delete(img_obj);
-    ESP_LOGI(TAG, "All objects deleted successfully");
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
+    gfx_label_delete_font(font_DejaVuSans);
+#endif
     gfx_emote_unlock(emote_handle);
 }
 
 static esp_err_t init_display_and_graphics(const char *partition_label, uint32_t max_files, uint32_t checksum, mmap_assets_handle_t *assets_handle)
 {
-    // Initialize assets
     const mmap_assets_config_t asset_config = {
         .partition_label = partition_label,
         .max_files = max_files,
@@ -522,7 +467,6 @@ static esp_err_t init_display_and_graphics(const char *partition_label, uint32_t
         return ret;
     }
 
-    // Initialize display
     const bsp_display_config_t bsp_disp_cfg = {
         .max_transfer_sz = (BSP_LCD_H_RES * 100) * sizeof(uint16_t),
     };
@@ -631,9 +575,7 @@ TEST_CASE("test label function", "[label][map]")
 
 TEST_CASE("test image function", "[image]")
 {
-    // Initialize display and graphics system
     mmap_assets_handle_t assets_handle = NULL;
-    ESP_LOGE(TAG, "test image function");
     esp_err_t ret = init_display_and_graphics("assets_8bit", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
 
@@ -643,9 +585,8 @@ TEST_CASE("test image function", "[image]")
     cleanup_display_and_graphics(assets_handle);
 }
 
-TEST_CASE("test multiple objects interaction", "[interaction]")
+TEST_CASE("test multi objects function", "[multi]")
 {
-    // Initialize display and graphics system
     mmap_assets_handle_t assets_handle = NULL;
     esp_err_t ret = init_display_and_graphics("assets_8bit", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
