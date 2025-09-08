@@ -20,11 +20,16 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y doxygen graphviz python3
+        sudo apt-get install -y doxygen graphviz python3 python3-pip
+        pip3 install --user sphinx sphinx_rtd_theme breathe
     
     - name: Generate complete documentation
       run: |
-        make -f Makefile.docs docs
+        make -f Makefile.docs clean-docs
+        make -f Makefile.docs api-docs
+        make -f Makefile.docs doxygen
+        cp API_REFERENCE.md docs/html/
+        ls -la docs/html/
     
     - name: Deploy to GitHub Pages
       # if: github.ref == 'refs/heads/main'
@@ -33,7 +38,9 @@ jobs:
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./docs/html
+        enable_jekyll: false
         force_orphan: true
+        commit_message: 'docs: update documentation'
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
