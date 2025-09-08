@@ -1,0 +1,7 @@
+<map id="include/widget/gfx_anim.h" name="include/widget/gfx_anim.h">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,5,148,45"/>
+<area shape="rect" id="Node000002" href="$gfx_8h.html" title="Graphics Framework (GFX) &#45; Main header file." alt="" coords="23,93,130,119"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="79,59,79,93,74,93,74,59"/>
+<area shape="rect" id="Node000003" href="$lvgl_8h.html" title="GFX Framework LVGL Compatibility Layer." alt="" coords="22,167,131,192"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="79,132,79,167,74,167,74,132"/>
+</map>

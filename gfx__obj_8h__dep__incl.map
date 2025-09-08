@@ -1,0 +1,16 @@
+<map id="include/core/gfx_obj.h" name="include/core/gfx_obj.h">
+<area shape="rect" id="Node000001" title=" " alt="" coords="97,5,262,31"/>
+<area shape="rect" id="Node000002" href="$gfx_8h.html" title="Graphics Framework (GFX) &#45; Main header file." alt="" coords="126,167,233,192"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="85,35,46,52,29,65,15,80,8,99,15,117,38,140,66,156,97,166,127,172,126,177,95,171,64,160,34,144,11,120,3,99,11,77,25,61,43,48,83,30"/>
+<area shape="rect" id="Node000004" href="$gfx__anim_8h.html" title=" " alt="" coords="26,79,168,119"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="160,42,119,80,115,77,156,38"/>
+<area shape="rect" id="Node000005" href="$gfx__img_8h.html" title=" " alt="" coords="192,79,335,119"/>
+<area shape="poly" id="edge5_Node000001_Node000005" title=" " alt="" coords="204,38,245,77,242,80,200,42"/>
+<area shape="rect" id="Node000006" href="$gfx__label_8h.html" title=" " alt="" coords="359,79,502,119"/>
+<area shape="poly" id="edge7_Node000001_Node000006" title=" " alt="" coords="230,32,371,76,369,81,228,37"/>
+<area shape="rect" id="Node000003" href="$lvgl_8h.html" title="GFX Framework LVGL Compatibility Layer." alt="" coords="125,240,234,265"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="182,206,182,240,177,240,177,206"/>
+<area shape="poly" id="edge4_Node000004_Node000002" title=" " alt="" coords="129,126,169,164,165,168,125,130"/>
+<area shape="poly" id="edge6_Node000005_Node000002" title=" " alt="" coords="235,130,194,168,190,164,232,126"/>
+<area shape="poly" id="edge8_Node000006_Node000002" title=" " alt="" coords="358,125,217,169,216,164,356,120"/>
+</map>

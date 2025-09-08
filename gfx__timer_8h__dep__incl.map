@@ -1,0 +1,7 @@
+<map id="include/core/gfx_timer.h" name="include/core/gfx_timer.h">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,5,184,31"/>
+<area shape="rect" id="Node000002" href="$gfx_8h.html" title="Graphics Framework (GFX) &#45; Main header file." alt="" coords="41,79,148,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="97,44,97,79,92,79,92,44"/>
+<area shape="rect" id="Node000003" href="$lvgl_8h.html" title="GFX Framework LVGL Compatibility Layer." alt="" coords="40,152,149,177"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="97,118,97,152,92,152,92,118"/>
+</map>

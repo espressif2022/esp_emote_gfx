@@ -1,0 +1,31 @@
+<map id="include/core/gfx_types.h" name="include/core/gfx_types.h">
+<area shape="rect" id="Node000001" title=" " alt="" coords="208,5,389,31"/>
+<area shape="rect" id="Node000002" href="$gfx__core_8h.html" title=" " alt="" coords="336,79,509,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="331,35,404,76,401,81,329,40"/>
+<area shape="rect" id="Node000003" href="$gfx__obj_8h.html" title=" " alt="" coords="147,152,312,177"/>
+<area shape="poly" id="edge14_Node000001_Node000003" title=" " alt="" coords="289,45,237,153,232,151,285,42"/>
+<area shape="rect" id="Node000004" href="$gfx_8h.html" title="Graphics Framework (GFX) &#45; Main header file." alt="" coords="275,313,381,339"/>
+<area shape="poly" id="edge17_Node000001_Node000004" title=" " alt="" coords="243,37,197,55,152,81,89,124,35,167,18,189,9,212,12,237,27,264,43,276,67,287,133,303,207,314,275,319,274,325,206,319,131,309,65,292,40,281,23,267,6,238,4,211,13,186,32,163,86,119,149,76,195,51,241,32"/>
+<area shape="rect" id="Node000006" href="$gfx__anim_8h.html" title=" " alt="" coords="38,225,181,265"/>
+<area shape="poly" id="edge18_Node000001_Node000006" title=" " alt="" coords="258,39,222,57,183,83,146,115,117,153,110,171,107,190,108,225,103,225,102,190,105,170,112,151,142,111,179,78,219,53,256,34"/>
+<area shape="rect" id="Node000007" href="$gfx__img_8h.html" title=" " alt="" coords="257,225,399,265"/>
+<area shape="poly" id="edge19_Node000001_Node000007" title=" " alt="" coords="307,44,326,152,330,225,325,225,321,152,302,45"/>
+<area shape="rect" id="Node000008" href="$gfx__label_8h.html" title=" " alt="" coords="475,225,618,265"/>
+<area shape="poly" id="edge20_Node000001_Node000008" title=" " alt="" coords="390,31,469,50,502,62,523,77,535,94,544,113,554,154,555,194,552,225,547,225,550,193,548,155,539,115,531,97,519,81,499,67,468,55,388,36"/>
+<area shape="rect" id="Node000009" href="$gfx__timer_8h.html" title=" " alt="" coords="584,152,763,177"/>
+<area shape="poly" id="edge15_Node000001_Node000009" title=" " alt="" coords="403,29,485,47,526,60,566,76,596,93,623,113,664,149,660,153,620,117,593,98,564,81,525,65,483,52,402,34"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="380,111,262,154,260,149,378,106"/>
+<area shape="poly" id="edge11_Node000002_Node000004" title=" " alt="" coords="430,117,433,149,433,187,427,228,413,267,401,283,387,296,356,316,353,311,383,292,397,279,408,264,422,227,428,187,428,149,424,118"/>
+<area shape="poly" id="edge12_Node000002_Node000006" title=" " alt="" coords="323,105,212,124,166,137,136,154,124,170,117,189,112,226,106,225,112,187,120,167,133,150,164,132,211,118,322,100"/>
+<area shape="poly" id="edge13_Node000002_Node000008" title=" " alt="" coords="443,113,533,223,529,227,438,116"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="230,191,233,227,238,246,246,264,272,292,303,311,300,316,269,296,242,267,233,248,228,228,225,191"/>
+<area shape="poly" id="edge5_Node000003_Node000006" title=" " alt="" coords="201,187,140,227,137,223,199,183"/>
+<area shape="poly" id="edge7_Node000003_Node000007" title=" " alt="" coords="256,184,306,223,302,227,253,188"/>
+<area shape="poly" id="edge9_Node000003_Node000008" title=" " alt="" coords="289,178,476,224,474,229,288,183"/>
+<area shape="rect" id="Node000005" href="$lvgl_8h.html" title="GFX Framework LVGL Compatibility Layer." alt="" coords="273,387,383,412"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="331,352,331,387,325,387,325,352"/>
+<area shape="poly" id="edge6_Node000006_Node000004" title=" " alt="" coords="175,267,296,311,295,316,173,272"/>
+<area shape="poly" id="edge8_Node000007_Node000004" title=" " alt="" coords="331,279,331,313,325,313,325,279"/>
+<area shape="poly" id="edge10_Node000008_Node000004" title=" " alt="" coords="482,272,361,316,359,311,481,267"/>
+<area shape="poly" id="edge16_Node000009_Node000004" title=" " alt="" coords="671,192,658,231,647,251,631,267,612,278,586,288,520,304,382,323,381,317,519,299,584,283,610,274,628,263,642,248,653,229,666,190"/>
+</map>

@@ -1,0 +1,21 @@
+<map id="include/core/gfx_core.h" name="include/core/gfx_core.h">
+<area shape="rect" id="Node000001" title=" " alt="" coords="74,5,247,31"/>
+<area shape="rect" id="Node000002" href="$gfx__obj_8h.html" title=" " alt="" coords="138,79,303,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="182,40,213,77,209,80,177,43"/>
+<area shape="rect" id="Node000003" href="$gfx_8h.html" title="Graphics Framework (GFX) &#45; Main header file." alt="" coords="157,240,263,265"/>
+<area shape="poly" id="edge10_Node000001_Node000003" title=" " alt="" coords="127,39,81,68,36,106,20,127,10,148,9,169,19,190,47,217,82,234,120,244,157,249,156,254,119,249,81,239,44,221,15,194,4,170,5,147,15,124,32,102,78,64,125,35"/>
+<area shape="rect" id="Node000005" href="$gfx__anim_8h.html" title=" " alt="" coords="29,152,172,192"/>
+<area shape="poly" id="edge11_Node000001_Node000005" title=" " alt="" coords="148,43,129,80,116,118,107,152,102,151,110,117,124,78,143,41"/>
+<area shape="rect" id="Node000007" href="$gfx__label_8h.html" title=" " alt="" coords="415,152,557,192"/>
+<area shape="poly" id="edge12_Node000001_Node000007" title=" " alt="" coords="208,33,317,76,392,114,455,149,453,154,389,119,314,81,206,38"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="222,118,214,240,208,239,216,117"/>
+<area shape="poly" id="edge4_Node000002_Node000005" title=" " alt="" coords="193,114,131,154,128,150,190,109"/>
+<area shape="rect" id="Node000006" href="$gfx__img_8h.html" title=" " alt="" coords="248,152,391,192"/>
+<area shape="poly" id="edge6_Node000002_Node000006" title=" " alt="" coords="248,111,297,150,294,154,244,115"/>
+<area shape="poly" id="edge8_Node000002_Node000007" title=" " alt="" coords="273,105,423,149,422,154,272,110"/>
+<area shape="rect" id="Node000004" href="$lvgl_8h.html" title="GFX Framework LVGL Compatibility Layer." alt="" coords="155,313,265,339"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="213,279,213,313,207,313,207,279"/>
+<area shape="poly" id="edge5_Node000005_Node000003" title=" " alt="" coords="140,198,195,237,192,242,137,202"/>
+<area shape="poly" id="edge7_Node000006_Node000003" title=" " alt="" coords="283,202,228,242,225,237,280,198"/>
+<area shape="poly" id="edge9_Node000007_Node000003" title=" " alt="" coords="407,198,251,242,250,237,406,193"/>
+</map>

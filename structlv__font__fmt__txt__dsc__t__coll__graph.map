@@ -1,0 +1,9 @@
+<map id="lv_font_fmt_txt_dsc_t" name="lv_font_fmt_txt_dsc_t">
+<area shape="rect" id="Node000001" title=" " alt="" coords="203,108,365,133"/>
+<area shape="rect" id="Node000002" href="$structlv__font__fmt__txt__glyph__dsc__t.html" title="This describes a glyph." alt="" coords="5,5,171,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="141,49,261,105,259,110,139,54"/>
+<area shape="rect" id="Node000003" href="$structlv__font__fmt__txt__cmap__t.html" title="LVGL Character Map &#45; maps codepoints to glyph descriptors Several formats are supported to optimize m..." alt="" coords="195,13,373,38"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="287,52,287,108,281,108,281,52"/>
+<area shape="rect" id="Node000004" href="$structlv__font__fmt__txt__glyph__cache__t.html" title=" " alt="" coords="397,5,563,45"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="429,54,309,110,307,105,427,49"/>
+</map>

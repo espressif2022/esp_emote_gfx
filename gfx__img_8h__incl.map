@@ -1,0 +1,17 @@
+<map id="include/widget/gfx_img.h" name="include/widget/gfx_img.h">
+<area shape="rect" id="Node000001" title=" " alt="" coords="15,5,158,45"/>
+<area shape="rect" id="Node000002" href="$gfx__types_8h.html" title=" " alt="" coords="5,240,136,265"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="81,46,68,94,65,166,70,226,64,227,59,166,63,93,76,45"/>
+<area shape="rect" id="Node000005" href="$gfx__obj_8h.html" title=" " alt="" coords="77,93,192,119"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="101,44,123,80,118,83,96,47"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="171,313,253,339"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="95,263,178,305,176,309,92,268"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="52,313,135,339"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="77,265,88,299,83,301,72,266"/>
+<area shape="poly" id="edge5_Node000005_Node000002" title=" " alt="" coords="132,120,84,229,79,226,127,118"/>
+<area shape="rect" id="Node000006" href="$gfx__core_8h.html" title=" " alt="" coords="128,167,219,192"/>
+<area shape="poly" id="edge6_Node000005_Node000006" title=" " alt="" coords="143,118,163,153,158,156,139,120"/>
+<area shape="poly" id="edge9_Node000006_Node000002" title=" " alt="" coords="158,194,100,234,97,230,155,190"/>
+<area shape="poly" id="edge8_Node000006_Node000003" title=" " alt="" coords="180,192,195,239,209,299,204,301,189,241,175,193"/>
+<area shape="poly" id="edge7_Node000006_Node000004" title=" " alt="" coords="174,193,166,227,150,267,135,288,119,306,115,302,131,284,146,264,161,225,169,192"/>
+</map>
