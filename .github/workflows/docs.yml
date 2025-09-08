@@ -36,16 +36,17 @@ jobs:
         # List generated files for debugging
         ls -la docs/html/
     
-    - name: Deploy to GitHub Pages
-      # if: github.ref == 'refs/heads/main'
-      if: github.ref == 'refs/heads/feat/add_docs'
-      uses: peaceiris/actions-gh-pages@v4
+    - name: Setup Pages
+      uses: actions/configure-pages@v3
+
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v2
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./docs/html
-        enable_jekyll: false
-        force_orphan: true
-        commit_message: 'docs: update documentation'
+        path: './docs/html'
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v2
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
