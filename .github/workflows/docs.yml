@@ -27,8 +27,13 @@ jobs:
       run: |
         make -f Makefile.docs clean-docs
         make -f Makefile.docs api-docs
-        make -f Makefile.docs doxygen
-        cp API_REFERENCE.md docs/html/
+        # Ensure API_REFERENCE.md exists and has content
+        cat API_REFERENCE.md
+        # Generate Doxygen documentation with API_REFERENCE.md as main page
+        doxygen Doxyfile
+        # Copy API reference to a more accessible location
+        cp API_REFERENCE.md docs/html/api-reference.md
+        # List generated files for debugging
         ls -la docs/html/
     
     - name: Deploy to GitHub Pages

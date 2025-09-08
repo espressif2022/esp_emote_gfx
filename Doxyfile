@@ -2,10 +2,12 @@ PROJECT_NAME           = "ESP Emote GFX"
 PROJECT_NUMBER         = "v1.0"
 PROJECT_BRIEF          = "Lightweight graphics framework for ESP-IDF"
 
-INPUT                  = include/ README.md API_REFERENCE.md
+INPUT                  = API_REFERENCE.md README.md include/
 RECURSIVE              = YES
 FILE_PATTERNS          = *.h *.md
-USE_MDFILE_AS_MAINPAGE = README.md
+USE_MDFILE_AS_MAINPAGE = API_REFERENCE.md
+MARKDOWN_SUPPORT       = YES
+TOC_INCLUDE_HEADINGS   = 5
 
 OUTPUT_DIRECTORY       = docs/
 GENERATE_HTML          = YES
