@@ -33,7 +33,6 @@ jobs:
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./docs/html
-        destination_dir: api-docs
         force_orphan: true
     
     - name: Upload artifacts
