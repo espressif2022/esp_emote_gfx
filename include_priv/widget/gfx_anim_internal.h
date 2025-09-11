@@ -10,8 +10,7 @@
 #include "core/gfx_obj.h"
 #include "core/gfx_timer.h"
 #include "widget/gfx_anim.h"
-#include "decoder/gfx_aaf_dec.h"
-#include "decoder/gfx_aaf_format.h"
+#include "decoder/gfx_eaf_dec.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,7 +27,7 @@ extern "C" {
 /* Frame processing information structure */
 typedef struct {
     /*!< Pre-parsed header information to avoid repeated parsing */
-    gfx_aaf_header_t header;           /*!< Pre-parsed header for current frame */
+    gfx_eaf_header_t header;           /*!< Pre-parsed header for current frame */
     
     /*!< Pre-fetched frame data to avoid repeated fetching */
     const void *frame_data;          /*!< Pre-fetched frame data for current frame */
@@ -59,7 +58,7 @@ typedef struct {
     gfx_timer_handle_t timer;        /*!< Timer handle for frame updates */
     
     /*!< Frame processing information */
-    gfx_aaf_format_handle_t file_desc;      /*!< Animation file descriptor */
+    gfx_eaf_format_handle_t file_desc;      /*!< Animation file descriptor */
     gfx_anim_frame_info_t frame;     /*!< Frame processing info */
     
     /*!< Widget-specific display properties */

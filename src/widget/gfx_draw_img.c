@@ -16,7 +16,7 @@
 #include "widget/gfx_comm.h"
 #include "widget/gfx_font_internal.h"
 #include "core/gfx_obj_internal.h"
-#include "decoder/gfx_img_decoder.h"
+#include "decoder/gfx_img_dec.h"
 
 static const char *TAG = "gfx_img";
 

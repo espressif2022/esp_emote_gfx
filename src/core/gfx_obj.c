@@ -21,11 +21,10 @@
 #include "widget/gfx_label_internal.h"
 #include "widget/gfx_anim.h"
 #include "core/gfx_types.h"
-#include "decoder/gfx_aaf_dec.h"
+#include "decoder/gfx_eaf_dec.h"
 #include "widget/gfx_anim_internal.h"
 #include "widget/gfx_font_internal.h"
-#include "decoder/gfx_aaf_format.h"
-#include "decoder/gfx_img_decoder.h"
+#include "decoder/gfx_img_dec.h"
 
 static const char *TAG = "gfx_obj";
 
@@ -422,7 +421,7 @@ void gfx_obj_delete(gfx_obj_t *obj)
             gfx_anim_free_frame_info(&anim->frame);
 
             if (anim->file_desc) {
-                gfx_aaf_format_deinit(anim->file_desc);
+                gfx_eaf_format_deinit(anim->file_desc);
             }
 
             free(anim);
@@ -503,7 +502,7 @@ gfx_obj_t * gfx_anim_create(gfx_handle_t handle)
         return NULL;
     }
 
-    memset(&anim->frame.header, 0, sizeof(gfx_aaf_header_t));
+    memset(&anim->frame.header, 0, sizeof(gfx_eaf_header_t));
 
     anim->frame.frame_data = NULL;
     anim->frame.frame_size = 0;
@@ -548,21 +547,21 @@ esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
     }
 
     if (anim->frame.header.width > 0) {
-        gfx_aaf_free_header(&anim->frame.header);
-        memset(&anim->frame.header, 0, sizeof(gfx_aaf_header_t));
+        gfx_eaf_free_header(&anim->frame.header);
+        memset(&anim->frame.header, 0, sizeof(gfx_eaf_header_t));
     }
     anim->frame.frame_data = NULL;
     anim->frame.frame_size = 0;
 
-    gfx_aaf_format_handle_t new_desc;
-    gfx_aaf_format_init(src_data, src_len, &new_desc);
+    gfx_eaf_format_handle_t new_desc;
+    gfx_eaf_format_init(src_data, src_len, &new_desc);
     if (new_desc == NULL) {
         ESP_LOGE(TAG, "Failed to initialize asset parser");
         return ESP_FAIL;
     }
 
     if (anim->file_desc) {
-        gfx_aaf_format_deinit(anim->file_desc);
+        gfx_eaf_format_deinit(anim->file_desc);
         anim->file_desc = NULL;
     }
 
@@ -570,7 +569,7 @@ esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
     anim->start_frame = 0;
     anim->current_frame = 0;
     //last block is empty
-    anim->end_frame = gfx_aaf_format_get_total_frames(new_desc) - 2;
+    anim->end_frame = gfx_eaf_format_get_total_frames(new_desc) - 2;
 
     ESP_LOGD(TAG, "set src, start: %lu, end: %lu, file_desc: %p", anim->start_frame, anim->end_frame, anim->file_desc);
     return ESP_OK;
@@ -594,7 +593,7 @@ esp_err_t gfx_anim_set_segment(gfx_obj_t *obj, uint32_t start, uint32_t end, uin
         return ESP_ERR_INVALID_STATE;
     }
 
-    int total_frames = gfx_aaf_format_get_total_frames(anim->file_desc);
+    int total_frames = gfx_eaf_format_get_total_frames(anim->file_desc);
 
     anim->start_frame = start;
     anim->end_frame = (end > total_frames - 2) ? (total_frames - 2) : end;

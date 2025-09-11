@@ -74,10 +74,8 @@ uint32_t gfx_timer_handler(gfx_timer_manager_t *timer_mgr)
     while (timer_node != NULL) {
         next_timer = timer_node->next;
 
-        // Execute timer (will return false if repeat_count is 0)
         gfx_timer_exec(timer_node);
 
-        // Calculate time until next execution for this timer
         if (!timer_node->paused && timer_node->repeat_count != 0) {
             uint32_t elapsed_time = gfx_timer_tick_elaps(timer_node->last_run);
             uint32_t remaining_time = (elapsed_time >= timer_node->period) ? 0 : (timer_node->period - elapsed_time);
@@ -104,10 +102,11 @@ uint32_t gfx_timer_handler(gfx_timer_manager_t *timer_mgr)
     }
 
     fps_sample_count++;
-    fps_total_time += (schedule_elapsed > schedule_period_ms) ? schedule_elapsed : schedule_period_ms;
-    if (fps_sample_count >= 100) {
+    // ESP_LOGI(TAG, "elapsed=%d, period_ms=%d, next_timer_delay=%d, final_delay=%d", schedule_elapsed, schedule_period_ms, next_timer_delay, final_delay);
+    fps_total_time += schedule_elapsed;
+    if (fps_sample_count >= 10) {
         timer_mgr->actual_fps = 1000 / (fps_total_time / fps_sample_count);
-        // ESP_LOGI(TAG, "average fps: %lu(%lu)", timer_mgr->actual_fps, timer_mgr->fps);
+        ESP_LOGI(TAG, "average fps: %lu(%lu)", timer_mgr->actual_fps, timer_mgr->fps);
         fps_sample_count = 0;
         fps_total_time = 0;
     }

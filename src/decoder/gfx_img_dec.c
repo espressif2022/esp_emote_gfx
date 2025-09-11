@@ -11,9 +11,8 @@
 #include "core/gfx_core.h"
 #include "core/gfx_obj.h"
 #include "widget/gfx_img.h"
-#include "decoder/gfx_img_decoder.h"
-#include "decoder/gfx_aaf_dec.h"
-#include "decoder/gfx_jpeg_dec.h"
+#include "decoder/gfx_img_dec.h"
+#include "decoder/gfx_eaf_dec.h"
 
 static const char *TAG = "gfx_img_decoder";
 

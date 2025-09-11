@@ -15,7 +15,7 @@
 #include "widget/gfx_img_internal.h"
 #include "widget/gfx_label.h"
 #include "widget/gfx_anim.h"
-#include "decoder/gfx_img_decoder.h"
+#include "decoder/gfx_img_dec.h"
 #include "core/gfx_types.h"
 #include "widget/gfx_font_internal.h"
 #include "widget/gfx_label_internal.h"
@@ -38,8 +38,6 @@ static uint32_t gfx_calculate_task_delay(uint32_t timer_delay);
  */
 static uint32_t gfx_calculate_task_delay(uint32_t timer_delay)
 {
-    // Dynamic delay calculation based on tick rate
-    // Ensure minimum delay to prevent busy waiting
     uint32_t min_delay_ms = (1000 / configTICK_RATE_HZ) + 1; // At least one tick + 1ms
 
     if (timer_delay == ANIM_NO_TIMER_READY) {
@@ -246,7 +244,6 @@ static void gfx_core_task(void *arg)
     while (1) {
         if (ctx->sync.lock_mutex && xSemaphoreTakeRecursive(ctx->sync.lock_mutex, portMAX_DELAY) == pdTRUE) {
             if (gfx_event_handler(ctx)) {
-                // Event was handled (e.g., deletion request), task will be deleted
                 xSemaphoreGiveRecursive(ctx->sync.lock_mutex);
                 break;
             }
@@ -585,7 +582,7 @@ static bool gfx_refr_handler(gfx_core_context_t *ctx)
     bool needs_rendering = gfx_object_handler(ctx);
 
     if (!needs_rendering) {
-        //     return false;
+        // return false;
     }
 
     int block_height = gfx_buf_get_height(ctx);
