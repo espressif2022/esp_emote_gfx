@@ -77,15 +77,19 @@ static bool gfx_object_handler(gfx_core_context_t *ctx)
         return false;
     }
 
-    bool needs_rendering = false;
+    bool updated = false;
     gfx_core_child_t *child_node = ctx->disp.child_list;
 
     while (child_node != NULL) {
         gfx_obj_t *obj = (gfx_obj_t *)child_node->src;
+        
+        if(obj->is_dirty) {
+            updated = true;
+        }
+
         if (obj->type == GFX_OBJ_TYPE_ANIMATION) {
             gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
             if (anim && anim->file_desc && anim->is_playing) {
-                needs_rendering = true;
 
                 if (!gfx_anim_preprocess_frame(anim)) {
                     child_node = child_node->next;
@@ -96,7 +100,7 @@ static bool gfx_object_handler(gfx_core_context_t *ctx)
         child_node = child_node->next;
     }
 
-    return needs_rendering;
+    return updated;
 }
 
 /**
@@ -579,10 +583,10 @@ bool gfx_emote_is_flushing_last(gfx_handle_t handle)
  */
 static bool gfx_refr_handler(gfx_core_context_t *ctx)
 {
-    bool needs_rendering = gfx_object_handler(ctx);
+    bool updated = gfx_object_handler(ctx);
 
-    if (!needs_rendering) {
-        // return false;
+    if (!updated) {
+        return false;
     }
 
     int block_height = gfx_buf_get_height(ctx);
@@ -602,7 +606,6 @@ static bool gfx_refr_handler(gfx_core_context_t *ctx)
         int y1 = block_idx * block_height;
         int y2 = ((block_idx + 1) * block_height > v_res) ? v_res : (block_idx + 1) * block_height;
 
-        // Set flag for last block
         ctx->disp.flushing_last = (block_idx == total_blocks - 1);
 
         uint16_t *buf_act = ctx->disp.buf_act;

@@ -118,6 +118,7 @@ static void gfx_label_scroll_timer_callback(void *arg)
     }
 
     label->scroll_changed = true;
+    obj->is_dirty = true;
 }
 
 esp_err_t gfx_label_set_font(gfx_obj_t *obj, gfx_font_t font)
