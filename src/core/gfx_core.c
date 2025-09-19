@@ -89,9 +89,9 @@ static bool gfx_object_handler(gfx_core_context_t *ctx)
 
         if (obj->type == GFX_OBJ_TYPE_ANIMATION) {
             gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
-            if (anim && anim->file_desc && anim->is_playing) {
+            if (anim && anim->file_desc) {
 
-                if (!gfx_anim_preprocess_frame(anim)) {
+                if (ESP_OK != gfx_anim_preprocess_frame(anim)) {
                     child_node = child_node->next;
                     continue;
                 }
@@ -99,6 +99,8 @@ static bool gfx_object_handler(gfx_core_context_t *ctx)
         }
         child_node = child_node->next;
     }
+
+    updated = true;
 
     return updated;
 }

@@ -98,7 +98,8 @@ typedef struct {
 typedef enum {
     EAF_FORMAT_VALID = 0,      /*!< Valid EAF format with split BMP data */
     EAF_FORMAT_REDIRECT = 1,    /*!< Redirect format pointing to another file */
-    EAF_FORMAT_INVALID = 2      /*!< Invalid or unsupported format */
+    EAF_FORMAT_INVALID = 2,      /*!< Invalid or unsupported format */
+    EAF_FORMAT_FLAG = 3         /*!< Invalid format */
 } eaf_format_type_t;
 
 /**

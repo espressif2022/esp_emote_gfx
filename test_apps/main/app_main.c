@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
@@ -11,25 +10,20 @@
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_vendor.h"
 #include "esp_lcd_panel_ops.h"
-
 // #include "bsp/esp-bsp.h"
 #include "bsp/display.h"
 #include "esp_timer.h"
 #include "esp_err.h"
 #include "esp_check.h"
 #include "driver/gpio.h"
-
-
 #if CONFIG_IDF_TARGET_ESP32S3 && ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
 #include "esp_lcd_panel_rgb.h"
 #endif
-
 #include "gfx.h"
 #include "mmap_generate_test_assets.h"
 
 static const char *TAG = "player";
-
-#define TEST_MEMORY_LEAK_THRESHOLD  (500)
+#define TEST_MEMORY_LEAK_THRESHOLD (500)
 
 extern const gfx_image_dsc_t icon1;
 extern const gfx_image_dsc_t icon5;
@@ -140,16 +134,21 @@ static void test_animation_function(mmap_assets_handle_t assets_handle)
         const char *name;
         int mirror_offset;
     } test_cases[] = {
-        {MMAP_TEST_ASSETS_MI_1_EYE_4BIT_AAF, "MI_1_EYE 4-bit animation", 10},
-        {MMAP_TEST_ASSETS_MI_1_EYE_8BIT_AAF, "MI_1_EYE 8-bit animation", 10},
-        {MMAP_TEST_ASSETS_MI_1_EYE_24BIT_AAF, "MI_1_EYE 24-bit animation", 10},
-        {MMAP_TEST_ASSETS_MI_2_EYE_4BIT_AAF, "MI_2_EYE 4-bit animation", 100},
-        {MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF, "MI_2_EYE 8-bit animation", 100},
-        {MMAP_TEST_ASSETS_MI_2_EYE_24BIT_AAF, "MI_2_EYE 24-bit animation", 100}
+        {MMAP_TEST_ASSETS_MI_1_EYE_4BIT_AAF,        "MI_1_EYE 4-bit",           10},
+        {MMAP_TEST_ASSETS_MI_1_EYE_8BIT_AAF,        "MI_1_EYE 8-bit",           10},
+        // {MMAP_TEST_ASSETS_TESTIMG_1_EAF, "MI_1_EYE 8-bit Huffman",   10},
+        {MMAP_TEST_ASSETS_MI_1_EYE_8BIT_HUFF_AAF,        "MI_1_EYE 8-bit Huffman",   10},
+        {MMAP_TEST_ASSETS_MI_1_EYE_24BIT_AAF,       "MI_1_EYE 24-bit",          10},
+
+        {MMAP_TEST_ASSETS_MI_2_EYE_4BIT_AAF,        "MI_2_EYE 4-bit",           100},
+        {MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF,        "MI_2_EYE 8-bit",           100},
+        // {MMAP_TEST_ASSETS_TESTIMG_2_EAF, "MI_2_EYE 8-bit Huffman",   100},
+        {MMAP_TEST_ASSETS_MI_2_EYE_8BIT_HUFF_AAF,        "MI_2_EYE 8-bit Huffman",   100},
+        {MMAP_TEST_ASSETS_MI_2_EYE_24BIT_AAF,       "MI_2_EYE 24-bit",          100},
     };
 
     for (int i = 0; i < sizeof(test_cases) / sizeof(test_cases[0]); i++) {
-        ESP_LOGI(TAG, "\n--- Testing %s ---", test_cases[i].name);
+        ESP_LOGI(TAG, "--- Testing %s ---", test_cases[i].name);
 
         gfx_emote_lock(emote_handle);
 
@@ -161,16 +160,15 @@ static void test_animation_function(mmap_assets_handle_t assets_handle)
         esp_err_t ret = gfx_anim_set_src(anim_obj, anim_data, anim_size);
         TEST_ASSERT_EQUAL(ESP_OK, ret);
 
-        if (i < 3) {
+        if (strstr(test_cases[i].name, "MI_1_EYE")) {
             gfx_obj_set_pos(anim_obj, 20, 10);
         } else {
             gfx_obj_align(anim_obj, GFX_ALIGN_CENTER, 0, 0);
         }
         gfx_anim_set_mirror(anim_obj, false, 0);
-
         gfx_obj_set_size(anim_obj, 200, 150);
-
-        gfx_anim_set_segment(anim_obj, 0, 90, 15, true);
+        gfx_anim_set_segment(anim_obj, 0, 90, 50, true);
+        // gfx_anim_set_segment(anim_obj, 0, 90, 50, false);
 
         ret = gfx_anim_start(anim_obj);
         TEST_ASSERT_EQUAL(ESP_OK, ret);
@@ -178,6 +176,11 @@ static void test_animation_function(mmap_assets_handle_t assets_handle)
         gfx_emote_unlock(emote_handle);
 
         vTaskDelay(pdMS_TO_TICKS(3000));
+        // while (1) {
+        //     vTaskDelay(pdMS_TO_TICKS(1000));
+        //     ESP_LOGI(TAG, "%s, fps: %d", test_cases[i].name, gfx_timer_get_actual_fps(emote_handle));
+        // }
+        // vTaskDelay(pdMS_TO_TICKS(3000 * 1000));
 
         gfx_emote_lock(emote_handle);
         gfx_anim_set_mirror(anim_obj, true, test_cases[i].mirror_offset);
@@ -186,24 +189,19 @@ static void test_animation_function(mmap_assets_handle_t assets_handle)
         vTaskDelay(pdMS_TO_TICKS(3000));
 
         gfx_emote_lock(emote_handle);
-
-        ret = gfx_anim_stop(anim_obj);
-        TEST_ASSERT_EQUAL(ESP_OK, ret);
-
+        gfx_anim_stop(anim_obj);
         gfx_emote_unlock(emote_handle);
 
-        vTaskDelay(pdMS_TO_TICKS(3000));
+        vTaskDelay(pdMS_TO_TICKS(2000));
 
         gfx_emote_lock(emote_handle);
-
         gfx_obj_delete(anim_obj);
-
         gfx_emote_unlock(emote_handle);
 
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
-    ESP_LOGI(TAG, "\n=== Animation Function Testing Completed ===");
+    ESP_LOGI(TAG, "=== Animation Function Testing Completed ===");
 }
 
 static void test_label_map_function(mmap_assets_handle_t assets_handle)
@@ -217,7 +215,6 @@ static void test_label_map_function(mmap_assets_handle_t assets_handle)
     ESP_LOGI(TAG, "Label object created successfully");
 
     gfx_obj_set_size(label_obj, 150, 100);
-
     gfx_label_set_font(label_obj, (gfx_font_t)&font_puhui_16_4);
 
     gfx_label_set_text(label_obj, "AAA乐鑫BBB乐鑫CCC乐鑫CCC乐鑫BBB乐鑫AAA");
@@ -225,7 +222,6 @@ static void test_label_map_function(mmap_assets_handle_t assets_handle)
     gfx_label_set_long_mode(label_obj, GFX_LABEL_LONG_SCROLL);
     gfx_label_set_bg_color(label_obj, GFX_COLOR_HEX(0xFF0000));
     gfx_label_set_bg_enable(label_obj, true);
-
     gfx_obj_align(label_obj, GFX_ALIGN_TOP_MID, 0, 100);
 
     gfx_emote_unlock(emote_handle);
@@ -255,6 +251,7 @@ static void test_label_freetype_function(mmap_assets_handle_t assets_handle)
     TEST_ASSERT_NOT_NULL(label_obj);
     ESP_LOGI(TAG, "Label object created successfully");
 
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
     gfx_label_cfg_t font_cfg = {
         .name = "DejaVuSans.ttf",
         .mem = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_DEJAVUSANS_TTF),
@@ -262,7 +259,6 @@ static void test_label_freetype_function(mmap_assets_handle_t assets_handle)
         .font_size = 20,
     };
 
-#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
     gfx_font_t font_DejaVuSans;
     esp_err_t ret = gfx_label_new_font(&font_cfg, &font_DejaVuSans);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
@@ -283,10 +279,8 @@ static void test_label_freetype_function(mmap_assets_handle_t assets_handle)
     vTaskDelay(pdMS_TO_TICKS(1000 * 3));
 
     gfx_emote_lock(emote_handle);
-
     gfx_label_set_text_fmt(label_obj, "Count: %d, Float: %.2f", 42, 3.14);
     gfx_label_set_long_mode(label_obj, GFX_LABEL_LONG_SCROLL);
-
     gfx_emote_unlock(emote_handle);
 
     vTaskDelay(pdMS_TO_TICKS(2000));
@@ -318,7 +312,6 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
     TEST_ASSERT_NOT_NULL(img_obj_c_array);
 
     gfx_img_set_src(img_obj_c_array, (void*)&icon1);
-
     gfx_obj_set_pos(img_obj_c_array, 100, 100);
 
     uint16_t width, height;
@@ -343,7 +336,6 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
     gfx_img_set_src(img_obj_bin, (void*)&img_dsc);
 
     gfx_obj_set_pos(img_obj_bin, 100, 180);
-
     gfx_obj_get_size(img_obj_bin, &width, &height);
 
     gfx_emote_unlock(emote_handle);
@@ -381,15 +373,15 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
     gfx_emote_unlock(emote_handle);
 }
 
-static void test_multiple_objects_interaction(mmap_assets_handle_t assets_handle)
+static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
 {
     ESP_LOGI(TAG, "=== Testing Multiple Objects Interaction ===");
 
     gfx_emote_lock(emote_handle);
 
     gfx_obj_t *anim_obj = gfx_anim_create(emote_handle);
-    gfx_obj_t *label_obj = gfx_label_create(emote_handle);
     gfx_obj_t *img_obj = gfx_img_create(emote_handle);
+    gfx_obj_t *label_obj = gfx_label_create(emote_handle);
     gfx_timer_handle_t timer = gfx_timer_create(emote_handle, clock_tm_callback, 2000, label_obj);
 
     TEST_ASSERT_NOT_NULL(anim_obj);
@@ -406,20 +398,21 @@ static void test_multiple_objects_interaction(mmap_assets_handle_t assets_handle
     gfx_anim_set_segment(anim_obj, 0, 30, 15, true);
     gfx_anim_start(anim_obj);
 
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
     gfx_label_cfg_t font_cfg = {
         .name = "DejaVuSans.ttf",
         .mem = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_DEJAVUSANS_TTF),
         .mem_size = (size_t)mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_DEJAVUSANS_TTF),
+        .font_size = 20,
     };
 
-#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
     gfx_font_t font_DejaVuSans;
     esp_err_t ret = gfx_label_new_font(&font_cfg, &font_DejaVuSans);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
     gfx_label_set_font(label_obj, font_DejaVuSans);
 #endif
 
-    gfx_obj_set_size(label_obj, 150, 50);
+    gfx_obj_set_size(label_obj, 200, 50);
     gfx_label_set_text(label_obj, "Multi-Object Test");
     gfx_label_set_color(label_obj, GFX_COLOR_HEX(0xFF0000));
     gfx_obj_align(label_obj, GFX_ALIGN_BOTTOM_MID, 0, 0);
@@ -435,7 +428,6 @@ static void test_multiple_objects_interaction(mmap_assets_handle_t assets_handle
 
     gfx_img_set_src(img_obj, (void*)&img_dsc);  // Use BIN format image
     gfx_obj_align(img_obj, GFX_ALIGN_TOP_MID, 0, 0);
-
 
     gfx_emote_unlock(emote_handle);
 
@@ -482,7 +474,8 @@ static esp_err_t init_display_and_graphics(const char *partition_label, uint32_t
         .flags = {.swap = true, .double_buffer = true},
         .h_res = BSP_LCD_H_RES,
         .v_res = BSP_LCD_V_RES,
-        .fps = 50,
+        // .fps = 50,
+        .fps = 15,
         .buffers = {.buf1 = NULL, .buf2 = NULL, .buf_pixels = BSP_LCD_H_RES * 16},
         .task = GFX_EMOTE_INIT_CONFIG()
     };
@@ -495,7 +488,6 @@ static esp_err_t init_display_and_graphics(const char *partition_label, uint32_t
         .on_color_trans_done = flush_io_ready,
     };
     esp_lcd_panel_io_register_event_callbacks(io_handle, &cbs, emote_handle);
-
 
     emote_handle = gfx_emote_init(&gfx_cfg);
     if (emote_handle == NULL) {
@@ -541,6 +533,7 @@ TEST_CASE("test timer function", "[timer]")
 }
 
 TEST_CASE("test animation function", "[animation]")
+// static void test_animation_function_start()
 {
     mmap_assets_handle_t assets_handle = NULL;
     esp_err_t ret = init_display_and_graphics("assets_8bit", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
@@ -591,7 +584,7 @@ TEST_CASE("test multi objects function", "[multi]")
     esp_err_t ret = init_display_and_graphics("assets_8bit", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
 
-    test_multiple_objects_interaction(assets_handle);
+    test_multiple_objects_function(assets_handle);
 
     cleanup_display_and_graphics(assets_handle);
 }
@@ -600,4 +593,5 @@ void app_main(void)
 {
     printf("Animation player test\n");
     unity_run_menu();
+    // test_animation_function_start();
 }

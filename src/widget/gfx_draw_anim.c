@@ -145,13 +145,20 @@ esp_err_t gfx_anim_preprocess_frame(gfx_anim_property_t *anim)
     const void *frame_data = eaf_get_frame_data(anim->file_desc, anim->current_frame);
     size_t frame_size = eaf_get_frame_size(anim->file_desc, anim->current_frame);
 
-    ESP_RETURN_ON_FALSE(frame_data != NULL, false, TAG, "Failed to get frame data for frame %lu", anim->current_frame);
+    if(frame_data == NULL) {
+        ESP_LOGD(TAG, "Failed to get frame data for frame %lu", anim->current_frame);
+        return ESP_FAIL;
+    }
 
     anim->frame.frame_data = frame_data;
     anim->frame.frame_size = frame_size;
 
     eaf_format_type_t format = eaf_get_frame_info(anim->file_desc, anim->current_frame, &anim->frame.header);
-    ESP_RETURN_ON_FALSE(format == EAF_FORMAT_VALID, false, TAG, "Invalid EAF format for frame %lu", anim->current_frame);
+    if(format == EAF_FORMAT_FLAG) {
+        return ESP_FAIL;
+    } else if(format == EAF_FORMAT_INVALID) {
+        ESP_GOTO_ON_FALSE(false, ESP_ERR_INVALID_STATE, err, TAG, "Invalid EAF format for frame %lu", anim->current_frame);
+    }
 
     const eaf_header_t *header = &anim->frame.header;
     int num_blocks = header->blocks;
@@ -219,7 +226,10 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
     ESP_RETURN_ON_FALSE(obj->type == GFX_OBJ_TYPE_ANIMATION, ESP_ERR_INVALID_ARG, TAG, "Object is not an animation type");
 
     gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
-    ESP_RETURN_ON_FALSE(anim->file_desc != NULL, ESP_ERR_INVALID_ARG, TAG, "Animation file descriptor is NULL");
+    if(anim->file_desc == NULL) {
+        ESP_LOGD(TAG, "Animation file descriptor is NULL");
+        return ESP_ERR_INVALID_ARG;
+    }
 
     const void *frame_data = anim->frame.frame_data;
     ESP_RETURN_ON_FALSE(frame_data != NULL, ESP_ERR_INVALID_STATE, TAG, "Failed to get frame data for frame %lu", anim->current_frame);

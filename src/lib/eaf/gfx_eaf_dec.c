@@ -218,7 +218,8 @@ eaf_format_type_t eaf_get_frame_info(eaf_format_handle_t handle, int frame_index
 
         return EAF_FORMAT_REDIRECT;
     } else if (strncmp(frame_info->format, "_C", 2) == 0) {
-        return EAF_FORMAT_INVALID;
+        ESP_LOGE(TAG, "Invalid format: %s", frame_info->format);
+        return EAF_FORMAT_FLAG;
     } else {
         ESP_LOGE(TAG, "Invalid format: %s", frame_info->format);
         return EAF_FORMAT_INVALID;

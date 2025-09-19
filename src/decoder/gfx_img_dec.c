@@ -266,7 +266,7 @@ esp_err_t gfx_image_decoder_init(void)
         return ret;
     }
 
-    ESP_LOGI(TAG, "Image decoder system initialized with %d decoders", decoder_count);
+    ESP_LOGD(TAG, "Image decoder system initialized with %d decoders", decoder_count);
     return ESP_OK;
 }
 
@@ -278,6 +278,6 @@ esp_err_t gfx_image_decoder_deinit(void)
 
     decoder_count = 0;
 
-    ESP_LOGI(TAG, "Image decoder system deinitialized");
+    ESP_LOGD(TAG, "Image decoder system deinitialized");
     return ESP_OK;
 }

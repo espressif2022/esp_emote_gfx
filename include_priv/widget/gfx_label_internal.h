@@ -33,7 +33,6 @@ typedef struct {
     gfx_opa_t opa;          /**< Text opacity */
     gfx_color_t bg_color;   /**< Background color */
     bool bg_enable;         /**< Enable background */
-    bool bg_dirty;          /**< Background needs redraw */
     gfx_opa_t *mask;        /**< Text mask buffer */
     gfx_text_align_t text_align;  /**< Text alignment */
     gfx_label_long_mode_t long_mode; /**< Long text handling mode */

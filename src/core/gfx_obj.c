@@ -446,14 +446,12 @@ static void gfx_anim_timer_callback(void *arg)
     gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
 
     if (!anim || !anim->is_playing) {
-        ESP_LOGD(TAG, "anim is NULL or not playing");
+        ESP_LOGD(TAG, "anim is NULL or not playing, %p, %d", anim, anim->is_playing);
         return;
     }
 
-    anim->current_frame++;
-    ESP_LOGD("anim cb", " %lu (%lu / %lu)", anim->current_frame, anim->start_frame, anim->end_frame);
-
-    if (anim->current_frame > anim->end_frame) {
+    
+    if (anim->current_frame >= anim->end_frame) {
         if (anim->repeat) {
             ESP_LOGD(TAG, "REPEAT");
             anim->current_frame = anim->start_frame;
@@ -462,6 +460,9 @@ static void gfx_anim_timer_callback(void *arg)
             anim->is_playing = false;
             return;
         }
+    } else {
+        anim->current_frame++;
+        ESP_LOGD("anim cb", " %lu (%lu / %lu)", anim->current_frame, anim->start_frame, anim->end_frame);
     }
 
     obj->is_dirty = true;
@@ -541,6 +542,8 @@ esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
         return ESP_ERR_INVALID_ARG;
     }
 
+    obj->is_dirty = true;
+
     gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
     if (anim == NULL) {
         ESP_LOGE(TAG, "Animation property is NULL");
@@ -618,7 +621,7 @@ esp_err_t gfx_anim_set_segment(gfx_obj_t *obj, uint32_t start, uint32_t end, uin
 
     anim->repeat = repeat;
 
-    ESP_LOGD(TAG, "Set animation segment: %lu -> %lu, fps: %lu, repeat: %d", start, end, fps, repeat);
+    ESP_LOGD(TAG, "Set animation segment: %lu -> %lu(%lu, %lu), fps: %lu, repeat: %d", anim->start_frame, anim->end_frame, total_frames, end, fps, repeat);
     return ESP_OK;
 }
 

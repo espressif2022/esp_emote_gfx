@@ -106,7 +106,7 @@ uint32_t gfx_timer_handler(gfx_timer_manager_t *timer_mgr)
     fps_total_time += schedule_elapsed;
     if (fps_sample_count >= 10) {
         timer_mgr->actual_fps = 1000 / (fps_total_time / fps_sample_count);
-        ESP_LOGI(TAG, "average fps: %lu(%lu)", timer_mgr->actual_fps, timer_mgr->fps);
+        ESP_LOGD(TAG, "average fps: %lu(%lu)", timer_mgr->actual_fps, timer_mgr->fps);
         fps_sample_count = 0;
         fps_total_time = 0;
     }
