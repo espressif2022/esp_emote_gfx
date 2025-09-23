@@ -280,8 +280,8 @@ esp_err_t gfx_aaf_huffman_decode(const uint8_t* buffer, size_t buflen, uint8_t* 
     // Calculate data length
     size_t data_len = buflen - 3 - dict_len;
     if (data_len == 0) {
-        ESP_LOGE(TAG, "No data to decode");
-        return ESP_FAIL;
+        *output_len = 0;
+        return ESP_OK;
     }
 
     // Decode data

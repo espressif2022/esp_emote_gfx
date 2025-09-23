@@ -150,7 +150,7 @@ static void test_animation_function(mmap_assets_handle_t assets_handle)
         int mirror_offset;
     } test_cases[] = {
         {MMAP_TEST_ASSETS_MI_1_EYE_4BIT_AAF, "MI_1_EYE 4-bit animation", 10},
-        {MMAP_TEST_ASSETS_MI_1_EYE_8BIT_AAF, "MI_1_EYE 8-bit animation", 10},
+        {MMAP_TEST_ASSETS_MI_1_EYE_8BIT_EAF, "MI_1_EYE 8-bit animation", 10},
         {MMAP_TEST_ASSETS_MI_1_EYE_24BIT_AAF, "MI_1_EYE 24-bit animation", 10},
         {MMAP_TEST_ASSETS_MI_2_EYE_4BIT_AAF, "MI_2_EYE 4-bit animation", 100},
         {MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF, "MI_2_EYE 8-bit animation", 100},
