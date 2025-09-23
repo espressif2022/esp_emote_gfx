@@ -14,5 +14,5 @@ spiffs_create_partition_assets(
     assets_8bit
     "../test_assets"
     FLASH_IN_PROJECT
-    MMAP_FILE_SUPPORT_FORMAT ".aaf,.ttf,.bin"
+    MMAP_FILE_SUPPORT_FORMAT ".eaf,.aaf,.ttf,.bin"
 )

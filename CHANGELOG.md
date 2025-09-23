@@ -2,6 +2,11 @@
 
 All notable changes to the ESP Emote GFX component will be documented in this file.
 
+## [1.1.1] - 2025-09-23
+
+### Fixed
+- Resolve image block decoding failure in specific cases. [#6](https://github.com/espressif2022/esp_emote_gfx/issues/6)
+
 ## [1.0.0] - 2025-08-01
 
 ### Added

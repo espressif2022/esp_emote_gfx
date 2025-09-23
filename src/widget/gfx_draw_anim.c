@@ -393,6 +393,13 @@ static esp_err_t gfx_anim_decode_block(const uint8_t *data, const uint32_t *offs
         size_t huffman_out_len = 0;
         gfx_aaf_huffman_decode(block_data, block_len, huffman_buffer, &huffman_out_len);
 
+        // Should not happen in Huffman with RLE path
+        if (huffman_out_len == 0) {
+            ESP_LOGE(TAG, "Huffman decoded empty data for RLE path (block %d)", block);
+            free(huffman_buffer);
+            return ESP_FAIL;
+        }
+
         if (huffman_out_len > rle_out_len) {
             ESP_LOGE(TAG, "Huffman output size mismatch: expected %d, got %d", rle_out_len, huffman_out_len);
             free(huffman_buffer);
@@ -408,6 +415,38 @@ static esp_err_t gfx_anim_decode_block(const uint8_t *data, const uint32_t *offs
         if (huffman_ret != ESP_OK) {
             ESP_LOGE(TAG, "Direct Huffman decode failed for block %d", block);
             return ESP_FAIL;
+        }
+
+        // Special case: when the block is single color, the dictionary may contain only one symbol and the data length is 0
+        if (huffman_out_len == 0 && block_len >= 3) {
+            uint16_t dict_len = (uint16_t)((block_data[2] << 8) | block_data[1]);
+            size_t header_and_dict = (size_t)3 + (size_t)dict_len;
+            if (block_len == (int)header_and_dict && dict_len >= 1) {
+                const uint8_t *dict_bytes = block_data + 3;
+                size_t dict_pos = 1; // dict_bytes[0] is padding
+                int symbol_count = 0;
+                uint8_t single_symbol = 0;
+                while (dict_pos < dict_len) {
+                    uint8_t byte_val = dict_bytes[dict_pos++];
+                    uint8_t code_len = dict_bytes[dict_pos++];
+                    size_t code_byte_len = (size_t)((code_len + 7) / 8);
+                    if (dict_pos + code_byte_len > dict_len) {
+                        break;
+                    }
+                    dict_pos += code_byte_len;
+                    symbol_count++;
+                    single_symbol = byte_val;
+                    if (symbol_count > 1) {
+                        break;
+                    }
+                }
+
+                if (symbol_count == 1) {
+                    size_t expected = (size_t)width * (size_t)block_height;
+                    memset(decode_buffer, single_symbol, expected);
+                    huffman_out_len = expected;
+                }
+            }
         }
 
         if (huffman_out_len != width * block_height) {
