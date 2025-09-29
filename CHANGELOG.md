@@ -2,6 +2,11 @@
 
 All notable changes to the ESP Emote GFX component will be documented in this file.
 
+## [1.1.2] - 2025-09-29
+
+### Upgrade dependencies
+- Update `espressif/esp_new_jpeg` to 0.6.x by @Kevincoooool. [#8](https://github.com/espressif2022/esp_emote_gfx/pull/8)
+
 ## [1.1.1] - 2025-09-23
 
 ### Fixed
