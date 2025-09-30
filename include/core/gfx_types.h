@@ -58,4 +58,4 @@ gfx_color_t gfx_color_hex(uint32_t c);
 
 #ifdef __cplusplus
 }
-#endif 
+#endif

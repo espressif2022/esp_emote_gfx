@@ -27,8 +27,8 @@ static const char *TAG = "gfx_label";
 static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, void *font_ctx, int total_line_height,
                                       char ***ret_lines, int *ret_line_count, int *ret_text_width, int **ret_line_widths);
 static esp_err_t gfx_render_lines_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, char **lines, int line_count,
-                                          void *font_ctx, int line_height, int base_line,
-                                          int total_line_height, int *cached_line_widths);
+        void *font_ctx, int line_height, int base_line,
+        int total_line_height, int *cached_line_widths);
 
 void gfx_label_clear_cached_lines(gfx_label_t *label)
 {
@@ -118,6 +118,7 @@ static void gfx_label_scroll_timer_callback(void *arg)
     }
 
     label->scroll_changed = true;
+    obj->is_dirty = true;
 }
 
 esp_err_t gfx_label_set_font(gfx_obj_t *obj, gfx_font_t font)
@@ -155,7 +156,7 @@ esp_err_t gfx_label_set_font(gfx_obj_t *obj, gfx_font_t font)
     return ESP_OK;
 }
 
-esp_err_t gfx_label_set_text(gfx_obj_t * obj, const char *text)
+esp_err_t gfx_label_set_text(gfx_obj_t *obj, const char *text)
 {
     ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
 
@@ -207,7 +208,7 @@ esp_err_t gfx_label_set_text(gfx_obj_t * obj, const char *text)
     return ESP_OK;
 }
 
-esp_err_t gfx_label_set_text_fmt(gfx_obj_t * obj, const char * fmt, ...)
+esp_err_t gfx_label_set_text_fmt(gfx_obj_t *obj, const char *fmt, ...)
 {
     ESP_RETURN_ON_FALSE(obj && fmt, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
 
@@ -242,7 +243,7 @@ esp_err_t gfx_label_set_text_fmt(gfx_obj_t * obj, const char * fmt, ...)
     return ESP_OK;
 }
 
-esp_err_t gfx_label_set_opa(gfx_obj_t * obj, gfx_opa_t opa)
+esp_err_t gfx_label_set_opa(gfx_obj_t *obj, gfx_opa_t opa)
 {
     ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
 
@@ -321,9 +322,9 @@ esp_err_t gfx_label_set_long_mode(gfx_obj_t *obj, gfx_label_long_mode_t long_mod
 
         if (long_mode == GFX_LABEL_LONG_SCROLL && !label->scroll_timer) {
             label->scroll_timer = gfx_timer_create(obj->parent_handle,
-                                                       gfx_label_scroll_timer_callback,
-                                                       label->scroll_speed,
-                                                       obj);
+                                                   gfx_label_scroll_timer_callback,
+                                                   label->scroll_speed,
+                                                   obj);
             if (label->scroll_timer) {
                 gfx_timer_set_repeat_count(label->scroll_timer, -1);
             }
@@ -580,7 +581,7 @@ static int gfx_calculate_line_width(const char *line_text, gfx_font_ctx_t *font)
 {
     int line_width = 0;
     const char *p = line_text;
-    
+
     while (*p) {
         uint32_t unicode = 0;
         int bytes_consumed = gfx_utf8_to_unicode(&p, &unicode);
@@ -588,17 +589,17 @@ static int gfx_calculate_line_width(const char *line_text, gfx_font_ctx_t *font)
             p++;
             continue;
         }
-        
+
         line_width += font->get_glyph_width(font, unicode);
     }
-    
+
     return line_width;
 }
 
 static int gfx_calculate_text_start_x(gfx_text_align_t align, int obj_width, int line_width)
 {
     int start_x = 0;
-    
+
     switch (align) {
     case GFX_TEXT_ALIGN_LEFT:
     case GFX_TEXT_ALIGN_AUTO:
@@ -611,14 +612,14 @@ static int gfx_calculate_text_start_x(gfx_text_align_t align, int obj_width, int
         start_x = obj_width - line_width;
         break;
     }
-    
+
     return start_x < 0 ? 0 : start_x;
 }
 
 static void gfx_render_glyph_to_mask(gfx_opa_t *mask, int obj_width, int obj_height,
-                                    gfx_font_ctx_t *font, uint32_t unicode,
-                                    const gfx_glyph_dsc_t *glyph_dsc,
-                                    const uint8_t *glyph_bitmap, int x, int y)
+                                     gfx_font_ctx_t *font, uint32_t unicode,
+                                     const gfx_glyph_dsc_t *glyph_dsc,
+                                     const uint8_t *glyph_bitmap, int x, int y)
 {
     int ofs_x = glyph_dsc->ofs_x;
     int ofs_y = font->adjust_baseline_offset(font, (void *)glyph_dsc);
@@ -627,7 +628,7 @@ static void gfx_render_glyph_to_mask(gfx_opa_t *mask, int obj_width, int obj_hei
         for (int32_t ix = 0; ix < glyph_dsc->box_w; ix++) {
             int32_t pixel_x = ix + x + ofs_x;
             int32_t pixel_y = iy + y + ofs_y;
-            
+
             if (pixel_x >= 0 && pixel_x < obj_width && pixel_y >= 0 && pixel_y < obj_height) {
                 uint8_t pixel_value = font->get_pixel_value(font, glyph_bitmap, ix, iy, glyph_dsc->box_w);
                 *(mask + pixel_y * obj_width + pixel_x) = pixel_value;
@@ -637,19 +638,19 @@ static void gfx_render_glyph_to_mask(gfx_opa_t *mask, int obj_width, int obj_hei
 }
 
 static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const char *line_text,
-                                        gfx_font_ctx_t *font, int line_width, int y_pos)
+        gfx_font_ctx_t *font, int line_width, int y_pos)
 {
     gfx_label_t *label = (gfx_label_t *)obj->src;
-    
+
     int start_x = gfx_calculate_text_start_x(label->text_align, obj->width, line_width);
-    
+
     if (label->long_mode == GFX_LABEL_LONG_SCROLL && label->scrolling) {
         start_x -= label->scroll_offset;
     }
-    
+
     int x = start_x;
     const char *p = line_text;
-    
+
     while (*p) {
         uint32_t unicode = 0;
         int bytes_consumed = gfx_utf8_to_unicode(&p, &unicode);
@@ -657,58 +658,58 @@ static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const 
             p++;
             continue;
         }
-        
+
         gfx_glyph_dsc_t glyph_dsc;
         const uint8_t *glyph_bitmap = NULL;
-        
+
         if (!font->get_glyph_dsc(font, &glyph_dsc, unicode, 0)) {
             continue;
         }
-        
+
         glyph_bitmap = font->get_glyph_bitmap(font, unicode, &glyph_dsc);
         if (!glyph_bitmap) {
             continue;
         }
-        
-        gfx_render_glyph_to_mask(mask, obj->width, obj->height, font, unicode, 
-                                &glyph_dsc, glyph_bitmap, x, y_pos);
-        
+
+        gfx_render_glyph_to_mask(mask, obj->width, obj->height, font, unicode,
+                                 &glyph_dsc, glyph_bitmap, x, y_pos);
+
         x += font->get_advance_width(font, &glyph_dsc);
-        
+
         if (x >= obj->width) {
             break;
         }
     }
-    
+
     return ESP_OK;
 }
 
 static esp_err_t gfx_render_lines_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, char **lines, int line_count,
-                                          void *font_ctx, int line_height, int base_line,
-                                          int total_line_height, int *cached_line_widths)
+        void *font_ctx, int line_height, int base_line,
+        int total_line_height, int *cached_line_widths)
 {
     gfx_font_ctx_t *font = (gfx_font_ctx_t *)font_ctx;
     int current_y = 0;
-    
+
     for (int line_idx = 0; line_idx < line_count; line_idx++) {
         if (current_y + line_height > obj->height) {
             break;
         }
-        
+
         const char *line_text = lines[line_idx];
         int line_width;
-        
+
         if (cached_line_widths) {
             line_width = cached_line_widths[line_idx];
         } else {
             line_width = gfx_calculate_line_width(line_text, font);
         }
-        
+
         gfx_render_line_to_mask(obj, mask, line_text, font, line_width, current_y);
-        
+
         current_y += total_line_height;
     }
-    
+
     return ESP_OK;
 }
 
@@ -740,8 +741,8 @@ static gfx_opa_t *gfx_allocate_mask_buffer(gfx_obj_t *obj, gfx_label_t *label)
     return mask_buf;
 }
 
-static esp_err_t gfx_cache_line_data(gfx_label_t *label, char **lines, 
-                                    int line_count, int *line_widths)
+static esp_err_t gfx_cache_line_data(gfx_label_t *label, char **lines,
+                                     int line_count, int *line_widths)
 {
     if (label->long_mode != GFX_LABEL_LONG_SCROLL || line_count <= 0) {
         return ESP_OK;
@@ -810,8 +811,8 @@ static void gfx_update_scroll_state(gfx_label_t *label, gfx_obj_t *obj)
     }
 }
 
-static esp_err_t gfx_render_from_cache(gfx_obj_t *obj, gfx_opa_t *mask, 
-                                      gfx_label_t *label, void *font_ctx)
+static esp_err_t gfx_render_from_cache(gfx_obj_t *obj, gfx_opa_t *mask,
+                                       gfx_label_t *label, void *font_ctx)
 {
     gfx_font_ctx_t *font = (gfx_font_ctx_t *)font_ctx;
     int line_height = font->get_line_height(font);
@@ -820,15 +821,15 @@ static esp_err_t gfx_render_from_cache(gfx_obj_t *obj, gfx_opa_t *mask,
 
     ESP_LOGD(TAG, "Reusing %d cached lines for scroll", label->line_count);
 
-    return gfx_render_lines_to_mask(obj, mask, label->lines, 
-                                   label->line_count, font_ctx, 
-                                   line_height, base_line, total_line_height, 
-                                   label->line_widths);
+    return gfx_render_lines_to_mask(obj, mask, label->lines,
+                                    label->line_count, font_ctx,
+                                    line_height, base_line, total_line_height,
+                                    label->line_widths);
 }
 
 static esp_err_t gfx_render_from_parsed_data(gfx_obj_t *obj, gfx_opa_t *mask,
-                                            gfx_label_t *label, 
-                                            void *font_ctx, gfx_opa_t *mask_buf)
+        gfx_label_t *label,
+        void *font_ctx, gfx_opa_t *mask_buf)
 {
     gfx_font_ctx_t *font = (gfx_font_ctx_t *)font_ctx;
     int line_height = font->get_line_height(font);
@@ -841,7 +842,7 @@ static esp_err_t gfx_render_from_parsed_data(gfx_obj_t *obj, gfx_opa_t *mask,
     int total_text_width = 0;
 
     esp_err_t parse_ret = gfx_parse_text_lines(obj, font_ctx, total_line_height,
-                                              &lines, &line_count, &total_text_width, &line_widths);
+                          &lines, &line_count, &total_text_width, &line_widths);
     if (parse_ret != ESP_OK) {
         free(mask_buf);
         return parse_ret;
@@ -855,8 +856,8 @@ static esp_err_t gfx_render_from_parsed_data(gfx_obj_t *obj, gfx_opa_t *mask,
     }
 
     esp_err_t render_ret = gfx_render_lines_to_mask(obj, mask, lines, line_count,
-                                                   font_ctx, line_height, base_line,
-                                                   total_line_height, line_widths);
+                           font_ctx, line_height, base_line,
+                           total_line_height, line_widths);
     if (render_ret != ESP_OK) {
         gfx_cleanup_line_data(lines, line_count, line_widths);
         free(mask_buf);
@@ -872,9 +873,12 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t *obj)
     ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
-    ESP_RETURN_ON_FALSE(label->font_ctx, ESP_ERR_INVALID_STATE, TAG, "font context is NULL");
-
     void *font_ctx = label->font_ctx;
+    if (font_ctx == NULL) {
+        ESP_LOGI(TAG, "font context is NULL");
+        return ESP_OK;
+    }
+
     bool can_use_cached = gfx_can_use_cached_data(label, obj);
 
     if (label->mask && !obj->is_dirty && !can_use_cached) {
@@ -920,7 +924,10 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
     ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
-    ESP_RETURN_ON_FALSE(label->text, ESP_ERR_INVALID_ARG, TAG, "Text is NULL");
+    if (label->text == NULL) {
+        ESP_LOGI(TAG, "text is NULL");
+        return ESP_ERR_INVALID_ARG;
+    }
 
     uint32_t parent_width, parent_height;
     if (obj->parent_handle != NULL) {

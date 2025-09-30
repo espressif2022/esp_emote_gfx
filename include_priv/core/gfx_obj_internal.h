@@ -53,4 +53,4 @@ void gfx_obj_calculate_aligned_position(gfx_obj_t *obj, uint32_t parent_width, u
 
 #ifdef __cplusplus
 }
-#endif 
+#endif

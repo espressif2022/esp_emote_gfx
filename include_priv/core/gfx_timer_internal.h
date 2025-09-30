@@ -22,7 +22,7 @@ extern "C" {
  **********************/
 
 /* Timer handle type for external use */
-typedef void* gfx_timer_handle_t;
+typedef void *gfx_timer_handle_t;
 
 /* Timer structure (internal use) */
 typedef struct gfx_timer_s {
@@ -84,4 +84,4 @@ void gfx_timer_manager_deinit(gfx_timer_manager_t *timer_mgr);
 
 #ifdef __cplusplus
 }
-#endif 
+#endif

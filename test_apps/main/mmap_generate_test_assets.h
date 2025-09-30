@@ -13,19 +13,21 @@
 
 #include "esp_mmap_assets.h"
 
-#define MMAP_TEST_ASSETS_FILES           11
-#define MMAP_TEST_ASSETS_CHECKSUM        0x1E5B
+#define MMAP_TEST_ASSETS_FILES           13
+#define MMAP_TEST_ASSETS_CHECKSUM        0xAD9A
 
 enum MMAP_TEST_ASSETS_LISTS {
     MMAP_TEST_ASSETS_MI_1_EYE_24BIT_AAF = 0,        /*!< mi_1_eye_24bit.aaf */
     MMAP_TEST_ASSETS_MI_1_EYE_4BIT_AAF = 1,        /*!< mi_1_eye_4bit.aaf */
-    MMAP_TEST_ASSETS_MI_2_EYE_24BIT_AAF = 2,        /*!< mi_2_eye_24bit.aaf */
-    MMAP_TEST_ASSETS_MI_2_EYE_4BIT_AAF = 3,        /*!< mi_2_eye_4bit.aaf */
-    MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF = 4,        /*!< mi_2_eye_8bit.aaf */
-    MMAP_TEST_ASSETS_ICON1_BIN = 5,        /*!< icon1.bin */
-    MMAP_TEST_ASSETS_ICON5_BIN = 6,        /*!< icon5.bin */
-    MMAP_TEST_ASSETS_ANGRY_EAF = 7,        /*!< angry.eaf */
-    MMAP_TEST_ASSETS_CONFUSED_EAF = 8,        /*!< confused.eaf */
+    MMAP_TEST_ASSETS_MI_1_EYE_8BIT_HUFF_AAF = 2,        /*!< mi_1_eye_8bit_huff.aaf */
+    MMAP_TEST_ASSETS_MI_2_EYE_24BIT_AAF = 3,        /*!< mi_2_eye_24bit.aaf */
+    MMAP_TEST_ASSETS_MI_2_EYE_4BIT_AAF = 4,        /*!< mi_2_eye_4bit.aaf */
+    MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF = 5,        /*!< mi_2_eye_8bit.aaf */
+    MMAP_TEST_ASSETS_MI_2_EYE_8BIT_HUFF_AAF = 6,        /*!< mi_2_eye_8bit_huff.aaf */
+    MMAP_TEST_ASSETS_ICON1_BIN = 7,        /*!< icon1.bin */
+    MMAP_TEST_ASSETS_ICON5_BIN = 8,        /*!< icon5.bin */
     MMAP_TEST_ASSETS_MI_1_EYE_8BIT_EAF = 9,        /*!< mi_1_eye_8bit.eaf */
-    MMAP_TEST_ASSETS_DEJAVUSANS_TTF = 10,        /*!< DejaVuSans.ttf */
+    MMAP_TEST_ASSETS_MI_1_EYE_8BIT_HUFF_EAF = 10,        /*!< mi_1_eye_8bit_huff.eaf */
+    MMAP_TEST_ASSETS_MI_2_EYE_8BIT_HUFF_EAF = 11,        /*!< mi_2_eye_8bit_huff.eaf */
+    MMAP_TEST_ASSETS_DEJAVUSANS_TTF = 12,        /*!< DejaVuSans.ttf */
 };

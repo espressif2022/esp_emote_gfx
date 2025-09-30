@@ -24,8 +24,8 @@ typedef void *gfx_font_t;
 
 /* Label configuration structure */
 typedef struct {
-    const char * name;      /**< The name of the font file */
-    const void * mem;       /**< The pointer to the font file */
+    const char *name;       /**< The name of the font file */
+    const void *mem;        /**< The pointer to the font file */
     size_t mem_size;        /**< The size of the memory */
     uint16_t font_size;     /**< The size of the font */
 } gfx_label_cfg_t;
@@ -67,7 +67,7 @@ typedef enum {
  * @param cfg Font configuration
  * @return Pointer to the created label object
  */
-gfx_obj_t * gfx_label_create(gfx_handle_t handle);
+gfx_obj_t *gfx_label_create(gfx_handle_t handle);
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
 /**
@@ -104,7 +104,7 @@ esp_err_t gfx_label_set_text(gfx_obj_t *obj, const char *text);
  * @param fmt Format string
  * @return ESP_OK on success, error code otherwise
  */
-esp_err_t gfx_label_set_text_fmt(gfx_obj_t * obj, const char * fmt, ...);
+esp_err_t gfx_label_set_text_fmt(gfx_obj_t *obj, const char *fmt, ...);
 
 /**
  * @brief Set the color for a label object
@@ -147,7 +147,7 @@ esp_err_t gfx_label_set_font(gfx_obj_t *obj, gfx_font_t font);
 
 /**
  * @brief Set the text alignment for a label object
- * @param obj Pointer to the label object  
+ * @param obj Pointer to the label object
  * @param align Text alignment value
  * @return ESP_OK on success, error code otherwise
  */
@@ -189,4 +189,4 @@ esp_err_t gfx_label_set_scroll_loop(gfx_obj_t *obj, bool loop);
 
 #ifdef __cplusplus
 }
-#endif 
+#endif

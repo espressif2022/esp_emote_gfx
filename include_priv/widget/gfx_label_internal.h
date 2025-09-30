@@ -33,17 +33,16 @@ typedef struct {
     gfx_opa_t opa;          /**< Text opacity */
     gfx_color_t bg_color;   /**< Background color */
     bool bg_enable;         /**< Enable background */
-    bool bg_dirty;          /**< Background needs redraw */
     gfx_opa_t *mask;        /**< Text mask buffer */
     gfx_text_align_t text_align;  /**< Text alignment */
     gfx_label_long_mode_t long_mode; /**< Long text handling mode */
     uint16_t line_spacing;  /**< Spacing between lines */
-    
+
     /* Cached line data for scroll optimization */
     char **lines;           /**< Cached parsed lines */
     int line_count;         /**< Number of cached lines */
     int *line_widths;       /**< Cached line widths for alignment */
-    
+
     /* Scroll properties */
     int32_t scroll_offset;  /**< Current scroll offset */
     uint32_t scroll_speed;  /**< Scroll speed in ms per pixel */
@@ -79,7 +78,7 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
  * @param obj Label object
  * @return ESP_OK on success, error code otherwise
  */
-esp_err_t gfx_get_glphy_dsc(gfx_obj_t * obj);
+esp_err_t gfx_get_glphy_dsc(gfx_obj_t *obj);
 
 /**
  * @brief Clear cached line data
@@ -89,4 +88,4 @@ void gfx_label_clear_cached_lines(gfx_label_t *label);
 
 #ifdef __cplusplus
 }
-#endif 
+#endif

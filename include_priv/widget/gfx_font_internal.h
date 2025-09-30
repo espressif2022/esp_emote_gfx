@@ -46,7 +46,7 @@ typedef struct {
  */
 typedef struct _gfx_font_ctx_t {
     void *font;
-    
+
     bool (*get_glyph_dsc)(struct _gfx_font_ctx_t *font, void *glyph_dsc, uint32_t unicode, uint32_t unicode_next);
     const uint8_t *(*get_glyph_bitmap)(struct _gfx_font_ctx_t *font, uint32_t unicode, void *glyph_dsc);
     int (*get_glyph_width)(struct _gfx_font_ctx_t *font, uint32_t unicode);

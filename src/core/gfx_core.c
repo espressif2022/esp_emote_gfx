@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -15,7 +20,7 @@
 #include "widget/gfx_img_internal.h"
 #include "widget/gfx_label.h"
 #include "widget/gfx_anim.h"
-#include "decoder/gfx_img_decoder.h"
+#include "decoder/gfx_img_dec.h"
 #include "core/gfx_types.h"
 #include "widget/gfx_font_internal.h"
 #include "widget/gfx_label_internal.h"
@@ -38,8 +43,6 @@ static uint32_t gfx_calculate_task_delay(uint32_t timer_delay);
  */
 static uint32_t gfx_calculate_task_delay(uint32_t timer_delay)
 {
-    // Dynamic delay calculation based on tick rate
-    // Ensure minimum delay to prevent busy waiting
     uint32_t min_delay_ms = (1000 / configTICK_RATE_HZ) + 1; // At least one tick + 1ms
 
     if (timer_delay == ANIM_NO_TIMER_READY) {
@@ -57,7 +60,7 @@ static uint32_t gfx_calculate_task_delay(uint32_t timer_delay)
 static bool gfx_event_handler(gfx_core_context_t *ctx)
 {
     EventBits_t event_bits = xEventGroupWaitBits(ctx->sync.event_group,
-                                                 NEED_DELETE, pdTRUE, pdFALSE, pdMS_TO_TICKS(0));
+                             NEED_DELETE, pdTRUE, pdFALSE, pdMS_TO_TICKS(0));
 
     if (event_bits & NEED_DELETE) {
         xEventGroupSetBits(ctx->sync.event_group, DELETE_DONE);
@@ -79,17 +82,21 @@ static bool gfx_object_handler(gfx_core_context_t *ctx)
         return false;
     }
 
-    bool needs_rendering = false;
+    bool updated = false;
     gfx_core_child_t *child_node = ctx->disp.child_list;
 
     while (child_node != NULL) {
         gfx_obj_t *obj = (gfx_obj_t *)child_node->src;
+
+        if (obj->is_dirty) {
+            updated = true;
+        }
+
         if (obj->type == GFX_OBJ_TYPE_ANIMATION) {
             gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
-            if (anim && anim->file_desc && anim->is_playing) {
-                needs_rendering = true;
+            if (anim && anim->file_desc) {
 
-                if (!gfx_anim_preprocess_frame(anim)) {
+                if (ESP_OK != gfx_anim_preprocess_frame(anim)) {
                     child_node = child_node->next;
                     continue;
                 }
@@ -98,7 +105,9 @@ static bool gfx_object_handler(gfx_core_context_t *ctx)
         child_node = child_node->next;
     }
 
-    return needs_rendering;
+    updated = true;
+
+    return updated;
 }
 
 /**
@@ -246,7 +255,6 @@ static void gfx_core_task(void *arg)
     while (1) {
         if (ctx->sync.lock_mutex && xSemaphoreTakeRecursive(ctx->sync.lock_mutex, portMAX_DELAY) == pdTRUE) {
             if (gfx_event_handler(ctx)) {
-                // Event was handled (e.g., deletion request), task will be deleted
                 xSemaphoreGiveRecursive(ctx->sync.lock_mutex);
                 break;
             }
@@ -582,10 +590,10 @@ bool gfx_emote_is_flushing_last(gfx_handle_t handle)
  */
 static bool gfx_refr_handler(gfx_core_context_t *ctx)
 {
-    bool needs_rendering = gfx_object_handler(ctx);
+    bool updated = gfx_object_handler(ctx);
 
-    if (!needs_rendering) {
-        //     return false;
+    if (!updated) {
+        return false;
     }
 
     int block_height = gfx_buf_get_height(ctx);
@@ -605,7 +613,6 @@ static bool gfx_refr_handler(gfx_core_context_t *ctx)
         int y1 = block_idx * block_height;
         int y2 = ((block_idx + 1) * block_height > v_res) ? v_res : (block_idx + 1) * block_height;
 
-        // Set flag for last block
         ctx->disp.flushing_last = (block_idx == total_blocks - 1);
 
         uint16_t *buf_act = ctx->disp.buf_act;

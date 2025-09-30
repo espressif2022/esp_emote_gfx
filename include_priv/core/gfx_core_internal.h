@@ -44,22 +44,22 @@ typedef struct {
         uint32_t v_res;                /**< Vertical resolution */
         uint32_t fb_v_res;             /**< Frame buffer vertical resolution */
         struct {
-            unsigned char swap:1;      /**< Color swap flag */
+            unsigned char swap: 1;     /**< Color swap flag */
         } flags;                       /**< Display flags */
     } display;                         /**< Display configuration */
-    
+
     /* Callback functions */
     struct {
         gfx_player_flush_cb_t flush_cb;       /**< Flush callback function */
         gfx_player_update_cb_t update_cb;     /**< Update callback function */
         void *user_data;               /**< User data pointer */
     } callbacks;                       /**< Callback functions */
-    
+
     /* Timer management */
     struct {
         gfx_timer_manager_t timer_mgr; /**< Timer manager */
     } timer;                           /**< Timer management */
-    
+
     /* Graphics rendering */
     struct {
         gfx_core_child_t *child_list;  /**< Child object list */
@@ -72,7 +72,7 @@ typedef struct {
         bool flushing_last;      /**< Whether flushing the last block */
         bool swap_act_buf;       /**< Whether swap the active buffer */
     } disp;
-    
+
     /* Synchronization primitives */
     struct {
         SemaphoreHandle_t lock_mutex;  /**< Render mutex for thread safety */
@@ -90,7 +90,7 @@ typedef struct {
 
 /**
  * @brief Add a child element to the graphics context
- * 
+ *
  * @param handle Graphics handle
  * @param type Type of the child element
  * @param src Source data pointer
@@ -100,7 +100,7 @@ esp_err_t gfx_emote_add_chlid(gfx_handle_t handle, int type, void *src);
 
 /**
  * @brief Remove a child element from the graphics context
- * 
+ *
  * @param handle Graphics handle
  * @param src Source data pointer to remove
  * @return esp_err_t ESP_OK on success, otherwise an error code
@@ -120,4 +120,4 @@ void gfx_draw_child(gfx_core_context_t *ctx, int x1, int y1, int x2, int y2, con
 
 #ifdef __cplusplus
 }
-#endif 
+#endif

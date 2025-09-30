@@ -43,9 +43,9 @@ typedef struct {
 typedef struct {
     gfx_image_header_t header;   /**< A header describing the basics of the image */
     uint32_t data_size;         /**< Size of the image in bytes */
-    const uint8_t * data;       /**< Pointer to the data of the image */
-    const void * reserved;      /**< Reserved field for future use */
-    const void * reserved_2;    /**< Reserved field for future use */
+    const uint8_t *data;        /**< Pointer to the data of the image */
+    const void *reserved;       /**< Reserved field for future use */
+    const void *reserved_2;     /**< Reserved field for future use */
 } gfx_image_dsc_t;
 
 /**********************
@@ -61,7 +61,7 @@ typedef struct {
  * @param handle Animation player handle
  * @return Pointer to the created image object
  */
-gfx_obj_t * gfx_img_create(gfx_handle_t handle);
+gfx_obj_t *gfx_img_create(gfx_handle_t handle);
 
 /*=====================
  * Image setter functions
@@ -73,8 +73,8 @@ gfx_obj_t * gfx_img_create(gfx_handle_t handle);
  * @param src Pointer to the image source data
  * @return Pointer to the object
  */
-gfx_obj_t * gfx_img_set_src(gfx_obj_t *obj, void *src);
+gfx_obj_t *gfx_img_set_src(gfx_obj_t *obj, void *src);
 
 #ifdef __cplusplus
 }
-#endif 
+#endif

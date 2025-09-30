@@ -23,8 +23,8 @@ static const char *TAG = "gfx_lv";
 
 // Utility functions
 static int unicode_list_compare(const void *ref, const void *element);
-static void * _lv_utils_bsearch(const void * key, const void * base, uint32_t n, uint32_t size,
-                                int (*cmp)(const void * pRef, const void * pElement));
+static void *_lv_utils_bsearch(const void *key, const void *base, uint32_t n, uint32_t size,
+                               int (*cmp)(const void *pRef, const void *pElement));
 
 // Internal LVGL font interface functions
 static uint32_t gfx_font_lv_get_glyph_index(const lv_font_t *font, uint32_t unicode);
@@ -55,10 +55,10 @@ static int unicode_list_compare(const void *ref, const void *element)
     return 0;
 }
 
-static void * _lv_utils_bsearch(const void * key, const void * base, uint32_t n, uint32_t size,
-                                int (*cmp)(const void * pRef, const void * pElement))
+static void *_lv_utils_bsearch(const void *key, const void *base, uint32_t n, uint32_t size,
+                               int (*cmp)(const void *pRef, const void *pElement))
 {
-    const char * middle;
+    const char *middle;
     int32_t c;
 
     for (middle = base; n != 0;) {
@@ -102,26 +102,26 @@ static uint32_t gfx_font_lv_get_glyph_index(const lv_font_t *font, uint32_t unic
                 return cmap->glyph_id_start + (unicode - cmap->range_start);
             }
         } else if (cmap->type == LV_FONT_FMT_TXT_CMAP_FORMAT0_FULL) {
-            const uint8_t * gid_ofs_8 = cmap->glyph_id_ofs_list;
+            const uint8_t *gid_ofs_8 = cmap->glyph_id_ofs_list;
             return cmap->glyph_id_start + gid_ofs_8[rcp];
         } else if (cmap->type == LV_FONT_FMT_TXT_CMAP_SPARSE_TINY) {
             if (cmap->unicode_list && cmap->list_length > 0) {
                 uint16_t key = (uint16_t)rcp;
                 uint16_t *found = (uint16_t *)_lv_utils_bsearch(&key, cmap->unicode_list, cmap->list_length,
-                                                                sizeof(cmap->unicode_list[0]), unicode_list_compare);
+                                  sizeof(cmap->unicode_list[0]), unicode_list_compare);
                 if (found) {
                     uintptr_t offset = found - cmap->unicode_list;
                     return cmap->glyph_id_start + offset;
                 }
             }
-        } else if(dsc->cmaps[i].type == LV_FONT_FMT_TXT_CMAP_SPARSE_FULL) {
+        } else if (dsc->cmaps[i].type == LV_FONT_FMT_TXT_CMAP_SPARSE_FULL) {
             uint16_t key = rcp;
-            uint16_t * p = _lv_utils_bsearch(&key, dsc->cmaps[i].unicode_list, dsc->cmaps[i].list_length,
-                                             sizeof(dsc->cmaps[i].unicode_list[0]), unicode_list_compare);
+            uint16_t *p = _lv_utils_bsearch(&key, dsc->cmaps[i].unicode_list, dsc->cmaps[i].list_length,
+                                            sizeof(dsc->cmaps[i].unicode_list[0]), unicode_list_compare);
 
-            if(p) {
+            if (p) {
                 uintptr_t ofs = p - dsc->cmaps[i].unicode_list;
-                const uint16_t * gid_ofs_16 = dsc->cmaps[i].glyph_id_ofs_list;
+                const uint16_t *gid_ofs_16 = dsc->cmaps[i].glyph_id_ofs_list;
                 return dsc->cmaps[i].glyph_id_start + gid_ofs_16[ofs];
             }
         }
@@ -267,7 +267,7 @@ static int gfx_font_lv_adjust_baseline_offset(gfx_font_ctx_t *font, void *glyph_
     int line_height = gfx_font_lv_get_line_height(font);
     int base_line = gfx_font_lv_get_base_line(font);
     int adjusted_ofs_y = line_height - base_line - dsc->box_h - dsc->ofs_y;
-    
+
     return adjusted_ofs_y;
 }
 
@@ -276,7 +276,7 @@ static int gfx_font_lv_get_advance_width(gfx_font_ctx_t *font, void *glyph_dsc)
     if (!font || !glyph_dsc) {
         return 0;
     }
-    
+
     gfx_glyph_dsc_t *dsc = (gfx_glyph_dsc_t *)glyph_dsc;
     int advance_pixels = (dsc->adv_w >> 8);
     int actual_width = dsc->box_w + dsc->ofs_x;
@@ -292,20 +292,20 @@ bool gfx_is_lvgl_font(const void *font)
     if (!font) {
         return false;
     }
-    
+
     const lv_font_t *lvgl_font = (const lv_font_t *)font;
-    
+
     if (lvgl_font->line_height > 0 && lvgl_font->line_height < 1000 &&
-                lvgl_font->base_line >= 0 && lvgl_font->base_line <= lvgl_font->line_height &&
-        lvgl_font->dsc != NULL) {
-        
+            lvgl_font->base_line >= 0 && lvgl_font->base_line <= lvgl_font->line_height &&
+            lvgl_font->dsc != NULL) {
+
         const lv_font_fmt_txt_dsc_t *dsc = (const lv_font_fmt_txt_dsc_t *)lvgl_font->dsc;
-        if (dsc->glyph_bitmap != NULL && dsc->glyph_dsc != NULL && 
-            dsc->cmaps != NULL && dsc->cmap_num > 0 && dsc->cmap_num < 100) {
+        if (dsc->glyph_bitmap != NULL && dsc->glyph_dsc != NULL &&
+                dsc->cmaps != NULL && dsc->cmap_num > 0 && dsc->cmap_num < 100) {
             return true;
         }
     }
-    
+
     return false;
 }
 

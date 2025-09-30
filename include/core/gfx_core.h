@@ -39,30 +39,30 @@ typedef enum {
 
 typedef void (*gfx_player_flush_cb_t)(gfx_handle_t handle, int x1, int y1, int x2, int y2, const void *data);
 
-typedef void (*gfx_player_update_cb_t)(gfx_handle_t handle, gfx_player_event_t event);
+typedef void (*gfx_player_update_cb_t)(gfx_handle_t handle, gfx_player_event_t event, const void *obj);
 
 typedef struct {
     gfx_player_flush_cb_t flush_cb;         ///< Callback function for flushing decoded data
     gfx_player_update_cb_t update_cb;       ///< Callback function for updating player
     void *user_data;             ///< User data
     struct {
-        unsigned char swap:1;
-        unsigned char double_buffer:1;
-        unsigned char buff_dma:1;
-        unsigned char buff_spiram:1;
+        unsigned char swap: 1;
+        unsigned char double_buffer: 1;
+        unsigned char buff_dma: 1;
+        unsigned char buff_spiram: 1;
     } flags;
 
     uint32_t h_res;        ///< Screen width in pixels
     uint32_t v_res;       ///< Screen height in pixels
     uint32_t fps;              ///< Target frame rate (frames per second)
-    
+
     /* Buffer configuration */
     struct {
         void *buf1;                ///< Frame buffer 1 (NULL for internal allocation)
         void *buf2;                ///< Frame buffer 2 (NULL for internal allocation)
         size_t buf_pixels;         ///< Size of each buffer in pixels (0 for auto-calculation)
     } buffers;
-    
+
     struct {
         int task_priority;      ///< Task priority (1-20)
         int task_stack;         ///< Task stack size in bytes
@@ -84,12 +84,12 @@ typedef struct {
  *
  * @param cfg Graphics configuration (includes buffer configuration)
  * @return gfx_handle_t Graphics handle, NULL on error
- * 
+ *
  * @note Buffer configuration:
  * - If cfg.buffers.buf1 and cfg.buffers.buf2 are NULL, internal buffers will be allocated
  * - If buffers are provided, external buffers will be used (user must manage memory)
  * - cfg.buffers.buf_pixels can be 0 for auto-calculation based on resolution
- * 
+ *
  * @example Using internal buffers:
  * @code
  * gfx_core_config_t cfg = {
@@ -105,12 +105,12 @@ typedef struct {
  * };
  * gfx_handle_t handle = gfx_emote_init(&cfg);
  * @endcode
- * 
+ *
  * @example Using external buffers:
  * @code
  * uint16_t my_buf1[320 * 40]; // 320x40 pixels
  * uint16_t my_buf2[320 * 40];
- * 
+ *
  * gfx_core_config_t cfg = {
  *     .h_res = 320,
  *     .v_res = 240,
@@ -163,7 +163,7 @@ esp_err_t gfx_emote_get_screen_size(gfx_handle_t handle, uint32_t *width, uint32
 
 /**
  * @brief Lock the recursive render mutex to prevent rendering during external operations
- * 
+ *
  * @param handle Graphics handle
  * @return esp_err_t ESP_OK on success, otherwise an error code
  */
@@ -171,7 +171,7 @@ esp_err_t gfx_emote_lock(gfx_handle_t handle);
 
 /**
  * @brief Unlock the recursive render mutex after external operations
- * 
+ *
  * @param handle Graphics handle
  * @return esp_err_t ESP_OK on success, otherwise an error code
  */
@@ -179,7 +179,7 @@ esp_err_t gfx_emote_unlock(gfx_handle_t handle);
 
 /**
  * @brief Set the default background color for frame buffers
- * 
+ *
  * @param handle Graphics handle
  * @param color Default background color in RGB565 format
  * @return esp_err_t ESP_OK on success, otherwise an error code
@@ -188,7 +188,7 @@ esp_err_t gfx_emote_set_bg_color(gfx_handle_t handle, gfx_color_t color);
 
 /**
  * @brief Check if the system is currently flushing the last block
- * 
+ *
  * @param handle Graphics handle
  * @return bool True if flushing the last block, false otherwise
  */
@@ -196,4 +196,4 @@ bool gfx_emote_is_flushing_last(gfx_handle_t handle);
 
 #ifdef __cplusplus
 }
-#endif 
+#endif

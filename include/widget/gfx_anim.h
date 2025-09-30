@@ -31,7 +31,7 @@ extern "C" {
  * @param handle Animation player handle
  * @return Pointer to the created animation object
  */
-gfx_obj_t * gfx_anim_create(gfx_handle_t handle);
+gfx_obj_t *gfx_anim_create(gfx_handle_t handle);
 
 /*=====================
  * Animation setter functions
@@ -82,7 +82,7 @@ esp_err_t gfx_anim_set_mirror(gfx_obj_t *obj, bool enabled, int16_t offset);
 
 /**
  * @brief Set auto mirror alignment for animation object
- * 
+ *
  * @param obj Animation object
  * @param enabled Whether to enable auto mirror alignment
  * @return ESP_OK on success, ESP_ERR_* otherwise
@@ -91,4 +91,4 @@ esp_err_t gfx_anim_set_auto_mirror(gfx_obj_t *obj, bool enabled);
 
 #ifdef __cplusplus
 }
-#endif 
+#endif
