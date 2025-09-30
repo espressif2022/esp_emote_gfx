@@ -146,7 +146,7 @@ esp_err_t gfx_anim_preprocess_frame(gfx_anim_property_t *anim)
     size_t frame_size = eaf_get_frame_size(anim->file_desc, anim->current_frame);
 
     if (frame_data == NULL) {
-        ESP_LOGD(TAG, "Failed to get frame data for frame %lu", anim->current_frame);
+        ESP_LOGD(TAG, "Failed to get frame data for frame %"PRIu32"", anim->current_frame);
         return ESP_FAIL;
     }
 
@@ -197,7 +197,7 @@ esp_err_t gfx_anim_preprocess_frame(gfx_anim_property_t *anim)
 
     eaf_calculate_offsets(header, anim->frame.block_offsets);
 
-    ESP_LOGD(TAG, "Pre-allocated parsing resources for frame %lu", anim->current_frame);
+    ESP_LOGD(TAG, "Pre-allocated parsing resources for frame %"PRIu32"", anim->current_frame);
     return ret;
 
 err:
@@ -233,7 +233,7 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
 
     const void *frame_data = anim->frame.frame_data;
     if (frame_data == NULL) {
-        ESP_LOGD(TAG, "Frame data not ready for frame %lu", anim->current_frame);
+        ESP_LOGD(TAG, "Frame data not ready for frame %"PRIu32"", anim->current_frame);
         return ESP_ERR_INVALID_STATE;
     }
     ESP_RETURN_ON_FALSE(anim->frame.header.width > 0, ESP_ERR_INVALID_STATE, TAG, "Header not valid for frame %lu", anim->current_frame);

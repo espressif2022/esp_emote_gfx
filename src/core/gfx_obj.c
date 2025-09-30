@@ -471,7 +471,7 @@ static void gfx_anim_timer_callback(void *arg)
         if (ctx->callbacks.update_cb) {
             ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ONE_FRAME_DONE, obj);
         }
-        ESP_LOGD("anim cb", " %lu (%lu / %lu)", anim->current_frame, anim->start_frame, anim->end_frame);
+        ESP_LOGD("anim cb", " %"PRIu32" (%"PRIu32" / %"PRIu32")", anim->current_frame, anim->start_frame, anim->end_frame);
     }
 
     obj->is_dirty = true;
@@ -589,7 +589,7 @@ esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
     //last block is empty
     anim->end_frame = eaf_get_total_frames(new_desc) - 2;
 
-    ESP_LOGD(TAG, "set src, start: %lu, end: %lu, file_desc: %p", anim->start_frame, anim->end_frame, anim->file_desc);
+    ESP_LOGD(TAG, "set src, start: %"PRIu32", end: %"PRIu32", file_desc: %p", anim->start_frame, anim->end_frame, anim->file_desc);
     return ESP_OK;
 }
 
@@ -618,19 +618,19 @@ esp_err_t gfx_anim_set_segment(gfx_obj_t *obj, uint32_t start, uint32_t end, uin
     anim->current_frame = start;
 
     if (anim->fps != fps) {
-        ESP_LOGI(TAG, "FPS changed from %lu to %lu, updating timer period", anim->fps, fps);
+        ESP_LOGI(TAG, "FPS changed from %"PRIu32" to %"PRIu32", updating timer period", anim->fps, fps);
         anim->fps = fps;
 
         if (anim->timer != NULL) {
             uint32_t new_period_ms = 1000 / fps;
             gfx_timer_set_period(anim->timer, new_period_ms);
-            ESP_LOGI(TAG, "Animation timer period updated to %lu ms for %lu FPS", new_period_ms, fps);
+            ESP_LOGI(TAG, "Animation timer period updated to %"PRIu32" ms for %"PRIu32" FPS", new_period_ms, fps);
         }
     }
 
     anim->repeat = repeat;
 
-    ESP_LOGD(TAG, "Set animation segment: %lu -> %lu(%lu, %lu), fps: %lu, repeat: %d", anim->start_frame, anim->end_frame, total_frames, end, fps, repeat);
+    ESP_LOGD(TAG, "Set animation segment: %"PRIu32" -> %"PRIu32"(%d, %"PRIu32"), fps: %"PRIu32", repeat: %d", anim->start_frame, anim->end_frame, total_frames, end, fps, repeat);
     return ESP_OK;
 }
 

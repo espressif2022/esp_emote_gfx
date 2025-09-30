@@ -111,7 +111,7 @@ uint32_t gfx_timer_handler(gfx_timer_manager_t *timer_mgr)
     fps_total_time += schedule_elapsed;
     if (fps_sample_count >= 10) {
         timer_mgr->actual_fps = 1000 / (fps_total_time / fps_sample_count);
-        ESP_LOGD(TAG, "average fps: %lu(%lu)", timer_mgr->actual_fps, timer_mgr->fps);
+        ESP_LOGD(TAG, "average fps: %"PRIu32"(%"PRIu32")", timer_mgr->actual_fps, timer_mgr->fps);
         fps_sample_count = 0;
         fps_total_time = 0;
     }
@@ -247,7 +247,7 @@ void gfx_timer_manager_init(gfx_timer_manager_t *timer_mgr, uint32_t fps)
         timer_mgr->last_tick = gfx_timer_tick_get();
         timer_mgr->fps = fps; // Store FPS directly
         timer_mgr->actual_fps = 0; // Initialize actual FPS
-        ESP_LOGI(TAG, "Timer manager initialized with FPS: %lu (period: %lu ms)", fps, (fps > 0) ? (1000 / fps) : 30);
+        ESP_LOGI(TAG, "Timer manager initialized with FPS: %"PRIu32" (period: %"PRIu32" ms)", fps, (fps > 0) ? (1000 / fps) : 30);
         esp_cpu_set_watchpoint(0, timer_mgr->timer_list, 4, ESP_CPU_WATCHPOINT_STORE);
     }
 }

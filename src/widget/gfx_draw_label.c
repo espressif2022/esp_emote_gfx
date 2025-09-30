@@ -368,7 +368,7 @@ esp_err_t gfx_label_set_scroll_speed(gfx_obj_t *obj, uint32_t speed_ms)
         gfx_timer_set_period(label->scroll_timer, speed_ms);
     }
 
-    ESP_LOGD(TAG, "set scroll speed: %lu ms", speed_ms);
+    ESP_LOGD(TAG, "set scroll speed: %"PRIu32" ms", speed_ms);
     return ESP_OK;
 }
 
