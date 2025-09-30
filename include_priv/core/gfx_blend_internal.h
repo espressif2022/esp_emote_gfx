@@ -36,7 +36,7 @@ gfx_color_t gfx_blend_color_mix(gfx_color_t c1, gfx_color_t c2, uint8_t mix);
  * @param mask_stride Stride (width) of the mask buffer
  */
 void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride, gfx_color_t color, gfx_opa_t opa,
-                   const gfx_opa_t *mask, gfx_area_t *clip_area, gfx_coord_t mask_stride, bool swap);
+                       const gfx_opa_t *mask, gfx_area_t *clip_area, gfx_coord_t mask_stride, bool swap);
 
 /**
  * @brief Draw a blended image onto a destination buffer
@@ -51,9 +51,9 @@ void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride, gfx_color
  * @param swap Whether to swap the color format
  */
 void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
-                      const gfx_color_t *src_buf, gfx_coord_t src_stride,
-                      const gfx_opa_t *mask, gfx_coord_t mask_stride,
-                      gfx_area_t *clip_area, gfx_opa_t opa, bool swap);
+                           const gfx_color_t *src_buf, gfx_coord_t src_stride,
+                           const gfx_opa_t *mask, gfx_coord_t mask_stride,
+                           gfx_area_t *clip_area, gfx_opa_t opa, bool swap);
 
 #ifdef __cplusplus
 }

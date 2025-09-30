@@ -1,7 +1,12 @@
+/*
+ * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 /**
  * @file gfx_font_lvgl.h
  * @brief LVGL Font Compatibility Layer
- * 
+ *
  * This header provides LVGL font structure definitions and compatibility
  * functions for the ESP Graphics Framework.
  */
@@ -153,13 +158,13 @@ typedef struct {
      */
 
     /** Unicode character list for sparse formats */
-    const uint16_t * unicode_list;
+    const uint16_t *unicode_list;
 
     /** Glyph ID offset list
      * if(type == LV_FONT_FMT_TXT_CMAP_FORMAT0_...) it's `uint8_t *`
      * if(type == LV_FONT_FMT_TXT_CMAP_SPARSE_...)  it's `uint16_t *`
      */
-    const void * glyph_id_ofs_list;
+    const void *glyph_id_ofs_list;
 
     /** Length of `unicode_list` and/or `glyph_id_ofs_list` */
     uint16_t list_length;
@@ -177,8 +182,8 @@ typedef struct {
                 glyph_ids[i+1] == glyph_id_right)
                  return values[i / 2];
      */
-    const void * glyph_ids;
-    const int8_t * values;
+    const void *glyph_ids;
+    const int8_t *values;
     uint32_t pair_cnt   : 30;
     uint32_t glyph_ids_size : 2;    /**< 0: `glyph_ids` is stored as `uint8_t`; 1: as `uint16_t` */
 } lv_font_fmt_txt_kern_pair_t;
@@ -193,9 +198,9 @@ typedef struct {
           3. value = class_pair_values[(left_class-1)*right_class_cnt + (right_class-1)]
         */
 
-    const int8_t * class_pair_values;     /**< left_class_cnt * right_class_cnt value */
-    const uint8_t * left_class_mapping;   /**< Map the glyph_ids to classes: index -> glyph_id -> class_id */
-    const uint8_t * right_class_mapping;  /**< Map the glyph_ids to classes: index -> glyph_id -> class_id */
+    const int8_t *class_pair_values;      /**< left_class_cnt * right_class_cnt value */
+    const uint8_t *left_class_mapping;    /**< Map the glyph_ids to classes: index -> glyph_id -> class_id */
+    const uint8_t *right_class_mapping;   /**< Map the glyph_ids to classes: index -> glyph_id -> class_id */
     uint8_t left_class_cnt;
     uint8_t right_class_cnt;
 } lv_font_fmt_txt_kern_classes_t;
@@ -203,21 +208,21 @@ typedef struct {
 /*Describe store additional data for fonts*/
 typedef struct {
     /*The bitmaps of all glyphs*/
-    const uint8_t * glyph_bitmap;
+    const uint8_t *glyph_bitmap;
 
     /*Describe the glyphs*/
-    const lv_font_fmt_txt_glyph_dsc_t * glyph_dsc;
+    const lv_font_fmt_txt_glyph_dsc_t *glyph_dsc;
 
     /*Map the glyphs to Unicode characters.
      *Array of `lv_font_cmap_fmt_txt_t` variables*/
-    const lv_font_fmt_txt_cmap_t * cmaps;
+    const lv_font_fmt_txt_cmap_t *cmaps;
 
     /**
      * Store kerning values.
      * Can be `lv_font_fmt_txt_kern_pair_t *  or `lv_font_kern_classes_fmt_txt_t *`
      * depending on `kern_classes`
      */
-    const void * kern_dsc;
+    const void *kern_dsc;
 
     /*Scale kern values in 12.4 format*/
     uint16_t kern_scale;
@@ -238,7 +243,7 @@ typedef struct {
     uint16_t bitmap_format  : 2;
 
     /*Cache the last letter and is glyph id*/
-    lv_font_fmt_txt_glyph_cache_t * cache;
+    lv_font_fmt_txt_glyph_cache_t *cache;
 } lv_font_fmt_txt_dsc_t;
 
 /*------------------
@@ -250,7 +255,7 @@ typedef struct _lv_font_t {
     bool (*get_glyph_dsc)(const struct _lv_font_t *, lv_font_glyph_dsc_t *, uint32_t letter, uint32_t letter_next);
 
     /** Get a glyph's bitmap from a font*/
-    const uint8_t * (*get_glyph_bitmap)(const struct _lv_font_t *, uint32_t);
+    const uint8_t *(*get_glyph_bitmap)(const struct _lv_font_t *, uint32_t);
 
     /** Release a glyph*/
     void (*release_glyph)(const struct _lv_font_t *, lv_font_glyph_dsc_t *); //v8 vs v9
@@ -264,9 +269,9 @@ typedef struct _lv_font_t {
     int8_t underline_position;      /**< Distance between the top of the underline and base line (< 0 means below the base line)*/
     int8_t underline_thickness;     /**< Thickness of the underline*/
 
-    const void * dsc;               /**< Store implementation specific or run_time data or caching here*/
-    const struct _lv_font_t * fallback;   /**< Fallback font for missing glyph. Resolved recursively */
-    void * user_data;               /**< Custom user data for font.*/
+    const void *dsc;                /**< Store implementation specific or run_time data or caching here*/
+    const struct _lv_font_t *fallback;    /**< Fallback font for missing glyph. Resolved recursively */
+    void *user_data;                /**< Custom user data for font.*/
 } lv_font_t;
 
 /**********************
@@ -277,7 +282,7 @@ typedef struct _lv_font_t {
  * LVGL Compatibility Function: Get glyph bitmap
  * @note Empty implementation for LVGL compatibility - always returns NULL
  */
-static inline const uint8_t * lv_font_get_bitmap_fmt_txt(const lv_font_t * font, uint32_t letter)
+static inline const uint8_t *lv_font_get_bitmap_fmt_txt(const lv_font_t *font, uint32_t letter)
 {
     (void)font;
     (void)letter;
@@ -288,8 +293,8 @@ static inline const uint8_t * lv_font_get_bitmap_fmt_txt(const lv_font_t * font,
  * LVGL Compatibility Function: Get glyph descriptor
  * @note Empty implementation for LVGL compatibility - always returns false
  */
-static inline bool lv_font_get_glyph_dsc_fmt_txt(const lv_font_t * font, lv_font_glyph_dsc_t * dsc_out, uint32_t unicode_letter,
-                                   uint32_t unicode_letter_next)
+static inline bool lv_font_get_glyph_dsc_fmt_txt(const lv_font_t *font, lv_font_glyph_dsc_t *dsc_out, uint32_t unicode_letter,
+        uint32_t unicode_letter_next)
 {
     (void)font;
     (void)dsc_out;
@@ -302,4 +307,4 @@ static inline bool lv_font_get_glyph_dsc_fmt_txt(const lv_font_t * font, lv_font
 } /*extern "C"*/
 #endif
 
-#endif /*GFX_FONT_LV_PARSER_H*/ 
+#endif /*GFX_FONT_LV_PARSER_H*/

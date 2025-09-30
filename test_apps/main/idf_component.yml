@@ -8,7 +8,7 @@ dependencies:
 
   esp_mmap_assets:
     version: 1.*
-  
+
   espressif/esp-box-3:
     version: "*"
     rules:

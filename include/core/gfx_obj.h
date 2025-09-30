@@ -146,4 +146,4 @@ void gfx_obj_delete(gfx_obj_t *obj);
 
 #ifdef __cplusplus
 }
-#endif 
+#endif

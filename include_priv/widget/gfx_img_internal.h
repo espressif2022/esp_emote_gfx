@@ -9,7 +9,7 @@
 #include "core/gfx_types.h"
 #include "core/gfx_obj.h"
 #include "widget/gfx_img.h"
-#include "decoder/gfx_img_decoder.h"
+#include "decoder/gfx_img_dec.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,4 +37,4 @@ void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *de
 
 #ifdef __cplusplus
 }
-#endif 
+#endif

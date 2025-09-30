@@ -24,7 +24,7 @@ extern "C" {
 typedef void (*gfx_timer_cb_t)(void *);
 
 /* Timer handle type for external use */
-typedef void* gfx_timer_handle_t;
+typedef void *gfx_timer_handle_t;
 
 /**********************
  * GLOBAL PROTOTYPES
@@ -105,4 +105,4 @@ uint32_t gfx_timer_get_actual_fps(void *handle);
 
 #ifdef __cplusplus
 }
-#endif 
+#endif

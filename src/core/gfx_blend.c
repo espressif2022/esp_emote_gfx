@@ -66,11 +66,11 @@ void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                 if (mask32 == 0xFFFFFFFF) {
                     if ((unsigned int)dest_buf & 0x3) {/*dest_buf is not 4-byte aligned*/
                         *(dest_buf + 0) = color;
-                        uint32_t * d = (uint32_t *)(dest_buf + 1);
+                        uint32_t *d = (uint32_t *)(dest_buf + 1);
                         *d = c32;
                         *(dest_buf + 3) = color;
                     } else {
-                        uint32_t * d = (uint32_t *)dest_buf;
+                        uint32_t *d = (uint32_t *)dest_buf;
                         *d = c32;
                         *(d + 1) = c32;
                     }

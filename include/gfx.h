@@ -9,7 +9,7 @@
 /**
  * @file gfx.h
  * @brief Graphics Framework (GFX) - Main header file
- * 
+ *
  * This header file includes all the public APIs for the GFX framework.
  * The framework provides:
  * - Object system for images and labels
@@ -49,4 +49,4 @@ extern "C" {
 
 #ifdef __cplusplus
 }
-#endif 
+#endif

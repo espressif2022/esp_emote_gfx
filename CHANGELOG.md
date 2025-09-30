@@ -2,6 +2,9 @@
 
 All notable changes to the ESP Emote GFX component will be documented in this file.
 
+## [1.2.0] - 2025-09-0
+- use eaf as a lib
+
 ## [1.1.2] - 2025-09-29
 
 ### Upgrade dependencies

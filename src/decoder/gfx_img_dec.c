@@ -11,9 +11,7 @@
 #include "core/gfx_core.h"
 #include "core/gfx_obj.h"
 #include "widget/gfx_img.h"
-#include "decoder/gfx_img_decoder.h"
-#include "decoder/gfx_aaf_dec.h"
-#include "decoder/gfx_jpeg_dec.h"
+#include "decoder/gfx_img_dec.h"
 
 static const char *TAG = "gfx_img_decoder";
 
@@ -77,12 +75,10 @@ gfx_image_format_t gfx_image_detect_format(const void *src)
 
     uint8_t *byte_ptr = (uint8_t *)src;
 
-    // Check for C_ARRAY format
     if (byte_ptr[0] == C_ARRAY_HEADER_MAGIC) {
         return GFX_IMAGE_FORMAT_C_ARRAY;
     }
 
-    // Check for AAF format (0x89 "AAF" magic)
     if (byte_ptr[0] == 0x89 && byte_ptr[1] == 'A' && byte_ptr[2] == 'A' && byte_ptr[3] == 'F') {
         return GFX_IMAGE_FORMAT_AAF;
     }
@@ -228,23 +224,6 @@ static esp_err_t aaf_format_info_cb(gfx_image_decoder_t *decoder, gfx_image_deco
         return ESP_ERR_INVALID_ARG;
     }
 
-    // // Parse AAF header to get basic info
-    // const uint8_t *aaf_data = (const uint8_t *)dsc->src;
-
-    // // Skip magic (4 bytes)
-    // uint32_t total_files = *(uint32_t *)(aaf_data + 4);
-    // uint32_t checksum = *(uint32_t *)(aaf_data + 8);
-    // uint32_t data_length = *(uint32_t *)(aaf_data + 12);
-
-    // For AAF, we can't easily determine width/height without parsing the first frame
-    // So we'll set default values and let the animation system handle the details
-    // header->magic = 0x89414146; // 0x89 "AAF"
-    // header->cf = GFX_COLOR_FORMAT_RGB565; // Default to RGB565
-    // header->w = 0; // Will be determined when frames are loaded
-    // header->h = 0; // Will be determined when frames are loaded
-    // header->stride = 0; // Will be calculated based on actual dimensions
-    // header->reserved = total_files; // Store frame count in reserved field
-
     return ESP_OK;
 }
 
@@ -259,10 +238,8 @@ static esp_err_t aaf_format_open_cb(gfx_image_decoder_t *decoder, gfx_image_deco
         return ESP_ERR_INVALID_ARG;
     }
 
-    // For AAF format, we return the entire file data
-    // The animation system will handle frame extraction
     dsc->data = (const uint8_t *)dsc->src;
-    dsc->data_size = 0; // Size will be determined by the animation system
+    dsc->data_size = 0;
 
     return ESP_OK;
 }
@@ -289,20 +266,18 @@ esp_err_t gfx_image_decoder_init(void)
         return ret;
     }
 
-    ESP_LOGI(TAG, "Image decoder system initialized with %d decoders", decoder_count);
+    ESP_LOGD(TAG, "Image decoder system initialized with %d decoders", decoder_count);
     return ESP_OK;
 }
 
 esp_err_t gfx_image_decoder_deinit(void)
 {
-    // Clear all registered decoders
     for (int i = 0; i < decoder_count; i++) {
         registered_decoders[i] = NULL;
     }
 
-    // Reset decoder count
     decoder_count = 0;
 
-    ESP_LOGI(TAG, "Image decoder system deinitialized");
+    ESP_LOGD(TAG, "Image decoder system deinitialized");
     return ESP_OK;
 }

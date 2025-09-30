@@ -21,11 +21,10 @@
 #include "widget/gfx_label_internal.h"
 #include "widget/gfx_anim.h"
 #include "core/gfx_types.h"
-#include "decoder/gfx_aaf_dec.h"
 #include "widget/gfx_anim_internal.h"
 #include "widget/gfx_font_internal.h"
-#include "decoder/gfx_aaf_format.h"
-#include "decoder/gfx_img_decoder.h"
+#include "decoder/gfx_img_dec.h"
+#include "gfx_eaf_dec.h"
 
 static const char *TAG = "gfx_obj";
 
@@ -49,7 +48,7 @@ static const char *TAG = "gfx_obj";
  * Object creation
  *====================*/
 
-gfx_obj_t * gfx_img_create(gfx_handle_t handle)
+gfx_obj_t *gfx_img_create(gfx_handle_t handle)
 {
     gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
     if (obj == NULL) {
@@ -61,12 +60,13 @@ gfx_obj_t * gfx_img_create(gfx_handle_t handle)
     obj->type = GFX_OBJ_TYPE_IMAGE;
     obj->parent_handle = handle;
     obj->is_visible = true;
+    obj->is_dirty = true;
     gfx_emote_add_chlid(handle, GFX_OBJ_TYPE_IMAGE, obj);
     ESP_LOGD(TAG, "Created image object");
     return obj;
 }
 
-gfx_obj_t * gfx_label_create(gfx_handle_t handle)
+gfx_obj_t *gfx_label_create(gfx_handle_t handle)
 {
     gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
     if (obj == NULL) {
@@ -78,6 +78,7 @@ gfx_obj_t * gfx_label_create(gfx_handle_t handle)
     obj->type = GFX_OBJ_TYPE_LABEL;
     obj->parent_handle = handle;
     obj->is_visible = true;
+    obj->is_dirty = true;
 
     gfx_label_t *label = (gfx_label_t *)malloc(sizeof(gfx_label_t));
     if (label == NULL) {
@@ -87,14 +88,12 @@ gfx_obj_t * gfx_label_create(gfx_handle_t handle)
     }
     memset(label, 0, sizeof(gfx_label_t));
 
-
     label->opa = 0xFF;
     label->mask = NULL;
     label->bg_color = (gfx_color_t) {
         .full = 0x0000
     };
     label->bg_enable = false;
-    label->bg_dirty = false;
     label->text_align = GFX_TEXT_ALIGN_LEFT;
     label->long_mode = GFX_LABEL_LONG_CLIP;
     label->line_spacing = 2;
@@ -122,7 +121,7 @@ gfx_obj_t * gfx_label_create(gfx_handle_t handle)
  * Setter functions
  *====================*/
 
-gfx_obj_t * gfx_img_set_src(gfx_obj_t *obj, void *src)
+gfx_obj_t *gfx_img_set_src(gfx_obj_t *obj, void *src)
 {
     if (obj == NULL) {
         ESP_LOGE(TAG, "Object is NULL");
@@ -135,7 +134,6 @@ gfx_obj_t * gfx_img_set_src(gfx_obj_t *obj, void *src)
     }
 
     obj->src = src;
-
 
     if (src != NULL) {
         gfx_image_header_t header;
@@ -151,6 +149,7 @@ gfx_obj_t * gfx_img_set_src(gfx_obj_t *obj, void *src)
         }
     }
 
+    obj->is_dirty = true;
     ESP_LOGD(TAG, "Set image source, size: %dx%d", obj->width, obj->height);
     return obj;
 }
@@ -165,6 +164,7 @@ void gfx_obj_set_pos(gfx_obj_t *obj, gfx_coord_t x, gfx_coord_t y)
     obj->x = x;
     obj->y = y;
     obj->use_align = false;
+    obj->is_dirty = true;
 
     ESP_LOGD(TAG, "Set object position: (%d, %d)", x, y);
 }
@@ -181,6 +181,7 @@ void gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h)
     } else {
         obj->width = w;
         obj->height = h;
+        obj->is_dirty = true;
     }
 
     ESP_LOGD(TAG, "Set object size: %dx%d", w, h);
@@ -206,6 +207,7 @@ void gfx_obj_align(gfx_obj_t *obj, uint8_t align, gfx_coord_t x_ofs, gfx_coord_t
     obj->align_x_ofs = x_ofs;
     obj->align_y_ofs = y_ofs;
     obj->use_align = true;
+    obj->is_dirty = true;
 
     ESP_LOGD(TAG, "Set object alignment: type=%d, offset=(%d, %d)", align, x_ofs, y_ofs);
 }
@@ -218,6 +220,7 @@ void gfx_obj_set_visible(gfx_obj_t *obj, bool visible)
     }
 
     obj->is_visible = visible;
+    obj->is_dirty = true;
     ESP_LOGD(TAG, "Set object visibility: %s", visible ? "visible" : "hidden");
 }
 
@@ -401,6 +404,9 @@ void gfx_obj_delete(gfx_obj_t *obj)
             if (label->text) {
                 free(label->text);
             }
+            if (label->font_ctx) {
+                free(label->font_ctx);
+            }
             if (label->mask) {
                 free(label->mask);
             }
@@ -421,7 +427,7 @@ void gfx_obj_delete(gfx_obj_t *obj)
             gfx_anim_free_frame_info(&anim->frame);
 
             if (anim->file_desc) {
-                gfx_aaf_format_deinit(anim->file_desc);
+                eaf_deinit(anim->file_desc);
             }
 
             free(anim);
@@ -440,28 +446,38 @@ static void gfx_anim_timer_callback(void *arg)
     gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
 
     if (!anim || !anim->is_playing) {
-        ESP_LOGD(TAG, "anim is NULL or not playing");
+        ESP_LOGD(TAG, "anim is NULL or not playing, %p, %d", anim, anim->is_playing);
         return;
     }
 
-    anim->current_frame++;
-    ESP_LOGD("anim cb", " %lu (%lu / %lu)", anim->current_frame, anim->start_frame, anim->end_frame);
-
-    if (anim->current_frame > anim->end_frame) {
+    gfx_core_context_t *ctx = obj->parent_handle;
+    if (anim->current_frame >= anim->end_frame) {
         if (anim->repeat) {
             ESP_LOGD(TAG, "REPEAT");
+            if (ctx->callbacks.update_cb) {
+                ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ALL_FRAME_DONE, obj);
+            }
             anim->current_frame = anim->start_frame;
         } else {
             ESP_LOGD(TAG, "STOP");
             anim->is_playing = false;
+            if (ctx->callbacks.update_cb) {
+                ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ALL_FRAME_DONE, obj);
+            }
             return;
         }
+    } else {
+        anim->current_frame++;
+        if (ctx->callbacks.update_cb) {
+            ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ONE_FRAME_DONE, obj);
+        }
+        ESP_LOGD("anim cb", " %lu (%lu / %lu)", anim->current_frame, anim->start_frame, anim->end_frame);
     }
 
     obj->is_dirty = true;
 }
 
-gfx_obj_t * gfx_anim_create(gfx_handle_t handle)
+gfx_obj_t *gfx_anim_create(gfx_handle_t handle)
 {
     gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
     if (obj == NULL) {
@@ -488,7 +504,7 @@ gfx_obj_t * gfx_anim_create(gfx_handle_t handle)
     anim->fps = 30;
     anim->repeat = true;
     anim->is_playing = false;
-    
+
     // Initialize mirror properties
     anim->mirror_mode = GFX_MIRROR_DISABLED;
     anim->mirror_offset = 0;
@@ -502,7 +518,7 @@ gfx_obj_t * gfx_anim_create(gfx_handle_t handle)
         return NULL;
     }
 
-    memset(&anim->frame.header, 0, sizeof(gfx_aaf_header_t));
+    memset(&anim->frame.header, 0, sizeof(eaf_header_t));
 
     anim->frame.frame_data = NULL;
     anim->frame.frame_size = 0;
@@ -535,6 +551,8 @@ esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
         return ESP_ERR_INVALID_ARG;
     }
 
+    obj->is_dirty = true;
+
     gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
     if (anim == NULL) {
         ESP_LOGE(TAG, "Animation property is NULL");
@@ -547,21 +565,21 @@ esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
     }
 
     if (anim->frame.header.width > 0) {
-        gfx_aaf_free_header(&anim->frame.header);
-        memset(&anim->frame.header, 0, sizeof(gfx_aaf_header_t));
+        eaf_free_header(&anim->frame.header);
+        memset(&anim->frame.header, 0, sizeof(eaf_header_t));
     }
     anim->frame.frame_data = NULL;
     anim->frame.frame_size = 0;
 
-    gfx_aaf_format_handle_t new_desc;
-    gfx_aaf_format_init(src_data, src_len, &new_desc);
+    eaf_format_handle_t new_desc;
+    eaf_init(src_data, src_len, &new_desc);
     if (new_desc == NULL) {
         ESP_LOGE(TAG, "Failed to initialize asset parser");
         return ESP_FAIL;
     }
 
     if (anim->file_desc) {
-        gfx_aaf_format_deinit(anim->file_desc);
+        eaf_deinit(anim->file_desc);
         anim->file_desc = NULL;
     }
 
@@ -569,7 +587,7 @@ esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
     anim->start_frame = 0;
     anim->current_frame = 0;
     //last block is empty
-    anim->end_frame = gfx_aaf_format_get_total_frames(new_desc) - 2;
+    anim->end_frame = eaf_get_total_frames(new_desc) - 2;
 
     ESP_LOGD(TAG, "set src, start: %lu, end: %lu, file_desc: %p", anim->start_frame, anim->end_frame, anim->file_desc);
     return ESP_OK;
@@ -593,7 +611,7 @@ esp_err_t gfx_anim_set_segment(gfx_obj_t *obj, uint32_t start, uint32_t end, uin
         return ESP_ERR_INVALID_STATE;
     }
 
-    int total_frames = gfx_aaf_format_get_total_frames(anim->file_desc);
+    int total_frames = eaf_get_total_frames(anim->file_desc);
 
     anim->start_frame = start;
     anim->end_frame = (end > total_frames - 2) ? (total_frames - 2) : end;
@@ -612,7 +630,7 @@ esp_err_t gfx_anim_set_segment(gfx_obj_t *obj, uint32_t start, uint32_t end, uin
 
     anim->repeat = repeat;
 
-    ESP_LOGD(TAG, "Set animation segment: %lu -> %lu, fps: %lu, repeat: %d", start, end, fps, repeat);
+    ESP_LOGD(TAG, "Set animation segment: %lu -> %lu(%lu, %lu), fps: %lu, repeat: %d", anim->start_frame, anim->end_frame, total_frames, end, fps, repeat);
     return ESP_OK;
 }
 
