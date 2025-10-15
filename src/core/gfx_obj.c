@@ -45,6 +45,7 @@ void gfx_obj_set_pos(gfx_obj_t *obj, gfx_coord_t x, gfx_coord_t y)
     obj->y = y;
     obj->use_align = false;
     obj->is_dirty = true;
+    gfx_obj_invalidate(obj);
 
     ESP_LOGD(TAG, "Set object position: (%d, %d)", x, y);
 }
@@ -62,6 +63,7 @@ void gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h)
         obj->width = w;
         obj->height = h;
         obj->is_dirty = true;
+        gfx_obj_invalidate(obj);
     }
 
     ESP_LOGD(TAG, "Set object size: %dx%d", w, h);
@@ -88,6 +90,7 @@ void gfx_obj_align(gfx_obj_t *obj, uint8_t align, gfx_coord_t x_ofs, gfx_coord_t
     obj->align_y_ofs = y_ofs;
     obj->use_align = true;
     obj->is_dirty = true;
+    gfx_obj_invalidate(obj);
 
     ESP_LOGD(TAG, "Set object alignment: type=%d, offset=(%d, %d)", align, x_ofs, y_ofs);
 }
@@ -101,6 +104,8 @@ void gfx_obj_set_visible(gfx_obj_t *obj, bool visible)
 
     obj->is_visible = visible;
     obj->is_dirty = true;
+    gfx_obj_invalidate(obj);
+
     ESP_LOGD(TAG, "Set object visibility: %s", visible ? "visible" : "hidden");
 }
 

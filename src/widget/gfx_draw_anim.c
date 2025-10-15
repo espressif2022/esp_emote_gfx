@@ -360,6 +360,7 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
     }
 
     obj->is_dirty = false;
+    gfx_obj_invalidate(obj);
 
     return ESP_OK;
 }
@@ -608,6 +609,7 @@ static void gfx_anim_timer_callback(void *arg)
     }
 
     obj->is_dirty = true;
+    gfx_obj_invalidate(obj);
 }
 
 gfx_obj_t *gfx_anim_create(gfx_handle_t handle)
@@ -638,7 +640,6 @@ gfx_obj_t *gfx_anim_create(gfx_handle_t handle)
     anim->repeat = true;
     anim->is_playing = false;
 
-    // Initialize mirror properties
     anim->mirror_mode = GFX_MIRROR_DISABLED;
     anim->mirror_offset = 0;
 
@@ -675,13 +676,14 @@ gfx_obj_t *gfx_anim_create(gfx_handle_t handle)
 esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
 {
     CHECK_OBJ_TYPE_ANIMATION(obj);
-    
+
     if (src_data == NULL) {
         ESP_LOGE(TAG, "Source data is NULL");
         return ESP_ERR_INVALID_ARG;
     }
 
     obj->is_dirty = true;
+    gfx_obj_invalidate(obj);
 
     gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
     if (anim == NULL) {

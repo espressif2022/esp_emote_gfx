@@ -30,6 +30,9 @@ extern "C" {
 /* Animation timer constants */
 #define ANIM_NO_TIMER_READY 0xFFFFFFFF
 
+/* Invalidation buffer size - max number of dirty areas globally */
+#define GFX_INV_BUF_SIZE    16
+
 /**********************
  *      TYPEDEFS
  **********************/
@@ -69,6 +72,11 @@ typedef struct {
         bool ext_bufs;         /**< Whether using external buffers */
         bool flushing_last;      /**< Whether flushing the last block */
         bool swap_act_buf;       /**< Whether swap the active buffer */
+
+        gfx_area_t inv_areas[GFX_INV_BUF_SIZE]; /**< Array of invalid (dirty) areas */
+        uint8_t inv_area_joined[GFX_INV_BUF_SIZE]; /**< Flags: 1 if area is joined into another */
+        uint8_t inv_p;                /**< Number of invalid areas */
+        bool rendering_in_progress;    /**< Whether rendering is in progress */
     } disp;
 
     /* Synchronization primitives */
@@ -115,6 +123,40 @@ esp_err_t gfx_emote_remove_child(gfx_handle_t handle, void *src);
  * @param dest_buf Destination buffer
  */
 void gfx_draw_child(gfx_core_context_t *ctx, int x1, int y1, int x2, int y2, const void *dest_buf);
+
+/*=====================
+ * Invalidation (dirty area) functions
+ *====================*/
+
+/**
+ * @brief Invalidate an area globally (mark it for redraw)
+ * @param handle Graphics handle
+ * @param area Pointer to the area to invalidate, or NULL to clear all invalid areas
+ *
+ * This function adds an area to the global dirty area list.
+ * Similar to LVGL's _lv_inv_area().
+ * - If area is NULL, clears all invalid areas
+ * - Areas are automatically clipped to screen bounds
+ * - Overlapping/adjacent areas are merged
+ * - If buffer is full, marks entire screen as dirty
+ */
+void gfx_inv_area(gfx_handle_t handle, const gfx_area_t *area);
+
+/**
+ * @brief Invalidate an object's area (convenience function)
+ * @param obj Pointer to the object to invalidate
+ *
+ * Marks the entire object bounds as dirty in the global invalidation list.
+ * Similar to LVGL's lv_obj_invalidate().
+ */
+void gfx_obj_invalidate(gfx_obj_t *obj);
+
+/**
+ * @brief Check if invalidation is enabled
+ * @param handle Graphics handle
+ * @return True if invalidation is enabled, false otherwise
+ */
+bool gfx_is_invalidation_enabled(gfx_handle_t handle);
 
 #ifdef __cplusplus
 }

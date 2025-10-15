@@ -121,6 +121,7 @@ static void gfx_label_scroll_timer_callback(void *arg)
 
     label->scroll_changed = true;
     obj->is_dirty = true;
+    gfx_obj_invalidate(obj);
 }
 
 /*=====================
@@ -140,6 +141,7 @@ gfx_obj_t *gfx_label_create(gfx_handle_t handle)
     obj->parent_handle = handle;
     obj->is_visible = true;
     obj->is_dirty = true;
+    gfx_obj_invalidate(obj);
 
     gfx_label_t *label = (gfx_label_t *)malloc(sizeof(gfx_label_t));
     if (label == NULL) {
@@ -214,6 +216,7 @@ esp_err_t gfx_label_set_font(gfx_obj_t *obj, gfx_font_t font)
     }
 
     obj->is_dirty = true;
+    gfx_obj_invalidate(obj);
     return ESP_OK;
 }
 
@@ -250,6 +253,7 @@ esp_err_t gfx_label_set_text(gfx_obj_t *obj, const char *text)
     }
 
     obj->is_dirty = true;
+    gfx_obj_invalidate(obj);
 
     gfx_label_clear_cached_lines(label);
 
@@ -301,6 +305,7 @@ esp_err_t gfx_label_set_text_fmt(gfx_obj_t *obj, const char *fmt, ...)
     va_end(args);
 
     obj->is_dirty = true;
+    gfx_obj_invalidate(obj);
 
     return ESP_OK;
 }
@@ -345,6 +350,7 @@ esp_err_t gfx_label_set_bg_enable(gfx_obj_t *obj, bool enable)
     gfx_label_t *label = (gfx_label_t *)obj->src;
     label->bg_enable = enable;
     obj->is_dirty = true;
+    gfx_obj_invalidate(obj);
     ESP_LOGD(TAG, "set background enable: %s", enable ? "enabled" : "disabled");
 
     return ESP_OK;
@@ -357,6 +363,7 @@ esp_err_t gfx_label_set_text_align(gfx_obj_t *obj, gfx_text_align_t align)
     gfx_label_t *label = (gfx_label_t *)obj->src;
     label->text_align = align;
     obj->is_dirty = true;
+    gfx_obj_invalidate(obj);
     ESP_LOGD(TAG, "set text align: %d", align);
 
     return ESP_OK;
@@ -396,6 +403,7 @@ esp_err_t gfx_label_set_long_mode(gfx_obj_t *obj, gfx_label_long_mode_t long_mod
         }
 
         obj->is_dirty = true;
+        gfx_obj_invalidate(obj);
     }
 
     label->scroll_changed = false;
@@ -411,6 +419,7 @@ esp_err_t gfx_label_set_line_spacing(gfx_obj_t *obj, uint16_t spacing)
     gfx_label_t *label = (gfx_label_t *)obj->src;
     label->line_spacing = spacing;
     obj->is_dirty = true;
+    gfx_obj_invalidate(obj);
     ESP_LOGD(TAG, "set line spacing: %d", spacing);
 
     return ESP_OK;

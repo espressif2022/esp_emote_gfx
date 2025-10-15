@@ -9,7 +9,9 @@
 #include "esp_timer.h"
 #include "esp_log.h"
 #include "esp_check.h"
+
 #include "core/gfx_core_internal.h"
+#include "core/gfx_timer_internal.h"
 #include "widget/gfx_img_internal.h"
 #include "widget/gfx_label_internal.h"
 #include "widget/gfx_anim_internal.h"
@@ -22,6 +24,15 @@ static bool gfx_object_handler(gfx_core_context_t *ctx);
 static esp_err_t gfx_buf_init_frame(gfx_core_context_t *ctx, const gfx_core_config_t *cfg);
 static void gfx_buf_free_frame(gfx_core_context_t *ctx);
 static uint32_t gfx_calculate_task_delay(uint32_t timer_delay);
+
+/* Dirty area helper functions */
+static void area_copy(gfx_area_t *dest, const gfx_area_t *src);
+static bool area_is_in(const gfx_area_t *area_in, const gfx_area_t *area_parent);
+static bool area_intersect(gfx_area_t *result, const gfx_area_t *a1, const gfx_area_t *a2);
+static uint32_t area_get_size(const gfx_area_t *area);
+static bool area_is_on(const gfx_area_t *a1, const gfx_area_t *a2);
+static void area_join(gfx_area_t *result, const gfx_area_t *a1, const gfx_area_t *a2);
+static void gfx_refr_join_areas(gfx_core_context_t *ctx);
 
 /**
  * @brief Calculate task delay based on timer delay and system tick rate
@@ -69,21 +80,15 @@ static bool gfx_object_handler(gfx_core_context_t *ctx)
         return false;
     }
 
-    bool updated = false;
     gfx_core_child_t *child_node = ctx->disp.child_list;
 
+    /* Preprocess animation frames */
     while (child_node != NULL) {
         gfx_obj_t *obj = (gfx_obj_t *)child_node->src;
-
-        if (obj->is_dirty) {
-            updated = true;
-            ESP_LOGI(TAG, "dirty obj: %p", obj);
-        }
 
         if (obj->type == GFX_OBJ_TYPE_ANIMATION) {
             gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
             if (anim && anim->file_desc) {
-
                 if (ESP_OK != gfx_anim_preprocess_frame(anim)) {
                     child_node = child_node->next;
                     continue;
@@ -93,22 +98,7 @@ static bool gfx_object_handler(gfx_core_context_t *ctx)
         child_node = child_node->next;
     }
 
-    // updated = true;
-
-    return updated;
-}
-
-/**
- * @brief Calculate frame buffer height from buffer size
- * @param ctx Player context
- * @return Frame buffer height in pixels, or 0 if invalid
- */
-static int gfx_buf_get_height(gfx_core_context_t *ctx)
-{
-    if (ctx->disp.buf_pixels == 0 || ctx->display.h_res == 0) {
-        return 0;
-    }
-    return ctx->disp.buf_pixels / (ctx->display.h_res);
+    return true;
 }
 
 /**
@@ -239,6 +229,16 @@ static void gfx_core_task(void *arg)
 {
     gfx_core_context_t *ctx = (gfx_core_context_t *)arg;
     uint32_t timer_delay = 1; // Default delay
+
+    gfx_obj_t obj;
+    obj.x = 0;
+    obj.y = 0;
+    obj.width = ctx->display.h_res;
+    obj.height = ctx->display.v_res;
+    obj.is_visible = true;
+    obj.is_dirty = true;
+    obj.parent_handle = ctx;
+    gfx_obj_invalidate(&obj);
 
     while (1) {
         if (ctx->sync.lock_mutex && xSemaphoreTakeRecursive(ctx->sync.lock_mutex, portMAX_DELAY) == pdTRUE) {
@@ -605,53 +605,374 @@ static bool gfx_refr_handler(gfx_core_context_t *ctx)
 {
     bool updated = gfx_object_handler(ctx);
 
-    if (!updated) {
-        // ESP_LOGI(TAG, "no dirty obj");
-        return false;
-    } else {
-        // ESP_LOGI(TAG, "dirty obj");
+
+    /* Join overlapping/adjacent dirty areas */
+    if (ctx->disp.inv_p > 1) {
+        gfx_refr_join_areas(ctx);
     }
 
-    int block_height = gfx_buf_get_height(ctx);
-    if (block_height == 0) {
-        ESP_LOGE(TAG, "Invalid frame buffer size");
+    /* If no dirty areas, skip rendering */
+    if (ctx->disp.inv_p == 0) {
         return false;
     }
 
-    int v_res = ctx->display.v_res;
-    int h_res = ctx->display.h_res;
-    int total_blocks = (v_res + block_height - 1) / block_height;
+    /* Print dirty areas summary */
+    ESP_LOGI(TAG, "╔════════════════ Dirty Areas: %d ════════════════╗", ctx->disp.inv_p);
+    uint32_t total_dirty_pixels = 0;
+    for (uint8_t i = 0; i < ctx->disp.inv_p; i++) {
+        if (ctx->disp.inv_area_joined[i]) {
+            continue;    /* Skip joined areas */
+        }
+        gfx_area_t *area = &ctx->disp.inv_areas[i];
+        uint32_t area_size = area_get_size(area);
+        total_dirty_pixels += area_size;
+        ESP_LOGI(TAG, "║ [%d] Area: (%3d,%3d)->(%3d,%3d)  Size: %3dx%-3d ║",
+                 i, area->x1, area->y1, area->x2, area->y2,
+                 area->x2 - area->x1 + 1, area->y2 - area->y1 + 1);
+    }
+    ESP_LOGI(TAG, "╠═══════════════════════════════════════════════╣");
 
-    for (int block_idx = 0; block_idx < total_blocks; block_idx++) {
-        int x1 = 0;
-        int x2 = h_res;
+    uint32_t rendered_blocks = 0;
 
-        int y1 = block_idx * block_height;
-        int y2 = ((block_idx + 1) * block_height > v_res) ? v_res : (block_idx + 1) * block_height;
-
-        ctx->disp.flushing_last = (block_idx == total_blocks - 1);
-
-        uint16_t *buf_act = ctx->disp.buf_act;
-
-        gfx_fill_color(buf_act, ctx->disp.bg_color.full, ctx->disp.buf_pixels);
-
-        gfx_draw_child(ctx, x1, y1, x2, y2, buf_act);
-
-        if (ctx->callbacks.flush_cb) {
-            xEventGroupClearBits(ctx->sync.event_group, WAIT_FLUSH_DONE);
-            ctx->callbacks.flush_cb(ctx, x1, y1, x2, y2, buf_act);
-            xEventGroupWaitBits(ctx->sync.event_group, WAIT_FLUSH_DONE, pdTRUE, pdFALSE, pdMS_TO_TICKS(20));
+    for (uint8_t i = 0; i < ctx->disp.inv_p; i++) {
+        if (ctx->disp.inv_area_joined[i]) {
+            continue;
         }
 
-        if ((ctx->disp.flushing_last || ctx->disp.swap_act_buf) && ctx->disp.buf2 != NULL) {
-            if (ctx->disp.buf_act == ctx->disp.buf1) {
-                ctx->disp.buf_act = ctx->disp.buf2;
-            } else {
-                ctx->disp.buf_act = ctx->disp.buf1;
+        gfx_area_t *area = &ctx->disp.inv_areas[i];
+
+        uint32_t area_width = area->x2 - area->x1 + 1;
+        uint32_t area_height = area->y2 - area->y1 + 1;
+        uint32_t area_pixels = area_width * area_height;
+
+        uint32_t per_flush = ctx->disp.buf_pixels / area_width;
+        if (per_flush == 0) {
+            ESP_LOGE(TAG, "Area[%d] width %lu exceeds buffer width, skipping", i, area_width);
+            continue;
+        }
+
+        uint32_t total_flushes = (area_height + per_flush - 1) / per_flush;
+
+        ESP_LOGI(TAG, "Area[%d]: %lu px > %lu px, split into %lu flushes (%lu px each)",
+            i, area_pixels, ctx->disp.buf_pixels, total_flushes, per_flush);
+
+        int current_y = area->y1;
+        uint32_t flush_idx = 0;
+
+        while (current_y <= area->y2) {
+            rendered_blocks++;
+            flush_idx++;
+
+            int x1 = area->x1;
+            int y1 = current_y;
+            int x2 = area->x2 + 1;  /* Convert to exclusive */
+            int y2 = current_y + per_flush;
+            if (y2 > area->y2 + 1) {
+                y2 = area->y2 + 1;
             }
-            ctx->disp.swap_act_buf = false;
+
+            uint32_t chunk_pixels = area_width * (y2 - y1);
+            uint16_t *buf_act = ctx->disp.buf_act;
+
+            gfx_fill_color(buf_act, ctx->disp.bg_color.full, ctx->disp.buf_pixels);
+
+            gfx_draw_child(ctx, x1, y1, x2, y2, buf_act);
+
+            if (ctx->callbacks.flush_cb) {
+                xEventGroupClearBits(ctx->sync.event_group, WAIT_FLUSH_DONE);
+
+                if (total_flushes == 1) {
+                    ESP_LOGI(TAG, "Flush[%lu]: Area[%d] (%3d,%3d)->(%3d,%3d) [%lupx/%lupx]",
+                             rendered_blocks, i, x1, y1, x2 - 1, y2 - 1,
+                             chunk_pixels, ctx->disp.buf_pixels);
+                } else {
+                    ESP_LOGI(TAG, "Flush[%lu]: Area[%d] (%3d,%3d)->(%3d,%3d) [Chunk %lu/%lu: %lupx]",
+                             rendered_blocks, i, x1, y1, x2 - 1, y2 - 1,
+                             flush_idx, total_flushes, chunk_pixels);
+                }
+
+                ctx->callbacks.flush_cb(ctx, x1, y1, x2, y2, buf_act);
+                xEventGroupWaitBits(ctx->sync.event_group, WAIT_FLUSH_DONE, pdTRUE, pdFALSE, pdMS_TO_TICKS(20));
+            }
+
+            current_y = y2;
         }
     }
 
+    /* Set flushing_last and swap buffers after all blocks are done */
+    ctx->disp.flushing_last = true;
+    if (ctx->disp.buf2 != NULL) {
+        if (ctx->disp.buf_act == ctx->disp.buf1) {
+            ctx->disp.buf_act = ctx->disp.buf2;
+        } else {
+            ctx->disp.buf_act = ctx->disp.buf1;
+        }
+    }
+
+    uint32_t screen_pixels = ctx->display.h_res * ctx->display.v_res;
+    float dirty_percentage = (total_dirty_pixels * 100.0f) / screen_pixels;
+    ESP_LOGI(TAG, "║ Rendered: %lu blocks, %lu pixels (%.1f%% screen)║",
+             rendered_blocks, total_dirty_pixels, dirty_percentage);
+    ESP_LOGI(TAG, "╚═══════════════════════════════════════════════╝");
+
+    /* Clear dirty areas after rendering is complete */
+    if (ctx->disp.inv_p > 0) {
+        ESP_LOGI(TAG, "Clearing %d dirty areas after render", ctx->disp.inv_p);
+        gfx_inv_area(ctx, NULL);
+    }
+
+    /* Clear all object dirty flags */
+    gfx_core_child_t *child_node = ctx->disp.child_list;
+    while (child_node != NULL) {
+        gfx_obj_t *obj = (gfx_obj_t *)child_node->src;
+        obj->is_dirty = false;
+        child_node = child_node->next;
+    }
+
+    return true;
+}
+
+/*=====================
+ * Dirty area helper function implementations
+ *====================*/
+
+/**
+ * @brief Copy area from src to dest
+ */
+static void area_copy(gfx_area_t *dest, const gfx_area_t *src)
+{
+    dest->x1 = src->x1;
+    dest->y1 = src->y1;
+    dest->x2 = src->x2;
+    dest->y2 = src->y2;
+}
+
+/**
+ * @brief Check if area_in is fully contained within area_parent
+ * @return true if area_in is completely inside area_parent
+ */
+static bool area_is_in(const gfx_area_t *area_in, const gfx_area_t *area_parent)
+{
+    if (area_in->x1 >= area_parent->x1 &&
+            area_in->y1 >= area_parent->y1 &&
+            area_in->x2 <= area_parent->x2 &&
+            area_in->y2 <= area_parent->y2) {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * @brief Get intersection of two areas
+ * @return true if areas intersect, false otherwise
+ */
+static bool area_intersect(gfx_area_t *result, const gfx_area_t *a1, const gfx_area_t *a2)
+{
+    gfx_coord_t x1 = (a1->x1 > a2->x1) ? a1->x1 : a2->x1;
+    gfx_coord_t y1 = (a1->y1 > a2->y1) ? a1->y1 : a2->y1;
+    gfx_coord_t x2 = (a1->x2 < a2->x2) ? a1->x2 : a2->x2;
+    gfx_coord_t y2 = (a1->y2 < a2->y2) ? a1->y2 : a2->y2;
+
+    if (x1 <= x2 && y1 <= y2) {
+        result->x1 = x1;
+        result->y1 = y1;
+        result->x2 = x2;
+        result->y2 = y2;
+        return true;
+    }
+    return false;
+}
+
+
+/**
+ * @brief Get the size (area) of a rectangular region
+ * @param area Area to calculate size for
+ * @return Size in pixels (width * height)
+ */
+static uint32_t area_get_size(const gfx_area_t *area)
+{
+    uint32_t width = area->x2 - area->x1 + 1;
+    uint32_t height = area->y2 - area->y1 + 1;
+    return width * height;
+}
+
+/**
+ * @brief Check if two areas are on each other (overlap or touch)
+ * Similar to LVGL's _lv_area_is_on
+ * @param a1 First area
+ * @param a2 Second area
+ * @return true if areas overlap or are adjacent (touch)
+ */
+static bool area_is_on(const gfx_area_t *a1, const gfx_area_t *a2)
+{
+    /* Check if areas are completely separate */
+    if ((a1->x1 > a2->x2) ||
+            (a2->x1 > a1->x2) ||
+            (a1->y1 > a2->y2) ||
+            (a2->y1 > a1->y2)) {
+        return false;
+    }
+    return true;
+}
+
+/**
+ * @brief Join two areas into a larger area (bounding box)
+ * Similar to LVGL's _lv_area_join
+ * @param result Result area (bounding box of a1 and a2)
+ * @param a1 First area
+ * @param a2 Second area
+ */
+static void area_join(gfx_area_t *result, const gfx_area_t *a1, const gfx_area_t *a2)
+{
+    result->x1 = (a1->x1 < a2->x1) ? a1->x1 : a2->x1;
+    result->y1 = (a1->y1 < a2->y1) ? a1->y1 : a2->y1;
+    result->x2 = (a1->x2 > a2->x2) ? a1->x2 : a2->x2;
+    result->y2 = (a1->y2 > a2->y2) ? a1->y2 : a2->y2;
+}
+
+/**
+ * @brief Join overlapping/adjacent dirty areas to minimize redraw regions
+ * Similar to LVGL's lv_refr_join_area
+ * This function merges dirty areas that overlap or touch if the resulting
+ * area is smaller than the sum of the two separate areas.
+ * @param ctx Graphics context containing dirty areas
+ */
+static void gfx_refr_join_areas(gfx_core_context_t *ctx)
+{
+    uint32_t join_from;
+    uint32_t join_in;
+    gfx_area_t joined_area;
+
+    /* Clear joined flags */
+    memset(ctx->disp.inv_area_joined, 0, sizeof(ctx->disp.inv_area_joined));
+
+    for (join_in = 0; join_in < ctx->disp.inv_p; join_in++) {
+        if (ctx->disp.inv_area_joined[join_in] != 0) {
+            continue;
+        }
+
+        /* Check all areas to join them into 'join_in' */
+        for (join_from = 0; join_from < ctx->disp.inv_p; join_from++) {
+            /* Handle only unjoined areas and ignore itself */
+            if (ctx->disp.inv_area_joined[join_from] != 0 || join_in == join_from) {
+                continue;
+            }
+
+            /* Check if the areas are on each other (overlap or adjacent) */
+            if (!area_is_on(&ctx->disp.inv_areas[join_in], &ctx->disp.inv_areas[join_from])) {
+                continue;
+            }
+
+            /* Create joined area */
+            area_join(&joined_area, &ctx->disp.inv_areas[join_in], &ctx->disp.inv_areas[join_from]);
+
+            /* Join two areas only if the joined area size is smaller than the sum
+             * This prevents unnecessary joining of areas that would waste rendering */
+            uint32_t joined_size = area_get_size(&joined_area);
+            uint32_t separate_size = area_get_size(&ctx->disp.inv_areas[join_in]) +
+                                     area_get_size(&ctx->disp.inv_areas[join_from]);
+
+            if (joined_size < separate_size) {
+                area_copy(&ctx->disp.inv_areas[join_in], &joined_area);
+
+                /* Mark 'join_from' as joined into 'join_in' */
+                ctx->disp.inv_area_joined[join_from] = 1;
+
+                ESP_LOGD(TAG, "Joined area [%d] into [%d], saved %lu pixels",
+                         join_from, join_in, separate_size - joined_size);
+            }
+        }
+    }
+}
+
+void gfx_inv_area(gfx_handle_t handle, const gfx_area_t *area_p)
+{
+    if (handle == NULL) {
+        ESP_LOGE(TAG, "Handle is NULL");
+        return;
+    }
+
+    gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
+
+    if (area_p == NULL) {
+        ctx->disp.inv_p = 0;
+        memset(ctx->disp.inv_area_joined, 0, sizeof(ctx->disp.inv_area_joined));
+        ESP_LOGD(TAG, "Cleared all invalid areas");
+        return;
+    }
+
+    if (ctx->disp.rendering_in_progress) {
+        ESP_LOGE(TAG, "Detected modifying dirty areas in render");
+        return;
+    }
+
+    gfx_area_t scr_area;
+    scr_area.x1 = 0;
+    scr_area.y1 = 0;
+    scr_area.x2 = ctx->display.h_res - 1;
+    scr_area.y2 = ctx->display.v_res - 1;
+
+    /* Intersect with screen bounds */
+    gfx_area_t com_area;
+    bool suc = area_intersect(&com_area, area_p, &scr_area);
+    if (!suc) {
+        ESP_LOGD(TAG, "Area out of screen bounds");
+        return;  /* Out of the screen */
+    }
+
+    /* Check if this area is already covered by existing invalid areas */
+    for (uint8_t i = 0; i < ctx->disp.inv_p; i++) {
+        if (area_is_in(&com_area, &ctx->disp.inv_areas[i])) {
+            ESP_LOGD(TAG, "Area already covered by existing invalid area %d", i);
+            return;
+        }
+    }
+
+    /* Add as new invalid area if there's space */
+    if (ctx->disp.inv_p < GFX_INV_BUF_SIZE) {
+        area_copy(&ctx->disp.inv_areas[ctx->disp.inv_p], &com_area);
+        ctx->disp.inv_p++;
+        ESP_LOGI(TAG, "Added invalid area [%d,%d,%d,%d], total: %d",
+                 com_area.x1, com_area.y1, com_area.x2, com_area.y2, ctx->disp.inv_p);
+    } else {
+        /* No space left, mark entire screen as invalid */
+        ctx->disp.inv_p = 1;
+        area_copy(&ctx->disp.inv_areas[0], &scr_area);
+        ESP_LOGW(TAG, "Invalid area buffer full, marking entire screen as dirty");
+    }
+}
+
+void gfx_obj_invalidate(gfx_obj_t *obj)
+{
+    if (obj == NULL) {
+        ESP_LOGE(TAG, "Object is NULL");
+        return;
+    }
+
+    if (obj->parent_handle == NULL) {
+        ESP_LOGE(TAG, "Object has no parent handle");
+        return;
+    }
+
+    obj->is_dirty = true;
+
+    gfx_area_t obj_area;
+    obj_area.x1 = obj->x;
+    obj_area.y1 = obj->y;
+    obj_area.x2 = obj->x + obj->width - 1;
+    obj_area.y2 = obj->y + obj->height - 1;
+
+    gfx_inv_area(obj->parent_handle, &obj_area);
+
+    // ESP_LOGI(TAG, "[%p] type:%d, Invalidated object area [%d,%d,%d,%d]",
+    //          obj, obj->type, obj_area.x1, obj_area.y1, obj_area.x2, obj_area.y2);
+}
+
+bool gfx_is_invalidation_enabled(gfx_handle_t handle)
+{
+    if (handle == NULL) {
+        return false;
+    }
+    /* For now, always enabled. Can add a flag later if needed */
     return true;
 }

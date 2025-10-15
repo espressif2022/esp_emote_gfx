@@ -170,6 +170,7 @@ gfx_obj_t *gfx_img_create(gfx_handle_t handle)
     obj->parent_handle = handle;
     obj->is_visible = true;
     obj->is_dirty = true;
+    gfx_obj_invalidate(obj);
     gfx_emote_add_chlid(handle, GFX_OBJ_TYPE_IMAGE, obj);
     ESP_LOGD(TAG, "Created image object");
     return obj;
@@ -196,6 +197,7 @@ esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src)
     }
 
     obj->is_dirty = true;
+    gfx_obj_invalidate(obj);
     ESP_LOGD(TAG, "Set image source, size: %dx%d", obj->width, obj->height);
     return ESP_OK;
 }
