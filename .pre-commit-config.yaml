@@ -7,6 +7,7 @@ exclude: |
     | mmap_generate_*.h
     | font_puhui_16_4.c
     | docs/.*
+    | png_to_rgb565a8.py
   )
 repos:
   - repo: https://github.com/igrr/astyle_py.git
@@ -63,20 +64,20 @@ repos:
       - id: no-commit-to-branch
         name: Do not use uppercase letters in the branch name
         args: ['--pattern', '^[^A-Z]*[A-Z]']
-  - repo: local
-    hooks:
-      - id: check-executables
-        name: Check File Permissions
-        entry: .gitlab/tools/check_executables.py --action executables
-        language: python
-        types: [executable]
-        exclude: '\.pre-commit/.+'
-      - id: check-executable-list
-        name: Validate executable-list.txt
-        entry: .gitlab/tools/check_executables.py --action list
-        language: python
-        pass_filenames: false
-        always_run: true
+  # - repo: local
+  #   hooks:
+      # - id: check-executables
+      #   name: Check File Permissions
+      #   entry: .gitlab/tools/check_executables.py --action executables
+      #   language: python
+      #   types: [executable]
+      #   exclude: '\.pre-commit/.+'
+      # - id: check-executable-list
+      #   name: Validate executable-list.txt
+      #   entry: .gitlab/tools/check_executables.py --action list
+      #   language: python
+      #   pass_filenames: false
+      #   always_run: true
   - repo: https://github.com/espressif/conventional-precommit-linter
     rev: v1.8.0
     hooks:

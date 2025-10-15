@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include "core/gfx_types.h"
 #include "core/gfx_obj.h"
 
 #ifdef __cplusplus
@@ -73,7 +72,7 @@ gfx_obj_t *gfx_img_create(gfx_handle_t handle);
  * @param src Pointer to the image source data
  * @return Pointer to the object
  */
-gfx_obj_t *gfx_img_set_src(gfx_obj_t *obj, void *src);
+esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src);
 
 #ifdef __cplusplus
 }

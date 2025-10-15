@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include "core/gfx_types.h"
 #include "core/gfx_obj.h"
 #include "core/gfx_timer.h"
 #include "widget/gfx_label.h"
@@ -85,6 +84,18 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t *obj);
  * @param label Label context
  */
 void gfx_label_clear_cached_lines(gfx_label_t *label);
+
+/*=====================
+ * Internal object management
+ *====================*/
+
+/**
+ * @brief Delete label-specific resources (internal)
+ * @param obj Label object
+ * @note This function only handles label-specific cleanup.
+ *       The base object structure is freed by gfx_obj_delete().
+ */
+esp_err_t gfx_label_delete(gfx_obj_t *obj);
 
 #ifdef __cplusplus
 }

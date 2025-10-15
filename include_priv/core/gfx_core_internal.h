@@ -10,11 +10,9 @@
 #include "freertos/semphr.h"
 #include "freertos/event_groups.h"
 
-#include "core/gfx_types.h"
 #include "core/gfx_core.h"
 #include "core/gfx_timer_internal.h"
 #include "core/gfx_obj_internal.h"
-#include "widget/gfx_font_internal.h"
 
 #ifdef __cplusplus
 extern "C" {

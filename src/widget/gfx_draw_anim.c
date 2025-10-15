@@ -5,25 +5,26 @@
  */
 
 #include <string.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
-#include "core/gfx_core.h"
-#include "core/gfx_obj.h"
-#include "widget/gfx_anim.h"
+#include "core/gfx_core_internal.h"
 #include "widget/gfx_comm.h"
-#include "widget/gfx_font_internal.h"
 #include "widget/gfx_anim_internal.h"
-#include "core/gfx_obj_internal.h"
-#include "gfx_eaf_dec.h"
 
 static const char *TAG = "gfx_anim";
 
 /*********************
  *      DEFINES
  *********************/
+
+/* Helper macro for type checking */
+#define CHECK_OBJ_TYPE_ANIMATION(obj) \
+    do { \
+        ESP_RETURN_ON_ERROR((obj == NULL) ? ESP_ERR_INVALID_ARG : ESP_OK, TAG, "Object is NULL"); \
+        ESP_RETURN_ON_ERROR((obj->type != GFX_OBJ_TYPE_ANIMATION) ? ESP_ERR_INVALID_ARG : ESP_OK, TAG, \
+                           "Object is not an ANIMATION type (type=%d). Cannot use animation API on non-animation objects.", obj->type); \
+    } while(0)
 
 /**********************
  *      TYPEDEFS
@@ -566,4 +567,302 @@ static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest
             }
         }
     }
+}
+
+/*=====================
+ * Animation object creation and management
+ *====================*/
+
+static void gfx_anim_timer_callback(void *arg)
+{
+    gfx_obj_t *obj = (gfx_obj_t *)arg;
+    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+
+    if (!anim || !anim->is_playing) {
+        ESP_LOGD(TAG, "anim is NULL or not playing, %p, %d", anim, anim->is_playing);
+        return;
+    }
+
+    gfx_core_context_t *ctx = obj->parent_handle;
+    if (anim->current_frame >= anim->end_frame) {
+        if (anim->repeat) {
+            ESP_LOGD(TAG, "REPEAT");
+            if (ctx->callbacks.update_cb) {
+                ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ALL_FRAME_DONE, obj);
+            }
+            anim->current_frame = anim->start_frame;
+        } else {
+            ESP_LOGD(TAG, "STOP");
+            anim->is_playing = false;
+            if (ctx->callbacks.update_cb) {
+                ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ALL_FRAME_DONE, obj);
+            }
+            return;
+        }
+    } else {
+        anim->current_frame++;
+        if (ctx->callbacks.update_cb) {
+            ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ONE_FRAME_DONE, obj);
+        }
+        ESP_LOGD("anim cb", " %"PRIu32" (%"PRIu32" / %"PRIu32")", anim->current_frame, anim->start_frame, anim->end_frame);
+    }
+
+    obj->is_dirty = true;
+}
+
+gfx_obj_t *gfx_anim_create(gfx_handle_t handle)
+{
+    gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
+    if (obj == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for animation object");
+        return NULL;
+    }
+
+    memset(obj, 0, sizeof(gfx_obj_t));
+    obj->parent_handle = handle;
+    obj->is_visible = true;
+
+    gfx_anim_property_t *anim = (gfx_anim_property_t *)malloc(sizeof(gfx_anim_property_t));
+    if (anim == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for animation property");
+        free(obj);
+        return NULL;
+    }
+    memset(anim, 0, sizeof(gfx_anim_property_t));
+
+    anim->file_desc = NULL;
+    anim->start_frame = 0;
+    anim->end_frame = 0;
+    anim->current_frame = 0;
+    anim->fps = 30;
+    anim->repeat = true;
+    anim->is_playing = false;
+
+    // Initialize mirror properties
+    anim->mirror_mode = GFX_MIRROR_DISABLED;
+    anim->mirror_offset = 0;
+
+    uint32_t period_ms = 1000 / anim->fps;
+    anim->timer = gfx_timer_create((void *)obj->parent_handle, gfx_anim_timer_callback, period_ms, obj);
+    if (anim->timer == NULL) {
+        ESP_LOGE(TAG, "Failed to create animation timer");
+        free(anim);
+        free(obj);
+        return NULL;
+    }
+
+    memset(&anim->frame.header, 0, sizeof(eaf_header_t));
+
+    anim->frame.frame_data = NULL;
+    anim->frame.frame_size = 0;
+
+    anim->frame.block_offsets = NULL;
+    anim->frame.pixel_buffer = NULL;
+    anim->frame.color_palette = NULL;
+
+    anim->frame.last_block = -1;
+
+    anim->mirror_mode = GFX_MIRROR_DISABLED;
+    anim->mirror_offset = 0;
+
+    obj->src = anim;
+    obj->type = GFX_OBJ_TYPE_ANIMATION;
+
+    gfx_emote_add_chlid(handle, GFX_OBJ_TYPE_ANIMATION, obj);
+    return obj;
+}
+
+esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
+{
+    CHECK_OBJ_TYPE_ANIMATION(obj);
+    
+    if (src_data == NULL) {
+        ESP_LOGE(TAG, "Source data is NULL");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    obj->is_dirty = true;
+
+    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+    if (anim == NULL) {
+        ESP_LOGE(TAG, "Animation property is NULL");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (anim->is_playing) {
+        ESP_LOGD(TAG, "stop current animation");
+        gfx_anim_stop(obj);
+    }
+
+    if (anim->frame.header.width > 0) {
+        eaf_free_header(&anim->frame.header);
+        memset(&anim->frame.header, 0, sizeof(eaf_header_t));
+    }
+    anim->frame.frame_data = NULL;
+    anim->frame.frame_size = 0;
+
+    eaf_format_handle_t new_desc;
+    eaf_init(src_data, src_len, &new_desc);
+    if (new_desc == NULL) {
+        ESP_LOGE(TAG, "Failed to initialize asset parser");
+        return ESP_FAIL;
+    }
+
+    if (anim->file_desc) {
+        eaf_deinit(anim->file_desc);
+        anim->file_desc = NULL;
+    }
+
+    anim->file_desc = new_desc;
+    anim->start_frame = 0;
+    anim->current_frame = 0;
+    //last block is empty
+    anim->end_frame = eaf_get_total_frames(new_desc) - 2;
+
+    ESP_LOGD(TAG, "set src, start: %"PRIu32", end: %"PRIu32", file_desc: %p", anim->start_frame, anim->end_frame, anim->file_desc);
+    return ESP_OK;
+}
+
+esp_err_t gfx_anim_set_segment(gfx_obj_t *obj, uint32_t start, uint32_t end, uint32_t fps, bool repeat)
+{
+    CHECK_OBJ_TYPE_ANIMATION(obj);
+
+    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+    if (anim == NULL) {
+        ESP_LOGE(TAG, "Animation property is NULL");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    int total_frames = eaf_get_total_frames(anim->file_desc);
+
+    anim->start_frame = start;
+    anim->end_frame = (end > total_frames - 2) ? (total_frames - 2) : end;
+    anim->current_frame = start;
+
+    if (anim->fps != fps) {
+        ESP_LOGI(TAG, "FPS changed from %"PRIu32" to %"PRIu32", updating timer period", anim->fps, fps);
+        anim->fps = fps;
+
+        if (anim->timer != NULL) {
+            uint32_t new_period_ms = 1000 / fps;
+            gfx_timer_set_period(anim->timer, new_period_ms);
+            ESP_LOGI(TAG, "Animation timer period updated to %"PRIu32" ms for %"PRIu32" FPS", new_period_ms, fps);
+        }
+    }
+
+    anim->repeat = repeat;
+
+    ESP_LOGD(TAG, "Set animation segment: %"PRIu32" -> %"PRIu32"(%d, %"PRIu32"), fps: %"PRIu32", repeat: %d", anim->start_frame, anim->end_frame, total_frames, end, fps, repeat);
+    return ESP_OK;
+}
+
+esp_err_t gfx_anim_start(gfx_obj_t *obj)
+{
+    CHECK_OBJ_TYPE_ANIMATION(obj);
+
+    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+    if (anim == NULL) {
+        ESP_LOGE(TAG, "Animation property is NULL");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (anim->file_desc == NULL) {
+        ESP_LOGE(TAG, "Animation source not set");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (anim->is_playing) {
+        ESP_LOGD(TAG, "Animation is already playing");
+        return ESP_OK;
+    }
+
+    anim->is_playing = true;
+    anim->current_frame = anim->start_frame;
+
+    ESP_LOGD(TAG, "Started animation");
+    return ESP_OK;
+}
+
+esp_err_t gfx_anim_stop(gfx_obj_t *obj)
+{
+    CHECK_OBJ_TYPE_ANIMATION(obj);
+
+    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+    if (anim == NULL) {
+        ESP_LOGE(TAG, "Animation property is NULL");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (!anim->is_playing) {
+        ESP_LOGD(TAG, "Animation is not playing");
+        return ESP_OK;
+    }
+
+    anim->is_playing = false;
+
+    ESP_LOGD(TAG, "Stopped animation");
+    return ESP_OK;
+}
+
+esp_err_t gfx_anim_set_mirror(gfx_obj_t *obj, bool enabled, int16_t offset)
+{
+    CHECK_OBJ_TYPE_ANIMATION(obj);
+
+    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+    if (anim == NULL) {
+        ESP_LOGE(TAG, "Animation property is NULL");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    anim->mirror_mode = enabled ? GFX_MIRROR_MANUAL : GFX_MIRROR_DISABLED;
+    anim->mirror_offset = offset;
+
+    ESP_LOGD(TAG, "Set animation mirror: enabled=%s, offset=%d", enabled ? "true" : "false", offset);
+    return ESP_OK;
+}
+
+esp_err_t gfx_anim_set_auto_mirror(gfx_obj_t *obj, bool enabled)
+{
+    CHECK_OBJ_TYPE_ANIMATION(obj);
+
+    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+    if (anim == NULL) {
+        ESP_LOGE(TAG, "Animation property is NULL");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    anim->mirror_mode = enabled ? GFX_MIRROR_AUTO : GFX_MIRROR_DISABLED;
+
+    ESP_LOGD(TAG, "Set auto mirror alignment: enabled=%s", enabled ? "true" : "false");
+    return ESP_OK;
+}
+
+/*=====================
+ * Animation object deletion
+ *====================*/
+
+esp_err_t gfx_anim_delete(gfx_obj_t *obj)
+{
+    CHECK_OBJ_TYPE_ANIMATION(obj);
+
+    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+    if (anim) {
+        if (anim->is_playing) {
+            gfx_anim_stop(obj);
+        }
+
+        if (anim->timer != NULL) {
+            gfx_timer_delete((void *)obj->parent_handle, anim->timer);
+            anim->timer = NULL;
+        }
+
+        gfx_anim_free_frame_info(&anim->frame);
+
+        if (anim->file_desc) {
+            eaf_deinit(anim->file_desc);
+        }
+
+        free(anim);
+    }
+    return ESP_OK;
 }

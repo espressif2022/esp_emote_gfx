@@ -11,18 +11,20 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_check.h"
-#include "core/gfx_types.h"
-#include "core/gfx_obj.h"
-#include "core/gfx_timer.h"
 #include "core/gfx_blend_internal.h"
-#include "core/gfx_obj_internal.h"
 #include "core/gfx_core_internal.h"
 #include "widget/gfx_comm.h"
-#include "widget/gfx_label.h"
 #include "widget/gfx_label_internal.h"
-#include "widget/gfx_font_internal.h"
 
 static const char *TAG = "gfx_label";
+
+/* Helper macro for type checking */
+#define CHECK_OBJ_TYPE_LABEL(obj) \
+    do { \
+        ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, TAG, "Object is NULL"); \
+        ESP_RETURN_ON_FALSE(obj->type == GFX_OBJ_TYPE_LABEL, ESP_ERR_INVALID_ARG, TAG, \
+                           "Object is not a LABEL type (type=%d). Cannot use label API on non-label objects.", obj->type); \
+    } while(0)
 
 static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, void *font_ctx, int total_line_height,
                                       char ***ret_lines, int *ret_line_count, int *ret_text_width, int **ret_line_widths);
@@ -121,9 +123,68 @@ static void gfx_label_scroll_timer_callback(void *arg)
     obj->is_dirty = true;
 }
 
+/*=====================
+ * Label object creation
+ *====================*/
+
+gfx_obj_t *gfx_label_create(gfx_handle_t handle)
+{
+    gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
+    if (obj == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for label object");
+        return NULL;
+    }
+
+    memset(obj, 0, sizeof(gfx_obj_t));
+    obj->type = GFX_OBJ_TYPE_LABEL;
+    obj->parent_handle = handle;
+    obj->is_visible = true;
+    obj->is_dirty = true;
+
+    gfx_label_t *label = (gfx_label_t *)malloc(sizeof(gfx_label_t));
+    if (label == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for label object");
+        free(obj);
+        return NULL;
+    }
+    memset(label, 0, sizeof(gfx_label_t));
+
+    label->opa = 0xFF;
+    label->mask = NULL;
+    label->bg_color = (gfx_color_t) {
+        .full = 0x0000
+    };
+    label->bg_enable = false;
+    label->text_align = GFX_TEXT_ALIGN_LEFT;
+    label->long_mode = GFX_LABEL_LONG_CLIP;
+    label->line_spacing = 2;
+
+    label->scroll_offset = 0;
+    label->scroll_speed = 50;
+    label->scroll_loop = true;
+    label->scrolling = false;
+    label->scroll_changed = false;
+    label->scroll_timer = NULL;
+    label->text_width = 0;
+
+    label->lines = NULL;
+    label->line_count = 0;
+    label->line_widths = NULL;
+
+    obj->src = label;
+
+    gfx_emote_add_chlid(handle, GFX_OBJ_TYPE_LABEL, obj);
+    ESP_LOGD(TAG, "Created label object with default font config");
+    return obj;
+}
+
+/*=====================
+ * Label setter functions
+ *====================*/
+
 esp_err_t gfx_label_set_font(gfx_obj_t *obj, gfx_font_t font)
 {
-    ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
+    CHECK_OBJ_TYPE_LABEL(obj);
     gfx_label_t *label = (gfx_label_t *)obj->src;
 
     if (label->font_ctx) {
@@ -158,7 +219,7 @@ esp_err_t gfx_label_set_font(gfx_obj_t *obj, gfx_font_t font)
 
 esp_err_t gfx_label_set_text(gfx_obj_t *obj, const char *text)
 {
-    ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
+    CHECK_OBJ_TYPE_LABEL(obj);
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
 
@@ -210,7 +271,8 @@ esp_err_t gfx_label_set_text(gfx_obj_t *obj, const char *text)
 
 esp_err_t gfx_label_set_text_fmt(gfx_obj_t *obj, const char *fmt, ...)
 {
-    ESP_RETURN_ON_FALSE(obj && fmt, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
+    CHECK_OBJ_TYPE_LABEL(obj);
+    ESP_RETURN_ON_FALSE(fmt, ESP_ERR_INVALID_ARG, TAG, "Format string is NULL");
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
 
@@ -245,7 +307,7 @@ esp_err_t gfx_label_set_text_fmt(gfx_obj_t *obj, const char *fmt, ...)
 
 esp_err_t gfx_label_set_opa(gfx_obj_t *obj, gfx_opa_t opa)
 {
-    ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
+    CHECK_OBJ_TYPE_LABEL(obj);
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
     label->opa = opa;
@@ -256,7 +318,7 @@ esp_err_t gfx_label_set_opa(gfx_obj_t *obj, gfx_opa_t opa)
 
 esp_err_t gfx_label_set_color(gfx_obj_t *obj, gfx_color_t color)
 {
-    ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
+    CHECK_OBJ_TYPE_LABEL(obj);
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
     label->color = color;
@@ -267,7 +329,7 @@ esp_err_t gfx_label_set_color(gfx_obj_t *obj, gfx_color_t color)
 
 esp_err_t gfx_label_set_bg_color(gfx_obj_t *obj, gfx_color_t bg_color)
 {
-    ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
+    CHECK_OBJ_TYPE_LABEL(obj);
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
     label->bg_color = bg_color;
@@ -278,7 +340,7 @@ esp_err_t gfx_label_set_bg_color(gfx_obj_t *obj, gfx_color_t bg_color)
 
 esp_err_t gfx_label_set_bg_enable(gfx_obj_t *obj, bool enable)
 {
-    ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
+    CHECK_OBJ_TYPE_LABEL(obj);
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
     label->bg_enable = enable;
@@ -290,7 +352,7 @@ esp_err_t gfx_label_set_bg_enable(gfx_obj_t *obj, bool enable)
 
 esp_err_t gfx_label_set_text_align(gfx_obj_t *obj, gfx_text_align_t align)
 {
-    ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
+    CHECK_OBJ_TYPE_LABEL(obj);
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
     label->text_align = align;
@@ -302,7 +364,7 @@ esp_err_t gfx_label_set_text_align(gfx_obj_t *obj, gfx_text_align_t align)
 
 esp_err_t gfx_label_set_long_mode(gfx_obj_t *obj, gfx_label_long_mode_t long_mode)
 {
-    ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
+    CHECK_OBJ_TYPE_LABEL(obj);
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
     ESP_RETURN_ON_FALSE(label, ESP_ERR_INVALID_STATE, TAG, "label property is NULL");
@@ -344,7 +406,7 @@ esp_err_t gfx_label_set_long_mode(gfx_obj_t *obj, gfx_label_long_mode_t long_mod
 
 esp_err_t gfx_label_set_line_spacing(gfx_obj_t *obj, uint16_t spacing)
 {
-    ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
+    CHECK_OBJ_TYPE_LABEL(obj);
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
     label->line_spacing = spacing;
@@ -356,7 +418,7 @@ esp_err_t gfx_label_set_line_spacing(gfx_obj_t *obj, uint16_t spacing)
 
 esp_err_t gfx_label_set_scroll_speed(gfx_obj_t *obj, uint32_t speed_ms)
 {
-    ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
+    CHECK_OBJ_TYPE_LABEL(obj);
     ESP_RETURN_ON_FALSE(speed_ms > 0, ESP_ERR_INVALID_ARG, TAG, "invalid speed");
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
@@ -374,7 +436,7 @@ esp_err_t gfx_label_set_scroll_speed(gfx_obj_t *obj, uint32_t speed_ms)
 
 esp_err_t gfx_label_set_scroll_loop(gfx_obj_t *obj, bool loop)
 {
-    ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, TAG, "invalid handle");
+    CHECK_OBJ_TYPE_LABEL(obj);
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
     ESP_RETURN_ON_FALSE(label, ESP_ERR_INVALID_STATE, TAG, "label property is NULL");
@@ -993,6 +1055,38 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
     }
 
     gfx_sw_blend_draw(dest_pixels, dest_buffer_stride, color, label->opa, mask, &clip_region, mask_stride, swap);
+
+    return ESP_OK;
+}
+
+/*=====================
+ * Label object deletion
+ *====================*/
+
+esp_err_t gfx_label_delete(gfx_obj_t *obj)
+{
+    CHECK_OBJ_TYPE_LABEL(obj);
+
+    gfx_label_t *label = (gfx_label_t *)obj->src;
+    if (label) {
+        if (label->scroll_timer) {
+            gfx_timer_delete(obj->parent_handle, label->scroll_timer);
+            label->scroll_timer = NULL;
+        }
+
+        gfx_label_clear_cached_lines(label);
+
+        if (label->text) {
+            free(label->text);
+        }
+        if (label->font_ctx) {
+            free(label->font_ctx);
+        }
+        if (label->mask) {
+            free(label->mask);
+        }
+        free(label);
+    }
 
     return ESP_OK;
 }

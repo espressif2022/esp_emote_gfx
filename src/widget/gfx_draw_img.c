@@ -8,21 +8,24 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
-#include "core/gfx_core.h"
-#include "core/gfx_obj.h"
-#include "widget/gfx_img.h"
-#include "widget/gfx_img_internal.h"
 #include "core/gfx_blend_internal.h"
+#include "core/gfx_core_internal.h"
 #include "widget/gfx_comm.h"
-#include "widget/gfx_font_internal.h"
-#include "core/gfx_obj_internal.h"
-#include "decoder/gfx_img_dec.h"
+#include "widget/gfx_img_internal.h"
 
 static const char *TAG = "gfx_img";
 
 /*********************
  *      DEFINES
  *********************/
+
+/* Helper macro for type checking */
+#define CHECK_OBJ_TYPE_IMAGE(obj) \
+    do { \
+        ESP_RETURN_ON_ERROR((obj == NULL) ? ESP_ERR_INVALID_ARG : ESP_OK, TAG, "Object is NULL"); \
+        ESP_RETURN_ON_ERROR((obj->type != GFX_OBJ_TYPE_IMAGE) ? ESP_ERR_INVALID_ARG : ESP_OK, TAG, \
+                           "Object is not an IMAGE type (type=%d). Cannot use image API on non-image objects.", obj->type); \
+    } while(0)
 
 /**********************
  *      TYPEDEFS
@@ -146,5 +149,64 @@ void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *de
     );
 
     // Close decoder
+    obj->is_dirty = false;
     gfx_image_decoder_close(&decoder_dsc);
+}
+
+/*=====================
+ * Image object creation and management
+ *====================*/
+
+gfx_obj_t *gfx_img_create(gfx_handle_t handle)
+{
+    gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
+    if (obj == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for image object");
+        return NULL;
+    }
+
+    memset(obj, 0, sizeof(gfx_obj_t));
+    obj->type = GFX_OBJ_TYPE_IMAGE;
+    obj->parent_handle = handle;
+    obj->is_visible = true;
+    obj->is_dirty = true;
+    gfx_emote_add_chlid(handle, GFX_OBJ_TYPE_IMAGE, obj);
+    ESP_LOGD(TAG, "Created image object");
+    return obj;
+}
+
+esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src)
+{
+    CHECK_OBJ_TYPE_IMAGE(obj);
+
+    obj->src = src;
+
+    if (src != NULL) {
+        gfx_image_header_t header;
+        gfx_image_decoder_dsc_t dsc = {
+            .src = src,
+        };
+        esp_err_t ret = gfx_image_decoder_info(&dsc, &header);
+        if (ret == ESP_OK) {
+            obj->width = header.w;
+            obj->height = header.h;
+        } else {
+            ESP_LOGE(TAG, "Failed to get image info from source");
+        }
+    }
+
+    obj->is_dirty = true;
+    ESP_LOGD(TAG, "Set image source, size: %dx%d", obj->width, obj->height);
+    return ESP_OK;
+}
+
+/*=====================
+ * Image object deletion
+ *====================*/
+
+esp_err_t gfx_img_delete(gfx_obj_t *obj)
+{
+    CHECK_OBJ_TYPE_IMAGE(obj);
+
+    return ESP_OK;
 }

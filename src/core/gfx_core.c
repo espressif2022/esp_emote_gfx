@@ -5,30 +5,17 @@
  */
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/semphr.h"
 #include <string.h>
 #include "esp_timer.h"
-#include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
-#include "core/gfx_core.h"
 #include "core/gfx_core_internal.h"
-#include "core/gfx_timer.h"
-#include "core/gfx_timer_internal.h"
-#include "core/gfx_obj.h"
-#include "widget/gfx_img.h"
 #include "widget/gfx_img_internal.h"
-#include "widget/gfx_label.h"
-#include "widget/gfx_anim.h"
-#include "decoder/gfx_img_dec.h"
-#include "core/gfx_types.h"
-#include "widget/gfx_font_internal.h"
 #include "widget/gfx_label_internal.h"
 #include "widget/gfx_anim_internal.h"
 
 static const char *TAG = "gfx_core";
 
-// Forward declarations
 static bool gfx_refr_handler(gfx_core_context_t *ctx);
 static bool gfx_event_handler(gfx_core_context_t *ctx);
 static bool gfx_object_handler(gfx_core_context_t *ctx);
@@ -90,6 +77,7 @@ static bool gfx_object_handler(gfx_core_context_t *ctx)
 
         if (obj->is_dirty) {
             updated = true;
+            ESP_LOGI(TAG, "dirty obj: %p", obj);
         }
 
         if (obj->type == GFX_OBJ_TYPE_ANIMATION) {
@@ -105,7 +93,7 @@ static bool gfx_object_handler(gfx_core_context_t *ctx)
         child_node = child_node->next;
     }
 
-    updated = true;
+    // updated = true;
 
     return updated;
 }
@@ -584,6 +572,31 @@ bool gfx_emote_is_flushing_last(gfx_handle_t handle)
 }
 
 /**
+ * @brief Fast fill buffer with background color
+ * @param buf Pointer to uint16_t buffer
+ * @param color 16-bit color value
+ * @param pixels Number of pixels to fill
+ */
+static inline void gfx_fill_color(uint16_t *buf, uint16_t color, size_t pixels)
+{
+    if ((color & 0xFF) == (color >> 8)) {
+        memset(buf, color & 0xFF, pixels * sizeof(uint16_t));
+    } else {
+        uint32_t color32 = (color << 16) | color;
+        uint32_t *buf32 = (uint32_t *)buf;
+        size_t pixels_half = pixels / 2;
+
+        for (size_t i = 0; i < pixels_half; i++) {
+            buf32[i] = color32;
+        }
+
+        if (pixels & 1) {
+            buf[pixels - 1] = color;
+        }
+    }
+}
+
+/**
  * @brief Handle rendering of all objects in the scene
  * @param ctx Player context
  * @return true if rendering was performed, false otherwise
@@ -593,7 +606,10 @@ static bool gfx_refr_handler(gfx_core_context_t *ctx)
     bool updated = gfx_object_handler(ctx);
 
     if (!updated) {
+        // ESP_LOGI(TAG, "no dirty obj");
         return false;
+    } else {
+        // ESP_LOGI(TAG, "dirty obj");
     }
 
     int block_height = gfx_buf_get_height(ctx);
@@ -617,11 +633,7 @@ static bool gfx_refr_handler(gfx_core_context_t *ctx)
 
         uint16_t *buf_act = ctx->disp.buf_act;
 
-        uint16_t bg_color = ctx->disp.bg_color.full;
-        size_t pixels = ctx->disp.buf_pixels;
-        for (size_t i = 0; i < pixels; i++) {//影响帧率
-            buf_act[i] = bg_color;
-        }
+        gfx_fill_color(buf_act, ctx->disp.bg_color.full, ctx->disp.buf_pixels);
 
         gfx_draw_child(ctx, x1, y1, x2, y2, buf_act);
 

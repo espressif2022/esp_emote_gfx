@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include "core/gfx_types.h"
 #include "core/gfx_obj.h"
 #include "core/gfx_timer.h"
 #include "widget/gfx_anim.h"
@@ -98,6 +97,18 @@ esp_err_t gfx_anim_preprocess_frame(gfx_anim_property_t *anim);
  * @param swap_color Whether to swap color format
  */
 esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap_color);
+
+/*=====================
+ * Internal object management
+ *====================*/
+
+/**
+ * @brief Delete animation-specific resources (internal)
+ * @param obj Animation object
+ * @note This function only handles animation-specific cleanup.
+ *       The base object structure is freed by gfx_obj_delete().
+ */
+esp_err_t gfx_anim_delete(gfx_obj_t *obj);
 
 #ifdef __cplusplus
 }

@@ -7,7 +7,6 @@
 #pragma once
 
 #include <stdint.h>
-#include "core/gfx_types.h"
 #include "core/gfx_core.h"
 #include "core/gfx_obj.h"
 

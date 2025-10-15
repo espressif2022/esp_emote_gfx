@@ -3,14 +3,10 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "freertos/FreeRTOS.h"
 #include "esp_timer.h"
 #include "esp_err.h"
 #include "esp_log.h"
-#include "core/gfx_core.h"
 #include "core/gfx_core_internal.h"
-#include "core/gfx_timer.h"
-#include "core/gfx_timer_internal.h"
 
 static const char *TAG = "gfx_timer";
 

@@ -7,7 +7,6 @@
 #include "esp_log.h"
 #include "esp_err.h"
 
-#include "core/gfx_types.h"
 #include "core/gfx_obj.h"
 
 #define OPA_MAX      253  /*Opacities above this will fully cover*/

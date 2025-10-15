@@ -9,7 +9,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "esp_err.h"
-#include "widget/gfx_font_lvgl.h"
 #include "core/gfx_types.h"
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT

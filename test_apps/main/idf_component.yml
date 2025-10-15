@@ -2,7 +2,7 @@
 dependencies:
   idf: '>=5.0'
 
-  esp_emote_gfx:
+  esp_emote_gfx_main:
     version: '*'
     override_path: ../../
 

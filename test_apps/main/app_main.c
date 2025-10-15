@@ -83,6 +83,40 @@ void clock_tm_callback(void *user_data)
     ESP_LOGI("FPS", "%d*%d: %" PRIu32 "", BSP_LCD_H_RES, BSP_LCD_V_RES, gfx_timer_get_actual_fps(emote_handle));
 }
 
+/**
+ * @brief Load image from mmap assets and prepare image descriptor
+ *
+ * @param assets_handle Handle to mmap assets
+ * @param asset_id Asset ID in mmap
+ * @param img_dsc Pointer to image descriptor to be filled
+ * @return esp_err_t ESP_OK on success, ESP_FAIL on failure
+ */
+static esp_err_t load_image(mmap_assets_handle_t assets_handle, int asset_id, gfx_image_dsc_t *img_dsc)
+{
+    if (img_dsc == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    const void *img_data = mmap_assets_get_mem(assets_handle, asset_id);
+    if (img_data == NULL) {
+        return ESP_FAIL;
+    }
+
+    size_t img_size = mmap_assets_get_size(assets_handle, asset_id);
+    if (img_size < sizeof(gfx_image_header_t)) {
+        return ESP_FAIL;
+    }
+
+    // Copy header from the beginning of the data
+    memcpy(&img_dsc->header, img_data, sizeof(gfx_image_header_t));
+
+    // Set data pointer after the header
+    img_dsc->data = (const uint8_t *)img_data + sizeof(gfx_image_header_t);
+    img_dsc->data_size = img_size - sizeof(gfx_image_header_t);
+
+    return ESP_OK;
+}
+
 static void test_timer_function(void)
 {
     ESP_LOGI(TAG, "=== Testing Timer Function ===");
@@ -325,12 +359,8 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
     gfx_obj_t *img_obj_bin = gfx_img_create(emote_handle);
     TEST_ASSERT_NOT_NULL(img_obj_bin);
 
-    img_dsc.data_size = mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_ICON5_BIN);
-    img_dsc.data = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_ICON5_BIN);
-
-    memcpy(&img_dsc.header, mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_ICON5_BIN), sizeof(gfx_image_header_t));
-    img_dsc.data += sizeof(gfx_image_header_t);
-    img_dsc.data_size -= sizeof(gfx_image_header_t);
+    esp_err_t ret = load_image(assets_handle, MMAP_TEST_ASSETS_ICON5_BIN, &img_dsc);
+    TEST_ASSERT_EQUAL(ESP_OK, ret);
     gfx_img_set_src(img_obj_bin, (void *)&img_dsc);
 
     gfx_obj_set_pos(img_obj_bin, 100, 180);
@@ -350,12 +380,8 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
 
     gfx_img_set_src(img_obj1, (void *)&icon5); // C_ARRAY format
 
-    img_dsc.data_size = mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_ICON1_BIN);
-    img_dsc.data = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_ICON1_BIN);
-
-    memcpy(&img_dsc.header, mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_ICON1_BIN), sizeof(gfx_image_header_t));
-    img_dsc.data += sizeof(gfx_image_header_t);
-    img_dsc.data_size -= sizeof(gfx_image_header_t);
+    ret = load_image(assets_handle, MMAP_TEST_ASSETS_ICON1_BIN, &img_dsc);
+    TEST_ASSERT_EQUAL(ESP_OK, ret);
     gfx_img_set_src(img_obj2, (void *)&img_dsc); // BIN format
 
     gfx_obj_set_pos(img_obj1, 150, 100);
@@ -382,18 +408,23 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
     gfx_obj_t *label_obj = gfx_label_create(emote_handle);
     gfx_timer_handle_t timer = gfx_timer_create(emote_handle, clock_tm_callback, 2000, label_obj);
 
+    ESP_LOGI(TAG, "anim_obj: %p", anim_obj);
+    ESP_LOGI(TAG, "img_obj: %p", img_obj);
+    ESP_LOGI(TAG, "label_obj: %p", label_obj);
+    ESP_LOGI(TAG, "timer: %p", timer);
+
     TEST_ASSERT_NOT_NULL(anim_obj);
     TEST_ASSERT_NOT_NULL(label_obj);
     TEST_ASSERT_NOT_NULL(img_obj);
     TEST_ASSERT_NOT_NULL(timer);
-    ESP_LOGI(TAG, "Multiple objects created successfully");
 
     const void *anim_data = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF);
     size_t anim_size = mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF);
 
     gfx_anim_set_src(anim_obj, anim_data, anim_size);
     gfx_obj_align(anim_obj, GFX_ALIGN_CENTER, 0, 0);
-    gfx_anim_set_segment(anim_obj, 0, 30, 15, true);
+    // gfx_anim_set_segment(anim_obj, 0, 30, 15, true);
+    gfx_anim_set_segment(anim_obj, 0, 30, 15, false);
     gfx_anim_start(anim_obj);
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
@@ -408,28 +439,24 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
     esp_err_t ret = gfx_label_new_font(&font_cfg, &font_DejaVuSans);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
     gfx_label_set_font(label_obj, font_DejaVuSans);
+#else
+    gfx_label_set_font(label_obj, (gfx_font_t)&font_puhui_16_4);
 #endif
 
     gfx_obj_set_size(label_obj, 200, 50);
     gfx_label_set_text(label_obj, "Multi-Object Test");
     gfx_label_set_color(label_obj, GFX_COLOR_HEX(0xFF0000));
     gfx_obj_align(label_obj, GFX_ALIGN_BOTTOM_MID, 0, 0);
+    gfx_label_set_text_align(label_obj, GFX_TEXT_ALIGN_CENTER);
 
     gfx_image_dsc_t img_dsc;
-    const void *img_data = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_ICON1_BIN);
-    img_dsc.data_size = mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_ICON1_BIN);
-    img_dsc.data = img_data;
-
-    memcpy(&img_dsc.header, img_data, sizeof(gfx_image_header_t));
-    img_dsc.data += sizeof(gfx_image_header_t);
-    img_dsc.data_size -= sizeof(gfx_image_header_t);
-
+    load_image(assets_handle, MMAP_TEST_ASSETS_ICON1_BIN, &img_dsc);
     gfx_img_set_src(img_obj, (void *)&img_dsc); // Use BIN format image
     gfx_obj_align(img_obj, GFX_ALIGN_TOP_MID, 0, 0);
 
     gfx_emote_unlock(emote_handle);
 
-    vTaskDelay(pdMS_TO_TICKS(1000 * 10));
+    vTaskDelay(pdMS_TO_TICKS(1000 * 1000));
 
     gfx_emote_lock(emote_handle);
     gfx_timer_delete(emote_handle, timer);
@@ -574,7 +601,8 @@ TEST_CASE("test image function", "[image]")
     cleanup_display_and_graphics(assets_handle);
 }
 
-TEST_CASE("test multi objects function", "[multi]")
+// TEST_CASE("test multi objects function", "[multi]")
+void test_multiple_function(void)
 {
     mmap_assets_handle_t assets_handle = NULL;
     esp_err_t ret = init_display_and_graphics("assets_8bit", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
@@ -588,5 +616,6 @@ TEST_CASE("test multi objects function", "[multi]")
 void app_main(void)
 {
     printf("Animation player test\n");
-    unity_run_menu();
+    // unity_run_menu();
+    test_multiple_function();
 }

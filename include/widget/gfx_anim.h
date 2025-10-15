@@ -6,8 +6,6 @@
 
 #pragma once
 
-#include "core/gfx_types.h"
-#include "core/gfx_core.h"
 #include "core/gfx_obj.h"
 
 #ifdef __cplusplus
