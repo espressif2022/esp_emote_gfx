@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -74,17 +74,17 @@ typedef struct {
  *====================*/
 
 /**
- * @brief Free frame processing information and allocated resources
+ * @brief Reset frame info and free all associated resources
  * @param frame Frame processing information structure
  */
-void gfx_anim_free_frame_info(gfx_anim_frame_info_t *frame);
+void gfx_anim_reset_frame(gfx_anim_frame_info_t *frame);
 
 /**
- * @brief Preprocess animation frame data and allocate parsing resources
- * @param anim Animation property structure
- * @return true if preprocessing was successful, false otherwise
+ * @brief Prepare animation frame and update object properties
+ * @param obj Animation object (contains anim property in obj->src)
+ * @return ESP_OK if successful, error code otherwise
  */
-esp_err_t gfx_anim_preprocess_frame(gfx_anim_property_t *anim);
+esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj);
 
 /**
  * @brief Draw an animation object

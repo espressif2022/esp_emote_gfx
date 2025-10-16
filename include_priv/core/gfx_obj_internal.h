@@ -48,7 +48,7 @@ typedef struct gfx_core_child_t {
  * @param x Pointer to store calculated X coordinate
  * @param y Pointer to store calculated Y coordinate
  */
-void gfx_obj_calculate_aligned_position(gfx_obj_t *obj, uint32_t parent_width, uint32_t parent_height, gfx_coord_t *x, gfx_coord_t *y);
+void gfx_obj_cal_aligned_pos(gfx_obj_t *obj, uint32_t parent_width, uint32_t parent_height, gfx_coord_t *x, gfx_coord_t *y);
 
 #ifdef __cplusplus
 }

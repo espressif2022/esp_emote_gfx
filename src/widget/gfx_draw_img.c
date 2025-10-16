@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -10,6 +10,7 @@
 #include "esp_check.h"
 #include "core/gfx_blend_internal.h"
 #include "core/gfx_core_internal.h"
+#include "core/gfx_refr.h"
 #include "widget/gfx_comm.h"
 #include "widget/gfx_img_internal.h"
 
@@ -99,22 +100,12 @@ void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *de
 
     // Get parent container dimensions for alignment calculation
     uint32_t parent_width, parent_height;
-    if (obj->parent_handle != NULL) {
-        esp_err_t ret = gfx_emote_get_screen_size(obj->parent_handle, &parent_width, &parent_height);
-        if (ret != ESP_OK) {
-            ESP_LOGW(TAG, "Failed to get screen size, using defaults");
-            parent_width = DEFAULT_SCREEN_WIDTH;
-            parent_height = DEFAULT_SCREEN_HEIGHT;
-        }
-    } else {
-        parent_width = DEFAULT_SCREEN_WIDTH;
-        parent_height = DEFAULT_SCREEN_HEIGHT;
-    }
+    gfx_emote_get_screen_size(obj->parent_handle, &parent_width, &parent_height);
 
     gfx_coord_t obj_x = obj->x;
     gfx_coord_t obj_y = obj->y;
 
-    gfx_obj_calculate_aligned_position(obj, parent_width, parent_height, &obj_x, &obj_y);
+    gfx_obj_cal_aligned_pos(obj, parent_width, parent_height, &obj_x, &obj_y);
 
     gfx_area_t clip_region;
     clip_region.x1 = MAX(x1, obj_x);
@@ -149,7 +140,6 @@ void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *de
     );
 
     // Close decoder
-    obj->is_dirty = false;
     gfx_image_decoder_close(&decoder_dsc);
 }
 
@@ -169,7 +159,6 @@ gfx_obj_t *gfx_img_create(gfx_handle_t handle)
     obj->type = GFX_OBJ_TYPE_IMAGE;
     obj->parent_handle = handle;
     obj->is_visible = true;
-    obj->is_dirty = true;
     gfx_obj_invalidate(obj);
     gfx_emote_add_chlid(handle, GFX_OBJ_TYPE_IMAGE, obj);
     ESP_LOGD(TAG, "Created image object");
@@ -191,12 +180,9 @@ esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src)
         if (ret == ESP_OK) {
             obj->width = header.w;
             obj->height = header.h;
-        } else {
-            ESP_LOGE(TAG, "Failed to get image info from source");
         }
     }
 
-    obj->is_dirty = true;
     gfx_obj_invalidate(obj);
     ESP_LOGD(TAG, "Set image source, size: %dx%d", obj->width, obj->height);
     return ESP_OK;

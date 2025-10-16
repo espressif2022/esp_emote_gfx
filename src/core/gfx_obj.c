@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -8,6 +8,7 @@
 #include "esp_log.h"
 #include "core/gfx_obj.h"
 #include "core/gfx_core_internal.h"
+#include "core/gfx_refr.h"
 #include "widget/gfx_img_internal.h"
 #include "widget/gfx_label_internal.h"
 #include "widget/gfx_anim_internal.h"
@@ -44,7 +45,6 @@ void gfx_obj_set_pos(gfx_obj_t *obj, gfx_coord_t x, gfx_coord_t y)
     obj->x = x;
     obj->y = y;
     obj->use_align = false;
-    obj->is_dirty = true;
     gfx_obj_invalidate(obj);
 
     ESP_LOGD(TAG, "Set object position: (%d, %d)", x, y);
@@ -58,11 +58,10 @@ void gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h)
     }
 
     if (obj->type == GFX_OBJ_TYPE_ANIMATION || obj->type == GFX_OBJ_TYPE_IMAGE) {
-        ESP_LOGW(TAG, "Set size for animation or image is not allowed");
+        ESP_LOGW(TAG, "Set size is not useful");
     } else {
         obj->width = w;
         obj->height = h;
-        obj->is_dirty = true;
         gfx_obj_invalidate(obj);
     }
 
@@ -89,7 +88,6 @@ void gfx_obj_align(gfx_obj_t *obj, uint8_t align, gfx_coord_t x_ofs, gfx_coord_t
     obj->align_x_ofs = x_ofs;
     obj->align_y_ofs = y_ofs;
     obj->use_align = true;
-    obj->is_dirty = true;
     gfx_obj_invalidate(obj);
 
     ESP_LOGD(TAG, "Set object alignment: type=%d, offset=(%d, %d)", align, x_ofs, y_ofs);
@@ -103,7 +101,6 @@ void gfx_obj_set_visible(gfx_obj_t *obj, bool visible)
     }
 
     obj->is_visible = visible;
-    obj->is_dirty = true;
     gfx_obj_invalidate(obj);
 
     ESP_LOGD(TAG, "Set object visibility: %s", visible ? "visible" : "hidden");
@@ -123,7 +120,7 @@ bool gfx_obj_get_visible(gfx_obj_t *obj)
  * Static helper functions
  *====================*/
 
-void gfx_obj_calculate_aligned_position(gfx_obj_t *obj, uint32_t parent_width, uint32_t parent_height, gfx_coord_t *x, gfx_coord_t *y)
+void gfx_obj_cal_aligned_pos(gfx_obj_t *obj, uint32_t parent_width, uint32_t parent_height, gfx_coord_t *x, gfx_coord_t *y)
 {
     if (obj == NULL || x == NULL || y == NULL) {
         return;

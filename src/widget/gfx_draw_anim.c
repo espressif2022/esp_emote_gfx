@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -9,6 +9,7 @@
 #include "esp_log.h"
 #include "esp_check.h"
 #include "core/gfx_core_internal.h"
+#include "core/gfx_refr.h"
 #include "widget/gfx_comm.h"
 #include "widget/gfx_anim_internal.h"
 
@@ -65,27 +66,26 @@ typedef void (*gfx_anim_pixel_renderer_cb_t)(
  *  STATIC PROTOTYPES
  **********************/
 
-static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
-                                        const uint8_t *src_buf, gfx_coord_t src_stride,
+static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+                                        const uint8_t *src_pixels, gfx_coord_t src_stride,
                                         const eaf_header_t *header, uint32_t *palette_cache,
                                         gfx_area_t *clip_area, bool swap_color,
                                         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
-static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
-                                        const uint8_t *src_buf, gfx_coord_t src_stride,
+static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+                                        const uint8_t *src_pixels, gfx_coord_t src_stride,
                                         const eaf_header_t *header, uint32_t *palette_cache,
                                         gfx_area_t *clip_area, bool swap_color,
                                         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
 
-static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
-        const uint8_t *src_buf, gfx_coord_t src_stride,
+static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+        const uint8_t *src_pixels, gfx_coord_t src_stride,
         const eaf_header_t *header, uint32_t *palette_cache,
         gfx_area_t *clip_area, bool swap_color,
         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
 
-/* Renderer management functions */
 static esp_err_t gfx_anim_render_pixels(uint8_t bit_depth,
-                                        gfx_color_t *dest_buf, gfx_coord_t dest_stride,
-                                        const uint8_t *src_buf, gfx_coord_t src_stride,
+                                        gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+                                        const uint8_t *src_pixels, gfx_coord_t src_stride,
                                         const eaf_header_t *header, uint32_t *palette_cache,
                                         gfx_area_t *clip_area, bool swap_color,
                                         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
@@ -104,16 +104,11 @@ static const gfx_anim_pixel_renderer_cb_t g_anim_renderers[GFX_ANIM_DEPTH_MAX] =
  **********************/
 
 /**
- * @brief Free frame processing information and allocated resources
+ * @brief Free allocated buffers for frame processing
  * @param frame Frame processing information structure
  */
-void gfx_anim_free_frame_info(gfx_anim_frame_info_t *frame)
+static void free_frame_buffers(gfx_anim_frame_info_t *frame)
 {
-    if (frame->header.width > 0) {
-        eaf_free_header(&frame->header);
-        memset(&frame->header, 0, sizeof(eaf_header_t));
-    }
-
     if (frame->block_offsets) {
         free(frame->block_offsets);
         frame->block_offsets = NULL;
@@ -126,6 +121,20 @@ void gfx_anim_free_frame_info(gfx_anim_frame_info_t *frame)
         free(frame->color_palette);
         frame->color_palette = NULL;
     }
+}
+
+/**
+ * @brief Reset frame info and free all associated resources
+ * @param frame Frame processing information structure
+ */
+void gfx_anim_reset_frame(gfx_anim_frame_info_t *frame)
+{
+    if (frame->header.width > 0) {
+        eaf_free_header(&frame->header);
+        memset(&frame->header, 0, sizeof(eaf_header_t));
+    }
+
+    free_frame_buffers(frame);
 
     frame->frame_data = NULL;
     frame->frame_size = 0;
@@ -133,88 +142,108 @@ void gfx_anim_free_frame_info(gfx_anim_frame_info_t *frame)
 }
 
 /**
- * @brief Preprocess animation frame data and allocate parsing resources
- * @param anim Animation property structure
- * @return true if preprocessing was successful, false otherwise
+ * @brief Prepare animation frame and update object properties
+ * @param obj Animation object (contains anim property in obj->src)
+ * @return ESP_OK if successful, error code otherwise
  */
-esp_err_t gfx_anim_preprocess_frame(gfx_anim_property_t *anim)
+esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj)
 {
     esp_err_t ret = ESP_OK;
 
-    gfx_anim_free_frame_info(&anim->frame);
+    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+    uint32_t current_frame = anim->current_frame;
+    eaf_format_handle_t file_desc = anim->file_desc;
 
-    const void *frame_data = eaf_get_frame_data(anim->file_desc, anim->current_frame);
-    size_t frame_size = eaf_get_frame_size(anim->file_desc, anim->current_frame);
-
-    if (frame_data == NULL) {
-        ESP_LOGD(TAG, "Failed to get frame data for frame %"PRIu32"", anim->current_frame);
+    eaf_format_type_t frame_format = eaf_probe_frame_info(file_desc, current_frame);
+    if (frame_format != EAF_FORMAT_VALID) {
+        ESP_LOGE(TAG, "Invalid EAF format for frame %lu: %d", current_frame, frame_format);
         return ESP_FAIL;
     }
+
+    gfx_anim_reset_frame(&anim->frame);
+
+    const void *frame_data = eaf_get_frame_data(file_desc, current_frame);
+    size_t frame_size = eaf_get_frame_size(file_desc, current_frame);
+    ESP_RETURN_ON_FALSE(frame_data != NULL, ESP_FAIL, TAG, "Frame %lu data unavailable", current_frame);
 
     anim->frame.frame_data = frame_data;
     anim->frame.frame_size = frame_size;
 
-    eaf_format_type_t format = eaf_get_frame_info(anim->file_desc, anim->current_frame, &anim->frame.header);
+    eaf_format_type_t format = eaf_get_frame_info(file_desc, current_frame, &anim->frame.header);
     if (format == EAF_FORMAT_FLAG) {
         return ESP_FAIL;
     } else if (format == EAF_FORMAT_INVALID) {
-        ESP_GOTO_ON_FALSE(false, ESP_ERR_INVALID_STATE, err, TAG, "Invalid EAF format for frame %lu", anim->current_frame);
+        ESP_GOTO_ON_FALSE(false, ESP_ERR_INVALID_STATE, err, TAG, "Invalid EAF format for frame %lu", current_frame);
     }
 
     const eaf_header_t *header = &anim->frame.header;
+    int frame_width = header->width;
     int num_blocks = header->blocks;
     int block_height = header->block_height;
-    int width = header->width;
-    uint16_t color_depth = 0;
+    uint8_t bit_depth = header->bit_depth;
 
     anim->frame.block_offsets = (uint32_t *)malloc(num_blocks * sizeof(uint32_t));
-    ESP_GOTO_ON_FALSE(anim->frame.block_offsets != NULL, ESP_ERR_NO_MEM, err, TAG, "Failed to allocate memory for block offsets");
+    ESP_GOTO_ON_FALSE(anim->frame.block_offsets != NULL, ESP_ERR_NO_MEM, err, TAG, "No mem for block offsets");
 
-    if (header->bit_depth == 4) {
-        anim->frame.pixel_buffer = (uint8_t *)malloc(width * (block_height + (block_height % 2)) / 2);
-    } else if (header->bit_depth == 8) {
-        anim->frame.pixel_buffer = (uint8_t *)malloc(width * block_height);
-    } else if (header->bit_depth == 24) {
-        anim->frame.pixel_buffer = (uint8_t *)heap_caps_aligned_alloc(16, width * block_height * 2, MALLOC_CAP_DEFAULT); // JPEG decoder requires 16-byte alignment
+    size_t pixel_buffer_size;
+    if (bit_depth == 4) {
+        pixel_buffer_size = frame_width * (block_height + (block_height % 2)) / 2;
+        anim->frame.pixel_buffer = (uint8_t *)malloc(pixel_buffer_size);
+    } else if (bit_depth == 8) {
+        pixel_buffer_size = frame_width * block_height;
+        anim->frame.pixel_buffer = (uint8_t *)malloc(pixel_buffer_size);
+    } else if (bit_depth == 24) {
+        pixel_buffer_size = frame_width * block_height * 2;
+        anim->frame.pixel_buffer = (uint8_t *)heap_caps_aligned_alloc(16, pixel_buffer_size, MALLOC_CAP_DEFAULT);
+    } else {
+        ESP_GOTO_ON_FALSE(false, ESP_ERR_INVALID_ARG, err, TAG, "Unsupported bit depth: %d", bit_depth);
     }
-    ESP_GOTO_ON_FALSE(anim->frame.pixel_buffer != NULL, ESP_ERR_NO_MEM, err, TAG, "Failed to allocate memory for pixel buffer, bit_depth: %d", header->bit_depth);
+    ESP_GOTO_ON_FALSE(anim->frame.pixel_buffer != NULL, ESP_ERR_NO_MEM, err, TAG, "No mem for pixel buffer");
 
-    if (header->bit_depth == 4) {
-        color_depth = 16;
-    } else if (header->bit_depth == 8) {
-        color_depth = 256;
-    } else if (header->bit_depth == 24) {
-        color_depth = 0;
+    /* Allocate color palette for indexed color modes */
+    uint16_t palette_size = 0;
+    if (bit_depth == 4) {
+        palette_size = 16;
+    } else if (bit_depth == 8) {
+        palette_size = 256;
     }
 
-    if (color_depth) {
-        anim->frame.color_palette = (uint32_t *)heap_caps_malloc(color_depth * sizeof(uint32_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-        ESP_GOTO_ON_FALSE(anim->frame.color_palette != NULL, ESP_ERR_NO_MEM, err, TAG, "Failed to allocate memory for color palette");
+    if (palette_size > 0) {
+        anim->frame.color_palette = (uint32_t *)heap_caps_malloc(palette_size * sizeof(uint32_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        ESP_GOTO_ON_FALSE(anim->frame.color_palette != NULL, ESP_ERR_NO_MEM, err, TAG, "No mem for color palette");
 
-        for (int i = 0; i < color_depth; i++) {
-            anim->frame.color_palette[i] = 0xFFFFFFFF;
-        }
+        /* Initialize palette cache to 0xFFFFFFFF */
+        memset(anim->frame.color_palette, 0xFF, palette_size * sizeof(uint32_t));
     }
 
     eaf_calculate_offsets(header, anim->frame.block_offsets);
 
-    ESP_LOGD(TAG, "Pre-allocated parsing resources for frame %"PRIu32"", anim->current_frame);
+    obj->width = header->width;
+    obj->height = header->height;
+
+    /* Get parent screen size for mirror offset calculation */
+    uint32_t parent_width, parent_height;
+    gfx_emote_get_screen_size(obj->parent_handle, &parent_width, &parent_height);
+
+    /* Calculate mirror offset */
+    uint32_t mirror_offset = 0;
+    if (anim->mirror_mode == GFX_MIRROR_AUTO) {
+        mirror_offset = parent_width - ((obj->width + obj->x) * 2);
+    } else if (anim->mirror_mode == GFX_MIRROR_MANUAL) {
+        mirror_offset = anim->mirror_offset;
+    }
+
+    if (anim->mirror_mode != GFX_MIRROR_DISABLED) {
+        obj->width = obj->width * 2 + mirror_offset;
+    }
+    // ESP_LOGI(TAG, "Mirror mode: %d, Object width: %d, mirror offset: %d", anim->mirror_mode, obj->width, mirror_offset);
+
+    ESP_LOGD(TAG, "Frame %lu prepared", current_frame);
     return ret;
 
 err:
-    if (anim->frame.block_offsets) {
-        free(anim->frame.block_offsets);
-        anim->frame.block_offsets = NULL;
-    }
-    if (anim->frame.pixel_buffer) {
-        free(anim->frame.pixel_buffer);
-        anim->frame.pixel_buffer = NULL;
-    }
-    if (anim->frame.color_palette) {
-        free(anim->frame.color_palette);
-        anim->frame.color_palette = NULL;
-    }
-    return ESP_FAIL;
+    free_frame_buffers(&anim->frame);
+    return ret;
 }
 
 /**********************
@@ -226,129 +255,120 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
     ESP_RETURN_ON_FALSE(obj != NULL && obj->src != NULL, ESP_ERR_INVALID_ARG, TAG, "Invalid object or source");
     ESP_RETURN_ON_FALSE(obj->type == GFX_OBJ_TYPE_ANIMATION, ESP_ERR_INVALID_ARG, TAG, "Object is not an animation type");
 
+    /* Animation property and validation */
     gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
-    if (anim->file_desc == NULL) {
-        ESP_LOGD(TAG, "Animation file descriptor is NULL");
-        return ESP_ERR_INVALID_ARG;
-    }
+    ESP_RETURN_ON_FALSE(anim->file_desc != NULL, ESP_ERR_INVALID_ARG, TAG, "No file descriptor");
 
+    /* Frame data validation */
     const void *frame_data = anim->frame.frame_data;
-    if (frame_data == NULL) {
-        ESP_LOGD(TAG, "Frame data not ready for frame %"PRIu32"", anim->current_frame);
-        return ESP_ERR_INVALID_STATE;
-    }
-    ESP_RETURN_ON_FALSE(anim->frame.header.width > 0, ESP_ERR_INVALID_STATE, TAG, "Header not valid for frame %lu", anim->current_frame);
+    ESP_RETURN_ON_FALSE(frame_data != NULL, ESP_ERR_INVALID_STATE, TAG, "Frame %lu not ready", anim->current_frame);
+    ESP_RETURN_ON_FALSE(anim->frame.header.width > 0, ESP_ERR_INVALID_STATE, TAG, "Invalid header for frame %lu", anim->current_frame);
 
-    uint8_t *decode_buffer = anim->frame.pixel_buffer;
-    uint32_t *offsets = anim->frame.block_offsets;
-    uint32_t *palette_cache = anim->frame.color_palette;
-
-    ESP_RETURN_ON_FALSE(offsets != NULL && decode_buffer != NULL, ESP_ERR_INVALID_STATE, TAG, "Parsing resources not allocated for frame %lu", anim->current_frame);
-
+    /* Frame processing resources */
     const eaf_header_t *header = &anim->frame.header;
+    uint8_t *pixel_buffer = anim->frame.pixel_buffer;
+    uint32_t *block_offsets = anim->frame.block_offsets;
+    uint32_t *palette_cache = anim->frame.color_palette;
+    int *last_block_idx = &anim->frame.last_block;
+    ESP_RETURN_ON_FALSE(block_offsets != NULL && pixel_buffer != NULL, ESP_ERR_INVALID_STATE, TAG, "Parsing resources not ready for frame %lu", anim->current_frame);
 
-
-    uint32_t parent_width, parent_height;
-    if (obj->parent_handle != NULL) {
-        esp_err_t ret = gfx_emote_get_screen_size(obj->parent_handle, &parent_width, &parent_height);
-        if (ret != ESP_OK) {
-            ESP_LOGW(TAG, "Failed to get screen size, using defaults");
-            parent_width = DEFAULT_SCREEN_WIDTH;
-            parent_height = DEFAULT_SCREEN_HEIGHT;
-        }
-    } else {
-        parent_width = DEFAULT_SCREEN_WIDTH;
-        parent_height = DEFAULT_SCREEN_HEIGHT;
-    }
-
-    gfx_coord_t obj_x = obj->x;
-    gfx_coord_t obj_y = obj->y;
-
-    obj->width = header->width;
-    obj->height = header->height;
-
-    gfx_obj_calculate_aligned_position(obj, parent_width, parent_height, &obj_x, &obj_y);
-
-    gfx_area_t clip_object;
-    clip_object.x1 = MAX(x1, obj_x);
-    clip_object.y1 = MAX(y1, obj_y);
-    clip_object.x2 = MIN(x2, obj_x + obj->width);
-    clip_object.y2 = MIN(y2, obj_y + obj->height);
-
-    if (clip_object.x1 >= clip_object.x2 || clip_object.y1 >= clip_object.y2) {
-        return ESP_ERR_INVALID_STATE;
-    }
-
-    int width = header->width;
-    int height = header->height;
+    /* Frame dimensions */
+    int frame_width = header->width;
+    int frame_height = header->height;
     int block_height = header->block_height;
     int num_blocks = header->blocks;
-    int *last_block = &anim->frame.last_block;
 
-    for (int block = 0; block < num_blocks; block++) {
-        int block_start_y = block * block_height;
-        int block_end_y = (block == num_blocks - 1) ? height : (block + 1) * block_height;
+    /* Get parent screen size for mirror offset calculation */
+    uint32_t parent_width, parent_height;
+    gfx_emote_get_screen_size(obj->parent_handle, &parent_width, &parent_height);
 
+    /* Calculate object position */
+    gfx_coord_t *obj_x = &obj->x;
+    gfx_coord_t *obj_y = &obj->y;
+    gfx_obj_cal_aligned_pos(obj, parent_width, parent_height, obj_x, obj_y);
+
+    /* Calculate clipping area for object */
+    gfx_area_t clip_area;
+    clip_area.x1 = MAX(x1, *obj_x);
+    clip_area.y1 = MAX(y1, *obj_y);
+    clip_area.x2 = MIN(x2, *obj_x + obj->width);
+    clip_area.y2 = MIN(y2, *obj_y + obj->height);
+
+    if (clip_area.x1 >= clip_area.x2 || clip_area.y1 >= clip_area.y2) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    /* Process animation blocks */
+    for (int block_idx = 0; block_idx < num_blocks; block_idx++) {
+        /* Calculate block boundaries in frame coordinates */
+        int block_start_y = block_idx * block_height;
+        int block_end_y = (block_idx == num_blocks - 1) ? frame_height : (block_idx + 1) * block_height;
         int block_start_x = 0;
-        int block_end_x = width;
+        int block_end_x = frame_width;
 
-        block_start_y += obj_y;
-        block_end_y += obj_y;
-        block_start_x += obj_x;
-        block_end_x += obj_x;
+        /* Translate to screen coordinates */
+        block_start_y += *obj_y;
+        block_end_y += *obj_y;
+        block_start_x += *obj_x;
+        block_end_x += *obj_x;
 
+        /* Calculate clipping area for this block */
         gfx_area_t clip_block;
-        clip_block.x1 = MAX(clip_object.x1, block_start_x);
-        clip_block.y1 = MAX(clip_object.y1, block_start_y);
-        clip_block.x2 = MIN(clip_object.x2, block_end_x);
-        clip_block.y2 = MIN(clip_object.y2, block_end_y);
+        clip_block.x1 = MAX(clip_area.x1, block_start_x);
+        clip_block.y1 = MAX(clip_area.y1, block_start_y);
+        clip_block.x2 = MIN(clip_area.x2, block_end_x);
+        clip_block.y2 = MIN(clip_area.y2, block_end_y);
 
         if (clip_block.x1 >= clip_block.x2 || clip_block.y1 >= clip_block.y2) {
             continue;
         }
 
+        /* Calculate source buffer offset */
         int src_offset_x = clip_block.x1 - block_start_x;
         int src_offset_y = clip_block.y1 - block_start_y;
 
         if (src_offset_x < 0 || src_offset_y < 0 ||
-                src_offset_x >= width || src_offset_y >= block_height) {
+                src_offset_x >= frame_width || src_offset_y >= block_height) {
             continue;
         }
 
-        if (block != *last_block) {
-            const uint8_t *block_data = (const uint8_t *)frame_data + anim->frame.block_offsets[block];
-            int block_len = header->block_len[block];
+        /* Decode block if needed */
+        if (block_idx != *last_block_idx) {
+            const uint8_t *block_data = (const uint8_t *)frame_data + block_offsets[block_idx];
+            int block_len = header->block_len[block_idx];
 
-            esp_err_t decode_result = eaf_decode_block(header, block_data, block_len, decode_buffer, swap_color);
+            esp_err_t decode_result = eaf_decode_block(header, block_data, block_len, pixel_buffer, swap_color);
             if (decode_result != ESP_OK) {
                 continue;
             }
-            *last_block = block;
+            *last_block_idx = block_idx;
         }
 
-        gfx_coord_t dest_buffer_stride = (x2 - x1);
-        gfx_coord_t source_buffer_stride = width;
+        /* Calculate buffer strides */
+        gfx_coord_t dest_stride = (x2 - x1);
+        gfx_coord_t src_stride = frame_width;
 
-        uint8_t *source_pixels = NULL;
-
+        /* Calculate source pixel pointer based on bit depth */
+        uint8_t *src_pixels = NULL;
         if (header->bit_depth == 24) {
-            source_pixels = decode_buffer + src_offset_y * (source_buffer_stride * 2) + src_offset_x * 2;
+            src_pixels = pixel_buffer + src_offset_y * (src_stride * 2) + src_offset_x * 2;
         } else if (header->bit_depth == 4) {
-            source_pixels = decode_buffer + src_offset_y * (source_buffer_stride / 2) + src_offset_x / 2;
+            src_pixels = pixel_buffer + src_offset_y * (src_stride / 2) + src_offset_x / 2;
         } else {
-            source_pixels = decode_buffer + src_offset_y * source_buffer_stride + src_offset_x;
+            src_pixels = pixel_buffer + src_offset_y * src_stride + src_offset_x;
         }
 
+        /* Calculate destination pixel pointer */
         int dest_x_offset = clip_block.x1 - x1;
+        gfx_color_t *dest_pixels = (gfx_color_t *)dest_buf + (clip_block.y1 - y1) * dest_stride + dest_x_offset;
 
-        gfx_color_t *dest_pixels = (gfx_color_t *)dest_buf + (clip_block.y1 - y1) * dest_buffer_stride + dest_x_offset;
-
+        /* Render pixels */
         esp_err_t render_result = gfx_anim_render_pixels(
                                       header->bit_depth,
                                       dest_pixels,
-                                      dest_buffer_stride,
-                                      source_pixels,
-                                      source_buffer_stride,
+                                      dest_stride,
+                                      src_pixels,
+                                      src_stride,
                                       header, palette_cache,
                                       &clip_block,
                                       swap_color,
@@ -359,8 +379,6 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
         }
     }
 
-    obj->is_dirty = false;
-    gfx_obj_invalidate(obj);
 
     return ESP_OK;
 }
@@ -372,9 +390,9 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
 /**
  * @brief Render pixels using registered renderer
  * @param bit_depth Bit depth (4, 8, or 24)
- * @param dest_buf Destination buffer
+ * @param dest_pixels Destination pixel buffer
  * @param dest_stride Destination buffer stride
- * @param src_buf Source buffer data
+ * @param src_pixels Source pixel buffer
  * @param src_stride Source buffer stride
  * @param header Image header
  * @param palette_cache Palette cache
@@ -386,24 +404,24 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
  * @return ESP_OK on success, ESP_FAIL on failure
  */
 static esp_err_t gfx_anim_render_pixels(uint8_t bit_depth,
-                                        gfx_color_t *dest_buf, gfx_coord_t dest_stride,
-                                        const uint8_t *src_buf, gfx_coord_t src_stride,
+                                        gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+                                        const uint8_t *src_pixels, gfx_coord_t src_stride,
                                         const eaf_header_t *header, uint32_t *palette_cache,
                                         gfx_area_t *clip_area, bool swap_color,
                                         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
 {
-    int index;
+    int renderer_idx;
     switch (bit_depth) {
-    case 4:  index = 0; break;
-    case 8:  index = 1; break;
-    case 24: index = 2; break;
+    case 4:  renderer_idx = 0; break;
+    case 8:  renderer_idx = 1; break;
+    case 24: renderer_idx = 2; break;
     default:
         ESP_RETURN_ON_FALSE(false, ESP_ERR_INVALID_ARG, TAG, "Unsupported bit depth: %d", bit_depth);
     }
 
-    g_anim_renderers[index](dest_buf, dest_stride, src_buf, src_stride,
-                            header, palette_cache, clip_area, swap_color,
-                            mirror_mode, mirror_offset, dest_x_offset);
+    g_anim_renderers[renderer_idx](dest_pixels, dest_stride, src_pixels, src_stride,
+                                   header, palette_cache, clip_area, swap_color,
+                                   mirror_mode, mirror_offset, dest_x_offset);
 
     return ESP_OK;
 }
@@ -414,9 +432,9 @@ static esp_err_t gfx_anim_render_pixels(uint8_t bit_depth,
 
 /**
  * @brief Render 4-bit pixels directly to destination buffer
- * @param dest_buf Destination buffer
+ * @param dest_pixels Destination pixel buffer
  * @param dest_stride Destination buffer stride
- * @param src_buf Source buffer data
+ * @param src_pixels Source pixel buffer
  * @param src_stride Source buffer stride
  * @param header Image header
  * @param palette_cache Palette cache
@@ -426,23 +444,23 @@ static esp_err_t gfx_anim_render_pixels(uint8_t bit_depth,
  * @param mirror_offset Mirror offset
  * @param dest_x_offset Destination buffer x offset
  */
-static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
-                                        const uint8_t *src_buf, gfx_coord_t src_stride,
+static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+                                        const uint8_t *src_pixels, gfx_coord_t src_stride,
                                         const eaf_header_t *header, uint32_t *palette_cache,
                                         gfx_area_t *clip_area, bool swap_color,
                                         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
 {
     int width = header->width;
-    int clip_w = clip_area->x2 - clip_area->x1;
-    int clip_h = clip_area->y2 - clip_area->y1;
+    int clip_width = clip_area->x2 - clip_area->x1;
+    int clip_height = clip_area->y2 - clip_area->y1;
 
     if (mirror_mode == GFX_MIRROR_AUTO) {
         mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
     }
 
-    for (int y = 0; y < clip_h; y++) {
-        for (int x = 0; x < clip_w; x += 2) {
-            uint8_t packed_gray = src_buf[y * src_stride / 2 + (x / 2)];
+    for (int y = 0; y < clip_height; y++) {
+        for (int x = 0; x < clip_width; x += 2) {
+            uint8_t packed_gray = src_pixels[y * src_stride / 2 + (x / 2)];
             uint8_t index1 = (packed_gray & 0xF0) >> 4;
             uint8_t index2 = (packed_gray & 0x0F);
 
@@ -453,14 +471,13 @@ static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_
 
             gfx_color_t color_val1;
             color_val1.full = (uint16_t)palette_cache[index1];
-            dest_buf[y * dest_stride + x] = color_val1;
+            dest_pixels[y * dest_stride + x] = color_val1;
 
             if (mirror_mode != GFX_MIRROR_DISABLED) {
-
                 int mirror_x = width + mirror_offset + width - 1 - x;
 
                 if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
-                    dest_buf[y * dest_stride + mirror_x] = color_val1;
+                    dest_pixels[y * dest_stride + mirror_x] = color_val1;
                 }
             }
 
@@ -471,13 +488,13 @@ static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_
 
             gfx_color_t color_val2;
             color_val2.full = (uint16_t)palette_cache[index2];
-            dest_buf[y * dest_stride + x + 1] = color_val2;
+            dest_pixels[y * dest_stride + x + 1] = color_val2;
 
             if (mirror_mode != GFX_MIRROR_DISABLED) {
                 int mirror_x = width + mirror_offset + width - 1 - (x + 1);
 
                 if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
-                    dest_buf[y * dest_stride + mirror_x] = color_val1;
+                    dest_pixels[y * dest_stride + mirror_x] = color_val1;
                 }
             }
         }
@@ -486,9 +503,9 @@ static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_
 
 /**
  * @brief Render 8-bit pixels directly to destination buffer
- * @param dest_buf Destination buffer
+ * @param dest_pixels Destination pixel buffer
  * @param dest_stride Destination buffer stride
- * @param src_buf Source buffer data
+ * @param src_pixels Source pixel buffer
  * @param src_stride Source buffer stride
  * @param header Image header
  * @param palette_cache Palette cache
@@ -498,23 +515,23 @@ static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_
  * @param mirror_offset Mirror offset
  * @param dest_x_offset Destination buffer x offset
  */
-static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
-                                        const uint8_t *src_buf, gfx_coord_t src_stride,
+static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+                                        const uint8_t *src_pixels, gfx_coord_t src_stride,
                                         const eaf_header_t *header, uint32_t *palette_cache,
                                         gfx_area_t *clip_area, bool swap_color,
                                         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
 {
-    int32_t w = clip_area->x2 - clip_area->x1;
-    int32_t h = clip_area->y2 - clip_area->y1;
+    int32_t clip_width = clip_area->x2 - clip_area->x1;
+    int32_t clip_height = clip_area->y2 - clip_area->y1;
     int32_t width = header->width;
 
     if (mirror_mode == GFX_MIRROR_AUTO) {
         mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
     }
 
-    for (int32_t y = 0; y < h; y++) {
-        for (int32_t x = 0; x < w; x++) {
-            uint8_t index = src_buf[y * src_stride + x];
+    for (int32_t y = 0; y < clip_height; y++) {
+        for (int32_t x = 0; x < clip_width; x++) {
+            uint8_t index = src_pixels[y * src_stride + x];
             if (palette_cache[index] == 0xFFFFFFFF) {
                 gfx_color_t color = eaf_palette_get_color(header, index, swap_color);
                 palette_cache[index] = color.full;
@@ -522,48 +539,48 @@ static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_
 
             gfx_color_t color_val;
             color_val.full = (uint16_t)palette_cache[index];
-            dest_buf[y * dest_stride + x] = color_val;
+            dest_pixels[y * dest_stride + x] = color_val;
 
             if (mirror_mode != GFX_MIRROR_DISABLED) {
                 int mirror_x = width + mirror_offset + width - 1 - x;
 
                 if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
-                    dest_buf[y * dest_stride + mirror_x] = color_val;
+                    dest_pixels[y * dest_stride + mirror_x] = color_val;
                 }
             }
         }
     }
 }
 
-static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
-        const uint8_t *src_buf, gfx_coord_t src_stride,
+static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+        const uint8_t *src_pixels, gfx_coord_t src_stride,
         const eaf_header_t *header, uint32_t *palette_cache,
         gfx_area_t *clip_area, bool swap_color,
         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
 {
-    // Ignore unused parameters for 24-bit rendering
     (void)header;
     (void)palette_cache;
-    int32_t w = clip_area->x2 - clip_area->x1;
-    int32_t h = clip_area->y2 - clip_area->y1;
+    (void)swap_color;
+    int32_t clip_width = clip_area->x2 - clip_area->x1;
+    int32_t clip_height = clip_area->y2 - clip_area->y1;
     int32_t width = src_stride;
 
     if (mirror_mode == GFX_MIRROR_AUTO) {
         mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
     }
 
-    uint16_t *src_buf_16 = (uint16_t *)src_buf;
-    uint16_t *dest_buf_16 = (uint16_t *)dest_buf;
+    uint16_t *src_pixels_16 = (uint16_t *)src_pixels;
+    uint16_t *dest_pixels_16 = (uint16_t *)dest_pixels;
 
-    for (int32_t y = 0; y < h; y++) {
-        for (int32_t x = 0; x < w; x++) {
-            dest_buf_16[y * dest_stride + x] = src_buf_16[y * src_stride + x];
+    for (int32_t y = 0; y < clip_height; y++) {
+        for (int32_t x = 0; x < clip_width; x++) {
+            dest_pixels_16[y * dest_stride + x] = src_pixels_16[y * src_stride + x];
 
             if (mirror_mode != GFX_MIRROR_DISABLED) {
                 int mirror_x = width + mirror_offset + width - 1 - x;
 
                 if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
-                    dest_buf_16[y * dest_stride + mirror_x] = src_buf_16[y * src_stride + x];
+                    dest_pixels_16[y * dest_stride + mirror_x] = src_pixels_16[y * src_stride + x];
                 }
             }
         }
@@ -580,20 +597,19 @@ static void gfx_anim_timer_callback(void *arg)
     gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
 
     if (!anim || !anim->is_playing) {
-        ESP_LOGD(TAG, "anim is NULL or not playing, %p, %d", anim, anim->is_playing);
         return;
     }
 
     gfx_core_context_t *ctx = obj->parent_handle;
     if (anim->current_frame >= anim->end_frame) {
         if (anim->repeat) {
-            ESP_LOGD(TAG, "REPEAT");
+            ESP_LOGD(TAG, "Repeat");
             if (ctx->callbacks.update_cb) {
                 ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ALL_FRAME_DONE, obj);
             }
             anim->current_frame = anim->start_frame;
         } else {
-            ESP_LOGD(TAG, "STOP");
+            ESP_LOGD(TAG, "Done");
             anim->is_playing = false;
             if (ctx->callbacks.update_cb) {
                 ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ALL_FRAME_DONE, obj);
@@ -601,14 +617,14 @@ static void gfx_anim_timer_callback(void *arg)
             return;
         }
     } else {
+        gfx_anim_prepare_frame(obj);
         anim->current_frame++;
         if (ctx->callbacks.update_cb) {
             ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ONE_FRAME_DONE, obj);
         }
-        ESP_LOGD("anim cb", " %"PRIu32" (%"PRIu32" / %"PRIu32")", anim->current_frame, anim->start_frame, anim->end_frame);
+        ESP_LOGD(TAG, "Frame %lu/%lu", anim->current_frame, anim->end_frame);
     }
 
-    obj->is_dirty = true;
     gfx_obj_invalidate(obj);
 }
 
@@ -616,7 +632,7 @@ gfx_obj_t *gfx_anim_create(gfx_handle_t handle)
 {
     gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
     if (obj == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate memory for animation object");
+        ESP_LOGE(TAG, "No mem for animation object");
         return NULL;
     }
 
@@ -626,7 +642,7 @@ gfx_obj_t *gfx_anim_create(gfx_handle_t handle)
 
     gfx_anim_property_t *anim = (gfx_anim_property_t *)malloc(sizeof(gfx_anim_property_t));
     if (anim == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate memory for animation property");
+        ESP_LOGE(TAG, "No mem for animation property");
         free(obj);
         return NULL;
     }
@@ -682,9 +698,6 @@ esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
         return ESP_ERR_INVALID_ARG;
     }
 
-    obj->is_dirty = true;
-    gfx_obj_invalidate(obj);
-
     gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
     if (anim == NULL) {
         ESP_LOGE(TAG, "Animation property is NULL");
@@ -692,7 +705,6 @@ esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
     }
 
     if (anim->is_playing) {
-        ESP_LOGD(TAG, "stop current animation");
         gfx_anim_stop(obj);
     }
 
@@ -718,10 +730,11 @@ esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
     anim->file_desc = new_desc;
     anim->start_frame = 0;
     anim->current_frame = 0;
-    //last block is empty
-    anim->end_frame = eaf_get_total_frames(new_desc) - 2;
+    anim->end_frame = eaf_get_total_frames(new_desc) - 1;
 
-    ESP_LOGD(TAG, "set src, start: %"PRIu32", end: %"PRIu32", file_desc: %p", anim->start_frame, anim->end_frame, anim->file_desc);
+    gfx_obj_invalidate(obj);
+
+    ESP_LOGD(TAG, "Set src [%lu-%lu]", anim->start_frame, anim->end_frame);
     return ESP_OK;
 }
 
@@ -738,23 +751,22 @@ esp_err_t gfx_anim_set_segment(gfx_obj_t *obj, uint32_t start, uint32_t end, uin
     int total_frames = eaf_get_total_frames(anim->file_desc);
 
     anim->start_frame = start;
-    anim->end_frame = (end > total_frames - 2) ? (total_frames - 2) : end;
+    anim->end_frame = (end > total_frames - 1) ? (total_frames - 1) : end;
     anim->current_frame = start;
 
     if (anim->fps != fps) {
-        ESP_LOGI(TAG, "FPS changed from %"PRIu32" to %"PRIu32", updating timer period", anim->fps, fps);
         anim->fps = fps;
 
         if (anim->timer != NULL) {
             uint32_t new_period_ms = 1000 / fps;
             gfx_timer_set_period(anim->timer, new_period_ms);
-            ESP_LOGI(TAG, "Animation timer period updated to %"PRIu32" ms for %"PRIu32" FPS", new_period_ms, fps);
+            ESP_LOGD(TAG, "FPS %lu->%lu", anim->fps, fps);
         }
     }
 
     anim->repeat = repeat;
 
-    ESP_LOGD(TAG, "Set animation segment: %"PRIu32" -> %"PRIu32"(%d, %"PRIu32"), fps: %"PRIu32", repeat: %d", anim->start_frame, anim->end_frame, total_frames, end, fps, repeat);
+    ESP_LOGD(TAG, "Segment [%lu-%lu] fps:%lu repeat:%d", anim->start_frame, anim->end_frame, fps, repeat);
     return ESP_OK;
 }
 
@@ -774,14 +786,13 @@ esp_err_t gfx_anim_start(gfx_obj_t *obj)
     }
 
     if (anim->is_playing) {
-        ESP_LOGD(TAG, "Animation is already playing");
         return ESP_OK;
     }
 
     anim->is_playing = true;
     anim->current_frame = anim->start_frame;
 
-    ESP_LOGD(TAG, "Started animation");
+    ESP_LOGD(TAG, "Start");
     return ESP_OK;
 }
 
@@ -796,13 +807,12 @@ esp_err_t gfx_anim_stop(gfx_obj_t *obj)
     }
 
     if (!anim->is_playing) {
-        ESP_LOGD(TAG, "Animation is not playing");
         return ESP_OK;
     }
 
     anim->is_playing = false;
 
-    ESP_LOGD(TAG, "Stopped animation");
+    ESP_LOGD(TAG, "Stop");
     return ESP_OK;
 }
 
@@ -819,7 +829,7 @@ esp_err_t gfx_anim_set_mirror(gfx_obj_t *obj, bool enabled, int16_t offset)
     anim->mirror_mode = enabled ? GFX_MIRROR_MANUAL : GFX_MIRROR_DISABLED;
     anim->mirror_offset = offset;
 
-    ESP_LOGD(TAG, "Set animation mirror: enabled=%s, offset=%d", enabled ? "true" : "false", offset);
+    ESP_LOGD(TAG, "Mirror %s offset:%d", enabled ? "on" : "off", offset);
     return ESP_OK;
 }
 
@@ -835,7 +845,7 @@ esp_err_t gfx_anim_set_auto_mirror(gfx_obj_t *obj, bool enabled)
 
     anim->mirror_mode = enabled ? GFX_MIRROR_AUTO : GFX_MIRROR_DISABLED;
 
-    ESP_LOGD(TAG, "Set auto mirror alignment: enabled=%s", enabled ? "true" : "false");
+    ESP_LOGD(TAG, "Auto mirror %s", enabled ? "on" : "off");
     return ESP_OK;
 }
 
@@ -858,7 +868,7 @@ esp_err_t gfx_anim_delete(gfx_obj_t *obj)
             anim->timer = NULL;
         }
 
-        gfx_anim_free_frame_info(&anim->frame);
+        gfx_anim_reset_frame(&anim->frame);
 
         if (anim->file_desc) {
             eaf_deinit(anim->file_desc);

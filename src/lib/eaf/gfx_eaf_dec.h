@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -148,6 +148,14 @@ typedef void *eaf_format_handle_t;
 /**********************
  *  HEADER OPERATIONS
  **********************/
+
+/**
+ * @brief Probe the header of an EAF file
+ * @param handle Parser handle
+ * @param frame_index Frame index
+ * @return Image format type (VALID, FLAG, or INVALID)
+ */
+eaf_format_type_t eaf_probe_frame_info(eaf_format_handle_t handle, int frame_index);
 
 /**
  * @brief Parse the header of an EAF file

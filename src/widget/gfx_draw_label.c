@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -13,6 +13,7 @@
 #include "esp_check.h"
 #include "core/gfx_blend_internal.h"
 #include "core/gfx_core_internal.h"
+#include "core/gfx_refr.h"
 #include "widget/gfx_comm.h"
 #include "widget/gfx_label_internal.h"
 
@@ -120,7 +121,6 @@ static void gfx_label_scroll_timer_callback(void *arg)
     }
 
     label->scroll_changed = true;
-    obj->is_dirty = true;
     gfx_obj_invalidate(obj);
 }
 
@@ -140,7 +140,6 @@ gfx_obj_t *gfx_label_create(gfx_handle_t handle)
     obj->type = GFX_OBJ_TYPE_LABEL;
     obj->parent_handle = handle;
     obj->is_visible = true;
-    obj->is_dirty = true;
     gfx_obj_invalidate(obj);
 
     gfx_label_t *label = (gfx_label_t *)malloc(sizeof(gfx_label_t));
@@ -215,7 +214,6 @@ esp_err_t gfx_label_set_font(gfx_obj_t *obj, gfx_font_t font)
         }
     }
 
-    obj->is_dirty = true;
     gfx_obj_invalidate(obj);
     return ESP_OK;
 }
@@ -252,8 +250,6 @@ esp_err_t gfx_label_set_text(gfx_obj_t *obj, const char *text)
         strcpy(label->text, text);
     }
 
-    obj->is_dirty = true;
-    gfx_obj_invalidate(obj);
 
     gfx_label_clear_cached_lines(label);
 
@@ -269,6 +265,7 @@ esp_err_t gfx_label_set_text(gfx_obj_t *obj, const char *text)
     }
 
     label->scroll_changed = false;
+    gfx_obj_invalidate(obj);
 
     return ESP_OK;
 }
@@ -304,7 +301,6 @@ esp_err_t gfx_label_set_text_fmt(gfx_obj_t *obj, const char *fmt, ...)
     vsnprintf(label->text, len + 1, fmt, args);
     va_end(args);
 
-    obj->is_dirty = true;
     gfx_obj_invalidate(obj);
 
     return ESP_OK;
@@ -349,7 +345,6 @@ esp_err_t gfx_label_set_bg_enable(gfx_obj_t *obj, bool enable)
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
     label->bg_enable = enable;
-    obj->is_dirty = true;
     gfx_obj_invalidate(obj);
     ESP_LOGD(TAG, "set background enable: %s", enable ? "enabled" : "disabled");
 
@@ -362,7 +357,6 @@ esp_err_t gfx_label_set_text_align(gfx_obj_t *obj, gfx_text_align_t align)
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
     label->text_align = align;
-    obj->is_dirty = true;
     gfx_obj_invalidate(obj);
     ESP_LOGD(TAG, "set text align: %d", align);
 
@@ -401,13 +395,10 @@ esp_err_t gfx_label_set_long_mode(gfx_obj_t *obj, gfx_label_long_mode_t long_mod
             gfx_timer_delete(obj->parent_handle, label->scroll_timer);
             label->scroll_timer = NULL;
         }
-
-        obj->is_dirty = true;
         gfx_obj_invalidate(obj);
     }
 
     label->scroll_changed = false;
-
     ESP_LOGD(TAG, "set long mode: %d", long_mode);
     return ESP_OK;
 }
@@ -418,7 +409,6 @@ esp_err_t gfx_label_set_line_spacing(gfx_obj_t *obj, uint16_t spacing)
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
     label->line_spacing = spacing;
-    obj->is_dirty = true;
     gfx_obj_invalidate(obj);
     ESP_LOGD(TAG, "set line spacing: %d", spacing);
 
@@ -786,13 +776,12 @@ static esp_err_t gfx_render_lines_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, char 
 
 static bool gfx_can_use_cached_data(gfx_label_t *label, gfx_obj_t *obj)
 {
-    return (label->long_mode == GFX_LABEL_LONG_SCROLL &&
-            label->lines != NULL &&
-            label->line_widths != NULL &&
-            label->line_count > 0 &&
-            label->mask != NULL &&
-            !obj->is_dirty &&
-            label->scroll_changed);
+    return ((label->long_mode == GFX_LABEL_LONG_SCROLL) &&
+            (label->lines != NULL) &&
+            (label->line_widths != NULL) &&
+            (label->line_count > 0) &&
+            (label->mask != NULL) &&
+            (label->scroll_changed == true));
 }
 
 static gfx_opa_t *gfx_allocate_mask_buffer(gfx_obj_t *obj, gfx_label_t *label)
@@ -950,17 +939,11 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t *obj)
         return ESP_OK;
     }
 
-    bool can_use_cached = gfx_can_use_cached_data(label, obj);
-
-    if (label->mask && !obj->is_dirty && !can_use_cached) {
-        return ESP_OK;
-    }
-
     gfx_opa_t *mask_buf = gfx_allocate_mask_buffer(obj, label);
     ESP_RETURN_ON_FALSE(mask_buf, ESP_ERR_NO_MEM, TAG, "no mem for mask_buf");
 
     esp_err_t render_ret;
-    if (can_use_cached) {
+    if (true == gfx_can_use_cached_data(label, obj)) {
         render_ret = gfx_render_from_cache(obj, mask_buf, label, font_ctx);
     } else {
         render_ret = gfx_render_from_parsed_data(obj, mask_buf, label, font_ctx, mask_buf);
@@ -972,7 +955,6 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t *obj)
     }
 
     label->mask = mask_buf;
-    obj->is_dirty = false;
     label->scroll_changed = false;
 
     gfx_update_scroll_state(label, obj);
@@ -1000,29 +982,19 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
         return ESP_ERR_INVALID_ARG;
     }
 
+    /* Get parent screen size and calculate object position */
     uint32_t parent_width, parent_height;
-    if (obj->parent_handle != NULL) {
-        esp_err_t ret = gfx_emote_get_screen_size(obj->parent_handle, &parent_width, &parent_height);
-        if (ret != ESP_OK) {
-            ESP_LOGW(TAG, "Failed to get screen size, using defaults");
-            parent_width = DEFAULT_SCREEN_WIDTH;
-            parent_height = DEFAULT_SCREEN_HEIGHT;
-        }
-    } else {
-        parent_width = DEFAULT_SCREEN_WIDTH;
-        parent_height = DEFAULT_SCREEN_HEIGHT;
-    }
+    gfx_emote_get_screen_size(obj->parent_handle, &parent_width, &parent_height);
 
-    gfx_coord_t obj_x = obj->x;
-    gfx_coord_t obj_y = obj->y;
-
-    gfx_obj_calculate_aligned_position(obj, parent_width, parent_height, &obj_x, &obj_y);
+    gfx_coord_t *obj_x = &obj->x;
+    gfx_coord_t *obj_y = &obj->y;
+    gfx_obj_cal_aligned_pos(obj, parent_width, parent_height, obj_x, obj_y);
 
     gfx_area_t clip_region;
-    clip_region.x1 = MAX(x1, obj_x);
-    clip_region.y1 = MAX(y1, obj_y);
-    clip_region.x2 = MIN(x2, obj_x + obj->width);
-    clip_region.y2 = MIN(y2, obj_y + obj->height);
+    clip_region.x1 = MAX(x1, *obj_x);
+    clip_region.y1 = MAX(y1, *obj_y);
+    clip_region.x2 = MIN(x2, *obj_x + obj->width);
+    clip_region.y2 = MIN(y2, *obj_y + obj->height);
 
     if (clip_region.x1 >= clip_region.x2 || clip_region.y1 >= clip_region.y2) {
         return ESP_ERR_INVALID_STATE;
@@ -1052,7 +1024,7 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
 
     gfx_color_t *dest_pixels = (gfx_color_t *)dest_buf + (clip_region.y1 - y1) * (x2 - x1) + (clip_region.x1 - x1);
     gfx_coord_t dest_buffer_stride = (x2 - x1);
-    gfx_coord_t mask_offset_y = (clip_region.y1 - obj_y);
+    gfx_coord_t mask_offset_y = (clip_region.y1 - *obj_y);
 
     gfx_opa_t *mask = label->mask;
     gfx_coord_t mask_stride = obj->width;

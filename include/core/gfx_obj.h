@@ -59,7 +59,6 @@ typedef struct gfx_obj {
     uint16_t width;             /**< Object width */
     uint16_t height;            /**< Object height */
     bool is_visible;            /**< Object visibility */
-    bool is_dirty;              /**< Object dirty flag */
     uint8_t align_type;         /**< Alignment type (see GFX_ALIGN_* constants) */
     gfx_coord_t align_x_ofs;    /**< X offset for alignment */
     gfx_coord_t align_y_ofs;    /**< Y offset for alignment */
