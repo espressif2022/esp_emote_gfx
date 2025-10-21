@@ -42,11 +42,14 @@ void gfx_obj_set_pos(gfx_obj_t *obj, gfx_coord_t x, gfx_coord_t y)
         return;
     }
 
+    //invalidate the old position
+    gfx_obj_invalidate(obj);
+
     obj->x = x;
     obj->y = y;
     obj->use_align = false;
+    //invalidate the new position
     gfx_obj_invalidate(obj);
-
     ESP_LOGD(TAG, "Set object position: (%d, %d)", x, y);
 }
 
@@ -271,6 +274,7 @@ void gfx_obj_delete(gfx_obj_t *obj)
         gfx_emote_remove_child(obj->parent_handle, obj);
     }
 
+    gfx_obj_invalidate(obj);
     switch (obj->type) {
     case GFX_OBJ_TYPE_LABEL:
         gfx_label_delete(obj);

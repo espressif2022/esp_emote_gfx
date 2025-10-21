@@ -9,6 +9,7 @@
 #include "esp_log.h"
 #include "esp_check.h"
 #include "core/gfx_core_internal.h"
+#include "core/gfx_area.h"
 #include "core/gfx_refr.h"
 #include "widget/gfx_comm.h"
 #include "widget/gfx_anim_internal.h"
@@ -257,7 +258,10 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
 
     /* Animation property and validation */
     gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
-    ESP_RETURN_ON_FALSE(anim->file_desc != NULL, ESP_ERR_INVALID_ARG, TAG, "No file descriptor");
+    // ESP_RETURN_ON_FALSE(anim->file_desc != NULL, ESP_ERR_INVALID_ARG, TAG, "No file descriptor");
+    if(anim->file_desc == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
 
     /* Frame data validation */
     const void *frame_data = anim->frame.frame_data;
@@ -288,13 +292,11 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
     gfx_obj_cal_aligned_pos(obj, parent_width, parent_height, obj_x, obj_y);
 
     /* Calculate clipping area for object */
+    gfx_area_t render_area = {x1, y1, x2, y2};
+    gfx_area_t obj_area = {*obj_x, *obj_y, *obj_x + obj->width, *obj_y + obj->height};
     gfx_area_t clip_area;
-    clip_area.x1 = MAX(x1, *obj_x);
-    clip_area.y1 = MAX(y1, *obj_y);
-    clip_area.x2 = MIN(x2, *obj_x + obj->width);
-    clip_area.y2 = MIN(y2, *obj_y + obj->height);
-
-    if (clip_area.x1 >= clip_area.x2 || clip_area.y1 >= clip_area.y2) {
+    
+    if (!gfx_area_intersect(&clip_area, &render_area, &obj_area)) {
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -313,13 +315,10 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
         block_end_x += *obj_x;
 
         /* Calculate clipping area for this block */
+        gfx_area_t block_area = {block_start_x, block_start_y, block_end_x, block_end_y};
         gfx_area_t clip_block;
-        clip_block.x1 = MAX(clip_area.x1, block_start_x);
-        clip_block.y1 = MAX(clip_area.y1, block_start_y);
-        clip_block.x2 = MIN(clip_area.x2, block_end_x);
-        clip_block.y2 = MIN(clip_area.y2, block_end_y);
-
-        if (clip_block.x1 >= clip_block.x2 || clip_block.y1 >= clip_block.y2) {
+        
+        if (!gfx_area_intersect(&clip_block, &clip_area, &block_area)) {
             continue;
         }
 
@@ -596,7 +595,7 @@ static void gfx_anim_timer_callback(void *arg)
     gfx_obj_t *obj = (gfx_obj_t *)arg;
     gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
 
-    if (!anim || !anim->is_playing) {
+    if (!anim || !anim->is_playing || obj->is_visible == false) {
         return;
     }
 
@@ -707,6 +706,9 @@ esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
     if (anim->is_playing) {
         gfx_anim_stop(obj);
     }
+
+    //invalidate the old animation
+    gfx_obj_invalidate(obj);
 
     if (anim->frame.header.width > 0) {
         eaf_free_header(&anim->frame.header);

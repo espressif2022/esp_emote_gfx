@@ -76,7 +76,6 @@ typedef struct {
         gfx_area_t dirty_areas[GFX_INV_BUF_SIZE]; /**< Array of invalid (dirty) areas */
         uint8_t area_merged[GFX_INV_BUF_SIZE]; /**< Flags: 1 if area is merged into another */
         uint8_t dirty_count;                /**< Number of invalid areas */
-        bool rendering_in_progress;    /**< Whether rendering is in progress */
     } disp;
 
     /* Synchronization primitives */

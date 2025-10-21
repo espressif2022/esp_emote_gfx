@@ -13,6 +13,7 @@
 #include "esp_check.h"
 #include "core/gfx_blend_internal.h"
 #include "core/gfx_core_internal.h"
+#include "core/gfx_area.h"
 #include "core/gfx_refr.h"
 #include "widget/gfx_comm.h"
 #include "widget/gfx_label_internal.h"
@@ -132,7 +133,7 @@ gfx_obj_t *gfx_label_create(gfx_handle_t handle)
 {
     gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
     if (obj == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate memory for label object");
+        ESP_LOGE(TAG, "No mem for label object");
         return NULL;
     }
 
@@ -657,7 +658,7 @@ static int gfx_calculate_line_width(const char *line_text, gfx_font_ctx_t *font)
     return line_width;
 }
 
-static int gfx_calculate_text_start_x(gfx_text_align_t align, int obj_width, int line_width)
+static int gfx_cal_text_start_x(gfx_text_align_t align, int obj_width, int line_width)
 {
     int start_x = 0;
 
@@ -703,7 +704,9 @@ static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const 
 {
     gfx_label_t *label = (gfx_label_t *)obj->src;
 
-    int start_x = gfx_calculate_text_start_x(label->text_align, obj->width, line_width);
+    int start_x = gfx_cal_text_start_x(label->text_align, obj->width, line_width);
+    // ESP_LOGI(TAG, "start_x: %d, text_align: %d, obj_width: %d, line_width: %d, scrolling: %d, offset: %d", 
+    //     start_x, label->text_align, obj->width, line_width, label->scrolling, label->scroll_offset);
 
     if (label->long_mode == GFX_LABEL_LONG_SCROLL && label->scrolling) {
         start_x -= label->scroll_offset;
@@ -990,13 +993,12 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
     gfx_coord_t *obj_y = &obj->y;
     gfx_obj_cal_aligned_pos(obj, parent_width, parent_height, obj_x, obj_y);
 
-    gfx_area_t clip_region;
-    clip_region.x1 = MAX(x1, *obj_x);
-    clip_region.y1 = MAX(y1, *obj_y);
-    clip_region.x2 = MIN(x2, *obj_x + obj->width);
-    clip_region.y2 = MIN(y2, *obj_y + obj->height);
-
-    if (clip_region.x1 >= clip_region.x2 || clip_region.y1 >= clip_region.y2) {
+    /* Calculate clipping area */
+    gfx_area_t render_area = {x1, y1, x2, y2};
+    gfx_area_t obj_area = {*obj_x, *obj_y, *obj_x + obj->width, *obj_y + obj->height};
+    gfx_area_t clip_area;
+    
+    if (!gfx_area_intersect(&clip_area, &render_area, &obj_area)) {
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -1009,8 +1011,8 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
             bg_color.full = __builtin_bswap16(bg_color.full);
         }
 
-        for (int y = clip_region.y1; y < clip_region.y2; y++) {
-            for (int x = clip_region.x1; x < clip_region.x2; x++) {
+        for (int y = clip_area.y1; y < clip_area.y2; y++) {
+            for (int x = clip_area.x1; x < clip_area.x2; x++) {
                 int pixel_index = (y - y1) * buffer_width + (x - x1);
                 dest_pixels[pixel_index] = bg_color;
             }
@@ -1022,9 +1024,9 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
         return ESP_ERR_INVALID_STATE;
     }
 
-    gfx_color_t *dest_pixels = (gfx_color_t *)dest_buf + (clip_region.y1 - y1) * (x2 - x1) + (clip_region.x1 - x1);
-    gfx_coord_t dest_buffer_stride = (x2 - x1);
-    gfx_coord_t mask_offset_y = (clip_region.y1 - *obj_y);
+    gfx_color_t *dest_pixels = (gfx_color_t *)dest_buf + (clip_area.y1 - y1) * (x2 - x1) + (clip_area.x1 - x1);
+    gfx_coord_t dest_stride = (x2 - x1);
+    gfx_coord_t mask_offset_y = (clip_area.y1 - *obj_y);
 
     gfx_opa_t *mask = label->mask;
     gfx_coord_t mask_stride = obj->width;
@@ -1035,7 +1037,7 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
         color.full = __builtin_bswap16(color.full);
     }
 
-    gfx_sw_blend_draw(dest_pixels, dest_buffer_stride, color, label->opa, mask, &clip_region, mask_stride, swap);
+    gfx_sw_blend_draw(dest_pixels, dest_stride, color, label->opa, mask, &clip_area, mask_stride, swap);
 
     return ESP_OK;
 }

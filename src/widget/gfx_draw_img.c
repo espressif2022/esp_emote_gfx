@@ -10,6 +10,7 @@
 #include "esp_check.h"
 #include "core/gfx_blend_internal.h"
 #include "core/gfx_core_internal.h"
+#include "core/gfx_area.h"
 #include "core/gfx_refr.h"
 #include "widget/gfx_comm.h"
 #include "widget/gfx_img_internal.h"
@@ -96,45 +97,41 @@ void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *de
         return;
     }
 
-    ESP_LOGD(TAG, "Drawing image: %dx%d, format: 0x%02X", image_width, image_height, color_format);
-
     // Get parent container dimensions for alignment calculation
     uint32_t parent_width, parent_height;
     gfx_emote_get_screen_size(obj->parent_handle, &parent_width, &parent_height);
 
-    gfx_coord_t obj_x = obj->x;
-    gfx_coord_t obj_y = obj->y;
+    gfx_coord_t *obj_x = &obj->x;
+    gfx_coord_t *obj_y = &obj->y;
 
-    gfx_obj_cal_aligned_pos(obj, parent_width, parent_height, &obj_x, &obj_y);
+    gfx_obj_cal_aligned_pos(obj, parent_width, parent_height, obj_x, obj_y);
 
-    gfx_area_t clip_region;
-    clip_region.x1 = MAX(x1, obj_x);
-    clip_region.y1 = MAX(y1, obj_y);
-    clip_region.x2 = MIN(x2, obj_x + image_width);
-    clip_region.y2 = MIN(y2, obj_y + image_height);
-
-    // Check if there's any overlap
-    if (clip_region.x1 >= clip_region.x2 || clip_region.y1 >= clip_region.y2) {
+    /* Calculate clipping area */
+    gfx_area_t render_area = {x1, y1, x2, y2};
+    gfx_area_t obj_area = {*obj_x, *obj_y, *obj_x + image_width, *obj_y + image_height};
+    gfx_area_t clip_area;
+    
+    if (!gfx_area_intersect(&clip_area, &render_area, &obj_area)) {
         gfx_image_decoder_close(&decoder_dsc);
         return;
     }
 
-    gfx_coord_t dest_buffer_stride = (x2 - x1);
-    gfx_coord_t source_buffer_stride = image_width;
+    gfx_coord_t dest_stride = (x2 - x1);
+    gfx_coord_t src_stride = image_width;
 
     // Calculate data pointers based on format
-    gfx_color_t *source_pixels = (gfx_color_t *)(image_data + (clip_region.y1 - obj_y) * source_buffer_stride * 2);
-    gfx_opa_t *alpha_mask = (gfx_opa_t *)(image_data + source_buffer_stride * image_height * 2 + (clip_region.y1 - obj_y) * source_buffer_stride);
-    gfx_color_t *dest_pixels = (gfx_color_t *)dest_buf + (clip_region.y1 - y1) * dest_buffer_stride + (clip_region.x1 - x1);
+    gfx_color_t *src_pixels = (gfx_color_t *)(image_data + (clip_area.y1 - *obj_y) * src_stride * 2);
+    gfx_opa_t *alpha_mask = (gfx_opa_t *)(image_data + src_stride * image_height * 2 + (clip_area.y1 - *obj_y) * src_stride);
+    gfx_color_t *dest_pixels = (gfx_color_t *)dest_buf + (clip_area.y1 - y1) * dest_stride + (clip_area.x1 - x1);
 
     gfx_sw_blend_img_draw(
         dest_pixels,
-        dest_buffer_stride,
-        source_pixels,
-        source_buffer_stride,
+        dest_stride,
+        src_pixels,
+        src_stride,
         alpha_mask,
-        source_buffer_stride,
-        &clip_region,
+        src_stride,
+        &clip_area,
         255,
         swap
     );
@@ -151,7 +148,7 @@ gfx_obj_t *gfx_img_create(gfx_handle_t handle)
 {
     gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
     if (obj == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate memory for image object");
+        ESP_LOGE(TAG, "No mem for image object");
         return NULL;
     }
 
@@ -169,22 +166,31 @@ esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src)
 {
     CHECK_OBJ_TYPE_IMAGE(obj);
 
-    obj->src = src;
-
-    if (src != NULL) {
-        gfx_image_header_t header;
-        gfx_image_decoder_dsc_t dsc = {
-            .src = src,
-        };
-        esp_err_t ret = gfx_image_decoder_info(&dsc, &header);
-        if (ret == ESP_OK) {
-            obj->width = header.w;
-            obj->height = header.h;
-        }
+    if (src == NULL) {
+        ESP_LOGE(TAG, "Source is NULL");
+        return ESP_ERR_INVALID_ARG;
     }
 
+    obj->src = src;
+
+    //invalidate the old image
+    // gfx_obj_invalidate(obj);
+
+    gfx_image_header_t header;
+    gfx_image_decoder_dsc_t dsc = {
+        .src = src,
+    };
+    esp_err_t ret = gfx_image_decoder_info(&dsc, &header);
+    if (ret == ESP_OK) {
+        obj->width = header.w;
+        obj->height = header.h;
+    } else {
+        ESP_LOGE(TAG, "Failed to get image info");
+    }
+
+    //invalidate the new image
     gfx_obj_invalidate(obj);
-    ESP_LOGD(TAG, "Set image source, size: %dx%d", obj->width, obj->height);
+    ESP_LOGI(TAG, "Set image source, size: %dx%d", obj->width, obj->height);
     return ESP_OK;
 }
 

@@ -337,7 +337,7 @@ gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
     // Initialize image decoder system
     esp_err_t decoder_ret = gfx_image_decoder_init();
     if (decoder_ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize image decoder system");
+        ESP_LOGE(TAG, "Failed to initialize image decoder");
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
         gfx_ft_lib_cleanup();
 #endif
@@ -350,9 +350,11 @@ gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
 
     const uint32_t stack_caps = cfg->task.task_stack_caps ? cfg->task.task_stack_caps : MALLOC_CAP_DEFAULT; // caps cannot be zero
     if (cfg->task.task_affinity < 0) {
-        xTaskCreateWithCaps(gfx_core_task, "gfx_core", cfg->task.task_stack, disp_ctx, cfg->task.task_priority, NULL, stack_caps);
+        xTaskCreateWithCaps(gfx_core_task, "gfx_core", cfg->task.task_stack,
+                            disp_ctx, cfg->task.task_priority, NULL, stack_caps);
     } else {
-        xTaskCreatePinnedToCoreWithCaps(gfx_core_task, "gfx_core", cfg->task.task_stack, disp_ctx, cfg->task.task_priority, NULL, cfg->task.task_affinity, stack_caps);
+        xTaskCreatePinnedToCoreWithCaps(gfx_core_task, "gfx_core", cfg->task.task_stack,
+                                        disp_ctx, cfg->task.task_priority, NULL, cfg->task.task_affinity, stack_caps);
     }
 
     return (gfx_handle_t)disp_ctx;
@@ -426,7 +428,6 @@ esp_err_t gfx_emote_add_chlid(gfx_handle_t handle, int type, void *src)
     new_child->src = src;
     new_child->next = NULL;
 
-    // Add to child list
     if (ctx->disp.child_list == NULL) {
         ctx->disp.child_list = new_child;
     } else {
@@ -566,9 +567,9 @@ static uint32_t gfx_print_dirty_areas_summary(gfx_core_context_t *ctx)
         gfx_area_t *area = &ctx->disp.dirty_areas[i];
         uint32_t area_size = gfx_area_get_size(area);
         total_dirty_pixels += area_size;
-        ESP_LOGD(TAG, "Area[%d]: (%d,%d)->(%d,%d) %dx%d",
-                 i, area->x1, area->y1, area->x2, area->y2,
-                 area->x2 - area->x1 + 1, area->y2 - area->y1 + 1);
+        // ESP_LOGI(TAG, "Draw area [%d]: (%d,%d)->(%d,%d) %dx%d",
+        //          i, area->x1, area->y1, area->x2, area->y2,
+        //          area->x2 - area->x1 + 1, area->y2 - area->y1 + 1);
     }
 
     return total_dirty_pixels;
@@ -597,7 +598,7 @@ static uint32_t gfx_render_part_area(gfx_core_context_t *ctx, gfx_area_t *area,
 
     uint32_t total_flushes = (area_height + per_flush - 1) / per_flush;
 
-    ESP_LOGD(TAG, "Area[%d]: %lupx split to %lu flushes", area_idx, area_pixels, total_flushes);
+    // ESP_LOGI(TAG, "Area[%d]: %lupx split to %lu flushes", area_idx, area_pixels, total_flushes);
 
     int current_y = area->y1;
     uint32_t flush_idx = 0;
@@ -698,7 +699,7 @@ static bool gfx_refr_handler(gfx_core_context_t *ctx)
 
     uint32_t rendered_blocks = gfx_render_dirty_areas(ctx);
 
-    float dirty_percentage = (total_dirty_pixels * 100.0f) / screen_pixels;
+    // float dirty_percentage = (total_dirty_pixels * 100.0f) / screen_pixels;
     // ESP_LOGI(TAG, "Rendered %lu blocks, %lupx (%.1f%%)",
     //          rendered_blocks, total_dirty_pixels, dirty_percentage);
 

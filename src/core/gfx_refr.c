@@ -51,8 +51,8 @@ void gfx_refr_merge_areas(gfx_core_context_t *ctx)
                 /* Mark 'src_idx' as merged into 'dst_idx' */
                 ctx->disp.area_merged[src_idx] = 1;
 
-                ESP_LOGI(TAG, "Merged area [%d] into [%d], saved %lu pixels",
-                         src_idx, dst_idx, separate_size - merged_size);
+                // ESP_LOGI(TAG, "Merged area [%d] into [%d], saved %lu pixels",
+                //          src_idx, dst_idx, separate_size - merged_size);
             }
         }
     }
@@ -71,11 +71,6 @@ void gfx_invalidate_area(gfx_handle_t handle, const gfx_area_t *area_p)
         ctx->disp.dirty_count = 0;
         memset(ctx->disp.area_merged, 0, sizeof(ctx->disp.area_merged));
         ESP_LOGD(TAG, "Cleared all dirty areas");
-        return;
-    }
-
-    if (ctx->disp.rendering_in_progress) {
-        ESP_LOGE(TAG, "Detected modifying dirty areas during render");
         return;
     }
 
@@ -101,11 +96,10 @@ void gfx_invalidate_area(gfx_handle_t handle, const gfx_area_t *area_p)
         }
     }
 
-    /* Add as new dirty area if there's space */
     if (ctx->disp.dirty_count < GFX_INV_BUF_SIZE) {
         gfx_area_copy(&ctx->disp.dirty_areas[ctx->disp.dirty_count], &clipped_area);
         ctx->disp.dirty_count++;
-        // ESP_LOGI(TAG, "Added dirty area [%d,%d,%d,%d], total: %d",
+        // ESP_LOGW(TAG, "Added dirty area [%d,%d,%d,%d], total: %d",
         //          clipped_area.x1, clipped_area.y1, clipped_area.x2, clipped_area.y2, ctx->disp.dirty_count);
     } else {
         /* No space left, mark entire screen as dirty */
@@ -114,6 +108,9 @@ void gfx_invalidate_area(gfx_handle_t handle, const gfx_area_t *area_p)
         ESP_LOGW(TAG, "Dirty area buffer full, marking entire screen as dirty");
     }
 }
+
+#include "esp_log.h"
+#include "esp_debug_helpers.h"
 
 void gfx_obj_invalidate(gfx_obj_t *obj)
 {
@@ -133,10 +130,12 @@ void gfx_obj_invalidate(gfx_obj_t *obj)
     obj_area.x2 = obj->x + obj->width - 1;
     obj_area.y2 = obj->y + obj->height - 1;
 
-    gfx_invalidate_area(obj->parent_handle, &obj_area);
+    // ESP_LOGI(TAG, "type:%d, Invalidated object area [%d,%d,%d,%d]",
+            //  obj->type, obj_area.x1, obj_area.y1, obj_area.x2, obj_area.y2);
 
-//     ESP_LOGI(TAG, "type:%d, Invalidated object area [%d,%d,%d,%d]",
-//              obj->type, obj_area.x1, obj_area.y1, obj_area.x2, obj_area.y2);
+    // esp_backtrace_print(2);
+
+    gfx_invalidate_area(obj->parent_handle, &obj_area);
 }
 
 void gfx_invalidate_all(gfx_core_context_t *ctx)
