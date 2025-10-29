@@ -12,33 +12,15 @@
 
 #include "core/gfx_core_internal.h"
 #include "core/gfx_obj_internal.h"
-#include "core/gfx_area.h"
 #include "core/gfx_refr.h"
+#include "core/gfx_render.h"
 #include "core/gfx_timer_internal.h"
 #include "widget/gfx_img_internal.h"
-#include "widget/gfx_label_internal.h"
-#include "widget/gfx_anim_internal.h"
+#include "widget/gfx_draw_label.c"
 
 static const char *TAG = "gfx_core";
 
-static bool gfx_refr_handler(gfx_core_context_t *ctx);
-static bool gfx_event_handler(gfx_core_context_t *ctx);
-static esp_err_t gfx_buf_init_frame(gfx_core_context_t *ctx, const gfx_core_config_t *cfg);
-static void gfx_buf_free_frame(gfx_core_context_t *ctx);
-static uint32_t gfx_calculate_task_delay(uint32_t timer_delay);
-
-/* Rendering helper functions */
-static uint32_t gfx_print_dirty_areas_summary(gfx_core_context_t *ctx);
-static uint32_t gfx_render_dirty_areas(gfx_core_context_t *ctx);
-static uint32_t gfx_render_part_area(gfx_core_context_t *ctx, gfx_area_t *area, uint8_t area_idx, uint32_t start_block_count);
-static void gfx_cleanup_after_render(gfx_core_context_t *ctx);
-
-/**
- * @brief Calculate task delay based on timer delay and system tick rate
- * @param timer_delay Timer delay in milliseconds
- * @return Calculated task delay in milliseconds
- */
-static uint32_t gfx_calculate_task_delay(uint32_t timer_delay)
+uint32_t gfx_calculate_task_delay(uint32_t timer_delay)
 {
     uint32_t min_delay_ms = (1000 / configTICK_RATE_HZ) + 1; // At least one tick + 1ms
 
@@ -49,12 +31,7 @@ static uint32_t gfx_calculate_task_delay(uint32_t timer_delay)
     }
 }
 
-/**
- * @brief Handle system events and user requests
- * @param ctx Player context
- * @return true if event was handled, false otherwise
- */
-static bool gfx_event_handler(gfx_core_context_t *ctx)
+bool gfx_event_handler(gfx_core_context_t *ctx)
 {
     EventBits_t event_bits = xEventGroupWaitBits(ctx->sync.event_group,
                              NEED_DELETE, pdTRUE, pdFALSE, pdMS_TO_TICKS(0));
@@ -68,13 +45,7 @@ static bool gfx_event_handler(gfx_core_context_t *ctx)
     return false;
 }
 
-/**
- * @brief Initialize frame buffers (internal or external)
- * @param ctx Player context
- * @param cfg Graphics configuration (includes buffer configuration)
- * @return esp_err_t ESP_OK on success, otherwise error code
- */
-static esp_err_t gfx_buf_init_frame(gfx_core_context_t *ctx, const gfx_core_config_t *cfg)
+esp_err_t gfx_buf_init_frame(gfx_core_context_t *ctx, const gfx_core_config_t *cfg)
 {
     if (cfg->buffers.buf1 != NULL) {
         ctx->disp.buf1 = (uint16_t *)cfg->buffers.buf1;
@@ -134,11 +105,7 @@ static esp_err_t gfx_buf_init_frame(gfx_core_context_t *ctx, const gfx_core_conf
     return ESP_OK;
 }
 
-/**
- * @brief Free frame buffers (only internal buffers)
- * @param ctx Player context
- */
-static void gfx_buf_free_frame(gfx_core_context_t *ctx)
+void gfx_buf_free_frame(gfx_core_context_t *ctx)
 {
     // Only free buffers if they were internally allocated
     if (!ctx->disp.ext_bufs) {
@@ -155,34 +122,21 @@ static void gfx_buf_free_frame(gfx_core_context_t *ctx)
     ctx->disp.ext_bufs = false;
 }
 
-void gfx_draw_child(gfx_core_context_t *ctx, int x1, int y1, int x2, int y2, const void *dest_buf)
+
+void gfx_emote_refresh_all(gfx_handle_t handle)
 {
-    if (ctx->disp.child_list == NULL) {
+    if (handle == NULL) {
+        ESP_LOGE(TAG, "Handle is NULL");
         return;
     }
 
-    gfx_core_child_t *child_node = ctx->disp.child_list;
-    bool swap = ctx->display.flags.swap;
-
-    while (child_node != NULL) {
-        gfx_obj_t *obj = (gfx_obj_t *)child_node->src;
-
-        // Skip rendering if object is not visible
-        if (!obj->is_visible) {
-            child_node = child_node->next;
-            continue;
-        }
-
-        if (obj->type == GFX_OBJ_TYPE_LABEL) {
-            gfx_draw_label(obj, x1, y1, x2, y2, dest_buf, swap);
-        } else if (obj->type == GFX_OBJ_TYPE_IMAGE) {
-            gfx_draw_img(obj, x1, y1, x2, y2, dest_buf, swap);
-        } else if (obj->type == GFX_OBJ_TYPE_ANIMATION) {
-            gfx_draw_animation(obj, x1, y1, x2, y2, dest_buf, swap);
-        }
-
-        child_node = child_node->next;
-    }
+    gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
+    gfx_area_t full_screen;
+    full_screen.x1 = 0;
+    full_screen.y1 = 0;
+    full_screen.x2 = ctx->display.h_res - 1;
+    full_screen.y2 = ctx->display.v_res - 1;
+    gfx_invalidate_area(handle, &full_screen);
 }
 
 static void gfx_core_task(void *arg)
@@ -190,7 +144,7 @@ static void gfx_core_task(void *arg)
     gfx_core_context_t *ctx = (gfx_core_context_t *)arg;
     uint32_t timer_delay = 1; // Default delay
 
-    gfx_invalidate_all(ctx);
+    gfx_emote_refresh_all((gfx_handle_t)ctx);
 
     while (1) {
         if (ctx->sync.lock_mutex && xSemaphoreTakeRecursive(ctx->sync.lock_mutex, portMAX_DELAY) == pdTRUE) {
@@ -202,7 +156,7 @@ static void gfx_core_task(void *arg)
             timer_delay = gfx_timer_handler(&ctx->timer.timer_mgr);
 
             if (ctx->disp.child_list != NULL) {
-                gfx_refr_handler(ctx);
+                gfx_render_handler(ctx);
             }
 
             uint32_t task_delay = gfx_calculate_task_delay(timer_delay);
@@ -524,186 +478,4 @@ bool gfx_emote_is_flushing_last(gfx_handle_t handle)
     }
 
     return ctx->disp.flushing_last;
-}
-
-/**
- * @brief Fast fill buffer with background color
- * @param buf Pointer to uint16_t buffer
- * @param color 16-bit color value
- * @param pixels Number of pixels to fill
- */
-static inline void gfx_fill_color(uint16_t *buf, uint16_t color, size_t pixels)
-{
-    if ((color & 0xFF) == (color >> 8)) {
-        memset(buf, color & 0xFF, pixels * sizeof(uint16_t));
-    } else {
-        uint32_t color32 = (color << 16) | color;
-        uint32_t *buf32 = (uint32_t *)buf;
-        size_t pixels_half = pixels / 2;
-
-        for (size_t i = 0; i < pixels_half; i++) {
-            buf32[i] = color32;
-        }
-
-        if (pixels & 1) {
-            buf[pixels - 1] = color;
-        }
-    }
-}
-
-/**
- * @brief Print summary of dirty areas
- * @param ctx Graphics context
- * @return Total dirty pixels
- */
-static uint32_t gfx_print_dirty_areas_summary(gfx_core_context_t *ctx)
-{
-    uint32_t total_dirty_pixels = 0;
-
-    for (uint8_t i = 0; i < ctx->disp.dirty_count; i++) {
-        if (ctx->disp.area_merged[i]) {
-            continue;    /* Skip merged areas */
-        }
-        gfx_area_t *area = &ctx->disp.dirty_areas[i];
-        uint32_t area_size = gfx_area_get_size(area);
-        total_dirty_pixels += area_size;
-        // ESP_LOGI(TAG, "Draw area [%d]: (%d,%d)->(%d,%d) %dx%d",
-        //          i, area->x1, area->y1, area->x2, area->y2,
-        //          area->x2 - area->x1 + 1, area->y2 - area->y1 + 1);
-    }
-
-    return total_dirty_pixels;
-}
-
-/**
- * @brief Render a single dirty area with dynamic height-based blocking
- * @param ctx Graphics context
- * @param area Area to render
- * @param area_idx Area index for logging
- * @param start_block_count Starting block count for logging
- * @return Number of flush operations performed
- */
-static uint32_t gfx_render_part_area(gfx_core_context_t *ctx, gfx_area_t *area,
-                                     uint8_t area_idx, uint32_t start_block_count)
-{
-    uint32_t area_width = area->x2 - area->x1 + 1;
-    uint32_t area_height = area->y2 - area->y1 + 1;
-    uint32_t area_pixels = area_width * area_height;
-
-    uint32_t per_flush = ctx->disp.buf_pixels / area_width;
-    if (per_flush == 0) {
-        ESP_LOGE(TAG, "Area[%d] width %lu exceeds buffer width, skipping", area_idx, area_width);
-        return 0;
-    }
-
-    uint32_t total_flushes = (area_height + per_flush - 1) / per_flush;
-
-    // ESP_LOGI(TAG, "Area[%d]: %lupx split to %lu flushes", area_idx, area_pixels, total_flushes);
-
-    int current_y = area->y1;
-    uint32_t flush_idx = 0;
-    uint32_t flushes_done = 0;
-
-    while (current_y <= area->y2) {
-        flush_idx++;
-
-        int x1 = area->x1;
-        int y1 = current_y;
-        int x2 = area->x2 + 1;
-        int y2 = current_y + per_flush;
-        if (y2 > area->y2 + 1) {
-            y2 = area->y2 + 1;
-        }
-
-        uint32_t chunk_pixels = area_width * (y2 - y1);
-        uint16_t *buf_act = ctx->disp.buf_act;
-
-        gfx_fill_color(buf_act, ctx->disp.bg_color.full, ctx->disp.buf_pixels);
-        gfx_draw_child(ctx, x1, y1, x2, y2, buf_act);
-
-        if (ctx->callbacks.flush_cb) {
-            xEventGroupClearBits(ctx->sync.event_group, WAIT_FLUSH_DONE);
-
-            // ESP_LOGI(TAG, "Flush[%lu]: (%d,%d)->(%d,%d) %lupx",
-            //          start_block_count + flush_idx, x1, y1, x2 - 1, y2 - 1, chunk_pixels);
-
-            ctx->callbacks.flush_cb(ctx, x1, y1, x2, y2, buf_act);
-            xEventGroupWaitBits(ctx->sync.event_group, WAIT_FLUSH_DONE, pdTRUE, pdFALSE, pdMS_TO_TICKS(20));
-        }
-
-        current_y = y2;
-        flushes_done++;
-    }
-
-    return flushes_done;
-}
-
-/**
- * @brief Render all dirty areas
- * @param ctx Graphics context
- * @return Total number of flush operations
- */
-static uint32_t gfx_render_dirty_areas(gfx_core_context_t *ctx)
-{
-    uint32_t rendered_blocks = 0;
-
-    for (uint8_t i = 0; i < ctx->disp.dirty_count; i++) {
-        if (ctx->disp.area_merged[i]) {
-            continue;
-        }
-
-        gfx_area_t *area = &ctx->disp.dirty_areas[i];
-        rendered_blocks += gfx_render_part_area(ctx, area, i, rendered_blocks);
-    }
-
-    return rendered_blocks;
-}
-
-/**
- * @brief Cleanup after rendering - swap buffers and clear dirty flags
- * @param ctx Graphics context
- */
-static void gfx_cleanup_after_render(gfx_core_context_t *ctx)
-{
-    ctx->disp.flushing_last = true;
-    if (ctx->disp.buf2 != NULL) {
-        if (ctx->disp.buf_act == ctx->disp.buf1) {
-            ctx->disp.buf_act = ctx->disp.buf2;
-        } else {
-            ctx->disp.buf_act = ctx->disp.buf1;
-        }
-    }
-
-    if (ctx->disp.dirty_count > 0) {
-        gfx_invalidate_area(ctx, NULL);
-    }
-}
-
-/**
- * @brief Handle rendering of all objects in the scene
- * @param ctx Player context
- * @return true if rendering was performed, false otherwise
- */
-static bool gfx_refr_handler(gfx_core_context_t *ctx)
-{
-    if (ctx->disp.dirty_count > 1) {
-        gfx_refr_merge_areas(ctx);
-    }
-
-    if (ctx->disp.dirty_count == 0) {
-        return false;
-    }
-
-    uint32_t total_dirty_pixels = gfx_print_dirty_areas_summary(ctx);
-    uint32_t screen_pixels = ctx->display.h_res * ctx->display.v_res;
-
-    uint32_t rendered_blocks = gfx_render_dirty_areas(ctx);
-
-    // float dirty_percentage = (total_dirty_pixels * 100.0f) / screen_pixels;
-    // ESP_LOGI(TAG, "Rendered %lu blocks, %lupx (%.1f%%)",
-    //          rendered_blocks, total_dirty_pixels, dirty_percentage);
-
-    gfx_cleanup_after_render(ctx);
-
-    return true;
 }

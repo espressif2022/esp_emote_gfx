@@ -9,7 +9,6 @@
 #include "esp_log.h"
 #include "esp_check.h"
 #include "core/gfx_core_internal.h"
-#include "core/gfx_area.h"
 #include "core/gfx_refr.h"
 #include "widget/gfx_comm.h"
 #include "widget/gfx_anim_internal.h"

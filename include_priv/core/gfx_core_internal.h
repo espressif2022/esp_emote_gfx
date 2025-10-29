@@ -123,6 +123,35 @@ esp_err_t gfx_emote_remove_child(gfx_handle_t handle, void *src);
  */
 void gfx_draw_child(gfx_core_context_t *ctx, int x1, int y1, int x2, int y2, const void *dest_buf);
 
+/**
+ * @brief Handle system events and user requests
+ * @param ctx Graphics context
+ * @return true if event was handled, false otherwise
+ */
+bool gfx_event_handler(gfx_core_context_t *ctx);
+
+/**
+ * @brief Initialize frame buffers
+ * @param ctx Graphics context
+ * @param cfg Graphics configuration
+ * @return esp_err_t ESP_OK on success, otherwise an error code
+ */
+esp_err_t gfx_buf_init_frame(gfx_core_context_t *ctx, const gfx_core_config_t *cfg);
+
+/**
+ * @brief Free frame buffers
+ * @param ctx Graphics context
+ * @return void
+ */
+void gfx_buf_free_frame(gfx_core_context_t *ctx);
+
+/**
+ * @brief Calculate task delay based on timer delay and system tick rate
+ * @param timer_delay Timer delay in milliseconds
+ * @return Calculated task delay in milliseconds
+ */
+uint32_t gfx_calculate_task_delay(uint32_t timer_delay);
+
 #ifdef __cplusplus
 }
 #endif
