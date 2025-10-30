@@ -5,11 +5,11 @@
  */
 
 #include "esp_log.h"
-#include "core/gfx_render.h"
-#include "core/gfx_refr.h"
-#include "widget/gfx_img_internal.h"
-#include "widget/gfx_label_internal.h"
-#include "widget/gfx_anim_internal.h"
+#include "core/gfx_render_priv.h"
+#include "core/gfx_refr_priv.h"
+#include "widget/gfx_img_priv.h"
+#include "widget/gfx_label_priv.h"
+#include "widget/gfx_anim_priv.h"
 
 static const char *TAG = "gfx_render";
 
@@ -86,17 +86,17 @@ uint32_t gfx_render_print_summary(gfx_core_context_t *ctx)
 {
     uint32_t total_dirty_pixels = 0;
 
-    // for (uint8_t i = 0; i < ctx->disp.dirty_count; i++) {
-    //     if (ctx->disp.area_merged[i]) {
-    //         continue;    /* Skip merged areas */
-    //     }
-    //     gfx_area_t *area = &ctx->disp.dirty_areas[i];
-    //     uint32_t area_size = gfx_area_get_size(area);
-    //     total_dirty_pixels += area_size;
-    //     // ESP_LOGI(TAG, "Draw area [%d]: (%d,%d)->(%d,%d) %dx%d",
-    //     //          i, area->x1, area->y1, area->x2, area->y2,
-    //     //          area->x2 - area->x1 + 1, area->y2 - area->y1 + 1);
-    // }
+    for (uint8_t i = 0; i < ctx->disp.dirty_count; i++) {
+        if (ctx->disp.area_merged[i]) {
+            continue;    /* Skip merged areas */
+        }
+        gfx_area_t *area = &ctx->disp.dirty_areas[i];
+        uint32_t area_size = gfx_area_get_size(area);
+        total_dirty_pixels += area_size;
+        // ESP_LOGI(TAG, "Draw area [%d]: (%d,%d)->(%d,%d) %dx%d",
+        //          i, area->x1, area->y1, area->x2, area->y2,
+        //          area->x2 - area->x1 + 1, area->y2 - area->y1 + 1);
+    }
 
     return total_dirty_pixels;
 }

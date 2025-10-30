@@ -11,11 +11,11 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_check.h"
-#include "core/gfx_blend_internal.h"
-#include "core/gfx_core_internal.h"
-#include "core/gfx_refr.h"
-#include "widget/gfx_comm.h"
-#include "widget/gfx_label_internal.h"
+#include "core/gfx_blend_priv.h"
+#include "core/gfx_core_priv.h"
+#include "core/gfx_refr_priv.h"
+#include "widget/gfx_comm_priv.h"
+#include "widget/gfx_label_priv.h"
 
 static const char *TAG = "gfx_label";
 

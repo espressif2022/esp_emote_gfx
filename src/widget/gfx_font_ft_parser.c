@@ -19,7 +19,7 @@
 #include FT_SIZES_H
 #include "widget/gfx_label.h"
 #include "widget/gfx_font_lvgl.h"
-#include "widget/gfx_font_internal.h"
+#include "widget/gfx_font_priv.h"
 
 static const char *TAG = "gfx_ft";
 

@@ -13,7 +13,7 @@
 #include "esp_log.h"
 #include "esp_check.h"
 #include "widget/gfx_font_lvgl.h"
-#include "widget/gfx_font_internal.h"
+#include "widget/gfx_font_priv.h"
 
 static const char *TAG = "gfx_lv";
 

@@ -6,7 +6,7 @@
 
 #include <string.h>
 #include "esp_log.h"
-#include "core/gfx_refr.h"
+#include "core/gfx_refr_priv.h"
 
 static const char *TAG = "gfx_refr";
 

@@ -8,7 +8,7 @@
 
 #include "core/gfx_obj.h"
 #include "widget/gfx_img.h"
-#include "decoder/gfx_img_dec.h"
+#include "decoder/gfx_img_dec_priv.h"
 
 #ifdef __cplusplus
 extern "C" {

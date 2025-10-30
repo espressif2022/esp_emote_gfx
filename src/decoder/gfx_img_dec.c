@@ -8,7 +8,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
-#include "decoder/gfx_img_dec.h"
+#include "decoder/gfx_img_dec_priv.h"
 
 static const char *TAG = "gfx_img_decoder";
 

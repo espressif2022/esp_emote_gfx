@@ -7,11 +7,11 @@
 #include <stdlib.h>
 #include "esp_log.h"
 #include "core/gfx_obj.h"
-#include "core/gfx_core_internal.h"
-#include "core/gfx_refr.h"
-#include "widget/gfx_img_internal.h"
-#include "widget/gfx_label_internal.h"
-#include "widget/gfx_anim_internal.h"
+#include "core/gfx_core_priv.h"
+#include "core/gfx_refr_priv.h"
+#include "widget/gfx_img_priv.h"
+#include "widget/gfx_label_priv.h"
+#include "widget/gfx_anim_priv.h"
 
 static const char *TAG = "gfx_obj";
 

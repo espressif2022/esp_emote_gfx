@@ -10,7 +10,7 @@
 #include "core/gfx_timer.h"
 #include "widget/gfx_label.h"
 #include "widget/gfx_font_lvgl.h"
-#include "widget/gfx_font_internal.h"
+#include "widget/gfx_font_priv.h"
 
 #ifdef __cplusplus
 extern "C" {

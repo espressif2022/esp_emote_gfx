@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "core/gfx_core_internal.h"
+#include "core/gfx_core_priv.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -73,7 +73,6 @@ uint32_t gfx_area_get_size(const gfx_area_t *area);
 
 /**
  * @brief Check if two areas are on each other (overlap or touch)
- * Similar to LVGL's _lv_area_is_on
  * @param a1 First area
  * @param a2 Second area
  * @return true if areas overlap or are adjacent (touch)
@@ -82,7 +81,6 @@ bool gfx_area_is_on(const gfx_area_t *a1, const gfx_area_t *a2);
 
 /**
  * @brief Join two areas into a larger area (bounding box)
- * Similar to LVGL's _lv_area_join
  * @param result Result area (bounding box of a1 and a2)
  * @param a1 First area
  * @param a2 Second area
@@ -92,3 +90,5 @@ void gfx_area_join(gfx_area_t *result, const gfx_area_t *a1, const gfx_area_t *a
 #ifdef __cplusplus
 }
 #endif
+
+
