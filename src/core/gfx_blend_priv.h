@@ -15,7 +15,24 @@ extern "C" {
 /*********************
  *      DEFINES
  *********************/
-gfx_color_t gfx_blend_color_mix(gfx_color_t c1, gfx_color_t c2, uint8_t mix);
+
+/**********************
+ *      TYPEDEFS
+ **********************/
+
+/**********************
+ *      PRIVATE FUNCTIONS
+ **********************/
+
+/**
+ * @brief Mix two colors with a given mix ratio (internal)
+ * @param c1 First color
+ * @param c2 Second color
+ * @param mix Mix ratio (0-255)
+ * @param swap Whether to swap color format
+ * @return Mixed color
+ */
+gfx_color_t gfx_blend_color_mix(gfx_color_t c1, gfx_color_t c2, uint8_t mix, bool swap);
 
 /**********************
  * GLOBAL PROTOTYPES
@@ -58,3 +75,4 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
 #ifdef __cplusplus
 }
 #endif
+

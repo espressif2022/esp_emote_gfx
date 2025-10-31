@@ -8,6 +8,7 @@
 
 #include "gfx_types.h"
 #include "gfx_core.h"
+#include "esp_err.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -80,7 +81,7 @@ typedef struct gfx_obj {
  * @param x X coordinate
  * @param y Y coordinate
  */
-void gfx_obj_set_pos(gfx_obj_t *obj, gfx_coord_t x, gfx_coord_t y);
+esp_err_t gfx_obj_set_pos(gfx_obj_t *obj, gfx_coord_t x, gfx_coord_t y);
 
 /**
  * @brief Set the size of an object
@@ -88,7 +89,7 @@ void gfx_obj_set_pos(gfx_obj_t *obj, gfx_coord_t x, gfx_coord_t y);
  * @param w Width
  * @param h Height
  */
-void gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h);
+esp_err_t gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h);
 
 /**
  * @brief Align an object relative to the screen or another object
@@ -97,14 +98,14 @@ void gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h);
  * @param x_ofs X offset from the alignment position
  * @param y_ofs Y offset from the alignment position
  */
-void gfx_obj_align(gfx_obj_t *obj, uint8_t align, gfx_coord_t x_ofs, gfx_coord_t y_ofs);
+esp_err_t gfx_obj_align(gfx_obj_t *obj, uint8_t align, gfx_coord_t x_ofs, gfx_coord_t y_ofs);
 
 /**
  * @brief Set object visibility
  * @param obj Object to set visibility for
  * @param visible True to make object visible, false to hide
  */
-void gfx_obj_set_visible(gfx_obj_t *obj, bool visible);
+esp_err_t gfx_obj_set_visible(gfx_obj_t *obj, bool visible);
 
 /**
  * @brief Get object visibility
@@ -123,7 +124,7 @@ bool gfx_obj_get_visible(gfx_obj_t *obj);
  * @param x Pointer to store X coordinate
  * @param y Pointer to store Y coordinate
  */
-void gfx_obj_get_pos(gfx_obj_t *obj, gfx_coord_t *x, gfx_coord_t *y);
+esp_err_t gfx_obj_get_pos(gfx_obj_t *obj, gfx_coord_t *x, gfx_coord_t *y);
 
 /**
  * @brief Get the size of an object
@@ -131,7 +132,7 @@ void gfx_obj_get_pos(gfx_obj_t *obj, gfx_coord_t *x, gfx_coord_t *y);
  * @param w Pointer to store width
  * @param h Pointer to store height
  */
-void gfx_obj_get_size(gfx_obj_t *obj, uint16_t *w, uint16_t *h);
+esp_err_t gfx_obj_get_size(gfx_obj_t *obj, uint16_t *w, uint16_t *h);
 
 /*=====================
  * Object management functions
@@ -141,7 +142,7 @@ void gfx_obj_get_size(gfx_obj_t *obj, uint16_t *w, uint16_t *h);
  * @brief Delete an object
  * @param obj Pointer to the object to delete
  */
-void gfx_obj_delete(gfx_obj_t *obj);
+esp_err_t gfx_obj_delete(gfx_obj_t *obj);
 
 #ifdef __cplusplus
 }

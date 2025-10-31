@@ -93,9 +93,9 @@ uint32_t gfx_render_print_summary(gfx_core_context_t *ctx)
         gfx_area_t *area = &ctx->disp.dirty_areas[i];
         uint32_t area_size = gfx_area_get_size(area);
         total_dirty_pixels += area_size;
-        // ESP_LOGI(TAG, "Draw area [%d]: (%d,%d)->(%d,%d) %dx%d",
-        //          i, area->x1, area->y1, area->x2, area->y2,
-        //          area->x2 - area->x1 + 1, area->y2 - area->y1 + 1);
+        ESP_LOGI(TAG, "Draw area [%d]: (%d,%d)->(%d,%d) %dx%d",
+                 i, area->x1, area->y1, area->x2, area->y2,
+                 area->x2 - area->x1 + 1, area->y2 - area->y1 + 1);
     }
 
     return total_dirty_pixels;
@@ -113,13 +113,13 @@ uint32_t gfx_render_part_area(gfx_core_context_t *ctx, gfx_area_t *area,
                               uint8_t area_idx, uint32_t start_block_count)
 {
     uint32_t area_width = area->x2 - area->x1 + 1;
-    
+
     uint32_t per_flush = ctx->disp.buf_pixels / area_width;
     if (per_flush == 0) {
         ESP_LOGE(TAG, "Area[%d] width %lu exceeds buffer width, skipping", area_idx, area_width);
         return 0;
     }
-    
+
     // uint32_t area_height = area->y2 - area->y1 + 1;
     // uint32_t area_pixels = area_width * area_height;
     // uint32_t total_flushes = (area_height + per_flush - 1) / per_flush;
@@ -140,7 +140,6 @@ uint32_t gfx_render_part_area(gfx_core_context_t *ctx, gfx_area_t *area,
             y2 = area->y2 + 1;
         }
 
-        // uint32_t chunk_pixels = area_width * (y2 - y1);
         uint16_t *buf_act = ctx->disp.buf_act;
 
         gfx_fill_color(buf_act, ctx->disp.bg_color.full, ctx->disp.buf_pixels);
@@ -149,6 +148,7 @@ uint32_t gfx_render_part_area(gfx_core_context_t *ctx, gfx_area_t *area,
         if (ctx->callbacks.flush_cb) {
             xEventGroupClearBits(ctx->sync.event_group, WAIT_FLUSH_DONE);
 
+            // uint32_t chunk_pixels = area_width * (y2 - y1);
             // ESP_LOGI(TAG, "Flush[%lu]: (%d,%d)->(%d,%d) %lupx",
             //          start_block_count + flush_idx, x1, y1, x2 - 1, y2 - 1, chunk_pixels);
 

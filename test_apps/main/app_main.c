@@ -341,7 +341,6 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
 
     gfx_emote_lock(emote_handle);
 
-    ESP_LOGW(TAG, "--- Testing C_ARRAY format image ---");
     gfx_obj_t *img_obj_c_array = gfx_img_create(emote_handle);
     TEST_ASSERT_NOT_NULL(img_obj_c_array);
 
@@ -351,28 +350,40 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
     gfx_emote_unlock(emote_handle);
     vTaskDelay(pdMS_TO_TICKS(2000));
 
+    //test different pos
+    ESP_LOGI(TAG, "test different pos with set_pos");
     gfx_emote_lock(emote_handle);
-    ESP_LOGI(TAG, "set pos to 200, 100");
     gfx_obj_set_pos(img_obj_c_array, 200, 100);
+    gfx_emote_unlock(emote_handle);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+    //test different pos with align
+    ESP_LOGI(TAG, "test different pos with align");
+    gfx_emote_lock(emote_handle);
+    gfx_obj_align(img_obj_c_array, GFX_ALIGN_CENTER, 0, 0);
     gfx_emote_unlock(emote_handle);
     vTaskDelay(pdMS_TO_TICKS(2000));
 
     gfx_emote_lock(emote_handle);
     gfx_obj_delete(img_obj_c_array);
 
-    ESP_LOGW(TAG, "--- Testing BIN format image ---");
     gfx_obj_t *img_obj_bin = gfx_img_create(emote_handle);
     TEST_ASSERT_NOT_NULL(img_obj_bin);
-    ESP_LOGI(TAG, "img_obj_bin: %p", img_obj_bin);
 
     esp_err_t ret = load_image(assets_handle, MMAP_TEST_ASSETS_ICON5_BIN, &img_dsc);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
     gfx_img_set_src(img_obj_bin, (void *)&img_dsc);
-
     gfx_obj_set_pos(img_obj_bin, 100, 180);
-
     gfx_emote_unlock(emote_handle);
     vTaskDelay(pdMS_TO_TICKS(2000));
+
+    //test from big to small image
+    ESP_LOGI(TAG, "test from big to small image");
+    gfx_emote_lock(emote_handle);
+    load_image(assets_handle, MMAP_TEST_ASSETS_ICON_TIPS_BIN, &img_dsc);
+    gfx_img_set_src(img_obj_bin, (void *)&img_dsc);
+    gfx_emote_unlock(emote_handle);
+    vTaskDelay(pdMS_TO_TICKS(6000));
 
     gfx_emote_lock(emote_handle);
     gfx_obj_delete(img_obj_bin);

@@ -11,10 +11,10 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_check.h"
+#include "common/gfx_comm_priv.h"
 #include "core/gfx_blend_priv.h"
 #include "core/gfx_core_priv.h"
 #include "core/gfx_refr_priv.h"
-#include "widget/gfx_comm_priv.h"
 #include "widget/gfx_label_priv.h"
 
 static const char *TAG = "gfx_label";
@@ -704,7 +704,7 @@ static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const 
     gfx_label_t *label = (gfx_label_t *)obj->src;
 
     int start_x = gfx_cal_text_start_x(label->text_align, obj->width, line_width);
-    // ESP_LOGI(TAG, "start_x: %d, text_align: %d, obj_width: %d, line_width: %d, scrolling: %d, offset: %d", 
+    // ESP_LOGI(TAG, "start_x: %d, text_align: %d, obj_width: %d, line_width: %d, scrolling: %d, offset: %d",
     //     start_x, label->text_align, obj->width, line_width, label->scrolling, label->scroll_offset);
 
     if (label->long_mode == GFX_LABEL_LONG_SCROLL && label->scrolling) {
@@ -996,7 +996,7 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
     gfx_area_t render_area = {x1, y1, x2, y2};
     gfx_area_t obj_area = {*obj_x, *obj_y, *obj_x + obj->width, *obj_y + obj->height};
     gfx_area_t clip_area;
-    
+
     if (!gfx_area_intersect(&clip_area, &render_area, &obj_area)) {
         return ESP_ERR_INVALID_STATE;
     }

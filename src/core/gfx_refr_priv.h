@@ -91,4 +91,3 @@ void gfx_area_join(gfx_area_t *result, const gfx_area_t *a1, const gfx_area_t *a
 }
 #endif
 
-

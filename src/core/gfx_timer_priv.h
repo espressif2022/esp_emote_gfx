@@ -53,6 +53,18 @@ typedef struct {
 /*=====================
  * Internal timer functions
  *====================*/
+/**
+ * @brief Get current system tick (internal)
+ * @return Current tick value in milliseconds
+ */
+uint32_t gfx_timer_tick_get(void);
+
+/**
+ * @brief Calculate elapsed time since previous tick (internal)
+ * @param prev_tick Previous tick value
+ * @return Elapsed time in milliseconds
+ */
+uint32_t gfx_timer_tick_elaps(uint32_t prev_tick);
 
 /**
  * @brief Execute a timer
@@ -84,3 +96,4 @@ void gfx_timer_manager_deinit(gfx_timer_manager_t *timer_mgr);
 #ifdef __cplusplus
 }
 #endif
+

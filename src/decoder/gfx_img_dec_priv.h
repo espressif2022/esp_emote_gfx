@@ -131,4 +131,3 @@ esp_err_t gfx_image_decoder_deinit(void);
 }
 #endif
 
-

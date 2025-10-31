@@ -6,6 +6,7 @@
 
 #include <stdlib.h>
 #include "esp_log.h"
+#include "common/gfx_comm_priv.h"
 #include "core/gfx_obj.h"
 #include "core/gfx_core_priv.h"
 #include "core/gfx_refr_priv.h"
@@ -35,12 +36,9 @@ static const char *TAG = "gfx_obj";
  * Generic object setter functions
  *====================*/
 
-void gfx_obj_set_pos(gfx_obj_t *obj, gfx_coord_t x, gfx_coord_t y)
+esp_err_t gfx_obj_set_pos(gfx_obj_t *obj, gfx_coord_t x, gfx_coord_t y)
 {
-    if (obj == NULL) {
-        ESP_LOGE(TAG, "Object is NULL");
-        return;
-    }
+    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
 
     //invalidate the old position
     gfx_obj_invalidate(obj);
@@ -51,70 +49,76 @@ void gfx_obj_set_pos(gfx_obj_t *obj, gfx_coord_t x, gfx_coord_t y)
     //invalidate the new position
     gfx_obj_invalidate(obj);
     ESP_LOGD(TAG, "Set object position: (%d, %d)", x, y);
+    return ESP_OK;
 }
 
-void gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h)
+esp_err_t gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h)
 {
-    if (obj == NULL) {
-        ESP_LOGE(TAG, "Object is NULL");
-        return;
-    }
+    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
 
     if (obj->type == GFX_OBJ_TYPE_ANIMATION || obj->type == GFX_OBJ_TYPE_IMAGE) {
         ESP_LOGW(TAG, "Set size is not useful");
     } else {
+        //invalidate the old size
+        gfx_obj_invalidate(obj);
+
         obj->width = w;
         obj->height = h;
+        //invalidate the new size
         gfx_obj_invalidate(obj);
     }
 
     ESP_LOGD(TAG, "Set object size: %dx%d", w, h);
+    return ESP_OK;
 }
 
-void gfx_obj_align(gfx_obj_t *obj, uint8_t align, gfx_coord_t x_ofs, gfx_coord_t y_ofs)
+esp_err_t gfx_obj_align(gfx_obj_t *obj, uint8_t align, gfx_coord_t x_ofs, gfx_coord_t y_ofs)
 {
-    if (obj == NULL) {
-        ESP_LOGE(TAG, "Object is NULL");
-        return;
-    }
-
-    if (obj->parent_handle == NULL) {
-        ESP_LOGE(TAG, "Object has no parent handle");
-        return;
-    }
+    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(obj->parent_handle, ESP_ERR_INVALID_STATE);
 
     if (align > GFX_ALIGN_OUT_BOTTOM_RIGHT) {
         ESP_LOGW(TAG, "Unknown alignment type: %d", align);
-        return;
+        return ESP_ERR_INVALID_ARG;
     }
+    // Invalidate old position first
+    gfx_obj_invalidate(obj);
+
+    // Update alignment parameters and enable alignment
     obj->align_type = align;
     obj->align_x_ofs = x_ofs;
     obj->align_y_ofs = y_ofs;
     obj->use_align = true;
+
+    uint32_t parent_w = 0, parent_h = 0;
+    gfx_emote_get_screen_size(obj->parent_handle, &parent_w, &parent_h);
+    gfx_coord_t new_x = obj->x;
+    gfx_coord_t new_y = obj->y;
+    gfx_obj_cal_aligned_pos(obj, parent_w, parent_h, &new_x, &new_y);
+    obj->x = new_x;
+    obj->y = new_y;
+
+    // Invalidate new position
     gfx_obj_invalidate(obj);
 
     ESP_LOGD(TAG, "Set object alignment: type=%d, offset=(%d, %d)", align, x_ofs, y_ofs);
+    return ESP_OK;
 }
 
-void gfx_obj_set_visible(gfx_obj_t *obj, bool visible)
+esp_err_t gfx_obj_set_visible(gfx_obj_t *obj, bool visible)
 {
-    if (obj == NULL) {
-        ESP_LOGE(TAG, "Object is NULL");
-        return;
-    }
+    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
 
     obj->is_visible = visible;
     gfx_obj_invalidate(obj);
 
     ESP_LOGD(TAG, "Set object visibility: %s", visible ? "visible" : "hidden");
+    return ESP_OK;
 }
 
 bool gfx_obj_get_visible(gfx_obj_t *obj)
 {
-    if (obj == NULL) {
-        ESP_LOGE(TAG, "Object is NULL");
-        return false;
-    }
+    GFX_RETURN_IF_NULL(obj, false);
 
     return obj->is_visible;
 }
@@ -125,9 +129,9 @@ bool gfx_obj_get_visible(gfx_obj_t *obj)
 
 void gfx_obj_cal_aligned_pos(gfx_obj_t *obj, uint32_t parent_width, uint32_t parent_height, gfx_coord_t *x, gfx_coord_t *y)
 {
-    if (obj == NULL || x == NULL || y == NULL) {
-        return;
-    }
+    GFX_RETURN_IF_NULL_VOID(obj);
+    GFX_RETURN_IF_NULL_VOID(x);
+    GFX_RETURN_IF_NULL_VOID(y);
 
     if (!obj->use_align) {
         *x = obj->x;
@@ -237,40 +241,37 @@ void gfx_obj_cal_aligned_pos(gfx_obj_t *obj, uint32_t parent_width, uint32_t par
  * Getter functions
  *====================*/
 
-void gfx_obj_get_pos(gfx_obj_t *obj, gfx_coord_t *x, gfx_coord_t *y)
+esp_err_t gfx_obj_get_pos(gfx_obj_t *obj, gfx_coord_t *x, gfx_coord_t *y)
 {
-    if (obj == NULL || x == NULL || y == NULL) {
-        ESP_LOGE(TAG, "Invalid parameters");
-        return;
-    }
+    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(x, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(y, ESP_ERR_INVALID_ARG);
 
     *x = obj->x;
     *y = obj->y;
+    return ESP_OK;
 }
 
-void gfx_obj_get_size(gfx_obj_t *obj, uint16_t *w, uint16_t *h)
+esp_err_t gfx_obj_get_size(gfx_obj_t *obj, uint16_t *w, uint16_t *h)
 {
-    if (obj == NULL || w == NULL || h == NULL) {
-        ESP_LOGE(TAG, "Invalid parameters");
-        return;
-    }
+    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(w, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(h, ESP_ERR_INVALID_ARG);
 
     *w = obj->width;
     *h = obj->height;
+    return ESP_OK;
 }
 
 /*=====================
  * Other functions
  *====================*/
 
-void gfx_obj_delete(gfx_obj_t *obj)
+esp_err_t gfx_obj_delete(gfx_obj_t *obj)
 {
-    if (obj == NULL) {
-        ESP_LOGE(TAG, "Object is NULL");
-        return;
-    }
+    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
 
-    if (obj->parent_handle != NULL) {
+    if (GFX_NOT_NULL(obj->parent_handle)) {
         gfx_emote_remove_child(obj->parent_handle, obj);
     }
 
@@ -291,4 +292,5 @@ void gfx_obj_delete(gfx_obj_t *obj)
     }
 
     free(obj);
+    return ESP_OK;
 }

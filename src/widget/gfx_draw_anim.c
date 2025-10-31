@@ -8,9 +8,9 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
+#include "common/gfx_comm_priv.h"
 #include "core/gfx_core_priv.h"
 #include "core/gfx_refr_priv.h"
-#include "widget/gfx_comm_priv.h"
 #include "widget/gfx_anim_priv.h"
 
 static const char *TAG = "gfx_anim";
@@ -222,13 +222,13 @@ esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj)
     obj->height = header->height;
 
     /* Get parent screen size for mirror offset calculation */
-    uint32_t parent_width, parent_height;
-    gfx_emote_get_screen_size(obj->parent_handle, &parent_width, &parent_height);
+    uint32_t parent_w, parent_h;
+    gfx_emote_get_screen_size(obj->parent_handle, &parent_w, &parent_h);
 
     /* Calculate mirror offset */
     uint32_t mirror_offset = 0;
     if (anim->mirror_mode == GFX_MIRROR_AUTO) {
-        mirror_offset = parent_width - ((obj->width + obj->x) * 2);
+        mirror_offset = parent_w - ((obj->width + obj->x) * 2);
     } else if (anim->mirror_mode == GFX_MIRROR_MANUAL) {
         mirror_offset = anim->mirror_offset;
     }
@@ -257,8 +257,7 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
 
     /* Animation property and validation */
     gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
-    // ESP_RETURN_ON_FALSE(anim->file_desc != NULL, ESP_ERR_INVALID_ARG, TAG, "No file descriptor");
-    if(anim->file_desc == NULL) {
+    if (anim->file_desc == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -282,19 +281,19 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
     int num_blocks = header->blocks;
 
     /* Get parent screen size for mirror offset calculation */
-    uint32_t parent_width, parent_height;
-    gfx_emote_get_screen_size(obj->parent_handle, &parent_width, &parent_height);
+    uint32_t parent_w, parent_h;
+    gfx_emote_get_screen_size(obj->parent_handle, &parent_w, &parent_h);
 
     /* Calculate object position */
     gfx_coord_t *obj_x = &obj->x;
     gfx_coord_t *obj_y = &obj->y;
-    gfx_obj_cal_aligned_pos(obj, parent_width, parent_height, obj_x, obj_y);
+    gfx_obj_cal_aligned_pos(obj, parent_w, parent_h, obj_x, obj_y);
 
     /* Calculate clipping area for object */
     gfx_area_t render_area = {x1, y1, x2, y2};
     gfx_area_t obj_area = {*obj_x, *obj_y, *obj_x + obj->width, *obj_y + obj->height};
     gfx_area_t clip_area;
-    
+
     if (!gfx_area_intersect(&clip_area, &render_area, &obj_area)) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -316,7 +315,7 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
         /* Calculate clipping area for this block */
         gfx_area_t block_area = {block_start_x, block_start_y, block_end_x, block_end_y};
         gfx_area_t clip_block;
-        
+
         if (!gfx_area_intersect(&clip_block, &clip_area, &block_area)) {
             continue;
         }

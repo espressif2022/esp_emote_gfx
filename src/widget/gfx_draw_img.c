@@ -8,10 +8,10 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
+#include "common/gfx_comm_priv.h"
 #include "core/gfx_blend_priv.h"
 #include "core/gfx_core_priv.h"
 #include "core/gfx_refr_priv.h"
-#include "widget/gfx_comm_priv.h"
 #include "widget/gfx_img_priv.h"
 
 static const char *TAG = "gfx_img";
@@ -97,19 +97,19 @@ void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *de
     }
 
     // Get parent container dimensions for alignment calculation
-    uint32_t parent_width, parent_height;
-    gfx_emote_get_screen_size(obj->parent_handle, &parent_width, &parent_height);
+    uint32_t parent_w, parent_h;
+    gfx_emote_get_screen_size(obj->parent_handle, &parent_w, &parent_h);
 
     gfx_coord_t *obj_x = &obj->x;
     gfx_coord_t *obj_y = &obj->y;
 
-    gfx_obj_cal_aligned_pos(obj, parent_width, parent_height, obj_x, obj_y);
+    gfx_obj_cal_aligned_pos(obj, parent_w, parent_h, obj_x, obj_y);
 
     /* Calculate clipping area */
     gfx_area_t render_area = {x1, y1, x2, y2};
     gfx_area_t obj_area = {*obj_x, *obj_y, *obj_x + image_width, *obj_y + image_height};
     gfx_area_t clip_area;
-    
+
     if (!gfx_area_intersect(&clip_area, &render_area, &obj_area)) {
         gfx_image_decoder_close(&decoder_dsc);
         return;
@@ -170,10 +170,10 @@ esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src)
         return ESP_ERR_INVALID_ARG;
     }
 
-    obj->src = src;
-
     //invalidate the old image
-    // gfx_obj_invalidate(obj);
+    gfx_obj_invalidate(obj);
+
+    obj->src = src;
 
     gfx_image_header_t header;
     gfx_image_decoder_dsc_t dsc = {

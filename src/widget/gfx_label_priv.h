@@ -100,3 +100,4 @@ esp_err_t gfx_label_delete(gfx_obj_t *obj);
 #ifdef __cplusplus
 }
 #endif
+

@@ -105,3 +105,4 @@ void gfx_font_ft_init_context(gfx_font_ctx_t *font_ctx, const void *font);
 #ifdef __cplusplus
 }
 #endif
+

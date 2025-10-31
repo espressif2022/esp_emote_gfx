@@ -65,4 +65,3 @@ void gfx_render_child_objects(gfx_core_context_t *ctx, int x1, int y1, int x2, i
 }
 #endif
 
-

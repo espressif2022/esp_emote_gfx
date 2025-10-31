@@ -9,7 +9,7 @@
 #include "core/gfx_obj.h"
 #include "core/gfx_timer.h"
 #include "widget/gfx_anim.h"
-#include "gfx_eaf_dec.h"
+#include "lib/eaf/gfx_eaf_dec.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -113,3 +113,4 @@ esp_err_t gfx_anim_delete(gfx_obj_t *obj);
 #ifdef __cplusplus
 }
 #endif
+
