@@ -77,10 +77,9 @@ static void flush_callback(gfx_handle_t emote_handle, int x1, int y1, int x2, in
 void clock_tm_callback(void *user_data)
 {
     gfx_obj_t *label_obj = (gfx_obj_t *)user_data;
-    ESP_LOGW(TAG, "FPS: %d*%d: %" PRIu32 "", BSP_LCD_H_RES, BSP_LCD_V_RES, gfx_timer_get_actual_fps(emote_handle));
+    ESP_LOGI(TAG, "FPS: %d*%d: %" PRIu32, BSP_LCD_H_RES, BSP_LCD_V_RES, gfx_timer_get_actual_fps(emote_handle));
     if (label_obj) {
-        // gfx_label_set_text_fmt(label_obj, "%d*%d: %d", BSP_LCD_H_RES, BSP_LCD_V_RES, gfx_timer_get_actual_fps(emote_handle));
-        gfx_label_set_text_fmt(label_obj, "%d, %s", gfx_timer_get_actual_fps(emote_handle), "AAA乐鑫BBB乐鑫CCC乐鑫CCC乐鑫BBB乐鑫AAA");
+        gfx_label_set_text_fmt(label_obj, "%d*%d: %d", BSP_LCD_H_RES, BSP_LCD_V_RES, gfx_timer_get_actual_fps(emote_handle));
     }
 }
 
@@ -172,14 +171,13 @@ static void test_animation_function(mmap_assets_handle_t assets_handle)
     struct {
         int asset_id;
         const char *name;
-        int mirror_offset;
     } test_cases[] = {
-        {MMAP_TEST_ASSETS_MI_1_EYE_4BIT_AAF,    "MI_1_EYE 4-bit animation",     10},
-        {MMAP_TEST_ASSETS_MI_1_EYE_8BIT_EAF,    "MI_1_EYE 8-bit animation",     10},
-        {MMAP_TEST_ASSETS_MI_1_EYE_24BIT_AAF,   "MI_1_EYE 24-bit animation",    10},
-        {MMAP_TEST_ASSETS_MI_2_EYE_4BIT_AAF,    "MI_2_EYE 4-bit animation",     100},
-        {MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF,    "MI_2_EYE 8-bit animation",     100},
-        {MMAP_TEST_ASSETS_MI_2_EYE_24BIT_AAF,   "MI_2_EYE 24-bit animation",    100}
+        {MMAP_TEST_ASSETS_MI_2_EYE_4BIT_AAF,  "MI_2_EYE 4-bit animation"},
+        {MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF,  "MI_2_EYE 8-bit animation"},
+        {MMAP_TEST_ASSETS_MI_2_EYE_24BIT_AAF, "MI_2_EYE 24-bit animation"},
+        {MMAP_TEST_ASSETS_MI_1_EYE_4BIT_AAF,  "MI_1_EYE 4-bit animation"},
+        {MMAP_TEST_ASSETS_MI_1_EYE_8BIT_EAF,  "MI_1_EYE 8-bit animation"},
+        {MMAP_TEST_ASSETS_MI_1_EYE_24BIT_AAF, "MI_1_EYE 24-bit animation"},
     };
 
     gfx_emote_lock(emote_handle);
@@ -216,17 +214,11 @@ static void test_animation_function(mmap_assets_handle_t assets_handle)
 
         vTaskDelay(pdMS_TO_TICKS(3000));
 
-        // gfx_emote_lock(emote_handle);
-        // gfx_anim_set_mirror(anim_obj, true, test_cases[i].mirror_offset);
-        // gfx_emote_unlock(emote_handle);
-
-        vTaskDelay(pdMS_TO_TICKS(3000));
-
         gfx_emote_lock(emote_handle);
         gfx_anim_stop(anim_obj);
         gfx_emote_unlock(emote_handle);
 
-        vTaskDelay(pdMS_TO_TICKS(2000));
+        vTaskDelay(pdMS_TO_TICKS(2 * 1000));
 
         gfx_emote_lock(emote_handle);
         gfx_obj_delete(anim_obj);
@@ -246,7 +238,6 @@ static void test_label_map_function(mmap_assets_handle_t assets_handle)
 
     gfx_obj_t *label_obj = gfx_label_create(emote_handle);
     TEST_ASSERT_NOT_NULL(label_obj);
-    ESP_LOGI(TAG, "Label object created successfully");
 
     gfx_obj_set_size(label_obj, 150, 100);
     gfx_label_set_font(label_obj, (gfx_font_t)&font_puhui_16_4);
@@ -266,7 +257,7 @@ static void test_label_map_function(mmap_assets_handle_t assets_handle)
     gfx_label_set_color(label_obj, GFX_COLOR_HEX(0x00FF00));
     gfx_emote_unlock(emote_handle);
 
-    ESP_LOGI(TAG, "re-render label end");
+    ESP_LOGI(TAG, "--- Re-render label end ---");
     vTaskDelay(pdMS_TO_TICKS(3000));
 
     gfx_emote_lock(emote_handle);
@@ -283,7 +274,6 @@ static void test_label_freetype_function(mmap_assets_handle_t assets_handle)
 
     gfx_obj_t *label_obj = gfx_label_create(emote_handle);
     TEST_ASSERT_NOT_NULL(label_obj);
-    ESP_LOGI(TAG, "Label object created successfully");
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
     gfx_label_cfg_t font_cfg = {
@@ -317,13 +307,13 @@ static void test_label_freetype_function(mmap_assets_handle_t assets_handle)
     gfx_label_set_long_mode(label_obj, GFX_LABEL_LONG_SCROLL);
     gfx_emote_unlock(emote_handle);
 
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
 
     gfx_emote_lock(emote_handle);
     gfx_label_set_color(label_obj, GFX_COLOR_HEX(0x0000FF));
     gfx_emote_unlock(emote_handle);
 
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
 
     gfx_emote_lock(emote_handle);
     gfx_obj_delete(label_obj);
@@ -348,21 +338,20 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
     gfx_obj_set_pos(img_obj_c_array, 100, 100);
 
     gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
 
     //test different pos
-    ESP_LOGI(TAG, "test different pos with set_pos");
+    ESP_LOGI(TAG, "--- Test different pos with set_pos ---");
     gfx_emote_lock(emote_handle);
     gfx_obj_set_pos(img_obj_c_array, 200, 100);
     gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
 
-    //test different pos with align
-    ESP_LOGI(TAG, "test different pos with align");
+    ESP_LOGI(TAG, "--- Test different pos with align ---");
     gfx_emote_lock(emote_handle);
     gfx_obj_align(img_obj_c_array, GFX_ALIGN_CENTER, 0, 0);
     gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
 
     gfx_emote_lock(emote_handle);
     gfx_obj_delete(img_obj_c_array);
@@ -375,42 +364,41 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
     gfx_img_set_src(img_obj_bin, (void *)&img_dsc);
     gfx_obj_set_pos(img_obj_bin, 100, 180);
     gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
 
-    //test from big to small image
-    ESP_LOGI(TAG, "test from big to small image");
+    ESP_LOGI(TAG, "--- Test from big to small image ---");
     gfx_emote_lock(emote_handle);
     load_image(assets_handle, MMAP_TEST_ASSETS_ICON_TIPS_BIN, &img_dsc);
     gfx_img_set_src(img_obj_bin, (void *)&img_dsc);
     gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(6000));
+    vTaskDelay(pdMS_TO_TICKS(6 * 1000));
 
     gfx_emote_lock(emote_handle);
     gfx_obj_delete(img_obj_bin);
 
-    // ESP_LOGI(TAG, "--- Testing multiple images with different formats ---");
-    // gfx_obj_t *img_obj1 = gfx_img_create(emote_handle);
-    // gfx_obj_t *img_obj2 = gfx_img_create(emote_handle);
-    // TEST_ASSERT_NOT_NULL(img_obj1);
-    // TEST_ASSERT_NOT_NULL(img_obj2);
+    ESP_LOGI(TAG, "--- Testing multiple images with different formats ---");
+    gfx_obj_t *img_obj1 = gfx_img_create(emote_handle);
+    gfx_obj_t *img_obj2 = gfx_img_create(emote_handle);
+    TEST_ASSERT_NOT_NULL(img_obj1);
+    TEST_ASSERT_NOT_NULL(img_obj2);
 
-    // gfx_img_set_src(img_obj1, (void *)&icon5); // C_ARRAY format
+    gfx_img_set_src(img_obj1, (void *)&icon5); // C_ARRAY format
 
-    // ret = load_image(assets_handle, MMAP_TEST_ASSETS_ICON1_BIN, &img_dsc);
-    // TEST_ASSERT_EQUAL(ESP_OK, ret);
-    // gfx_img_set_src(img_obj2, (void *)&img_dsc); // BIN format
+    ret = load_image(assets_handle, MMAP_TEST_ASSETS_ICON1_BIN, &img_dsc);
+    TEST_ASSERT_EQUAL(ESP_OK, ret);
+    gfx_img_set_src(img_obj2, (void *)&img_dsc); // BIN format
 
-    // gfx_obj_set_pos(img_obj1, 150, 100);
-    // gfx_obj_set_pos(img_obj2, 150, 180);
+    gfx_obj_set_pos(img_obj1, 150, 100);
+    gfx_obj_set_pos(img_obj2, 150, 180);
 
-    // gfx_emote_unlock(emote_handle);
+    gfx_emote_unlock(emote_handle);
 
-    // vTaskDelay(pdMS_TO_TICKS(3000));
+    vTaskDelay(pdMS_TO_TICKS(3 * 1000));
 
-    // gfx_emote_lock(emote_handle);
-    // gfx_obj_delete(img_obj1);
-    // gfx_obj_delete(img_obj2);
-    // gfx_emote_unlock(emote_handle);
+    gfx_emote_lock(emote_handle);
+    gfx_obj_delete(img_obj1);
+    gfx_obj_delete(img_obj2);
+    gfx_emote_unlock(emote_handle);
 }
 
 static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
@@ -424,11 +412,6 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
     gfx_obj_t *label_obj = gfx_label_create(emote_handle);
     gfx_timer_handle_t timer = gfx_timer_create(emote_handle, clock_tm_callback, 5000, label_obj);
 
-    ESP_LOGI(TAG, "anim_obj: %p", anim_obj);
-    ESP_LOGI(TAG, "img_obj: %p", img_obj);
-    ESP_LOGI(TAG, "label_obj: %p", label_obj);
-    ESP_LOGI(TAG, "timer: %p", timer);
-
     TEST_ASSERT_NOT_NULL(anim_obj);
     TEST_ASSERT_NOT_NULL(label_obj);
     TEST_ASSERT_NOT_NULL(img_obj);
@@ -439,10 +422,8 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
 
     gfx_anim_set_src(anim_obj, anim_data, anim_size);
     gfx_obj_align(anim_obj, GFX_ALIGN_CENTER, 0, 0);
-    // gfx_anim_set_segment(anim_obj, 0, 30, 15, true);
-    gfx_anim_set_segment(anim_obj, 0, 30, 15, false);
+    gfx_anim_set_segment(anim_obj, 0, 30, 15, true);
     gfx_anim_start(anim_obj);
-
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
     gfx_label_cfg_t font_cfg = {
@@ -474,7 +455,7 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
 
     gfx_emote_unlock(emote_handle);
 
-    vTaskDelay(pdMS_TO_TICKS(1000 * 1000));
+    vTaskDelay(pdMS_TO_TICKS(10 * 1000));
 
     gfx_emote_lock(emote_handle);
     gfx_timer_delete(emote_handle, timer);
@@ -543,6 +524,7 @@ static esp_err_t init_display_and_graphics(const char *partition_label, uint32_t
 
 static void cleanup_display_and_graphics(mmap_assets_handle_t assets_handle)
 {
+    ESP_LOGI(TAG, "=== Cleanup display and graphics ===");
     if (emote_handle != NULL) {
         gfx_emote_deinit(emote_handle);
         emote_handle = NULL;
@@ -574,8 +556,7 @@ TEST_CASE("test timer function", "[timer]")
     cleanup_display_and_graphics(assets_handle);
 }
 
-// TEST_CASE("test animation function", "[animation]")
-void test_animation(void)
+TEST_CASE("test animation function", "[animation]")
 {
     mmap_assets_handle_t assets_handle = NULL;
     esp_err_t ret = init_display_and_graphics("assets_8bit", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
@@ -608,8 +589,7 @@ TEST_CASE("test label function", "[label][map]")
     cleanup_display_and_graphics(assets_handle);
 }
 
-// TEST_CASE("test image function", "[image]")
-void test_image(void)
+TEST_CASE("test image function", "[image]")
 {
     mmap_assets_handle_t assets_handle = NULL;
     esp_err_t ret = init_display_and_graphics("assets_8bit", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
@@ -617,14 +597,10 @@ void test_image(void)
 
     test_image_function(assets_handle);
 
-    vTaskDelay(pdMS_TO_TICKS(1000 * 1000));
-
-    ESP_LOGE(TAG, "cleanup_display_and_graphics");
     cleanup_display_and_graphics(assets_handle);
 }
 
-// TEST_CASE("test multi objects function", "[multi]")
-void test_multiple_obj(void)
+TEST_CASE("test multi objects function", "[multi]")
 {
     mmap_assets_handle_t assets_handle = NULL;
     esp_err_t ret = init_display_and_graphics("assets_8bit", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
@@ -638,8 +614,8 @@ void test_multiple_obj(void)
 void app_main(void)
 {
     printf("Animation player test\n");
-    // unity_run_menu();
+    unity_run_menu();
     // test_multiple_obj();
-    test_image();
+    // test_image();
     // test_animation();
 }

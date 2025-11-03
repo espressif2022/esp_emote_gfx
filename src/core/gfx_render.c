@@ -82,7 +82,7 @@ void gfx_render_child_objects(gfx_core_context_t *ctx, int x1, int y1, int x2, i
  * @param ctx Graphics context
  * @return Total dirty pixels
  */
-uint32_t gfx_render_print_summary(gfx_core_context_t *ctx)
+uint32_t gfx_render_area_summary(gfx_core_context_t *ctx)
 {
     uint32_t total_dirty_pixels = 0;
 
@@ -93,7 +93,7 @@ uint32_t gfx_render_print_summary(gfx_core_context_t *ctx)
         gfx_area_t *area = &ctx->disp.dirty_areas[i];
         uint32_t area_size = gfx_area_get_size(area);
         total_dirty_pixels += area_size;
-        ESP_LOGI(TAG, "Draw area [%d]: (%d,%d)->(%d,%d) %dx%d",
+        ESP_LOGD(TAG, "Draw area [%d]: (%d,%d)->(%d,%d) %dx%d",
                  i, area->x1, area->y1, area->x2, area->y2,
                  area->x2 - area->x1 + 1, area->y2 - area->y1 + 1);
     }
@@ -219,13 +219,13 @@ bool gfx_render_handler(gfx_core_context_t *ctx)
         return false;
     }
 
-    uint32_t total_dirty_pixels = gfx_render_print_summary(ctx);
+    uint32_t total_dirty_pixels = gfx_render_area_summary(ctx);
     uint32_t screen_pixels = ctx->display.h_res * ctx->display.v_res;
 
     uint32_t rendered_blocks = gfx_render_dirty_areas(ctx);
 
     float dirty_percentage = (total_dirty_pixels * 100.0f) / screen_pixels;
-    ESP_LOGI(TAG, "Rendered %lu blocks, %lupx (%.1f%%)",
+    ESP_LOGD(TAG, "Rendered %lu blocks, %lupx (%.1f%%)",
              rendered_blocks, total_dirty_pixels, dirty_percentage);
 
     gfx_render_cleanup(ctx);

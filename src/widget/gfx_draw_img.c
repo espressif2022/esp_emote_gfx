@@ -8,7 +8,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
-#include "common/gfx_comm_priv.h"
+#include "common/gfx_comm.h"
 #include "core/gfx_blend_priv.h"
 #include "core/gfx_core_priv.h"
 #include "core/gfx_refr_priv.h"

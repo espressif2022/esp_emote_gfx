@@ -48,7 +48,7 @@ void gfx_render_cleanup(gfx_core_context_t *ctx);
  * @param ctx Graphics context
  * @return Total dirty pixels
  */
-uint32_t gfx_render_print_summary(gfx_core_context_t *ctx);
+uint32_t gfx_render_area_summary(gfx_core_context_t *ctx);
 
 /**
  * @brief Draw child objects in the specified area

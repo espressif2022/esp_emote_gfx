@@ -6,7 +6,7 @@
 
 #include <stdlib.h>
 #include "esp_log.h"
-#include "common/gfx_comm_priv.h"
+#include "common/gfx_comm.h"
 #include "core/gfx_obj.h"
 #include "core/gfx_core_priv.h"
 #include "core/gfx_refr_priv.h"

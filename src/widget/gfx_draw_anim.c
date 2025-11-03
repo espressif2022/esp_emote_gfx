@@ -8,7 +8,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
-#include "common/gfx_comm_priv.h"
+#include "common/gfx_comm.h"
 #include "core/gfx_core_priv.h"
 #include "core/gfx_refr_priv.h"
 #include "widget/gfx_anim_priv.h"
@@ -236,7 +236,6 @@ esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj)
     if (anim->mirror_mode != GFX_MIRROR_DISABLED) {
         obj->width = obj->width * 2 + mirror_offset;
     }
-    // ESP_LOGI(TAG, "Mirror mode: %d, Object width: %d, mirror offset: %d", anim->mirror_mode, obj->width, mirror_offset);
 
     ESP_LOGD(TAG, "Frame %lu prepared", current_frame);
     return ret;
@@ -263,7 +262,9 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
 
     /* Frame data validation */
     const void *frame_data = anim->frame.frame_data;
-    ESP_RETURN_ON_FALSE(frame_data != NULL, ESP_ERR_INVALID_STATE, TAG, "Frame %lu not ready", anim->current_frame);
+    if(frame_data == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
     ESP_RETURN_ON_FALSE(anim->frame.header.width > 0, ESP_ERR_INVALID_STATE, TAG, "Invalid header for frame %lu", anim->current_frame);
 
     /* Frame processing resources */

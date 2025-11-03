@@ -162,7 +162,7 @@ void gfx_invalidate_area(gfx_handle_t handle, const gfx_area_t *area_p)
     if (ctx->disp.dirty_count < GFX_INV_BUF_SIZE) {
         gfx_area_copy(&ctx->disp.dirty_areas[ctx->disp.dirty_count], &clipped_area);
         ctx->disp.dirty_count++;
-        ESP_LOGW(TAG, "Added dirty area [%d,%d,%d,%d], total: %d",
+        ESP_LOGD(TAG, "Added dirty area [%d,%d,%d,%d], total: %d",
                  clipped_area.x1, clipped_area.y1, clipped_area.x2, clipped_area.y2, ctx->disp.dirty_count);
     } else {
         /* No space left, mark entire screen as dirty */
