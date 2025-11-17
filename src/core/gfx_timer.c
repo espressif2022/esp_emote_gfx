@@ -235,6 +235,15 @@ void gfx_timer_reset(gfx_timer_handle_t timer_handle)
     }
 }
 
+bool gfx_timer_is_running(gfx_timer_handle_t timer_handle)
+{
+    if (timer_handle != NULL) {
+        gfx_timer_t *timer = (gfx_timer_t *)timer_handle;
+        return !timer->paused;
+    }
+    return false;
+}
+
 void gfx_timer_manager_init(gfx_timer_manager_t *timer_mgr, uint32_t fps)
 {
     if (timer_mgr != NULL) {
@@ -244,7 +253,6 @@ void gfx_timer_manager_init(gfx_timer_manager_t *timer_mgr, uint32_t fps)
         timer_mgr->fps = fps; // Store FPS directly
         timer_mgr->actual_fps = 0; // Initialize actual FPS
         ESP_LOGI(TAG, "Timer manager initialized with FPS: %"PRIu32" (period: %"PRIu32" ms)", fps, (fps > 0) ? (1000 / fps) : 30);
-        esp_cpu_set_watchpoint(0, timer_mgr->timer_list, 4, ESP_CPU_WATCHPOINT_STORE);
     }
 }
 

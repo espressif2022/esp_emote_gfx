@@ -24,6 +24,7 @@ extern "C" {
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include "lvgl.h"
 
 /*********************
  *   LVGL COMPATIBILITY DEFINES
@@ -42,6 +43,8 @@ extern "C" {
 #endif
 
 #else
+
+#pragma message "Using LVGL version: 8.4.0"
 
 /* LVGL Version Information - for compatibility checking */
 #define LVGL_VERSION_MAJOR 8

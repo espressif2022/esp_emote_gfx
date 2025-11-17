@@ -23,8 +23,6 @@ static const char *TAG = "gfx_lv";
 
 // Utility functions
 static int unicode_list_compare(const void *ref, const void *element);
-static void *_lv_utils_bsearch(const void *key, const void *base, uint32_t n, uint32_t size,
-                               int (*cmp)(const void *pRef, const void *pElement));
 
 // Internal LVGL font interface functions
 static uint32_t gfx_font_lv_get_glyph_index(const lv_font_t *font, uint32_t unicode);
@@ -53,27 +51,6 @@ static int unicode_list_compare(const void *ref, const void *element)
         return 1;
     }
     return 0;
-}
-
-static void *_lv_utils_bsearch(const void *key, const void *base, uint32_t n, uint32_t size,
-                               int (*cmp)(const void *pRef, const void *pElement))
-{
-    const char *middle;
-    int32_t c;
-
-    for (middle = base; n != 0;) {
-        middle += (n / 2) * size;
-        if ((c = (*cmp)(key, middle)) > 0) {
-            n    = (n / 2) - ((n & 1) == 0);
-            base = (middle += size);
-        } else if (c < 0) {
-            n /= 2;
-            middle = base;
-        } else {
-            return (char *)middle;
-        }
-    }
-    return NULL;
 }
 
 /**********************
