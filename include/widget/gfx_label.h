@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -184,6 +184,16 @@ esp_err_t gfx_label_set_scroll_speed(gfx_obj_t *obj, uint32_t speed_ms);
  * @return ESP_OK on success, error code otherwise
  */
 esp_err_t gfx_label_set_scroll_loop(gfx_obj_t *obj, bool loop);
+
+/**
+ * @brief Set the scroll step size for a label object
+ * @param obj Pointer to the label object
+ * @param step Scroll step size in pixels per timer tick (default: 1, can be negative)
+ * @note Only effective when long_mode is GFX_LABEL_LONG_SCROLL
+ * @note Step cannot be zero
+ * @return ESP_OK on success, error code otherwise
+ */
+esp_err_t gfx_label_set_scroll_step(gfx_obj_t *obj, int32_t step);
 
 #ifdef __cplusplus
 }

@@ -116,4 +116,3 @@ esp_err_t gfx_emote_remove_child(gfx_handle_t handle, void *src);
 #ifdef __cplusplus
 }
 #endif
-

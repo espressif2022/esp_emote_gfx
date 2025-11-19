@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -170,7 +170,8 @@ static int gfx_font_lv_get_glyph_width(gfx_font_ctx_t *font, uint32_t unicode)
         return -1;
     }
 
-    int advance_pixels = (glyph_dsc.adv_w >> 8);
+    // LVGL font format: adv_w is stored in 28.4 format (real_value * 16)
+    int advance_pixels = (glyph_dsc.adv_w >> 4);
     int actual_width = glyph_dsc.box_w + glyph_dsc.ofs_x;
     return (advance_pixels > actual_width) ? advance_pixels : actual_width;
 }
@@ -255,7 +256,8 @@ static int gfx_font_lv_get_advance_width(gfx_font_ctx_t *font, void *glyph_dsc)
     }
 
     gfx_glyph_dsc_t *dsc = (gfx_glyph_dsc_t *)glyph_dsc;
-    int advance_pixels = (dsc->adv_w >> 8);
+    // LVGL font format: adv_w is stored in 28.4 format (real_value * 16)
+    int advance_pixels = (dsc->adv_w >> 4);
     int actual_width = dsc->box_w + dsc->ofs_x;
     return (advance_pixels > actual_width) ? advance_pixels : actual_width;
 }

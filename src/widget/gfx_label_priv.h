@@ -44,6 +44,7 @@ typedef struct {
 
     /* Scroll properties */
     int32_t scroll_offset;  /**< Current scroll offset */
+    int32_t scroll_step;    /**< Scroll step size per timer tick (default: 1) */
     uint32_t scroll_speed;  /**< Scroll speed in ms per pixel */
     bool scroll_loop;       /**< Enable continuous looping */
     bool scrolling;         /**< Is currently scrolling */
@@ -100,4 +101,3 @@ esp_err_t gfx_label_delete(gfx_obj_t *obj);
 #ifdef __cplusplus
 }
 #endif
-

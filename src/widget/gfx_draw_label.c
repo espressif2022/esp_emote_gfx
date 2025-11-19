@@ -106,7 +106,7 @@ static void gfx_label_scroll_timer_callback(void *arg)
         return;
     }
 
-    label->scroll_offset++;
+    label->scroll_offset += label->scroll_step;
 
     if (label->scroll_loop) {
         if (label->scroll_offset > label->text_width) {
@@ -161,6 +161,7 @@ gfx_obj_t *gfx_label_create(gfx_handle_t handle)
     label->line_spacing = 2;
 
     label->scroll_offset = 0;
+    label->scroll_step = 1;
     label->scroll_speed = 50;
     label->scroll_loop = true;
     label->scrolling = false;
@@ -443,6 +444,19 @@ esp_err_t gfx_label_set_scroll_loop(gfx_obj_t *obj, bool loop)
     label->scroll_loop = loop;
     ESP_LOGD(TAG, "set scroll loop: %s", loop ? "enabled" : "disabled");
 
+    return ESP_OK;
+}
+
+esp_err_t gfx_label_set_scroll_step(gfx_obj_t *obj, int32_t step)
+{
+    CHECK_OBJ_TYPE_LABEL(obj);
+
+    gfx_label_t *label = (gfx_label_t *)obj->src;
+    ESP_RETURN_ON_FALSE(label, ESP_ERR_INVALID_STATE, TAG, "label property is NULL");
+    ESP_RETURN_ON_FALSE(step != 0, ESP_ERR_INVALID_ARG, TAG, "scroll step cannot be zero");
+
+    label->scroll_step = step;
+    ESP_LOGD(TAG, "set scroll step: %"PRId32, step);
     return ESP_OK;
 }
 

@@ -75,4 +75,3 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
 #ifdef __cplusplus
 }
 #endif
-

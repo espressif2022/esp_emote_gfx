@@ -93,7 +93,7 @@ uint32_t gfx_render_area_summary(gfx_core_context_t *ctx)
         gfx_area_t *area = &ctx->disp.dirty_areas[i];
         uint32_t area_size = gfx_area_get_size(area);
         total_dirty_pixels += area_size;
-        ESP_LOGD(TAG, "Draw area [%d]: (%d,%d)->(%d,%d) %dx%d",
+        ESP_LOGI(TAG, "Draw area [%d]: (%d,%d)->(%d,%d) %dx%d",
                  i, area->x1, area->y1, area->x2, area->y2,
                  area->x2 - area->x1 + 1, area->y2 - area->y1 + 1);
     }
@@ -148,9 +148,9 @@ uint32_t gfx_render_part_area(gfx_core_context_t *ctx, gfx_area_t *area,
         if (ctx->callbacks.flush_cb) {
             xEventGroupClearBits(ctx->sync.event_group, WAIT_FLUSH_DONE);
 
-            // uint32_t chunk_pixels = area_width * (y2 - y1);
-            // ESP_LOGI(TAG, "Flush[%lu]: (%d,%d)->(%d,%d) %lupx",
-            //          start_block_count + flush_idx, x1, y1, x2 - 1, y2 - 1, chunk_pixels);
+            uint32_t chunk_pixels = area_width * (y2 - y1);
+            ESP_LOGI(TAG, "Flush[%lu]: (%d,%d)->(%d,%d) %lupx",
+                     start_block_count + flush_idx, x1, y1, x2 - 1, y2 - 1, chunk_pixels);
 
             ctx->callbacks.flush_cb(ctx, x1, y1, x2, y2, buf_act);
             xEventGroupWaitBits(ctx->sync.event_group, WAIT_FLUSH_DONE, pdTRUE, pdFALSE, pdMS_TO_TICKS(20));
@@ -211,6 +211,10 @@ void gfx_render_cleanup(gfx_core_context_t *ctx)
  */
 bool gfx_render_handler(gfx_core_context_t *ctx)
 {
+    // Update layout for objects marked as dirty before rendering
+    // This ensures alignment calculations are correct when size changes
+    gfx_refr_update_layout_dirty(ctx);
+
     if (ctx->disp.dirty_count > 1) {
         gfx_refr_merge_areas(ctx);
     }

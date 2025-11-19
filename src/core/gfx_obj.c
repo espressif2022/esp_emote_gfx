@@ -64,7 +64,8 @@ esp_err_t gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h)
 
         obj->width = w;
         obj->height = h;
-        //invalidate the new size
+
+        gfx_obj_update_layout(obj);
         gfx_obj_invalidate(obj);
     }
 
@@ -90,16 +91,7 @@ esp_err_t gfx_obj_align(gfx_obj_t *obj, uint8_t align, gfx_coord_t x_ofs, gfx_co
     obj->align_y_ofs = y_ofs;
     obj->use_align = true;
 
-    uint32_t parent_w = 0, parent_h = 0;
-    gfx_emote_get_screen_size(obj->parent_handle, &parent_w, &parent_h);
-    gfx_coord_t new_x = obj->x;
-    gfx_coord_t new_y = obj->y;
-    gfx_obj_cal_aligned_pos(obj, parent_w, parent_h, &new_x, &new_y);
-    obj->x = new_x;
-    obj->y = new_y;
-
-    // Invalidate new position
-    gfx_obj_invalidate(obj);
+    gfx_obj_update_layout(obj);
 
     ESP_LOGD(TAG, "Set object alignment: type=%d, offset=(%d, %d)", align, x_ofs, y_ofs);
     return ESP_OK;
@@ -121,6 +113,15 @@ bool gfx_obj_get_visible(gfx_obj_t *obj)
     GFX_RETURN_IF_NULL(obj, false);
 
     return obj->is_visible;
+}
+
+void gfx_obj_update_layout(gfx_obj_t *obj)
+{
+    GFX_RETURN_IF_NULL_VOID(obj);
+
+    if (obj->use_align) {
+        obj->layout_dirty = true;
+    }
 }
 
 /*=====================

@@ -119,8 +119,8 @@ void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *de
     gfx_coord_t src_stride = image_width;
 
     // Calculate data pointers based on format
-    gfx_color_t *src_pixels = (gfx_color_t *)(image_data + (clip_area.y1 - *obj_y) * src_stride * 2);
-    gfx_opa_t *alpha_mask = (gfx_opa_t *)(image_data + src_stride * image_height * 2 + (clip_area.y1 - *obj_y) * src_stride);
+    gfx_color_t *src_pixels = (gfx_color_t *)(image_data + (clip_area.y1 - *obj_y) * src_stride * 2 + (clip_area.x1 - *obj_x) * 2);
+    gfx_opa_t *alpha_mask = (gfx_opa_t *)(image_data + src_stride * image_height * 2 + (clip_area.y1 - *obj_y) * src_stride + (clip_area.x1 - *obj_x));
     gfx_color_t *dest_pixels = (gfx_color_t *)dest_buf + (clip_area.y1 - y1) * dest_stride + (clip_area.x1 - x1);
 
     gfx_sw_blend_img_draw(
@@ -187,8 +187,9 @@ esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src)
         ESP_LOGE(TAG, "Failed to get image info");
     }
 
-    //invalidate the new image
+    gfx_obj_update_layout(obj);
     gfx_obj_invalidate(obj);
+
     ESP_LOGI(TAG, "Set image source, size: %dx%d", obj->width, obj->height);
     return ESP_OK;
 }

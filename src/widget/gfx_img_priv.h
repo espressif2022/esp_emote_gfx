@@ -49,4 +49,3 @@ esp_err_t gfx_img_delete(gfx_obj_t *obj);
 #ifdef __cplusplus
 }
 #endif
-

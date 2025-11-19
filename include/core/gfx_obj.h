@@ -64,6 +64,7 @@ typedef struct gfx_obj {
     gfx_coord_t align_x_ofs;    /**< X offset for alignment */
     gfx_coord_t align_y_ofs;    /**< Y offset for alignment */
     bool use_align;             /**< Whether to use alignment instead of absolute position */
+    bool layout_dirty;          /**< Whether layout needs to be recalculated before rendering */
     gfx_handle_t parent_handle; /**< Parent graphics handle */
 } gfx_obj_t;
 
@@ -113,6 +114,14 @@ esp_err_t gfx_obj_set_visible(gfx_obj_t *obj, bool visible);
  * @return True if object is visible, false if hidden
  */
 bool gfx_obj_get_visible(gfx_obj_t *obj);
+
+/**
+ * @brief Update object's layout (mark for recalculation before rendering)
+ * @param obj Object to update layout
+ * @note This is used when object properties that affect layout have changed,
+ *       but the actual position calculation needs to be deferred until rendering
+ */
+void gfx_obj_update_layout(gfx_obj_t *obj);
 
 /*=====================
  * Object getter functions

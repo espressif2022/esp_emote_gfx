@@ -96,4 +96,3 @@ void gfx_timer_manager_deinit(gfx_timer_manager_t *timer_mgr);
 #ifdef __cplusplus
 }
 #endif
-

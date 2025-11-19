@@ -162,7 +162,7 @@ void gfx_invalidate_area(gfx_handle_t handle, const gfx_area_t *area_p)
     if (ctx->disp.dirty_count < GFX_INV_BUF_SIZE) {
         gfx_area_copy(&ctx->disp.dirty_areas[ctx->disp.dirty_count], &clipped_area);
         ctx->disp.dirty_count++;
-        ESP_LOGD(TAG, "Added dirty area [%d,%d,%d,%d], total: %d",
+        ESP_LOGI(TAG, "Added dirty area [%d,%d,%d,%d], total: %d",
                  clipped_area.x1, clipped_area.y1, clipped_area.x2, clipped_area.y2, ctx->disp.dirty_count);
     } else {
         /* No space left, mark entire screen as dirty */
@@ -191,4 +191,43 @@ void gfx_obj_invalidate(gfx_obj_t *obj)
     obj_area.y2 = obj->y + obj->height - 1;
 
     gfx_invalidate_area(obj->parent_handle, &obj_area);
+}
+
+void gfx_refr_update_layout_dirty(gfx_core_context_t *ctx)
+{
+    if (ctx == NULL || ctx->disp.child_list == NULL) {
+        return;
+    }
+
+    uint32_t parent_w = ctx->display.h_res;
+    uint32_t parent_h = ctx->display.v_res;
+
+    gfx_core_child_t *child_node = ctx->disp.child_list;
+
+    while (child_node != NULL) {
+        gfx_obj_t *obj = (gfx_obj_t *)child_node->src;
+
+        if (obj != NULL && obj->layout_dirty && obj->use_align) {
+            // Invalidate old position
+            gfx_obj_invalidate(obj);
+
+            // Recalculate position based on current size and alignment
+            gfx_coord_t new_x = obj->x;
+            gfx_coord_t new_y = obj->y;
+            gfx_obj_cal_aligned_pos(obj, parent_w, parent_h, &new_x, &new_y);
+            obj->x = new_x;
+            obj->y = new_y;
+
+            // Invalidate new position
+            gfx_obj_invalidate(obj);
+
+            // Clear layout dirty flag
+            obj->layout_dirty = false;
+
+            ESP_LOGI(TAG, "Updated layout for dirty object: new pos=(%d,%d), size=%dx%d",
+                     obj->x, obj->y, obj->width, obj->height);
+        }
+
+        child_node = child_node->next;
+    }
 }

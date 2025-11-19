@@ -262,7 +262,7 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
 
     /* Frame data validation */
     const void *frame_data = anim->frame.frame_data;
-    if(frame_data == NULL) {
+    if (frame_data == NULL) {
         return ESP_ERR_INVALID_STATE;
     }
     ESP_RETURN_ON_FALSE(anim->frame.header.width > 0, ESP_ERR_INVALID_STATE, TAG, "Invalid header for frame %lu", anim->current_frame);

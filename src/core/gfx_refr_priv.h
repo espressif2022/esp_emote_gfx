@@ -34,6 +34,14 @@ void gfx_invalidate_area(gfx_handle_t handle, const gfx_area_t *area);
 void gfx_obj_invalidate(gfx_obj_t *obj);
 
 /**
+ * @brief Update layout for all objects marked as layout dirty
+ * @param ctx Graphics context
+ * @note This function recalculates positions for objects with layout_dirty flag
+ *       and should be called before rendering dirty areas
+ */
+void gfx_refr_update_layout_dirty(gfx_core_context_t *ctx);
+
+/**
  * @brief Merge overlapping/adjacent dirty areas to minimize redraw regions
  * @param ctx Graphics context containing dirty areas
  */
@@ -90,4 +98,3 @@ void gfx_area_join(gfx_area_t *result, const gfx_area_t *a1, const gfx_area_t *a
 #ifdef __cplusplus
 }
 #endif
-
