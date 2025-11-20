@@ -4,36 +4,73 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*********************
+ *      INCLUDES
+ *********************/
 #include <string.h>
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
 #include "common/gfx_comm.h"
-#include "core/gfx_core_priv.h"
 #include "core/gfx_refr_priv.h"
-#include "widget/gfx_anim_priv.h"
-
-static const char *TAG = "gfx_anim";
+#include "widget/gfx_anim.h"
+#include "lib/eaf/gfx_eaf_dec.h"
 
 /*********************
  *      DEFINES
  *********************/
-
-/* Helper macro for type checking */
-#define CHECK_OBJ_TYPE_ANIMATION(obj) \
-    do { \
-        ESP_RETURN_ON_ERROR((obj == NULL) ? ESP_ERR_INVALID_ARG : ESP_OK, TAG, "Object is NULL"); \
-        ESP_RETURN_ON_ERROR((obj->type != GFX_OBJ_TYPE_ANIMATION) ? ESP_ERR_INVALID_ARG : ESP_OK, TAG, \
-                           "Object is not an ANIMATION type (type=%d). Cannot use animation API on non-animation objects.", obj->type); \
-    } while(0)
+/* Use generic type checking macro from gfx_obj_priv.h */
+#define CHECK_OBJ_TYPE_ANIMATION(obj) CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_ANIMATION, TAG)
 
 /**********************
  *      TYPEDEFS
  **********************/
 
-/**
- * @brief Bit depth enumeration for renderer selection
- */
+/* Mirror mode enumeration */
+typedef enum {
+    GFX_MIRROR_DISABLED = 0,     /*!< Mirror disabled */
+    GFX_MIRROR_MANUAL = 1,       /*!< Manual mirror with fixed offset */
+    GFX_MIRROR_AUTO = 2          /*!< Auto mirror with calculated offset */
+} gfx_mirror_mode_t;
+
+/* Frame processing information structure */
+typedef struct {
+    /*!< Pre-parsed header information to avoid repeated parsing */
+    eaf_header_t header;           /*!< Pre-parsed header for current frame */
+
+    /*!< Pre-fetched frame data to avoid repeated fetching */
+    const void *frame_data;          /*!< Pre-fetched frame data for current frame */
+    size_t frame_size;               /*!< Size of pre-fetched frame data */
+
+    /*!< Pre-allocated parsing resources to avoid repeated allocation */
+    uint32_t *block_offsets;         /*!< Pre-allocated block offsets array */
+    uint8_t *pixel_buffer;           /*!< Pre-allocated pixel decode buffer */
+    uint32_t *color_palette;         /*!< Pre-allocated color palette cache */
+
+    /*!< Decoding state tracking */
+    int last_block;                  /*!< Last decoded block index to avoid repeated decoding */
+} gfx_anim_frame_info_t;
+
+/* Animation context structure */
+typedef struct {
+    uint32_t start_frame;            /*!< Start frame index */
+    uint32_t end_frame;              /*!< End frame index */
+    uint32_t current_frame;          /*!< Current frame index */
+    uint32_t fps;                    /*!< Frames per second */
+    bool is_playing;                 /*!< Whether animation is currently playing */
+    bool repeat;                     /*!< Whether animation should repeat */
+    gfx_timer_handle_t timer;        /*!< Timer handle for frame updates */
+
+    /*!< Frame processing information */
+    eaf_format_handle_t file_desc;      /*!< Animation file descriptor */
+    gfx_anim_frame_info_t frame;     /*!< Frame processing info */
+
+    /*!< Widget-specific display properties */
+    gfx_mirror_mode_t mirror_mode;   /*!< Mirror mode */
+    int16_t mirror_offset;          /*!< Mirror buffer offset for positioning */
+} gfx_anim_t;
+
+/* Bit depth enumeration for renderer selection */
 typedef enum {
     GFX_ANIM_DEPTH_4BIT = 4,   /*!< 4-bit color depth */
     GFX_ANIM_DEPTH_8BIT = 8,   /*!< 8-bit color depth */
@@ -41,58 +78,66 @@ typedef enum {
     GFX_ANIM_DEPTH_MAX = 3     /*!< Maximum number of depth types */
 } gfx_anim_depth_t;
 
-/**
- * @brief Function pointer type for pixel renderers
- * @param dest_buf Destination buffer
- * @param dest_stride Destination buffer stride
- * @param src_buf Source pixel buffer
- * @param src_stride Source buffer stride
- * @param header EAF header information (may be NULL for 24-bit)
- * @param palette_cache Color palette cache (may be NULL for 24-bit)
- * @param clip_area Clipping area
- * @param swap_color Whether to swap color bytes
- * @param mirror_mode Mirror mode
- * @param mirror_offset Mirror offset
- * @param dest_x_offset Destination X offset
- */
+/* Function pointer type for pixel renderers */
 typedef void (*gfx_anim_pixel_renderer_cb_t)(
     gfx_color_t *dest_buf, gfx_coord_t dest_stride,
     const uint8_t *src_buf, gfx_coord_t src_stride,
     const eaf_header_t *header, uint32_t *palette_cache,
-    gfx_area_t *clip_area, bool swap_color,
+    gfx_area_t *clip_area, bool swap,
     gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
+
+/**********************
+ *  STATIC VARIABLES
+ **********************/
+static const char *TAG = "gfx_anim";
 
 /**********************
  *  STATIC PROTOTYPES
  **********************/
 
-static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
-                                        const uint8_t *src_pixels, gfx_coord_t src_stride,
-                                        const eaf_header_t *header, uint32_t *palette_cache,
-                                        gfx_area_t *clip_area, bool swap_color,
-                                        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
-static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
-                                        const uint8_t *src_pixels, gfx_coord_t src_stride,
-                                        const eaf_header_t *header, uint32_t *palette_cache,
-                                        gfx_area_t *clip_area, bool swap_color,
-                                        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
+/* Virtual functions */
+static void gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap);
+static esp_err_t gfx_anim_delete(gfx_obj_t *obj);
 
-static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
-        const uint8_t *src_pixels, gfx_coord_t src_stride,
-        const eaf_header_t *header, uint32_t *palette_cache,
-        gfx_area_t *clip_area, bool swap_color,
-        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
+/* Frame management functions */
+static void free_frame_buffers(gfx_anim_frame_info_t *frame);
+static void gfx_anim_reset_frame(gfx_anim_frame_info_t *frame);
+static esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj);
 
+/* Rendering functions */
 static esp_err_t gfx_anim_render_pixels(uint8_t bit_depth,
                                         gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
                                         const uint8_t *src_pixels, gfx_coord_t src_stride,
                                         const eaf_header_t *header, uint32_t *palette_cache,
-                                        gfx_area_t *clip_area, bool swap_color,
+                                        gfx_area_t *clip_area, bool swap,
                                         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
+
+static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+                                        const uint8_t *src_pixels, gfx_coord_t src_stride,
+                                        const eaf_header_t *header, uint32_t *palette_cache,
+                                        gfx_area_t *clip_area, bool swap,
+                                        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
+
+static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+                                        const uint8_t *src_pixels, gfx_coord_t src_stride,
+                                        const eaf_header_t *header, uint32_t *palette_cache,
+                                        gfx_area_t *clip_area, bool swap,
+                                        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
+
+static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+                                         const uint8_t *src_pixels, gfx_coord_t src_stride,
+                                         const eaf_header_t *header, uint32_t *palette_cache,
+                                         gfx_area_t *clip_area, bool swap,
+                                         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
+
+/* Timer callback */
+static void gfx_anim_timer_callback(void *arg);
 
 /**********************
  *  STATIC VARIABLES
  **********************/
+
+/* Renderer function table */
 static const gfx_anim_pixel_renderer_cb_t g_anim_renderers[GFX_ANIM_DEPTH_MAX] = {
     gfx_anim_render_4bit_pixels,     // GFX_ANIM_DEPTH_4BIT = 4 (index 0)
     gfx_anim_render_8bit_pixels,     // GFX_ANIM_DEPTH_8BIT = 8 (index 1)
@@ -100,12 +145,15 @@ static const gfx_anim_pixel_renderer_cb_t g_anim_renderers[GFX_ANIM_DEPTH_MAX] =
 };
 
 /**********************
- *  HELPER FUNCTIONS
+ *   STATIC FUNCTIONS
  **********************/
+
+/*=====================
+ * Frame Management Functions
+ *====================*/
 
 /**
  * @brief Free allocated buffers for frame processing
- * @param frame Frame processing information structure
  */
 static void free_frame_buffers(gfx_anim_frame_info_t *frame)
 {
@@ -125,9 +173,8 @@ static void free_frame_buffers(gfx_anim_frame_info_t *frame)
 
 /**
  * @brief Reset frame info and free all associated resources
- * @param frame Frame processing information structure
  */
-void gfx_anim_reset_frame(gfx_anim_frame_info_t *frame)
+static void gfx_anim_reset_frame(gfx_anim_frame_info_t *frame)
 {
     if (frame->header.width > 0) {
         eaf_free_header(&frame->header);
@@ -143,14 +190,12 @@ void gfx_anim_reset_frame(gfx_anim_frame_info_t *frame)
 
 /**
  * @brief Prepare animation frame and update object properties
- * @param obj Animation object (contains anim property in obj->src)
- * @return ESP_OK if successful, error code otherwise
  */
-esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj)
+static esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj)
 {
     esp_err_t ret = ESP_OK;
 
-    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+    gfx_anim_t *anim = (gfx_anim_t *)obj->src;
     uint32_t current_frame = anim->current_frame;
     eaf_format_handle_t file_desc = anim->file_desc;
 
@@ -218,8 +263,8 @@ esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj)
 
     eaf_calculate_offsets(header, anim->frame.block_offsets);
 
-    obj->width = header->width;
-    obj->height = header->height;
+    obj->geometry.width = header->width;
+    obj->geometry.height = header->height;
 
     /* Get parent screen size for mirror offset calculation */
     uint32_t parent_w, parent_h;
@@ -228,13 +273,13 @@ esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj)
     /* Calculate mirror offset */
     uint32_t mirror_offset = 0;
     if (anim->mirror_mode == GFX_MIRROR_AUTO) {
-        mirror_offset = parent_w - ((obj->width + obj->x) * 2);
+        mirror_offset = parent_w - ((obj->geometry.width + obj->geometry.x) * 2);
     } else if (anim->mirror_mode == GFX_MIRROR_MANUAL) {
         mirror_offset = anim->mirror_offset;
     }
 
     if (anim->mirror_mode != GFX_MIRROR_DISABLED) {
-        obj->width = obj->width * 2 + mirror_offset;
+        obj->geometry.width = obj->geometry.width * 2 + mirror_offset;
     }
 
     ESP_LOGD(TAG, "Frame %lu prepared", current_frame);
@@ -245,27 +290,207 @@ err:
     return ret;
 }
 
-/**********************
- *   GLOBAL FUNCTIONS
- **********************/
+/*=====================
+ * Rendering Functions
+ *====================*/
 
-esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap_color)
+/**
+ * @brief Render pixels using registered renderer
+ */
+static esp_err_t gfx_anim_render_pixels(uint8_t bit_depth,
+                                        gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+                                        const uint8_t *src_pixels, gfx_coord_t src_stride,
+                                        const eaf_header_t *header, uint32_t *palette_cache,
+                                        gfx_area_t *clip_area, bool swap,
+                                        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
 {
-    ESP_RETURN_ON_FALSE(obj != NULL && obj->src != NULL, ESP_ERR_INVALID_ARG, TAG, "Invalid object or source");
-    ESP_RETURN_ON_FALSE(obj->type == GFX_OBJ_TYPE_ANIMATION, ESP_ERR_INVALID_ARG, TAG, "Object is not an animation type");
+    int renderer_idx;
+    switch (bit_depth) {
+    case 4:  renderer_idx = 0; break;
+    case 8:  renderer_idx = 1; break;
+    case 24: renderer_idx = 2; break;
+    default:
+        ESP_RETURN_ON_FALSE(false, ESP_ERR_INVALID_ARG, TAG, "Unsupported bit depth: %d", bit_depth);
+    }
+
+    g_anim_renderers[renderer_idx](dest_pixels, dest_stride, src_pixels, src_stride,
+                                   header, palette_cache, clip_area, swap,
+                                   mirror_mode, mirror_offset, dest_x_offset);
+
+    return ESP_OK;
+}
+
+/**
+ * @brief Render 4-bit pixels directly to destination buffer
+ */
+static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+                                        const uint8_t *src_pixels, gfx_coord_t src_stride,
+                                        const eaf_header_t *header, uint32_t *palette_cache,
+                                        gfx_area_t *clip_area, bool swap,
+                                        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
+{
+    int width = header->width;
+    int clip_width = clip_area->x2 - clip_area->x1;
+    int clip_height = clip_area->y2 - clip_area->y1;
+
+    if (mirror_mode == GFX_MIRROR_AUTO) {
+        mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
+    }
+
+    for (int y = 0; y < clip_height; y++) {
+        for (int x = 0; x < clip_width; x += 2) {
+            uint8_t packed_gray = src_pixels[y * src_stride / 2 + (x / 2)];
+            uint8_t index1 = (packed_gray & 0xF0) >> 4;
+            uint8_t index2 = (packed_gray & 0x0F);
+
+            if (palette_cache[index1] == 0xFFFFFFFF) {
+                gfx_color_t color = eaf_palette_get_color(header, index1, swap);
+                palette_cache[index1] = color.full;
+            }
+
+            gfx_color_t color_val1;
+            color_val1.full = (uint16_t)palette_cache[index1];
+            dest_pixels[y * dest_stride + x] = color_val1;
+
+            if (mirror_mode != GFX_MIRROR_DISABLED) {
+                int mirror_x = width + mirror_offset + width - 1 - x;
+
+                if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
+                    dest_pixels[y * dest_stride + mirror_x] = color_val1;
+                }
+            }
+
+            if (palette_cache[index2] == 0xFFFFFFFF) {
+                gfx_color_t color = eaf_palette_get_color(header, index2, swap);
+                palette_cache[index2] = color.full;
+            }
+
+            gfx_color_t color_val2;
+            color_val2.full = (uint16_t)palette_cache[index2];
+            dest_pixels[y * dest_stride + x + 1] = color_val2;
+
+            if (mirror_mode != GFX_MIRROR_DISABLED) {
+                int mirror_x = width + mirror_offset + width - 1 - (x + 1);
+
+                if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
+                    dest_pixels[y * dest_stride + mirror_x] = color_val1;
+                }
+            }
+        }
+    }
+}
+
+/**
+ * @brief Render 8-bit pixels directly to destination buffer
+ */
+static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+                                        const uint8_t *src_pixels, gfx_coord_t src_stride,
+                                        const eaf_header_t *header, uint32_t *palette_cache,
+                                        gfx_area_t *clip_area, bool swap,
+                                        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
+{
+    int32_t clip_width = clip_area->x2 - clip_area->x1;
+    int32_t clip_height = clip_area->y2 - clip_area->y1;
+    int32_t width = header->width;
+
+    if (mirror_mode == GFX_MIRROR_AUTO) {
+        mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
+    }
+
+    for (int32_t y = 0; y < clip_height; y++) {
+        for (int32_t x = 0; x < clip_width; x++) {
+            uint8_t index = src_pixels[y * src_stride + x];
+            if (palette_cache[index] == 0xFFFFFFFF) {
+                gfx_color_t color = eaf_palette_get_color(header, index, swap);
+                palette_cache[index] = color.full;
+            }
+
+            gfx_color_t color_val;
+            color_val.full = (uint16_t)palette_cache[index];
+            dest_pixels[y * dest_stride + x] = color_val;
+
+            if (mirror_mode != GFX_MIRROR_DISABLED) {
+                int mirror_x = width + mirror_offset + width - 1 - x;
+
+                if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
+                    dest_pixels[y * dest_stride + mirror_x] = color_val;
+                }
+            }
+        }
+    }
+}
+
+/**
+ * @brief Render 24-bit pixels directly to destination buffer
+ */
+static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+                                         const uint8_t *src_pixels, gfx_coord_t src_stride,
+                                         const eaf_header_t *header, uint32_t *palette_cache,
+                                         gfx_area_t *clip_area, bool swap,
+                                         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
+{
+    (void)header;
+    (void)palette_cache;
+    (void)swap;
+    int32_t clip_width = clip_area->x2 - clip_area->x1;
+    int32_t clip_height = clip_area->y2 - clip_area->y1;
+    int32_t width = src_stride;
+
+    if (mirror_mode == GFX_MIRROR_AUTO) {
+        mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
+    }
+
+    uint16_t *src_pixels_16 = (uint16_t *)src_pixels;
+    uint16_t *dest_pixels_16 = (uint16_t *)dest_pixels;
+
+    for (int32_t y = 0; y < clip_height; y++) {
+        for (int32_t x = 0; x < clip_width; x++) {
+            dest_pixels_16[y * dest_stride + x] = src_pixels_16[y * src_stride + x];
+
+            if (mirror_mode != GFX_MIRROR_DISABLED) {
+                int mirror_x = width + mirror_offset + width - 1 - x;
+
+                if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
+                    dest_pixels_16[y * dest_stride + mirror_x] = src_pixels_16[y * src_stride + x];
+                }
+            }
+        }
+    }
+}
+
+/*=====================
+ * Virtual Functions
+ *====================*/
+
+/**
+ * @brief Virtual draw function for animation widget
+ */
+static void gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap)
+{
+    if (obj == NULL || obj->src == NULL) {
+        ESP_LOGE(TAG, "Invalid object or source");
+        return;
+    }
+    if (obj->type != GFX_OBJ_TYPE_ANIMATION) {
+        ESP_LOGE(TAG, "Object is not an animation type");
+        return;
+    }
 
     /* Animation property and validation */
-    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+    gfx_anim_t *anim = (gfx_anim_t *)obj->src;
     if (anim->file_desc == NULL) {
-        return ESP_ERR_INVALID_ARG;
+        return;
     }
 
     /* Frame data validation */
     const void *frame_data = anim->frame.frame_data;
     if (frame_data == NULL) {
-        return ESP_ERR_INVALID_STATE;
+        return;
     }
-    ESP_RETURN_ON_FALSE(anim->frame.header.width > 0, ESP_ERR_INVALID_STATE, TAG, "Invalid header for frame %lu", anim->current_frame);
+    if (anim->frame.header.width <= 0) {
+        ESP_LOGE(TAG, "Invalid header for frame %lu", anim->current_frame);
+        return;
+    }
 
     /* Frame processing resources */
     const eaf_header_t *header = &anim->frame.header;
@@ -273,7 +498,10 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
     uint32_t *block_offsets = anim->frame.block_offsets;
     uint32_t *palette_cache = anim->frame.color_palette;
     int *last_block_idx = &anim->frame.last_block;
-    ESP_RETURN_ON_FALSE(block_offsets != NULL && pixel_buffer != NULL, ESP_ERR_INVALID_STATE, TAG, "Parsing resources not ready for frame %lu", anim->current_frame);
+    if (block_offsets == NULL || pixel_buffer == NULL) {
+        ESP_LOGE(TAG, "Parsing resources not ready for frame %lu", anim->current_frame);
+        return;
+    }
 
     /* Frame dimensions */
     int frame_width = header->width;
@@ -286,11 +514,11 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
 
     /* Calculate clipping area for object */
     gfx_area_t render_area = {x1, y1, x2, y2};
-    gfx_area_t obj_area = {obj->x, obj->y, obj->x + obj->width, obj->y + obj->height};
+    gfx_area_t obj_area = {obj->geometry.x, obj->geometry.y, obj->geometry.x + obj->geometry.width, obj->geometry.y + obj->geometry.height};
     gfx_area_t clip_area;
 
     if (!gfx_area_intersect(&clip_area, &render_area, &obj_area)) {
-        return ESP_ERR_INVALID_STATE;
+        return;
     }
 
     /* Process animation blocks */
@@ -302,10 +530,10 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
         int block_end_x = frame_width;
 
         /* Translate to screen coordinates */
-        block_start_y += obj->y;
-        block_end_y += obj->y;
-        block_start_x += obj->x;
-        block_end_x += obj->x;
+        block_start_y += obj->geometry.y;
+        block_end_y += obj->geometry.y;
+        block_start_x += obj->geometry.x;
+        block_end_x += obj->geometry.x;
 
         /* Calculate clipping area for this block */
         gfx_area_t block_area = {block_start_x, block_start_y, block_end_x, block_end_y};
@@ -329,7 +557,7 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
             const uint8_t *block_data = (const uint8_t *)frame_data + block_offsets[block_idx];
             int block_len = header->block_len[block_idx];
 
-            esp_err_t decode_result = eaf_decode_block(header, block_data, block_len, pixel_buffer, swap_color);
+            esp_err_t decode_result = eaf_decode_block(header, block_data, block_len, pixel_buffer, swap);
             if (decode_result != ESP_OK) {
                 continue;
             }
@@ -378,232 +606,57 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
                                       src_stride,
                                       header, palette_cache,
                                       &clip_block,
-                                      swap_color,
+                                      swap,
                                       anim->mirror_mode, anim->mirror_offset, dest_x_offset);
 
         if (render_result != ESP_OK) {
             continue;
         }
     }
+}
 
+/**
+ * @brief Virtual delete function for animation widget
+ */
+static esp_err_t gfx_anim_delete(gfx_obj_t *obj)
+{
+    CHECK_OBJ_TYPE_ANIMATION(obj);
 
+    gfx_anim_t *anim = (gfx_anim_t *)obj->src;
+    if (anim) {
+        if (anim->is_playing) {
+            gfx_anim_stop(obj);
+        }
+
+        if (anim->timer != NULL) {
+            gfx_timer_delete((void *)obj->parent_handle, anim->timer);
+            anim->timer = NULL;
+        }
+
+        gfx_anim_reset_frame(&anim->frame);
+
+        if (anim->file_desc) {
+            eaf_deinit(anim->file_desc);
+        }
+
+        free(anim);
+    }
     return ESP_OK;
 }
 
 /*=====================
- * Renderer Management Functions
+ * Timer Callback
  *====================*/
 
 /**
- * @brief Render pixels using registered renderer
- * @param bit_depth Bit depth (4, 8, or 24)
- * @param dest_pixels Destination pixel buffer
- * @param dest_stride Destination buffer stride
- * @param src_pixels Source pixel buffer
- * @param src_stride Source buffer stride
- * @param header Image header
- * @param palette_cache Palette cache
- * @param clip_area Clipping area
- * @param swap_color Whether to swap color bytes
- * @param mirror_mode Mirror mode
- * @param mirror_offset Mirror offset
- * @param dest_x_offset Destination buffer x offset
- * @return ESP_OK on success, ESP_FAIL on failure
+ * @brief Timer callback for animation playback
  */
-static esp_err_t gfx_anim_render_pixels(uint8_t bit_depth,
-                                        gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
-                                        const uint8_t *src_pixels, gfx_coord_t src_stride,
-                                        const eaf_header_t *header, uint32_t *palette_cache,
-                                        gfx_area_t *clip_area, bool swap_color,
-                                        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
-{
-    int renderer_idx;
-    switch (bit_depth) {
-    case 4:  renderer_idx = 0; break;
-    case 8:  renderer_idx = 1; break;
-    case 24: renderer_idx = 2; break;
-    default:
-        ESP_RETURN_ON_FALSE(false, ESP_ERR_INVALID_ARG, TAG, "Unsupported bit depth: %d", bit_depth);
-    }
-
-    g_anim_renderers[renderer_idx](dest_pixels, dest_stride, src_pixels, src_stride,
-                                   header, palette_cache, clip_area, swap_color,
-                                   mirror_mode, mirror_offset, dest_x_offset);
-
-    return ESP_OK;
-}
-
-/*=====================
- * Static helper functions
- *====================*/
-
-/**
- * @brief Render 4-bit pixels directly to destination buffer
- * @param dest_pixels Destination pixel buffer
- * @param dest_stride Destination buffer stride
- * @param src_pixels Source pixel buffer
- * @param src_stride Source buffer stride
- * @param header Image header
- * @param palette_cache Palette cache
- * @param clip_area Clipping area
- * @param swap_color Whether to swap color bytes
- * @param mirror_mode Whether mirror is enabled
- * @param mirror_offset Mirror offset
- * @param dest_x_offset Destination buffer x offset
- */
-static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
-                                        const uint8_t *src_pixels, gfx_coord_t src_stride,
-                                        const eaf_header_t *header, uint32_t *palette_cache,
-                                        gfx_area_t *clip_area, bool swap_color,
-                                        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
-{
-    int width = header->width;
-    int clip_width = clip_area->x2 - clip_area->x1;
-    int clip_height = clip_area->y2 - clip_area->y1;
-
-    if (mirror_mode == GFX_MIRROR_AUTO) {
-        mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
-    }
-
-    for (int y = 0; y < clip_height; y++) {
-        for (int x = 0; x < clip_width; x += 2) {
-            uint8_t packed_gray = src_pixels[y * src_stride / 2 + (x / 2)];
-            uint8_t index1 = (packed_gray & 0xF0) >> 4;
-            uint8_t index2 = (packed_gray & 0x0F);
-
-            if (palette_cache[index1] == 0xFFFFFFFF) {
-                gfx_color_t color = eaf_palette_get_color(header, index1, swap_color);
-                palette_cache[index1] = color.full;
-            }
-
-            gfx_color_t color_val1;
-            color_val1.full = (uint16_t)palette_cache[index1];
-            dest_pixels[y * dest_stride + x] = color_val1;
-
-            if (mirror_mode != GFX_MIRROR_DISABLED) {
-                int mirror_x = width + mirror_offset + width - 1 - x;
-
-                if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
-                    dest_pixels[y * dest_stride + mirror_x] = color_val1;
-                }
-            }
-
-            if (palette_cache[index2] == 0xFFFFFFFF) {
-                gfx_color_t color = eaf_palette_get_color(header, index2, swap_color);
-                palette_cache[index2] = color.full;
-            }
-
-            gfx_color_t color_val2;
-            color_val2.full = (uint16_t)palette_cache[index2];
-            dest_pixels[y * dest_stride + x + 1] = color_val2;
-
-            if (mirror_mode != GFX_MIRROR_DISABLED) {
-                int mirror_x = width + mirror_offset + width - 1 - (x + 1);
-
-                if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
-                    dest_pixels[y * dest_stride + mirror_x] = color_val1;
-                }
-            }
-        }
-    }
-}
-
-/**
- * @brief Render 8-bit pixels directly to destination buffer
- * @param dest_pixels Destination pixel buffer
- * @param dest_stride Destination buffer stride
- * @param src_pixels Source pixel buffer
- * @param src_stride Source buffer stride
- * @param header Image header
- * @param palette_cache Palette cache
- * @param clip_area Clipping area
- * @param swap_color Whether to swap color bytes
- * @param mirror_mode Whether mirror is enabled
- * @param mirror_offset Mirror offset
- * @param dest_x_offset Destination buffer x offset
- */
-static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
-                                        const uint8_t *src_pixels, gfx_coord_t src_stride,
-                                        const eaf_header_t *header, uint32_t *palette_cache,
-                                        gfx_area_t *clip_area, bool swap_color,
-                                        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
-{
-    int32_t clip_width = clip_area->x2 - clip_area->x1;
-    int32_t clip_height = clip_area->y2 - clip_area->y1;
-    int32_t width = header->width;
-
-    if (mirror_mode == GFX_MIRROR_AUTO) {
-        mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
-    }
-
-    for (int32_t y = 0; y < clip_height; y++) {
-        for (int32_t x = 0; x < clip_width; x++) {
-            uint8_t index = src_pixels[y * src_stride + x];
-            if (palette_cache[index] == 0xFFFFFFFF) {
-                gfx_color_t color = eaf_palette_get_color(header, index, swap_color);
-                palette_cache[index] = color.full;
-            }
-
-            gfx_color_t color_val;
-            color_val.full = (uint16_t)palette_cache[index];
-            dest_pixels[y * dest_stride + x] = color_val;
-
-            if (mirror_mode != GFX_MIRROR_DISABLED) {
-                int mirror_x = width + mirror_offset + width - 1 - x;
-
-                if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
-                    dest_pixels[y * dest_stride + mirror_x] = color_val;
-                }
-            }
-        }
-    }
-}
-
-static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
-        const uint8_t *src_pixels, gfx_coord_t src_stride,
-        const eaf_header_t *header, uint32_t *palette_cache,
-        gfx_area_t *clip_area, bool swap_color,
-        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
-{
-    (void)header;
-    (void)palette_cache;
-    (void)swap_color;
-    int32_t clip_width = clip_area->x2 - clip_area->x1;
-    int32_t clip_height = clip_area->y2 - clip_area->y1;
-    int32_t width = src_stride;
-
-    if (mirror_mode == GFX_MIRROR_AUTO) {
-        mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
-    }
-
-    uint16_t *src_pixels_16 = (uint16_t *)src_pixels;
-    uint16_t *dest_pixels_16 = (uint16_t *)dest_pixels;
-
-    for (int32_t y = 0; y < clip_height; y++) {
-        for (int32_t x = 0; x < clip_width; x++) {
-            dest_pixels_16[y * dest_stride + x] = src_pixels_16[y * src_stride + x];
-
-            if (mirror_mode != GFX_MIRROR_DISABLED) {
-                int mirror_x = width + mirror_offset + width - 1 - x;
-
-                if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
-                    dest_pixels_16[y * dest_stride + mirror_x] = src_pixels_16[y * src_stride + x];
-                }
-            }
-        }
-    }
-}
-
-/*=====================
- * Animation object creation and management
- *====================*/
-
 static void gfx_anim_timer_callback(void *arg)
 {
     gfx_obj_t *obj = (gfx_obj_t *)arg;
-    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+    gfx_anim_t *anim = (gfx_anim_t *)obj->src;
 
-    if (!anim || !anim->is_playing || obj->is_visible == false) {
+    if (!anim || !anim->is_playing || obj->state.is_visible == false) {
         return;
     }
 
@@ -635,6 +688,13 @@ static void gfx_anim_timer_callback(void *arg)
     gfx_obj_invalidate(obj);
 }
 
+/**********************
+ *   PUBLIC FUNCTIONS
+ **********************/
+
+/**
+ * @brief Create an animation object
+ */
 gfx_obj_t *gfx_anim_create(gfx_handle_t handle)
 {
     gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
@@ -644,16 +704,19 @@ gfx_obj_t *gfx_anim_create(gfx_handle_t handle)
     }
 
     memset(obj, 0, sizeof(gfx_obj_t));
+    obj->type = GFX_OBJ_TYPE_ANIMATION;
     obj->parent_handle = handle;
-    obj->is_visible = true;
+    obj->state.is_visible = true;
+    obj->vfunc.draw = (gfx_obj_draw_fn_t)gfx_draw_animation;
+    obj->vfunc.delete = gfx_anim_delete;
 
-    gfx_anim_property_t *anim = (gfx_anim_property_t *)malloc(sizeof(gfx_anim_property_t));
+    gfx_anim_t *anim = (gfx_anim_t *)malloc(sizeof(gfx_anim_t));
     if (anim == NULL) {
         ESP_LOGE(TAG, "No mem for animation property");
         free(obj);
         return NULL;
     }
-    memset(anim, 0, sizeof(gfx_anim_property_t));
+    memset(anim, 0, sizeof(gfx_anim_t));
 
     anim->file_desc = NULL;
     anim->start_frame = 0;
@@ -696,6 +759,9 @@ gfx_obj_t *gfx_anim_create(gfx_handle_t handle)
     return obj;
 }
 
+/**
+ * @brief Set animation source
+ */
 esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
 {
     CHECK_OBJ_TYPE_ANIMATION(obj);
@@ -705,7 +771,7 @@ esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
         return ESP_ERR_INVALID_ARG;
     }
 
-    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+    gfx_anim_t *anim = (gfx_anim_t *)obj->src;
     if (anim == NULL) {
         ESP_LOGE(TAG, "Animation property is NULL");
         return ESP_ERR_INVALID_STATE;
@@ -715,7 +781,7 @@ esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
         gfx_anim_stop(obj);
     }
 
-    //invalidate the old animation
+    /* Invalidate the old animation */
     gfx_obj_invalidate(obj);
 
     if (anim->frame.header.width > 0) {
@@ -748,11 +814,14 @@ esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
     return ESP_OK;
 }
 
+/**
+ * @brief Set animation segment
+ */
 esp_err_t gfx_anim_set_segment(gfx_obj_t *obj, uint32_t start, uint32_t end, uint32_t fps, bool repeat)
 {
     CHECK_OBJ_TYPE_ANIMATION(obj);
 
-    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+    gfx_anim_t *anim = (gfx_anim_t *)obj->src;
     if (anim == NULL) {
         ESP_LOGE(TAG, "Animation property is NULL");
         return ESP_ERR_INVALID_STATE;
@@ -780,11 +849,14 @@ esp_err_t gfx_anim_set_segment(gfx_obj_t *obj, uint32_t start, uint32_t end, uin
     return ESP_OK;
 }
 
+/**
+ * @brief Start animation playback
+ */
 esp_err_t gfx_anim_start(gfx_obj_t *obj)
 {
     CHECK_OBJ_TYPE_ANIMATION(obj);
 
-    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+    gfx_anim_t *anim = (gfx_anim_t *)obj->src;
     if (anim == NULL) {
         ESP_LOGE(TAG, "Animation property is NULL");
         return ESP_ERR_INVALID_STATE;
@@ -806,11 +878,14 @@ esp_err_t gfx_anim_start(gfx_obj_t *obj)
     return ESP_OK;
 }
 
+/**
+ * @brief Stop animation playback
+ */
 esp_err_t gfx_anim_stop(gfx_obj_t *obj)
 {
     CHECK_OBJ_TYPE_ANIMATION(obj);
 
-    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+    gfx_anim_t *anim = (gfx_anim_t *)obj->src;
     if (anim == NULL) {
         ESP_LOGE(TAG, "Animation property is NULL");
         return ESP_ERR_INVALID_STATE;
@@ -826,11 +901,14 @@ esp_err_t gfx_anim_stop(gfx_obj_t *obj)
     return ESP_OK;
 }
 
+/**
+ * @brief Set manual mirror mode
+ */
 esp_err_t gfx_anim_set_mirror(gfx_obj_t *obj, bool enabled, int16_t offset)
 {
     CHECK_OBJ_TYPE_ANIMATION(obj);
 
-    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+    gfx_anim_t *anim = (gfx_anim_t *)obj->src;
     if (anim == NULL) {
         ESP_LOGE(TAG, "Animation property is NULL");
         return ESP_ERR_INVALID_STATE;
@@ -843,11 +921,14 @@ esp_err_t gfx_anim_set_mirror(gfx_obj_t *obj, bool enabled, int16_t offset)
     return ESP_OK;
 }
 
+/**
+ * @brief Set automatic mirror mode
+ */
 esp_err_t gfx_anim_set_auto_mirror(gfx_obj_t *obj, bool enabled)
 {
     CHECK_OBJ_TYPE_ANIMATION(obj);
 
-    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
+    gfx_anim_t *anim = (gfx_anim_t *)obj->src;
     if (anim == NULL) {
         ESP_LOGE(TAG, "Animation property is NULL");
         return ESP_ERR_INVALID_STATE;
@@ -856,35 +937,5 @@ esp_err_t gfx_anim_set_auto_mirror(gfx_obj_t *obj, bool enabled)
     anim->mirror_mode = enabled ? GFX_MIRROR_AUTO : GFX_MIRROR_DISABLED;
 
     ESP_LOGD(TAG, "Auto mirror %s", enabled ? "on" : "off");
-    return ESP_OK;
-}
-
-/*=====================
- * Animation object deletion
- *====================*/
-
-esp_err_t gfx_anim_delete(gfx_obj_t *obj)
-{
-    CHECK_OBJ_TYPE_ANIMATION(obj);
-
-    gfx_anim_property_t *anim = (gfx_anim_property_t *)obj->src;
-    if (anim) {
-        if (anim->is_playing) {
-            gfx_anim_stop(obj);
-        }
-
-        if (anim->timer != NULL) {
-            gfx_timer_delete((void *)obj->parent_handle, anim->timer);
-            anim->timer = NULL;
-        }
-
-        gfx_anim_reset_frame(&anim->frame);
-
-        if (anim->file_desc) {
-            eaf_deinit(anim->file_desc);
-        }
-
-        free(anim);
-    }
     return ESP_OK;
 }

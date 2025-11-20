@@ -85,13 +85,13 @@ uint32_t gfx_timer_handler(gfx_timer_manager_t *timer_mgr);
  * @param timer_mgr Timer manager to initialize
  * @param fps Target FPS for timer scheduling
  */
-void gfx_timer_manager_init(gfx_timer_manager_t *timer_mgr, uint32_t fps);
+void gfx_timer_mgr_init(gfx_timer_manager_t *timer_mgr, uint32_t fps);
 
 /**
  * @brief Deinitialize timer manager
  * @param timer_mgr Timer manager to deinitialize
  */
-void gfx_timer_manager_deinit(gfx_timer_manager_t *timer_mgr);
+void gfx_timer_mgr_deinit(gfx_timer_manager_t *timer_mgr);
 
 #ifdef __cplusplus
 }

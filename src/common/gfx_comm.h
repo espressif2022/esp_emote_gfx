@@ -43,6 +43,14 @@ extern "C" {
 #define GFX_RETURN_IF_NULL_VOID(p) do { if ((p) == NULL) { return; } } while (0)
 #endif
 
+/* Generic object type checking macro */
+#define CHECK_OBJ_TYPE(obj, expected_type, tag) \
+    do { \
+        ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, tag, "Object is NULL"); \
+        ESP_RETURN_ON_FALSE((obj)->type == (expected_type), ESP_ERR_INVALID_ARG, tag, \
+                           "Object type mismatch (expected=%d, actual=%d)", (expected_type), (obj)->type); \
+    } while(0)
+
 #ifdef __cplusplus
 }
 #endif

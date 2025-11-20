@@ -185,10 +185,10 @@ void gfx_obj_invalidate(gfx_obj_t *obj)
     }
 
     gfx_area_t obj_area;
-    obj_area.x1 = obj->x;
-    obj_area.y1 = obj->y;
-    obj_area.x2 = obj->x + obj->width - 1;
-    obj_area.y2 = obj->y + obj->height - 1;
+    obj_area.x1 = obj->geometry.x;
+    obj_area.y1 = obj->geometry.y;
+    obj_area.x2 = obj->geometry.x + obj->geometry.width - 1;
+    obj_area.y2 = obj->geometry.y + obj->geometry.height - 1;
 
     gfx_invalidate_area(obj->parent_handle, &obj_area);
 }
@@ -207,22 +207,22 @@ void gfx_refr_update_layout_dirty(gfx_core_context_t *ctx)
     while (child_node != NULL) {
         gfx_obj_t *obj = (gfx_obj_t *)child_node->src;
 
-        if (obj != NULL && obj->layout_dirty && obj->use_align) {
+        if (obj != NULL && obj->state.layout_dirty && obj->align.enabled) {
             // Invalidate old position
             gfx_obj_invalidate(obj);
 
             // Recalculate position based on current size and alignment
-            gfx_coord_t new_x = obj->x;
-            gfx_coord_t new_y = obj->y;
+            gfx_coord_t new_x = obj->geometry.x;
+            gfx_coord_t new_y = obj->geometry.y;
             gfx_obj_cal_aligned_pos(obj, parent_w, parent_h, &new_x, &new_y);
-            obj->x = new_x;
-            obj->y = new_y;
+            obj->geometry.x = new_x;
+            obj->geometry.y = new_y;
 
             // Invalidate new position
             gfx_obj_invalidate(obj);
 
             // Clear layout dirty flag
-            obj->layout_dirty = false;
+            obj->state.layout_dirty = false;
         }
 
         child_node = child_node->next;

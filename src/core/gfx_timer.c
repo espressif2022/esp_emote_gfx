@@ -244,7 +244,7 @@ bool gfx_timer_is_running(gfx_timer_handle_t timer_handle)
     return false;
 }
 
-void gfx_timer_manager_init(gfx_timer_manager_t *timer_mgr, uint32_t fps)
+void gfx_timer_mgr_init(gfx_timer_manager_t *timer_mgr, uint32_t fps)
 {
     if (timer_mgr != NULL) {
         timer_mgr->timer_list = NULL;
@@ -256,7 +256,7 @@ void gfx_timer_manager_init(gfx_timer_manager_t *timer_mgr, uint32_t fps)
     }
 }
 
-void gfx_timer_manager_deinit(gfx_timer_manager_t *timer_mgr)
+void gfx_timer_mgr_deinit(gfx_timer_manager_t *timer_mgr)
 {
     if (timer_mgr == NULL) {
         return;

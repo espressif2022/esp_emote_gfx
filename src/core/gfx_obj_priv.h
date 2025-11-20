@@ -26,6 +26,42 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
+/* Graphics object structure - internal definition */
+struct gfx_obj {
+    /* Basic properties */
+    void *src;                  /**< Source data (image, label, etc.) */
+    int type;                   /**< Object type */
+    gfx_handle_t parent_handle; /**< Parent graphics handle */
+    
+    /* Geometry */
+    struct {
+        gfx_coord_t x;          /**< X position */
+        gfx_coord_t y;          /**< Y position */
+        uint16_t width;         /**< Object width */
+        uint16_t height;        /**< Object height */
+    } geometry;
+    
+    /* Alignment */
+    struct {
+        uint8_t type;           /**< Alignment type (see GFX_ALIGN_* constants) */
+        gfx_coord_t x_ofs;      /**< X offset for alignment */
+        gfx_coord_t y_ofs;      /**< Y offset for alignment */
+        bool enabled;           /**< Whether to use alignment instead of absolute position */
+    } align;
+    
+    /* Rendering state */
+    struct {
+        bool is_visible;        /**< Object visibility */
+        bool layout_dirty;      /**< Whether layout needs to be recalculated before rendering */
+    } state;
+    
+    /* Virtual function table */
+    struct {
+        gfx_obj_draw_fn_t draw;    /**< Draw function pointer */
+        gfx_obj_delete_fn_t delete; /**< Delete function pointer */
+    } vfunc;
+};
+
 typedef struct gfx_core_child_t {
     int type;
     void *src;
@@ -54,8 +90,8 @@ void gfx_obj_cal_aligned_pos(gfx_obj_t *obj, uint32_t parent_width, uint32_t par
  * @brief Get parent dimensions and calculate aligned object position
  *
  * This is a convenience function that combines getting parent screen size
- * and calculating the aligned position of the object. It modifies obj->x
- * and obj->y in place based on the alignment settings.
+ * and calculating the aligned position of the object. It modifies obj->geometry.x
+ * and obj->geometry.y in place based on the alignment settings.
  *
  * @param obj Pointer to the object
  */

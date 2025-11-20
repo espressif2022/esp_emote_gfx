@@ -7,10 +7,6 @@
 #include "esp_log.h"
 #include "core/gfx_render_priv.h"
 #include "core/gfx_refr_priv.h"
-#include "widget/gfx_img_priv.h"
-#include "widget/gfx_label_priv.h"
-#include "widget/gfx_anim_priv.h"
-#include "widget/gfx_qrcode_priv.h"
 
 static const char *TAG = "gfx_render";
 
@@ -61,19 +57,14 @@ void gfx_render_child_objects(gfx_core_context_t *ctx, int x1, int y1, int x2, i
         gfx_obj_t *obj = (gfx_obj_t *)child_node->src;
 
         // Skip rendering if object is not visible
-        if (!obj->is_visible) {
+        if (!obj->state.is_visible) {
             child_node = child_node->next;
             continue;
         }
 
-        if (obj->type == GFX_OBJ_TYPE_LABEL) {
-            gfx_draw_label(obj, x1, y1, x2, y2, dest_buf, swap);
-        } else if (obj->type == GFX_OBJ_TYPE_IMAGE) {
-            gfx_draw_img(obj, x1, y1, x2, y2, dest_buf, swap);
-        } else if (obj->type == GFX_OBJ_TYPE_ANIMATION) {
-            gfx_draw_animation(obj, x1, y1, x2, y2, dest_buf, swap);
-        } else if (obj->type == GFX_OBJ_TYPE_QRCODE) {
-            gfx_draw_qrcode(obj, x1, y1, x2, y2, dest_buf, swap);
+        /* Call object's draw function if available */
+        if (obj->vfunc.draw) {
+            obj->vfunc.draw(obj, x1, y1, x2, y2, dest_buf, swap);
         }
 
         child_node = child_node->next;

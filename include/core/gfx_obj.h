@@ -52,22 +52,26 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-/* Graphics object structure */
-typedef struct gfx_obj {
-    void *src;                  /**< Source data (image, label, etc.) */
-    int type;                   /**< Object type */
-    gfx_coord_t x;              /**< X position */
-    gfx_coord_t y;              /**< Y position */
-    uint16_t width;             /**< Object width */
-    uint16_t height;            /**< Object height */
-    bool is_visible;            /**< Object visibility */
-    uint8_t align_type;         /**< Alignment type (see GFX_ALIGN_* constants) */
-    gfx_coord_t align_x_ofs;    /**< X offset for alignment */
-    gfx_coord_t align_y_ofs;    /**< Y offset for alignment */
-    bool use_align;             /**< Whether to use alignment instead of absolute position */
-    bool layout_dirty;          /**< Whether layout needs to be recalculated before rendering */
-    gfx_handle_t parent_handle; /**< Parent graphics handle */
-} gfx_obj_t;
+/* Opaque object type - actual definition in gfx_obj_priv.h */
+typedef struct gfx_obj gfx_obj_t;
+
+/**
+ * @brief Object draw function pointer type
+ * @param obj Pointer to the object
+ * @param x1 Left coordinate of render area
+ * @param y1 Top coordinate of render area
+ * @param x2 Right coordinate of render area
+ * @param y2 Bottom coordinate of render area
+ * @param dest_buf Destination buffer
+ * @param swap Whether to swap color bytes
+ */
+typedef void (*gfx_obj_draw_fn_t)(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap);
+
+/**
+ * @brief Object delete function pointer type
+ * @param obj Pointer to the object to delete
+ */
+typedef esp_err_t (*gfx_obj_delete_fn_t)(gfx_obj_t *obj);
 
 /**********************
  * GLOBAL PROTOTYPES

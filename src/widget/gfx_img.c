@@ -4,43 +4,48 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*********************
+ *      INCLUDES
+ *********************/
 #include <string.h>
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
 #include "common/gfx_comm.h"
 #include "core/gfx_blend_priv.h"
-#include "core/gfx_core_priv.h"
 #include "core/gfx_refr_priv.h"
-#include "widget/gfx_img_priv.h"
-
-static const char *TAG = "gfx_img";
+#include "widget/gfx_img.h"
+#include "decoder/gfx_img_dec_priv.h"
 
 /*********************
  *      DEFINES
  *********************/
-
-/* Helper macro for type checking */
-#define CHECK_OBJ_TYPE_IMAGE(obj) \
-    do { \
-        ESP_RETURN_ON_ERROR((obj == NULL) ? ESP_ERR_INVALID_ARG : ESP_OK, TAG, "Object is NULL"); \
-        ESP_RETURN_ON_ERROR((obj->type != GFX_OBJ_TYPE_IMAGE) ? ESP_ERR_INVALID_ARG : ESP_OK, TAG, \
-                           "Object is not an IMAGE type (type=%d). Cannot use image API on non-image objects.", obj->type); \
-    } while(0)
+/* Use generic type checking macro from gfx_obj_priv.h */
+#define CHECK_OBJ_TYPE_IMAGE(obj) CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_IMAGE, TAG)
 
 /**********************
  *      TYPEDEFS
  **********************/
 
 /**********************
- *  STATIC PROTOTYPES
+ *  STATIC VARIABLES
  **********************/
+static const char *TAG = "gfx_img";
 
 /**********************
- *   GLOBAL FUNCTIONS
+ *  STATIC PROTOTYPES
+ **********************/
+static void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap);
+static esp_err_t gfx_img_delete(gfx_obj_t *obj);
+
+/**********************
+ *   STATIC FUNCTIONS
  **********************/
 
-void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap)
+/**
+ * @brief Virtual draw function for image widget
+ */
+static void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap)
 {
     if (obj == NULL || obj->src == NULL) {
         ESP_LOGD(TAG, "Invalid object or source");
@@ -52,7 +57,7 @@ void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *de
         return;
     }
 
-    // Use unified decoder to get image information
+    /* Use unified decoder to get image information */
     gfx_image_header_t header;
     gfx_image_decoder_dsc_t dsc = {
         .src = obj->src,
@@ -67,13 +72,13 @@ void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *de
     uint16_t image_height = header.h;
     uint8_t color_format = header.cf;
 
-    // Check color format - support RGB565 and RGB565A8 formats
+    /* Check color format - support RGB565 and RGB565A8 formats */
     if (color_format != GFX_COLOR_FORMAT_RGB565 && color_format != GFX_COLOR_FORMAT_RGB565A8) {
         ESP_LOGW(TAG, "Unsupported color format");
         return;
     }
 
-    // Get image data using unified decoder
+    /* Get image data using unified decoder */
     gfx_image_decoder_dsc_t decoder_dsc = {
         .src = obj->src,
         .header = header,
@@ -100,7 +105,7 @@ void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *de
 
     /* Calculate clipping area */
     gfx_area_t render_area = {x1, y1, x2, y2};
-    gfx_area_t obj_area = {obj->x, obj->y, obj->x + image_width, obj->y + image_height};
+    gfx_area_t obj_area = {obj->geometry.x, obj->geometry.y, obj->geometry.x + image_width, obj->geometry.y + image_height};
     gfx_area_t clip_area;
 
     if (!gfx_area_intersect(&clip_area, &render_area, &obj_area)) {
@@ -113,9 +118,9 @@ void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *de
 
     /* Calculate source and destination buffer pointers with offset */
     gfx_color_t *src_pixels = (gfx_color_t *)GFX_BUFFER_OFFSET_16BPP(image_data,
-                              clip_area.y1 - obj->y,
+                              clip_area.y1 - obj->geometry.y,
                               src_stride,
-                              clip_area.x1 - obj->x);
+                              clip_area.x1 - obj->geometry.x);
     gfx_color_t *dest_pixels = (gfx_color_t *)GFX_BUFFER_OFFSET_16BPP(dest_buf,
                                clip_area.y1 - y1,
                                dest_stride,
@@ -127,11 +132,12 @@ void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *de
         /* Alpha mask starts after RGB565 data */
         const uint8_t *alpha_base = image_data + src_stride * image_height * GFX_PIXEL_SIZE_16BPP;
         alpha_mask = (gfx_opa_t *)GFX_BUFFER_OFFSET_8BPP(alpha_base,
-                     clip_area.y1 - obj->y,
+                     clip_area.y1 - obj->geometry.y,
                      src_stride,
-                     clip_area.x1 - obj->x);
+                     clip_area.x1 - obj->geometry.x);
     }
 
+    /* Blend image to destination buffer */
     gfx_sw_blend_img_draw(
         dest_pixels,
         dest_stride,
@@ -144,14 +150,28 @@ void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *de
         swap
     );
 
-    // Close decoder
+    /* Close decoder */
     gfx_image_decoder_close(&decoder_dsc);
 }
 
-/*=====================
- * Image object creation and management
- *====================*/
+/**
+ * @brief Virtual delete function for image widget
+ */
+static esp_err_t gfx_img_delete(gfx_obj_t *obj)
+{
+    CHECK_OBJ_TYPE_IMAGE(obj);
 
+    /* No dynamic resources to free for basic image */
+    return ESP_OK;
+}
+
+/**********************
+ *   PUBLIC FUNCTIONS
+ **********************/
+
+/**
+ * @brief Create an image object
+ */
 gfx_obj_t *gfx_img_create(gfx_handle_t handle)
 {
     gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
@@ -163,13 +183,19 @@ gfx_obj_t *gfx_img_create(gfx_handle_t handle)
     memset(obj, 0, sizeof(gfx_obj_t));
     obj->type = GFX_OBJ_TYPE_IMAGE;
     obj->parent_handle = handle;
-    obj->is_visible = true;
+    obj->state.is_visible = true;
+    obj->vfunc.draw = gfx_draw_img;
+    obj->vfunc.delete = gfx_img_delete;
     gfx_obj_invalidate(obj);
     gfx_emote_add_chlid(handle, GFX_OBJ_TYPE_IMAGE, obj);
+    
     ESP_LOGD(TAG, "Created image object");
     return obj;
 }
 
+/**
+ * @brief Set image source
+ */
 esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src)
 {
     CHECK_OBJ_TYPE_IMAGE(obj);
@@ -179,36 +205,26 @@ esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src)
         return ESP_ERR_INVALID_ARG;
     }
 
-    //invalidate the old image
+    /* Invalidate the old image */
     gfx_obj_invalidate(obj);
 
     obj->src = src;
 
+    /* Get image dimensions */
     gfx_image_header_t header;
     gfx_image_decoder_dsc_t dsc = {
         .src = src,
     };
     esp_err_t ret = gfx_image_decoder_info(&dsc, &header);
     if (ret == ESP_OK) {
-        obj->width = header.w;
-        obj->height = header.h;
+        obj->geometry.width = header.w;
+        obj->geometry.height = header.h;
     } else {
         ESP_LOGE(TAG, "Failed to get image info");
     }
 
     gfx_obj_update_layout(obj);
     gfx_obj_invalidate(obj);
-
-    return ESP_OK;
-}
-
-/*=====================
- * Image object deletion
- *====================*/
-
-esp_err_t gfx_img_delete(gfx_obj_t *obj)
-{
-    CHECK_OBJ_TYPE_IMAGE(obj);
 
     return ESP_OK;
 }

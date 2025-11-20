@@ -10,13 +10,13 @@
 #include "esp_log.h"
 #include "esp_check.h"
 
-#include "core/gfx_core_priv.h"
 #include "core/gfx_obj_priv.h"
 #include "core/gfx_refr_priv.h"
 #include "core/gfx_render_priv.h"
 #include "core/gfx_timer_priv.h"
-#include "widget/gfx_img_priv.h"
-#include "widget/gfx_label_priv.h"
+
+#include "widget/gfx_font_priv.h"
+#include "decoder/gfx_img_dec_priv.h"
 
 static const char *TAG = "gfx_core";
 
@@ -68,7 +68,7 @@ gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
     }
 
     // Initialize timer manager
-    gfx_timer_manager_init(&disp_ctx->timer.timer_mgr, cfg->fps);
+    gfx_timer_mgr_init(&disp_ctx->timer.timer_mgr, cfg->fps);
 
     // Create recursive render mutex for protecting rendering operations
     disp_ctx->sync.lock_mutex = xSemaphoreCreateRecursiveMutex();
@@ -139,7 +139,7 @@ void gfx_emote_deinit(gfx_handle_t handle)
     ctx->disp.child_list = NULL;
 
     // Clean up timers
-    gfx_timer_manager_deinit(&ctx->timer.timer_mgr);
+    gfx_timer_mgr_deinit(&ctx->timer.timer_mgr);
 
     // Free frame buffers
     gfx_buf_free_frame(ctx);
