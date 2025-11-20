@@ -44,7 +44,7 @@ typedef struct {
     /* FPS statistics */
     uint32_t fps_last_report_tick; ///< Last time FPS was reported
     uint32_t fps_report_interval_ms; ///< FPS report interval in milliseconds (default 500 ms)
-} gfx_timer_manager_t;
+} gfx_timer_mgr_t;
 
 /**********************
  * GLOBAL PROTOTYPES
@@ -78,20 +78,20 @@ bool gfx_timer_exec(gfx_timer_t *timer);
  * @param timer_mgr Timer manager
  * @return Time until next timer execution
  */
-uint32_t gfx_timer_handler(gfx_timer_manager_t *timer_mgr);
+uint32_t gfx_timer_handler(gfx_timer_mgr_t *timer_mgr);
 
 /**
  * @brief Initialize timer manager
  * @param timer_mgr Timer manager to initialize
  * @param fps Target FPS for timer scheduling
  */
-void gfx_timer_mgr_init(gfx_timer_manager_t *timer_mgr, uint32_t fps);
+void gfx_timer_mgr_init(gfx_timer_mgr_t *timer_mgr, uint32_t fps);
 
 /**
  * @brief Deinitialize timer manager
  * @param timer_mgr Timer manager to deinitialize
  */
-void gfx_timer_mgr_deinit(gfx_timer_manager_t *timer_mgr);
+void gfx_timer_mgr_deinit(gfx_timer_mgr_t *timer_mgr);
 
 #ifdef __cplusplus
 }

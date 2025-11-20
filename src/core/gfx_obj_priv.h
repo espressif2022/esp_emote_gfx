@@ -32,7 +32,7 @@ struct gfx_obj {
     void *src;                  /**< Source data (image, label, etc.) */
     int type;                   /**< Object type */
     gfx_handle_t parent_handle; /**< Parent graphics handle */
-    
+
     /* Geometry */
     struct {
         gfx_coord_t x;          /**< X position */
@@ -40,7 +40,7 @@ struct gfx_obj {
         uint16_t width;         /**< Object width */
         uint16_t height;        /**< Object height */
     } geometry;
-    
+
     /* Alignment */
     struct {
         uint8_t type;           /**< Alignment type (see GFX_ALIGN_* constants) */
@@ -48,13 +48,13 @@ struct gfx_obj {
         gfx_coord_t y_ofs;      /**< Y offset for alignment */
         bool enabled;           /**< Whether to use alignment instead of absolute position */
     } align;
-    
+
     /* Rendering state */
     struct {
         bool is_visible;        /**< Object visibility */
         bool layout_dirty;      /**< Whether layout needs to be recalculated before rendering */
     } state;
-    
+
     /* Virtual function table */
     struct {
         gfx_obj_draw_fn_t draw;    /**< Draw function pointer */

@@ -58,7 +58,7 @@ typedef struct {
 
     /* Timer management */
     struct {
-        gfx_timer_manager_t timer_mgr; /**< Timer manager */
+        gfx_timer_mgr_t timer_mgr; /**< Timer manager */
     } timer;                           /**< Timer management */
 
     /* Graphics rendering */

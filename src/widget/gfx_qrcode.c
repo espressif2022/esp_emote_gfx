@@ -207,9 +207,10 @@ static void gfx_qrcode_blend_to_dest(gfx_obj_t *obj, gfx_qrcode_t *qrcode,
 
     /* Calculate clipping area */
     gfx_area_t render_area = {x1, y1, x2, y2};
-    gfx_area_t obj_area = {obj->geometry.x, obj->geometry.y, 
-                          obj->geometry.x + qrcode->scaled_size, 
-                          obj->geometry.y + qrcode->scaled_size};
+    gfx_area_t obj_area = {obj->geometry.x, obj->geometry.y,
+                           obj->geometry.x + qrcode->scaled_size,
+                           obj->geometry.y + qrcode->scaled_size
+                          };
     gfx_area_t clip_area;
 
     if (!gfx_area_intersect(&clip_area, &render_area, &obj_area)) {
@@ -333,8 +334,12 @@ gfx_obj_t *gfx_qrcode_create(gfx_handle_t handle)
     /* Set default values */
     qrcode->display_size = 100;  /* Default 100x100 pixels */
     qrcode->ecc = GFX_QRCODE_ECC_LOW;
-    qrcode->color = (gfx_color_t) {.full = 0xFFFF};     /* White */
-    qrcode->bg_color = (gfx_color_t) {.full = 0x0000};  /* Black */
+    qrcode->color = (gfx_color_t) {
+        .full = 0xFFFF
+    };     /* White */
+    qrcode->bg_color = (gfx_color_t) {
+        .full = 0x0000
+    };  /* Black */
     qrcode->needs_update = true;
 
     obj->src = qrcode;
@@ -343,7 +348,7 @@ gfx_obj_t *gfx_qrcode_create(gfx_handle_t handle)
 
     gfx_obj_invalidate(obj);
     gfx_emote_add_chlid(handle, GFX_OBJ_TYPE_QRCODE, obj);
-    
+
     ESP_LOGD(TAG, "Created QR Code object");
     return obj;
 }

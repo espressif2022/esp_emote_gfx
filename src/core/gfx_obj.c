@@ -288,7 +288,7 @@ esp_err_t gfx_obj_delete(gfx_obj_t *obj)
     }
 
     gfx_obj_invalidate(obj);
-    
+
     /* Call object's delete function if available */
     if (obj->vfunc.delete) {
         obj->vfunc.delete(obj);

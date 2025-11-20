@@ -125,10 +125,10 @@ static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t de
                                         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
 
 static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
-                                         const uint8_t *src_pixels, gfx_coord_t src_stride,
-                                         const eaf_header_t *header, uint32_t *palette_cache,
-                                         gfx_area_t *clip_area, bool swap,
-                                         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
+        const uint8_t *src_pixels, gfx_coord_t src_stride,
+        const eaf_header_t *header, uint32_t *palette_cache,
+        gfx_area_t *clip_area, bool swap,
+        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
 
 /* Timer callback */
 static void gfx_anim_timer_callback(void *arg);
@@ -424,10 +424,10 @@ static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t de
  * @brief Render 24-bit pixels directly to destination buffer
  */
 static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
-                                         const uint8_t *src_pixels, gfx_coord_t src_stride,
-                                         const eaf_header_t *header, uint32_t *palette_cache,
-                                         gfx_area_t *clip_area, bool swap,
-                                         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
+        const uint8_t *src_pixels, gfx_coord_t src_stride,
+        const eaf_header_t *header, uint32_t *palette_cache,
+        gfx_area_t *clip_area, bool swap,
+        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
 {
     (void)header;
     (void)palette_cache;

@@ -63,7 +63,7 @@ bool gfx_timer_exec(gfx_timer_t *timer)
     return false;
 }
 
-uint32_t gfx_timer_handler(gfx_timer_manager_t *timer_mgr)
+uint32_t gfx_timer_handler(gfx_timer_mgr_t *timer_mgr)
 {
     static uint32_t fps_sample_count = 0;
     static uint32_t fps_total_time = 0;
@@ -103,11 +103,11 @@ uint32_t gfx_timer_handler(gfx_timer_manager_t *timer_mgr)
     }
 
     fps_sample_count++;
-    // ESP_LOGI(TAG, "elapsed=%d, period_ms=%d, next_timer_delay=%d, final_delay=%d", schedule_elapsed, schedule_period_ms, next_timer_delay, final_delay);
     fps_total_time += schedule_elapsed;
-    if (fps_sample_count >= 10) {
+    if (fps_sample_count >= 1000) {
         timer_mgr->actual_fps = 1000 / (fps_total_time / fps_sample_count);
-        ESP_LOGD(TAG, "average fps: %"PRIu32"(%"PRIu32")", timer_mgr->actual_fps, timer_mgr->fps);
+        // ESP_LOGD(TAG, "average fps: %"PRIu32"(%"PRIu32")", timer_mgr->actual_fps, timer_mgr->fps);
+        ESP_LOGI(TAG, "average fps: %"PRIu32"(%"PRIu32")", timer_mgr->actual_fps, timer_mgr->fps);
         fps_sample_count = 0;
         fps_total_time = 0;
     }
@@ -127,7 +127,7 @@ gfx_timer_handle_t gfx_timer_create(void *handle, gfx_timer_cb_t timer_cb, uint3
     }
 
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
-    gfx_timer_manager_t *timer_mgr = &ctx->timer.timer_mgr;
+    gfx_timer_mgr_t *timer_mgr = &ctx->timer.timer_mgr;
 
     gfx_timer_t *new_timer = (gfx_timer_t *)malloc(sizeof(gfx_timer_t));
     if (new_timer == NULL) {
@@ -166,7 +166,7 @@ void gfx_timer_delete(void *handle, gfx_timer_handle_t timer_handle)
 
     gfx_timer_t *timer = (gfx_timer_t *)timer_handle;
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
-    gfx_timer_manager_t *timer_mgr = &ctx->timer.timer_mgr;
+    gfx_timer_mgr_t *timer_mgr = &ctx->timer.timer_mgr;
 
     // Remove from timer list
     gfx_timer_t *current_timer = timer_mgr->timer_list;
@@ -244,7 +244,7 @@ bool gfx_timer_is_running(gfx_timer_handle_t timer_handle)
     return false;
 }
 
-void gfx_timer_mgr_init(gfx_timer_manager_t *timer_mgr, uint32_t fps)
+void gfx_timer_mgr_init(gfx_timer_mgr_t *timer_mgr, uint32_t fps)
 {
     if (timer_mgr != NULL) {
         timer_mgr->timer_list = NULL;
@@ -256,7 +256,7 @@ void gfx_timer_mgr_init(gfx_timer_manager_t *timer_mgr, uint32_t fps)
     }
 }
 
-void gfx_timer_mgr_deinit(gfx_timer_manager_t *timer_mgr)
+void gfx_timer_mgr_deinit(gfx_timer_mgr_t *timer_mgr)
 {
     if (timer_mgr == NULL) {
         return;
@@ -280,7 +280,7 @@ uint32_t gfx_timer_get_actual_fps(void *handle)
     }
 
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
-    gfx_timer_manager_t *timer_mgr = &ctx->timer.timer_mgr;
+    gfx_timer_mgr_t *timer_mgr = &ctx->timer.timer_mgr;
 
     return timer_mgr->actual_fps;
 }
