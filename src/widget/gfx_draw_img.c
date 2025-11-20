@@ -95,18 +95,12 @@ void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *de
         return;
     }
 
-    // Get parent container dimensions for alignment calculation
-    uint32_t parent_w, parent_h;
-    gfx_emote_get_screen_size(obj->parent_handle, &parent_w, &parent_h);
-
-    gfx_coord_t *obj_x = &obj->x;
-    gfx_coord_t *obj_y = &obj->y;
-
-    gfx_obj_cal_aligned_pos(obj, parent_w, parent_h, obj_x, obj_y);
+    /* Get parent dimensions and calculate aligned position */
+    gfx_obj_calc_pos_in_parent(obj);
 
     /* Calculate clipping area */
     gfx_area_t render_area = {x1, y1, x2, y2};
-    gfx_area_t obj_area = {*obj_x, *obj_y, *obj_x + image_width, *obj_y + image_height};
+    gfx_area_t obj_area = {obj->x, obj->y, obj->x + image_width, obj->y + image_height};
     gfx_area_t clip_area;
 
     if (!gfx_area_intersect(&clip_area, &render_area, &obj_area)) {
@@ -117,14 +111,25 @@ void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *de
     gfx_coord_t dest_stride = (x2 - x1);
     gfx_coord_t src_stride = image_width;
 
-    // Calculate data pointers based on format
-    gfx_color_t *src_pixels = (gfx_color_t *)(image_data + (clip_area.y1 - *obj_y) * src_stride * 2 + (clip_area.x1 - *obj_x) * 2);
-    gfx_color_t *dest_pixels = (gfx_color_t *)dest_buf + (clip_area.y1 - y1) * dest_stride + (clip_area.x1 - x1);
+    /* Calculate source and destination buffer pointers with offset */
+    gfx_color_t *src_pixels = (gfx_color_t *)GFX_BUFFER_OFFSET_16BPP(image_data,
+                              clip_area.y1 - obj->y,
+                              src_stride,
+                              clip_area.x1 - obj->x);
+    gfx_color_t *dest_pixels = (gfx_color_t *)GFX_BUFFER_OFFSET_16BPP(dest_buf,
+                               clip_area.y1 - y1,
+                               dest_stride,
+                               clip_area.x1 - x1);
 
-    // Alpha mask is only present in RGB565A8 format
+    /* Alpha mask is only present in RGB565A8 format */
     gfx_opa_t *alpha_mask = NULL;
     if (color_format == GFX_COLOR_FORMAT_RGB565A8) {
-        alpha_mask = (gfx_opa_t *)(image_data + src_stride * image_height * 2 + (clip_area.y1 - *obj_y) * src_stride + (clip_area.x1 - *obj_x));
+        /* Alpha mask starts after RGB565 data */
+        const uint8_t *alpha_base = image_data + src_stride * image_height * GFX_PIXEL_SIZE_16BPP;
+        alpha_mask = (gfx_opa_t *)GFX_BUFFER_OFFSET_8BPP(alpha_base,
+                     clip_area.y1 - obj->y,
+                     src_stride,
+                     clip_area.x1 - obj->x);
     }
 
     gfx_sw_blend_img_draw(

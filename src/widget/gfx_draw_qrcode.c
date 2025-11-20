@@ -41,8 +41,8 @@ typedef struct {
 static void gfx_qrcode_generate_callback(esp_qrcode_handle_t qrcode, void *user_data);
 static esp_err_t gfx_qrcode_generate(gfx_obj_t *obj, bool swap);
 static void gfx_qrcode_blend_to_dest(gfx_obj_t *obj, gfx_qrcode_t *qrcode,
-                                      int x1, int y1, int x2, int y2,
-                                      const void *dest_buf, bool swap);
+                                     int x1, int y1, int x2, int y2,
+                                     const void *dest_buf, bool swap);
 
 /**********************
  *   GLOBAL FUNCTIONS
@@ -68,7 +68,7 @@ static void gfx_qrcode_generate_callback(esp_qrcode_handle_t qrcode, void *user_
     }
 
     int scaled_size = qr_size * scale;
-    
+
     ESP_LOGD(TAG, "Generating QR: qr_size=%d, display_size=%d, scale=%d, scaled_size=%d",
              qr_size, qrcode_obj->display_size, scale, scaled_size);
 
@@ -87,7 +87,7 @@ static void gfx_qrcode_generate_callback(esp_qrcode_handle_t qrcode, void *user_
     }
 
     uint16_t *pixel_buf = (uint16_t *)qrcode_obj->qr_modules;
-    
+
     /* Convert gfx_color_t to uint16_t */
     uint16_t fg_color = swap ? __builtin_bswap16(qrcode_obj->color.full) : qrcode_obj->color.full;
     uint16_t bg_color = swap ? __builtin_bswap16(qrcode_obj->bg_color.full) : qrcode_obj->bg_color.full;
@@ -102,7 +102,7 @@ static void gfx_qrcode_generate_callback(esp_qrcode_handle_t qrcode, void *user_
             /* Get QR module value (true = black/foreground) */
             bool is_black = esp_qrcode_get_module(qrcode, qr_x, qr_y);
             uint16_t color = is_black ? fg_color : bg_color;
-            
+
             /* Scale horizontally */
             for (int sx = 0; sx < scale; sx++) {
                 int px = qr_x * scale + sx;
@@ -110,7 +110,7 @@ static void gfx_qrcode_generate_callback(esp_qrcode_handle_t qrcode, void *user_
                 pixel_buf[py * scaled_size + px] = color;
             }
         }
-        
+
         /* Duplicate row vertically for scaling */
         uint16_t *src_row = pixel_buf + (qr_y * scale) * scaled_size;
         for (int sy = 1; sy < scale; sy++) {
@@ -122,7 +122,7 @@ static void gfx_qrcode_generate_callback(esp_qrcode_handle_t qrcode, void *user_
     /* Save QR code info */
     qrcode_obj->qr_size = qr_size;
     qrcode_obj->scaled_size = scaled_size;
-    
+
     ESP_LOGD(TAG, "QR code buffer generated successfully");
 }
 
@@ -134,25 +134,24 @@ static esp_err_t gfx_qrcode_generate(gfx_obj_t *obj, bool swap)
     gfx_qrcode_t *qrcode = (gfx_qrcode_t *)obj->src;
 
     if (!qrcode->text || qrcode->text_len == 0) {
-        ESP_LOGW(TAG, "No text to encode");
         return ESP_ERR_INVALID_ARG;
     }
 
     /* Map ECC level */
     int ecc_level = ESP_QRCODE_ECC_LOW;
     switch (qrcode->ecc) {
-        case GFX_QRCODE_ECC_LOW:
-            ecc_level = ESP_QRCODE_ECC_LOW;
-            break;
-        case GFX_QRCODE_ECC_MEDIUM:
-            ecc_level = ESP_QRCODE_ECC_MED;
-            break;
-        case GFX_QRCODE_ECC_QUARTILE:
-            ecc_level = ESP_QRCODE_ECC_QUART;
-            break;
-        case GFX_QRCODE_ECC_HIGH:
-            ecc_level = ESP_QRCODE_ECC_HIGH;
-            break;
+    case GFX_QRCODE_ECC_LOW:
+        ecc_level = ESP_QRCODE_ECC_LOW;
+        break;
+    case GFX_QRCODE_ECC_MEDIUM:
+        ecc_level = ESP_QRCODE_ECC_MED;
+        break;
+    case GFX_QRCODE_ECC_QUARTILE:
+        ecc_level = ESP_QRCODE_ECC_QUART;
+        break;
+    case GFX_QRCODE_ECC_HIGH:
+        ecc_level = ESP_QRCODE_ECC_HIGH;
+        break;
     }
 
     gfx_qrcode_draw_data_t draw_data = {
@@ -185,20 +184,15 @@ static esp_err_t gfx_qrcode_generate(gfx_obj_t *obj, bool swap)
  * @param swap Whether to swap byte order
  */
 static void gfx_qrcode_blend_to_dest(gfx_obj_t *obj, gfx_qrcode_t *qrcode,
-                                      int x1, int y1, int x2, int y2,
-                                      const void *dest_buf, bool swap)
+                                     int x1, int y1, int x2, int y2,
+                                     const void *dest_buf, bool swap)
 {
-    /* Get parent container dimensions for alignment calculation */
-    uint32_t parent_w, parent_h;
-    gfx_emote_get_screen_size(obj->parent_handle, &parent_w, &parent_h);
-
-    gfx_coord_t *obj_x = &obj->x;
-    gfx_coord_t *obj_y = &obj->y;
-    gfx_obj_cal_aligned_pos(obj, parent_w, parent_h, obj_x, obj_y);
+    /* Get parent dimensions and calculate aligned position */
+    gfx_obj_calc_pos_in_parent(obj);
 
     /* Calculate clipping area */
     gfx_area_t render_area = {x1, y1, x2, y2};
-    gfx_area_t obj_area = {*obj_x, *obj_y, *obj_x + qrcode->scaled_size, *obj_y + qrcode->scaled_size};
+    gfx_area_t obj_area = {obj->x, obj->y, obj->x + qrcode->scaled_size, obj->y + qrcode->scaled_size};
     gfx_area_t clip_area;
 
     if (!gfx_area_intersect(&clip_area, &render_area, &obj_area)) {
@@ -210,12 +204,14 @@ static void gfx_qrcode_blend_to_dest(gfx_obj_t *obj, gfx_qrcode_t *qrcode,
     gfx_coord_t src_stride = qrcode->scaled_size;
 
     /* Calculate source and destination buffer pointers with offset */
-    gfx_color_t *src_pixels = (gfx_color_t *)qrcode->qr_modules + 
-                               (clip_area.y1 - *obj_y) * src_stride + 
-                               (clip_area.x1 - *obj_x);
-    gfx_color_t *dest_pixels = (gfx_color_t *)dest_buf + 
-                                (clip_area.y1 - y1) * dest_stride + 
-                                (clip_area.x1 - x1);
+    gfx_color_t *src_pixels = (gfx_color_t *)GFX_BUFFER_OFFSET_16BPP(qrcode->qr_modules,
+                              clip_area.y1 - obj->y,
+                              src_stride,
+                              clip_area.x1 - obj->x);
+    gfx_color_t *dest_pixels = (gfx_color_t *)GFX_BUFFER_OFFSET_16BPP(dest_buf,
+                               clip_area.y1 - y1,
+                               dest_stride,
+                               clip_area.x1 - x1);
 
     gfx_sw_blend_img_draw(
         dest_pixels,
@@ -251,7 +247,6 @@ void gfx_draw_qrcode(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void 
     if (qrcode->needs_update) {
         esp_err_t ret = gfx_qrcode_generate(obj, swap);
         if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to generate QR Code");
             return;
         }
         qrcode->needs_update = false;
@@ -294,8 +289,12 @@ gfx_obj_t *gfx_qrcode_create(gfx_handle_t handle)
     /* Set default values */
     qrcode->display_size = 100;  /* Default 100x100 pixels */
     qrcode->ecc = GFX_QRCODE_ECC_LOW;
-    qrcode->color = (gfx_color_t) { .full = 0x0000 };     /* Black */
-    qrcode->bg_color = (gfx_color_t) { .full = 0xFFFF };  /* White */
+    qrcode->color = (gfx_color_t) {
+        .full = 0xFFFF
+    };     /* White */
+    qrcode->bg_color = (gfx_color_t) {
+        .full = 0x0000
+    };  /* Black */
     qrcode->needs_update = true;
 
     obj->src = qrcode;
@@ -365,7 +364,7 @@ esp_err_t gfx_qrcode_set_size(gfx_obj_t *obj, uint16_t size)
     gfx_qrcode_t *qrcode = (gfx_qrcode_t *)obj->src;
     qrcode->display_size = size;
     qrcode->needs_update = true;  /* Size change requires buffer regeneration */
-    
+
     obj->width = size;
     obj->height = size;
 

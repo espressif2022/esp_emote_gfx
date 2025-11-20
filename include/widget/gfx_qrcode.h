@@ -93,4 +93,3 @@ esp_err_t gfx_qrcode_set_bg_color(gfx_obj_t *obj, gfx_color_t bg_color);
 #ifdef __cplusplus
 }
 #endif
-

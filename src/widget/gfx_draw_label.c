@@ -1257,17 +1257,12 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
         return ESP_ERR_INVALID_ARG;
     }
 
-    /* Get parent screen size and calculate object position */
-    uint32_t parent_width, parent_height;
-    gfx_emote_get_screen_size(obj->parent_handle, &parent_width, &parent_height);
-
-    gfx_coord_t *obj_x = &obj->x;
-    gfx_coord_t *obj_y = &obj->y;
-    gfx_obj_cal_aligned_pos(obj, parent_width, parent_height, obj_x, obj_y);
+    /* Get parent dimensions and calculate aligned position */
+    gfx_obj_calc_pos_in_parent(obj);
 
     /* Calculate clipping area */
     gfx_area_t render_area = {x1, y1, x2, y2};
-    gfx_area_t obj_area = {*obj_x, *obj_y, *obj_x + obj->width, *obj_y + obj->height};
+    gfx_area_t obj_area = {obj->x, obj->y, obj->x + obj->width, obj->y + obj->height};
     gfx_area_t clip_area;
 
     if (!gfx_area_intersect(&clip_area, &render_area, &obj_area)) {
@@ -1296,13 +1291,18 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
         return ESP_ERR_INVALID_STATE;
     }
 
-    gfx_color_t *dest_pixels = (gfx_color_t *)dest_buf + (clip_area.y1 - y1) * (x2 - x1) + (clip_area.x1 - x1);
+    /* Calculate destination and mask buffer pointers with offset */
     gfx_coord_t dest_stride = (x2 - x1);
-    gfx_coord_t mask_offset_y = (clip_area.y1 - *obj_y);
+    gfx_color_t *dest_pixels = (gfx_color_t *)GFX_BUFFER_OFFSET_16BPP(dest_buf,
+                               clip_area.y1 - y1,
+                               dest_stride,
+                               clip_area.x1 - x1);
 
-    gfx_opa_t *mask = label->mask;
     gfx_coord_t mask_stride = obj->width;
-    mask += mask_offset_y * mask_stride;
+    gfx_opa_t *mask = (gfx_opa_t *)GFX_BUFFER_OFFSET_8BPP(label->mask,
+                      clip_area.y1 - obj->y,
+                      mask_stride,
+                      clip_area.x1 - obj->x);
 
     gfx_color_t color = label->color;
     if (swap) {

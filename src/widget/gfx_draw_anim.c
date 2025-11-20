@@ -281,18 +281,12 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
     int block_height = header->block_height;
     int num_blocks = header->blocks;
 
-    /* Get parent screen size for mirror offset calculation */
-    uint32_t parent_w, parent_h;
-    gfx_emote_get_screen_size(obj->parent_handle, &parent_w, &parent_h);
-
-    /* Calculate object position */
-    gfx_coord_t *obj_x = &obj->x;
-    gfx_coord_t *obj_y = &obj->y;
-    gfx_obj_cal_aligned_pos(obj, parent_w, parent_h, obj_x, obj_y);
+    /* Get parent dimensions and calculate aligned position */
+    gfx_obj_calc_pos_in_parent(obj);
 
     /* Calculate clipping area for object */
     gfx_area_t render_area = {x1, y1, x2, y2};
-    gfx_area_t obj_area = {*obj_x, *obj_y, *obj_x + obj->width, *obj_y + obj->height};
+    gfx_area_t obj_area = {obj->x, obj->y, obj->x + obj->width, obj->y + obj->height};
     gfx_area_t clip_area;
 
     if (!gfx_area_intersect(&clip_area, &render_area, &obj_area)) {
@@ -308,10 +302,10 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
         int block_end_x = frame_width;
 
         /* Translate to screen coordinates */
-        block_start_y += *obj_y;
-        block_end_y += *obj_y;
-        block_start_x += *obj_x;
-        block_end_x += *obj_x;
+        block_start_y += obj->y;
+        block_end_y += obj->y;
+        block_start_x += obj->x;
+        block_end_x += obj->x;
 
         /* Calculate clipping area for this block */
         gfx_area_t block_area = {block_start_x, block_start_y, block_end_x, block_end_y};
@@ -349,16 +343,31 @@ esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, con
         /* Calculate source pixel pointer based on bit depth */
         uint8_t *src_pixels = NULL;
         if (header->bit_depth == 24) {
-            src_pixels = pixel_buffer + src_offset_y * (src_stride * 2) + src_offset_x * 2;
+            /* 24-bit depth stored as RGB565 format */
+            src_pixels = GFX_BUFFER_OFFSET_16BPP(pixel_buffer,
+                                                 src_offset_y,
+                                                 src_stride,
+                                                 src_offset_x);
         } else if (header->bit_depth == 4) {
-            src_pixels = pixel_buffer + src_offset_y * (src_stride / 2) + src_offset_x / 2;
+            /* 4-bit depth: 2 pixels per byte */
+            src_pixels = GFX_BUFFER_OFFSET_4BPP(pixel_buffer,
+                                                src_offset_y,
+                                                src_stride,
+                                                src_offset_x);
         } else {
-            src_pixels = pixel_buffer + src_offset_y * src_stride + src_offset_x;
+            /* 8-bit depth: 1 pixel per byte */
+            src_pixels = GFX_BUFFER_OFFSET_8BPP(pixel_buffer,
+                                                src_offset_y,
+                                                src_stride,
+                                                src_offset_x);
         }
 
         /* Calculate destination pixel pointer */
         int dest_x_offset = clip_block.x1 - x1;
-        gfx_color_t *dest_pixels = (gfx_color_t *)dest_buf + (clip_block.y1 - y1) * dest_stride + dest_x_offset;
+        gfx_color_t *dest_pixels = (gfx_color_t *)GFX_BUFFER_OFFSET_16BPP(dest_buf,
+                                   clip_block.y1 - y1,
+                                   dest_stride,
+                                   clip_block.x1 - x1);
 
         /* Render pixels */
         esp_err_t render_result = gfx_anim_render_pixels(

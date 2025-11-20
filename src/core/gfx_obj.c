@@ -241,6 +241,18 @@ void gfx_obj_cal_aligned_pos(gfx_obj_t *obj, uint32_t parent_width, uint32_t par
     *y = calculated_y;
 }
 
+void gfx_obj_calc_pos_in_parent(gfx_obj_t *obj)
+{
+    GFX_RETURN_IF_NULL_VOID(obj);
+
+    /* Get parent container dimensions */
+    uint32_t parent_w, parent_h;
+    gfx_emote_get_screen_size(obj->parent_handle, &parent_w, &parent_h);
+
+    /* Calculate aligned position (modifies obj->x and obj->y in place) */
+    gfx_obj_cal_aligned_pos(obj, parent_w, parent_h, &obj->x, &obj->y);
+}
+
 /*=====================
  * Getter functions
  *====================*/

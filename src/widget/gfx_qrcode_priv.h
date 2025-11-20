@@ -70,4 +70,3 @@ esp_err_t gfx_qrcode_delete(gfx_obj_t *obj);
 #ifdef __cplusplus
 }
 #endif
-

@@ -50,6 +50,17 @@ typedef struct gfx_core_child_t {
  */
 void gfx_obj_cal_aligned_pos(gfx_obj_t *obj, uint32_t parent_width, uint32_t parent_height, gfx_coord_t *x, gfx_coord_t *y);
 
+/**
+ * @brief Get parent dimensions and calculate aligned object position
+ *
+ * This is a convenience function that combines getting parent screen size
+ * and calculating the aligned position of the object. It modifies obj->x
+ * and obj->y in place based on the alignment settings.
+ *
+ * @param obj Pointer to the object
+ */
+void gfx_obj_calc_pos_in_parent(gfx_obj_t *obj);
+
 #ifdef __cplusplus
 }
 #endif
