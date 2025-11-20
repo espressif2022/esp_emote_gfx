@@ -67,10 +67,9 @@ void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *de
     uint16_t image_height = header.h;
     uint8_t color_format = header.cf;
 
-    // Check color format - support RGB565A8 format
-    if (color_format != GFX_COLOR_FORMAT_RGB565A8) {
-        ESP_LOGW(TAG, "Unsupported color format: 0x%02X, only RGB565A8 (0x%02X) is supported",
-                 color_format, GFX_COLOR_FORMAT_RGB565A8);
+    // Check color format - support RGB565 and RGB565A8 formats
+    if (color_format != GFX_COLOR_FORMAT_RGB565 && color_format != GFX_COLOR_FORMAT_RGB565A8) {
+        ESP_LOGW(TAG, "Unsupported color format");
         return;
     }
 
@@ -120,8 +119,13 @@ void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *de
 
     // Calculate data pointers based on format
     gfx_color_t *src_pixels = (gfx_color_t *)(image_data + (clip_area.y1 - *obj_y) * src_stride * 2 + (clip_area.x1 - *obj_x) * 2);
-    gfx_opa_t *alpha_mask = (gfx_opa_t *)(image_data + src_stride * image_height * 2 + (clip_area.y1 - *obj_y) * src_stride + (clip_area.x1 - *obj_x));
     gfx_color_t *dest_pixels = (gfx_color_t *)dest_buf + (clip_area.y1 - y1) * dest_stride + (clip_area.x1 - x1);
+
+    // Alpha mask is only present in RGB565A8 format
+    gfx_opa_t *alpha_mask = NULL;
+    if (color_format == GFX_COLOR_FORMAT_RGB565A8) {
+        alpha_mask = (gfx_opa_t *)(image_data + src_stride * image_height * 2 + (clip_area.y1 - *obj_y) * src_stride + (clip_area.x1 - *obj_x));
+    }
 
     gfx_sw_blend_img_draw(
         dest_pixels,
@@ -129,7 +133,7 @@ void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *de
         src_pixels,
         src_stride,
         alpha_mask,
-        src_stride,
+        alpha_mask ? src_stride : 0,
         &clip_area,
         255,
         swap
@@ -190,7 +194,6 @@ esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src)
     gfx_obj_update_layout(obj);
     gfx_obj_invalidate(obj);
 
-    ESP_LOGI(TAG, "Set image source, size: %dx%d", obj->width, obj->height);
     return ESP_OK;
 }
 

@@ -13,6 +13,7 @@
 #include "widget/gfx_img_priv.h"
 #include "widget/gfx_label_priv.h"
 #include "widget/gfx_anim_priv.h"
+#include "widget/gfx_qrcode_priv.h"
 
 static const char *TAG = "gfx_obj";
 
@@ -56,7 +57,9 @@ esp_err_t gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h)
 {
     GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
 
-    if (obj->type == GFX_OBJ_TYPE_ANIMATION || obj->type == GFX_OBJ_TYPE_IMAGE) {
+    if (obj->type == GFX_OBJ_TYPE_ANIMATION ||
+            obj->type == GFX_OBJ_TYPE_IMAGE ||
+            obj->type == GFX_OBJ_TYPE_QRCODE) {
         ESP_LOGW(TAG, "Set size is not useful");
     } else {
         //invalidate the old size
@@ -286,6 +289,9 @@ esp_err_t gfx_obj_delete(gfx_obj_t *obj)
         break;
     case GFX_OBJ_TYPE_IMAGE:
         gfx_img_delete(obj);
+        break;
+    case GFX_OBJ_TYPE_QRCODE:
+        gfx_qrcode_delete(obj);
         break;
     default:
         ESP_LOGW(TAG, "Unknown object type: %d", obj->type);

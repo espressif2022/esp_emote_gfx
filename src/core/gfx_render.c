@@ -10,6 +10,7 @@
 #include "widget/gfx_img_priv.h"
 #include "widget/gfx_label_priv.h"
 #include "widget/gfx_anim_priv.h"
+#include "widget/gfx_qrcode_priv.h"
 
 static const char *TAG = "gfx_render";
 
@@ -71,6 +72,8 @@ void gfx_render_child_objects(gfx_core_context_t *ctx, int x1, int y1, int x2, i
             gfx_draw_img(obj, x1, y1, x2, y2, dest_buf, swap);
         } else if (obj->type == GFX_OBJ_TYPE_ANIMATION) {
             gfx_draw_animation(obj, x1, y1, x2, y2, dest_buf, swap);
+        } else if (obj->type == GFX_OBJ_TYPE_QRCODE) {
+            gfx_draw_qrcode(obj, x1, y1, x2, y2, dest_buf, swap);
         }
 
         child_node = child_node->next;
@@ -93,7 +96,7 @@ uint32_t gfx_render_area_summary(gfx_core_context_t *ctx)
         gfx_area_t *area = &ctx->disp.dirty_areas[i];
         uint32_t area_size = gfx_area_get_size(area);
         total_dirty_pixels += area_size;
-        ESP_LOGI(TAG, "Draw area [%d]: (%d,%d)->(%d,%d) %dx%d",
+        ESP_LOGD(TAG, "Draw area [%d]: (%d,%d)->(%d,%d) %dx%d",
                  i, area->x1, area->y1, area->x2, area->y2,
                  area->x2 - area->x1 + 1, area->y2 - area->y1 + 1);
     }
@@ -120,11 +123,6 @@ uint32_t gfx_render_part_area(gfx_core_context_t *ctx, gfx_area_t *area,
         return 0;
     }
 
-    // uint32_t area_height = area->y2 - area->y1 + 1;
-    // uint32_t area_pixels = area_width * area_height;
-    // uint32_t total_flushes = (area_height + per_flush - 1) / per_flush;
-    // ESP_LOGI(TAG, "Area[%d]: %lupx split to %lu flushes", area_idx, area_pixels, total_flushes);
-
     int current_y = area->y1;
     uint32_t flush_idx = 0;
     uint32_t flushes_done = 0;
@@ -149,7 +147,7 @@ uint32_t gfx_render_part_area(gfx_core_context_t *ctx, gfx_area_t *area,
             xEventGroupClearBits(ctx->sync.event_group, WAIT_FLUSH_DONE);
 
             uint32_t chunk_pixels = area_width * (y2 - y1);
-            ESP_LOGI(TAG, "Flush[%lu]: (%d,%d)->(%d,%d) %lupx",
+            ESP_LOGD(TAG, "Flush[%lu]: (%d,%d)->(%d,%d) %lupx",
                      start_block_count + flush_idx, x1, y1, x2 - 1, y2 - 1, chunk_pixels);
 
             ctx->callbacks.flush_cb(ctx, x1, y1, x2, y2, buf_act);

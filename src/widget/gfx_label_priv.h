@@ -51,6 +51,12 @@ typedef struct {
     bool scroll_changed;    /**< Scroll position changed */
     void *scroll_timer;     /**< Timer handle for scroll animation */
     int32_t text_width;     /**< Total text width */
+
+    /* Snap scroll properties */
+    uint32_t snap_interval; /**< Snap interval time in ms (time to display each section) */
+    int32_t snap_offset;    /**< Snap offset in pixels (auto-calculated as obj->width) */
+    bool snap_loop;         /**< Enable continuous snap looping */
+    void *snap_timer;       /**< Timer handle for snap animation */
 } gfx_label_t;
 
 /**********************

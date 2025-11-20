@@ -134,6 +134,20 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
     int32_t h = clip_area->y2 - clip_area->y1;
 
     int32_t x, y;
+
+    // Fast path: no mask, opaque rendering (RGB565 format)
+    if (mask == NULL && opa >= OPA_MAX) {
+        for (y = 0; y < h; y++) {
+            for (x = 0; x < w; x++) {
+                dest_buf[x] = src_buf[x];
+            }
+            dest_buf += dest_stride;
+            src_buf += src_stride;
+        }
+        return;
+    }
+
+    // Slow path: with mask or partial opacity
     gfx_color_t last_dest_color;
     gfx_color_t last_res_color;
     gfx_color_t last_src_color;
@@ -141,7 +155,7 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
     last_dest_color.full = dest_buf[0].full;
     last_res_color.full = dest_buf[0].full;
     last_src_color.full = src_buf[0].full;
-    gfx_opa_t opa_tmp = OPA_TRANSP;
+    gfx_opa_t opa_tmp = opa; // Initialize with base opacity
 
     for (y = 0; y < h; y++) {
         for (x = 0; x < w; x++) {

@@ -25,7 +25,8 @@ extern "C" {
 
 /* Color format enumeration - simplified for public use */
 typedef enum {
-    GFX_COLOR_FORMAT_RGB565A8 = 0x0A,
+    GFX_COLOR_FORMAT_RGB565   = 0x04,  /**< RGB565 format without alpha channel */
+    GFX_COLOR_FORMAT_RGB565A8 = 0x0A,  /**< RGB565 format with separate alpha channel */
 } gfx_color_format_t;
 
 typedef struct {

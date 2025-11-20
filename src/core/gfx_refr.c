@@ -114,7 +114,7 @@ void gfx_refr_merge_areas(gfx_core_context_t *ctx)
                 /* Mark 'src_idx' as merged into 'dst_idx' */
                 ctx->disp.area_merged[src_idx] = 1;
 
-                ESP_LOGI(TAG, "Merged area [%d] into [%d], saved %lu pixels",
+                ESP_LOGD(TAG, "Merged area [%d] into [%d], saved %lu pixels",
                          src_idx, dst_idx, separate_size - merged_size);
             }
         }
@@ -162,7 +162,7 @@ void gfx_invalidate_area(gfx_handle_t handle, const gfx_area_t *area_p)
     if (ctx->disp.dirty_count < GFX_INV_BUF_SIZE) {
         gfx_area_copy(&ctx->disp.dirty_areas[ctx->disp.dirty_count], &clipped_area);
         ctx->disp.dirty_count++;
-        ESP_LOGI(TAG, "Added dirty area [%d,%d,%d,%d], total: %d",
+        ESP_LOGD(TAG, "Added dirty area [%d,%d,%d,%d], total: %d",
                  clipped_area.x1, clipped_area.y1, clipped_area.x2, clipped_area.y2, ctx->disp.dirty_count);
     } else {
         /* No space left, mark entire screen as dirty */
@@ -223,9 +223,6 @@ void gfx_refr_update_layout_dirty(gfx_core_context_t *ctx)
 
             // Clear layout dirty flag
             obj->layout_dirty = false;
-
-            ESP_LOGI(TAG, "Updated layout for dirty object: new pos=(%d,%d), size=%dx%d",
-                     obj->x, obj->y, obj->width, obj->height);
         }
 
         child_node = child_node->next;

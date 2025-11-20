@@ -124,6 +124,132 @@ static void gfx_label_scroll_timer_callback(void *arg)
     gfx_obj_invalidate(obj);
 }
 
+/**
+ * @brief Calculate snap offset aligned to character/word boundary
+ * @param label Label context
+ * @param font Font context
+ * @param current_offset Current scroll offset
+ * @param target_width Target width to display (usually obj->width)
+ * @return Snap offset aligned to character/word boundary
+ */
+static int32_t gfx_calculate_snap_offset(gfx_label_t *label, gfx_font_ctx_t *font,
+        int32_t current_offset, int32_t target_width)
+{
+    if (!label->text || !font) {
+        return target_width;
+    }
+
+    const char *text = label->text;
+    int accumulated_width = 0;
+    const char *p = text;
+
+    /* Skip characters until we reach current_offset */
+    while (*p && accumulated_width < current_offset) {
+        uint32_t unicode = 0;
+        int bytes_in_char = gfx_utf8_to_unicode(&p, &unicode);
+        if (bytes_in_char == 0) {
+            p++;
+            continue;
+        }
+
+        int char_width = font->get_glyph_width(font, unicode);
+        accumulated_width += char_width;
+    }
+
+    /* Reset for calculating snap offset from current position */
+    int section_width = 0;
+    int last_valid_width = 0;
+    int last_space_width = 0;  /* Width at last space (word boundary) */
+
+    /* Calculate how many complete characters fit in target_width */
+    while (*p) {
+        uint32_t unicode = 0;
+        const char *p_before = p;
+        int bytes_in_char = gfx_utf8_to_unicode(&p, &unicode);
+        if (bytes_in_char == 0) {
+            p++;
+            continue;
+        }
+
+        if (*p_before == '\n') {
+            break;
+        }
+
+        uint8_t c = (uint8_t) * p_before;
+        int char_width = font->get_glyph_width(font, unicode);
+
+        /* Check if adding this character would exceed target_width */
+        if (section_width + char_width > target_width) {
+            /* Prefer to break at word boundary (space) if available */
+            if (last_space_width > 0) {
+                last_valid_width = last_space_width;
+            }
+            /* Otherwise use last complete character */
+            break;
+        }
+
+        section_width += char_width;
+        last_valid_width = section_width;
+
+        /* Record position after space for word boundary */
+        if (c == ' ') {
+            last_space_width = section_width;
+        }
+    }
+
+    /* Return the width of complete characters that fit */
+    return last_valid_width > 0 ? last_valid_width : target_width;
+}
+
+static void gfx_label_snap_timer_callback(void *arg)
+{
+    gfx_obj_t *obj = (gfx_obj_t *)arg;
+    if (!obj || obj->type != GFX_OBJ_TYPE_LABEL) {
+        return;
+    }
+
+    gfx_label_t *label = (gfx_label_t *)obj->src;
+    if (!label || label->long_mode != GFX_LABEL_LONG_SCROLL_SNAP) {
+        return;
+    }
+
+    gfx_font_ctx_t *font = (gfx_font_ctx_t *)label->font_ctx;
+    if (!font) {
+        return;
+    }
+
+    /* Calculate snap offset aligned to character boundary */
+    int32_t aligned_offset = gfx_calculate_snap_offset(label, font, label->scroll_offset, obj->width);
+
+    /* If no valid offset found, use default */
+    if (aligned_offset == 0) {
+        aligned_offset = obj->width;
+    }
+
+    /* Jump to next section */
+    label->scroll_offset += aligned_offset;
+    ESP_LOGI(TAG, "aligned_offset: %d, text_width: %d, scroll_offset: %d",
+             label->scroll_offset - aligned_offset, label->text_width, label->scroll_offset);
+
+    /* Handle looping */
+    if (label->snap_loop) {
+        if (label->scroll_offset >= label->text_width) {
+            label->scroll_offset = 0;
+        }
+    } else {
+        if (label->scroll_offset >= label->text_width) {
+            label->scroll_offset = label->text_width - obj->width;
+            if (label->scroll_offset < 0) {
+                label->scroll_offset = 0;
+            }
+            gfx_timer_pause(label->snap_timer);
+        }
+    }
+
+    /* Trigger redraw */
+    gfx_obj_invalidate(obj);
+}
+
 /*=====================
  * Label object creation
  *====================*/
@@ -168,6 +294,11 @@ gfx_obj_t *gfx_label_create(gfx_handle_t handle)
     label->scroll_changed = false;
     label->scroll_timer = NULL;
     label->text_width = 0;
+
+    label->snap_interval = 2000;  /* Default 2000ms per section */
+    label->snap_offset = 0;       /* Will be auto-calculated as obj->width */
+    label->snap_loop = true;
+    label->snap_timer = NULL;
 
     label->lines = NULL;
     label->line_count = 0;
@@ -254,12 +385,22 @@ esp_err_t gfx_label_set_text(gfx_obj_t *obj, const char *text)
 
     gfx_label_clear_cached_lines(label);
 
+    /* Reset scroll state for smooth scroll mode */
     if (label->long_mode == GFX_LABEL_LONG_SCROLL) {
         if (label->scrolling) {
             label->scrolling = false;
             if (label->scroll_timer) {
                 gfx_timer_pause(label->scroll_timer);
             }
+        }
+        label->scroll_offset = 0;
+        label->text_width = 0;
+    }
+
+    /* Reset scroll state for snap mode */
+    if (label->long_mode == GFX_LABEL_LONG_SCROLL_SNAP) {
+        if (label->snap_timer) {
+            gfx_timer_pause(label->snap_timer);
         }
         label->scroll_offset = 0;
         label->text_width = 0;
@@ -375,15 +516,23 @@ esp_err_t gfx_label_set_long_mode(gfx_obj_t *obj, gfx_label_long_mode_t long_mod
     label->long_mode = long_mode;
 
     if (old_mode != long_mode) {
+        /* Stop smooth scrolling if switching from scroll mode */
         if (label->scrolling) {
             label->scrolling = false;
             if (label->scroll_timer) {
                 gfx_timer_pause(label->scroll_timer);
             }
         }
+
+        /* Stop snap scrolling if switching from snap mode */
+        if (old_mode == GFX_LABEL_LONG_SCROLL_SNAP && label->snap_timer) {
+            gfx_timer_pause(label->snap_timer);
+        }
+
         label->scroll_offset = 0;
         label->text_width = 0;
 
+        /* Handle smooth scroll timer */
         if (long_mode == GFX_LABEL_LONG_SCROLL && !label->scroll_timer) {
             label->scroll_timer = gfx_timer_create(obj->parent_handle,
                                                    gfx_label_scroll_timer_callback,
@@ -396,6 +545,21 @@ esp_err_t gfx_label_set_long_mode(gfx_obj_t *obj, gfx_label_long_mode_t long_mod
             gfx_timer_delete(obj->parent_handle, label->scroll_timer);
             label->scroll_timer = NULL;
         }
+
+        /* Handle snap scroll timer */
+        if (long_mode == GFX_LABEL_LONG_SCROLL_SNAP && !label->snap_timer) {
+            label->snap_timer = gfx_timer_create(obj->parent_handle,
+                                                 gfx_label_snap_timer_callback,
+                                                 label->snap_interval,
+                                                 obj);
+            if (label->snap_timer) {
+                gfx_timer_set_repeat_count(label->snap_timer, -1);
+            }
+        } else if (long_mode != GFX_LABEL_LONG_SCROLL_SNAP && label->snap_timer) {
+            gfx_timer_delete(obj->parent_handle, label->snap_timer);
+            label->snap_timer = NULL;
+        }
+
         gfx_obj_invalidate(obj);
     }
 
@@ -457,6 +621,37 @@ esp_err_t gfx_label_set_scroll_step(gfx_obj_t *obj, int32_t step)
 
     label->scroll_step = step;
     ESP_LOGD(TAG, "set scroll step: %"PRId32, step);
+    return ESP_OK;
+}
+
+esp_err_t gfx_label_set_snap_interval(gfx_obj_t *obj, uint32_t interval_ms)
+{
+    CHECK_OBJ_TYPE_LABEL(obj);
+    ESP_RETURN_ON_FALSE(interval_ms > 0, ESP_ERR_INVALID_ARG, TAG, "invalid snap interval");
+
+    gfx_label_t *label = (gfx_label_t *)obj->src;
+    ESP_RETURN_ON_FALSE(label, ESP_ERR_INVALID_STATE, TAG, "label property is NULL");
+
+    label->snap_interval = interval_ms;
+
+    if (label->snap_timer) {
+        gfx_timer_set_period(label->snap_timer, interval_ms);
+    }
+
+    ESP_LOGD(TAG, "set snap interval: %"PRIu32" ms", interval_ms);
+    return ESP_OK;
+}
+
+esp_err_t gfx_label_set_snap_loop(gfx_obj_t *obj, bool loop)
+{
+    CHECK_OBJ_TYPE_LABEL(obj);
+
+    gfx_label_t *label = (gfx_label_t *)obj->src;
+    ESP_RETURN_ON_FALSE(label, ESP_ERR_INVALID_STATE, TAG, "label property is NULL");
+
+    label->snap_loop = loop;
+    ESP_LOGD(TAG, "set snap loop: %s", loop ? "enabled" : "disabled");
+
     return ESP_OK;
 }
 
@@ -718,17 +913,68 @@ static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const 
     gfx_label_t *label = (gfx_label_t *)obj->src;
 
     int start_x = gfx_cal_text_start_x(label->text_align, obj->width, line_width);
-    // ESP_LOGI(TAG, "start_x: %d, text_align: %d, obj_width: %d, line_width: %d, scrolling: %d, offset: %d",
-    //     start_x, label->text_align, obj->width, line_width, label->scrolling, label->scroll_offset);
 
+    /* Apply scroll offset for both smooth scroll and snap scroll modes */
     if (label->long_mode == GFX_LABEL_LONG_SCROLL && label->scrolling) {
         start_x -= label->scroll_offset;
+    } else if (label->long_mode == GFX_LABEL_LONG_SCROLL_SNAP) {
+        start_x -= label->scroll_offset;
+    }
+
+    /* For snap mode, find the last complete word that fits in viewport */
+    const char *render_end = NULL;
+    if (label->long_mode == GFX_LABEL_LONG_SCROLL_SNAP) {
+        int scan_x = start_x;
+        const char *p_scan = line_text;
+        const char *last_space_ptr = NULL;
+        const char *last_valid_ptr = NULL;
+
+        while (*p_scan) {
+            uint32_t unicode = 0;
+            const char *p_before = p_scan;
+            int bytes_consumed = gfx_utf8_to_unicode(&p_scan, &unicode);
+            if (bytes_consumed == 0) {
+                p_scan++;
+                continue;
+            }
+
+            uint8_t c = (uint8_t) * p_before;
+            gfx_glyph_dsc_t glyph_dsc;
+            if (font->get_glyph_dsc(font, &glyph_dsc, unicode, 0)) {
+                int char_width = font->get_advance_width(font, &glyph_dsc);
+
+                /* Check if this character would go beyond viewport */
+                if (scan_x + char_width > obj->width) {
+                    /* Use last space position if available, otherwise last complete character */
+                    render_end = last_space_ptr ? last_space_ptr : last_valid_ptr;
+                    break;
+                }
+
+                scan_x += char_width;
+                last_valid_ptr = p_scan;
+
+                /* Track space positions for word boundary */
+                if (c == ' ') {
+                    last_space_ptr = p_scan;
+                }
+            }
+        }
+
+        /* If we scanned everything without exceeding, render all */
+        if (!render_end) {
+            render_end = p_scan;
+        }
     }
 
     int x = start_x;
     const char *p = line_text;
 
     while (*p) {
+        /* In snap mode, stop at calculated end position */
+        if (label->long_mode == GFX_LABEL_LONG_SCROLL_SNAP && render_end && p >= render_end) {
+            break;
+        }
+
         uint32_t unicode = 0;
         int bytes_consumed = gfx_utf8_to_unicode(&p, &unicode);
         if (bytes_consumed == 0) {
@@ -870,6 +1116,7 @@ static void gfx_cleanup_line_data(char **lines, int line_count, int *line_widths
 
 static void gfx_update_scroll_state(gfx_label_t *label, gfx_obj_t *obj)
 {
+    /* Handle smooth scroll mode */
     if (label->long_mode == GFX_LABEL_LONG_SCROLL && label->text_width > obj->width) {
         if (!label->scrolling) {
             label->scrolling = true;
@@ -883,6 +1130,18 @@ static void gfx_update_scroll_state(gfx_label_t *label, gfx_obj_t *obj)
         if (label->scroll_timer) {
             gfx_timer_pause(label->scroll_timer);
         }
+        label->scroll_offset = 0;
+    }
+
+    /* Handle snap scroll mode */
+    if (label->long_mode == GFX_LABEL_LONG_SCROLL_SNAP && label->text_width > obj->width) {
+        /* snap_offset will be dynamically calculated in timer callback based on character boundaries */
+        if (label->snap_timer) {
+            gfx_timer_reset(label->snap_timer);
+            gfx_timer_resume(label->snap_timer);
+        }
+    } else if (label->long_mode == GFX_LABEL_LONG_SCROLL_SNAP && label->snap_timer) {
+        gfx_timer_pause(label->snap_timer);
         label->scroll_offset = 0;
     }
 }
@@ -1068,6 +1327,11 @@ esp_err_t gfx_label_delete(gfx_obj_t *obj)
         if (label->scroll_timer) {
             gfx_timer_delete(obj->parent_handle, label->scroll_timer);
             label->scroll_timer = NULL;
+        }
+
+        if (label->snap_timer) {
+            gfx_timer_delete(obj->parent_handle, label->snap_timer);
+            label->snap_timer = NULL;
         }
 
         gfx_label_clear_cached_lines(label);
