@@ -41,6 +41,7 @@ typedef struct {
     uint32_t last_tick;
     uint32_t fps; ///< Target FPS for timer scheduling
     uint32_t actual_fps; ///< Actual measured FPS
+    bool should_render; ///< Flag indicating if render should be called (controlled by FPS)
     /* FPS statistics */
     uint32_t fps_last_report_tick; ///< Last time FPS was reported
     uint32_t fps_report_interval_ms; ///< FPS report interval in milliseconds (default 500 ms)

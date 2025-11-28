@@ -56,7 +56,7 @@ esp_err_t gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h)
     if (obj->type == GFX_OBJ_TYPE_ANIMATION ||
             obj->type == GFX_OBJ_TYPE_IMAGE ||
             obj->type == GFX_OBJ_TYPE_QRCODE) {
-        ESP_LOGW(TAG, "Set size is not useful");
+        ESP_LOGD(TAG, "Set size is not useful for type: %d", obj->type);
     } else {
         //invalidate the old size
         gfx_obj_invalidate(obj);

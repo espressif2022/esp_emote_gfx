@@ -7,6 +7,7 @@
 #include "esp_log.h"
 #include "core/gfx_render_priv.h"
 #include "core/gfx_refr_priv.h"
+#include "core/gfx_timer_priv.h"
 
 static const char *TAG = "gfx_render";
 
@@ -200,8 +201,30 @@ void gfx_render_cleanup(gfx_core_context_t *ctx)
  */
 bool gfx_render_handler(gfx_core_context_t *ctx)
 {
+    static uint32_t fps_sample_count = 0;
+    static uint32_t fps_total_time = 0;
+    static uint32_t last_render_tick = 0;
+
+    // FPS statistics - count every render call (even if no dirty areas)
+    uint32_t current_tick = gfx_timer_tick_get();
+    if (last_render_tick == 0) {
+        last_render_tick = current_tick;
+    } else {
+        uint32_t render_elapsed = gfx_timer_tick_elaps(last_render_tick);
+        fps_sample_count++;
+        fps_total_time += render_elapsed;
+        last_render_tick = current_tick;
+
+        if (fps_sample_count >= 100) {
+            gfx_timer_mgr_t *timer_mgr = &ctx->timer.timer_mgr;
+            timer_mgr->actual_fps = (fps_sample_count * 1000) / fps_total_time;
+            ESP_LOGI(TAG, "average fps: %"PRIu32"(%"PRIu32")", timer_mgr->actual_fps, timer_mgr->fps);
+            fps_sample_count = 0;
+            fps_total_time = 0;
+        }
+    }
+
     // Update layout for objects marked as dirty before rendering
-    // This ensures alignment calculations are correct when size changes
     gfx_refr_update_layout_dirty(ctx);
 
     if (ctx->disp.dirty_count > 1) {

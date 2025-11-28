@@ -295,7 +295,8 @@ static void gfx_core_task(void *arg)
 
             timer_delay = gfx_timer_handler(&ctx->timer.timer_mgr);
 
-            if (ctx->disp.child_list != NULL) {
+            // Only render when FPS period has elapsed (controlled by timer_mgr->should_render)
+            if (ctx->timer.timer_mgr.should_render && ctx->disp.child_list != NULL) {
                 gfx_render_handler(ctx);
             }
 
