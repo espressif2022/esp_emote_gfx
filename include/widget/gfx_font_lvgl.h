@@ -305,7 +305,26 @@ static inline bool lv_font_get_glyph_dsc_fmt_txt(const lv_font_t *font, lv_font_
     (void)unicode_letter_next;
     return false; // Empty function for LVGL compatibility
 }
+
 #endif
+
+/**********************
+ *   BINARY FONT CREATION FUNCTIONS
+ **********************/
+
+/**
+ * @brief Create an LVGL font from binary data
+ * @param bin_addr Pointer to binary data containing lv_font_t structure
+ * @return Pointer to created lv_font_t, or NULL on failure
+ */
+lv_font_t *gfx_font_lv_create_from_binary(uint8_t *bin_addr);
+
+/**
+ * @brief Delete an LVGL font created from binary data
+ * @param font Pointer to lv_font_t to delete
+ */
+void gfx_font_lv_delete(lv_font_t *font);
+
 #ifdef __cplusplus
 } /*extern "C"*/
 #endif

@@ -10,9 +10,9 @@ dependencies:
   idf:
     version: '>=5.0'
   espressif/qrcode:
-    version: '^0.1.0'
-    public: true
+    version: '^0.2.0'
     override_path: ./components/espressif__qrcode
+    public: true
   espressif/freetype:
     version: "2.*"
   espressif/esp_new_jpeg:

@@ -10,6 +10,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include "esp_log.h"
 #include "esp_check.h"
 #include "widget/gfx_font_lvgl.h"
@@ -23,6 +24,8 @@ static const char *TAG = "gfx_lv";
 
 // Utility functions
 static int unicode_list_compare(const void *ref, const void *element);
+static void *lv_use_utils_bsearch(const void *key, const void *base, uint32_t n, uint32_t size,
+                               int (*cmp)(const void *pRef, const void *pElement));
 
 // Internal LVGL font interface functions
 static uint32_t gfx_font_lv_get_glyph_index(const lv_font_t *font, uint32_t unicode);
@@ -35,9 +38,31 @@ static uint8_t gfx_font_lv_get_pixel_value(gfx_font_ctx_t *font, const uint8_t *
 static int gfx_font_lv_adjust_baseline_offset(gfx_font_ctx_t *font, void *glyph_dsc);
 static int gfx_font_lv_get_advance_width(gfx_font_ctx_t *font, void *glyph_dsc);
 
+// Binary font creation utility functions
+static void *malloc_cpy(void *src, size_t sz);
+static void addr_add(void **addr, uintptr_t add);
+
 /**********************
  *   UTILITY FUNCTIONS
  **********************/
+
+static void *malloc_cpy(void *src, size_t sz)
+{
+    void *p = malloc(sz);
+    if (!p) {
+        ESP_LOGE(TAG, "Failed to allocate memory");
+        return NULL;
+    }
+    memcpy(p, src, sz);
+    return p;
+}
+
+static void addr_add(void **addr, uintptr_t add)
+{
+    if (*addr) {
+        *addr = (void *)((uintptr_t)*addr + add);
+    }
+}
 
 static int unicode_list_compare(const void *ref, const void *element)
 {
@@ -51,6 +76,27 @@ static int unicode_list_compare(const void *ref, const void *element)
         return 1;
     }
     return 0;
+}
+
+static void *lv_use_utils_bsearch(const void *key, const void *base, uint32_t n, uint32_t size,
+                               int (*cmp)(const void *pRef, const void *pElement))
+{
+    const char *middle;
+    int32_t c;
+
+    for (middle = base; n != 0;) {
+        middle += (n / 2) * size;
+        if ((c = (*cmp)(key, middle)) > 0) {
+            n    = (n / 2) - ((n & 1) == 0);
+            base = (middle += size);
+        } else if (c < 0) {
+            n /= 2;
+            middle = base;
+        } else {
+            return (char *)middle;
+        }
+    }
+    return NULL;
 }
 
 /**********************
@@ -84,7 +130,7 @@ static uint32_t gfx_font_lv_get_glyph_index(const lv_font_t *font, uint32_t unic
         } else if (cmap->type == LV_FONT_FMT_TXT_CMAP_SPARSE_TINY) {
             if (cmap->unicode_list && cmap->list_length > 0) {
                 uint16_t key = (uint16_t)rcp;
-                uint16_t *found = (uint16_t *)_lv_utils_bsearch(&key, cmap->unicode_list, cmap->list_length,
+                uint16_t *found = (uint16_t *)lv_use_utils_bsearch(&key, cmap->unicode_list, cmap->list_length,
                                   sizeof(cmap->unicode_list[0]), unicode_list_compare);
                 if (found) {
                     uintptr_t offset = found - cmap->unicode_list;
@@ -93,7 +139,7 @@ static uint32_t gfx_font_lv_get_glyph_index(const lv_font_t *font, uint32_t unic
             }
         } else if (dsc->cmaps[i].type == LV_FONT_FMT_TXT_CMAP_SPARSE_FULL) {
             uint16_t key = rcp;
-            uint16_t *p = _lv_utils_bsearch(&key, dsc->cmaps[i].unicode_list, dsc->cmaps[i].list_length,
+            uint16_t *p = lv_use_utils_bsearch(&key, dsc->cmaps[i].unicode_list, dsc->cmaps[i].list_length,
                                             sizeof(dsc->cmaps[i].unicode_list[0]), unicode_list_compare);
 
             if (p) {
@@ -299,4 +345,122 @@ void gfx_font_lv_init_context(gfx_font_ctx_t *font_ctx, const void *font)
     font_ctx->get_pixel_value = gfx_font_lv_get_pixel_value;
     font_ctx->adjust_baseline_offset = gfx_font_lv_adjust_baseline_offset;
     font_ctx->get_advance_width = gfx_font_lv_get_advance_width;
+}
+
+/**********************
+ *   BINARY FONT CREATION FUNCTIONS
+ **********************/
+
+lv_font_t *gfx_font_lv_create_from_binary(uint8_t *bin_addr)
+{
+    if (!bin_addr) {
+        ESP_LOGE(TAG, "bin_addr is NULL");
+        return NULL;
+    }
+
+    lv_font_t *font = malloc_cpy(bin_addr, sizeof(lv_font_t));
+    if (!font) {
+        return NULL;
+    }
+
+    font->get_glyph_dsc = lv_font_get_glyph_dsc_fmt_txt;
+    font->get_glyph_bitmap = lv_font_get_bitmap_fmt_txt;
+
+    bin_addr += (uintptr_t)font->dsc;
+    lv_font_fmt_txt_dsc_t *dsc = (lv_font_fmt_txt_dsc_t *)malloc_cpy(bin_addr, sizeof(lv_font_fmt_txt_dsc_t));
+    if (!dsc) {
+        free(font);
+        return NULL;
+    }
+    font->dsc = dsc;
+
+    addr_add((void **)&dsc->glyph_bitmap, (uintptr_t)bin_addr);
+    addr_add((void **)&dsc->glyph_dsc, (uintptr_t)bin_addr);
+
+    if (dsc->cmap_num) {
+        uint8_t *cmaps_addr = bin_addr + (uintptr_t)dsc->cmaps;
+        dsc->cmaps = (lv_font_fmt_txt_cmap_t *)malloc(sizeof(lv_font_fmt_txt_cmap_t) * dsc->cmap_num);
+        if (!dsc->cmaps) {
+            ESP_LOGE(TAG, "Failed to allocate memory for cmaps");
+            free(dsc);
+            free(font);
+            return NULL;
+        }
+
+        uint8_t *ptr = cmaps_addr;
+        for (int i = 0; i < dsc->cmap_num; i++) {
+            lv_font_fmt_txt_cmap_t *cm = (lv_font_fmt_txt_cmap_t *)&dsc->cmaps[i];
+            cm->range_start = *(uint32_t *)ptr;
+            ptr += 4;
+            cm->range_length = *(uint16_t *)ptr;
+            ptr += 2;
+            cm->glyph_id_start = *(uint16_t *)ptr;
+            ptr += 2;
+            cm->unicode_list = (const uint16_t *)(*(uint32_t *)ptr);
+            ptr += 4;
+            cm->glyph_id_ofs_list = (const void *)(*(uint32_t *)ptr);
+            ptr += 4;
+            cm->list_length = *(uint16_t *)ptr;
+            ptr += 2;
+            cm->type = (lv_font_fmt_txt_cmap_type_t)*(uint8_t *)ptr;
+            ptr += 1;
+            ptr += 1; // padding
+
+            addr_add((void **)&cm->unicode_list, (uintptr_t)cmaps_addr);
+            addr_add((void **)&cm->glyph_id_ofs_list, (uintptr_t)cmaps_addr);
+        }
+    }
+
+    if (dsc->kern_dsc) {
+        uint8_t *kern_addr = bin_addr + (uintptr_t)dsc->kern_dsc;
+        if (dsc->kern_classes == 1) {
+            lv_font_fmt_txt_kern_classes_t *kcl = (lv_font_fmt_txt_kern_classes_t *)malloc_cpy(kern_addr, sizeof(lv_font_fmt_txt_kern_classes_t));
+            if (!kcl) {
+                if (dsc->cmaps) {
+                    free((void *)dsc->cmaps);
+                }
+                free(dsc);
+                free(font);
+                return NULL;
+            }
+            dsc->kern_dsc = kcl;
+            addr_add((void **)&kcl->class_pair_values, (uintptr_t)kern_addr);
+            addr_add((void **)&kcl->left_class_mapping, (uintptr_t)kern_addr);
+            addr_add((void **)&kcl->right_class_mapping, (uintptr_t)kern_addr);
+        } else if (dsc->kern_classes == 0) {
+            lv_font_fmt_txt_kern_pair_t *kp = (lv_font_fmt_txt_kern_pair_t *)malloc_cpy(kern_addr, sizeof(lv_font_fmt_txt_kern_pair_t));
+            if (!kp) {
+                if (dsc->cmaps) {
+                    free((void *)dsc->cmaps);
+                }
+                free(dsc);
+                free(font);
+                return NULL;
+            }
+            dsc->kern_dsc = kp;
+            addr_add((void **)&kp->glyph_ids, (uintptr_t)kern_addr);
+            addr_add((void **)&kp->values, (uintptr_t)kern_addr);
+        }
+    }
+
+    return font;
+}
+
+void gfx_font_lv_delete(lv_font_t *font)
+{
+    if (!font) {
+        return;
+    }
+
+    lv_font_fmt_txt_dsc_t *dsc = (lv_font_fmt_txt_dsc_t *)font->dsc;
+    if (dsc) {
+        if (dsc->cmaps) {
+            free((void *)dsc->cmaps);
+        }
+        if (dsc->kern_dsc) {
+            free((void *)dsc->kern_dsc);
+        }
+        free((void *)dsc);
+    }
+    free((void *)font);
 }
