@@ -602,9 +602,9 @@ esp_err_t gfx_label_set_long_mode(gfx_obj_t *obj, gfx_label_long_mode_t long_mod
         /* Handle smooth scroll timer */
         if (long_mode == GFX_LABEL_LONG_SCROLL && !label->scroll.scroll_timer) {
             label->scroll.scroll_timer = gfx_timer_create(obj->parent_handle,
-                                                   gfx_label_scroll_timer_callback,
-                                                   label->scroll.scroll_speed,
-                                                   obj);
+                                         gfx_label_scroll_timer_callback,
+                                         label->scroll.scroll_speed,
+                                         obj);
             if (label->scroll.scroll_timer) {
                 gfx_timer_set_repeat_count(label->scroll.scroll_timer, -1);
             }
@@ -616,9 +616,9 @@ esp_err_t gfx_label_set_long_mode(gfx_obj_t *obj, gfx_label_long_mode_t long_mod
         /* Handle snap scroll timer */
         if (long_mode == GFX_LABEL_LONG_SCROLL_SNAP && !label->snap.snap_timer) {
             label->snap.snap_timer = gfx_timer_create(obj->parent_handle,
-                                                 gfx_label_snap_timer_callback,
-                                                 label->snap.snap_interval,
-                                                 obj);
+                                     gfx_label_snap_timer_callback,
+                                     label->snap.snap_interval,
+                                     obj);
             if (label->snap.snap_timer) {
                 gfx_timer_set_repeat_count(label->snap.snap_timer, -1);
             }

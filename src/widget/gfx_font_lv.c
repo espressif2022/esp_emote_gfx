@@ -25,7 +25,7 @@ static const char *TAG = "gfx_lv";
 // Utility functions
 static int unicode_list_compare(const void *ref, const void *element);
 static void *lv_use_utils_bsearch(const void *key, const void *base, uint32_t n, uint32_t size,
-                               int (*cmp)(const void *pRef, const void *pElement));
+                                  int (*cmp)(const void *pRef, const void *pElement));
 
 // Internal LVGL font interface functions
 static uint32_t gfx_font_lv_get_glyph_index(const lv_font_t *font, uint32_t unicode);
@@ -60,7 +60,7 @@ static void *malloc_cpy(void *src, size_t sz)
 static void addr_add(void **addr, uintptr_t add)
 {
     if (*addr) {
-        *addr = (void *)((uintptr_t)*addr + add);
+        *addr = (void *)((uintptr_t) * addr + add);
     }
 }
 
@@ -79,7 +79,7 @@ static int unicode_list_compare(const void *ref, const void *element)
 }
 
 static void *lv_use_utils_bsearch(const void *key, const void *base, uint32_t n, uint32_t size,
-                               int (*cmp)(const void *pRef, const void *pElement))
+                                  int (*cmp)(const void *pRef, const void *pElement))
 {
     const char *middle;
     int32_t c;
@@ -140,7 +140,7 @@ static uint32_t gfx_font_lv_get_glyph_index(const lv_font_t *font, uint32_t unic
         } else if (dsc->cmaps[i].type == LV_FONT_FMT_TXT_CMAP_SPARSE_FULL) {
             uint16_t key = rcp;
             uint16_t *p = lv_use_utils_bsearch(&key, dsc->cmaps[i].unicode_list, dsc->cmaps[i].list_length,
-                                            sizeof(dsc->cmaps[i].unicode_list[0]), unicode_list_compare);
+                                               sizeof(dsc->cmaps[i].unicode_list[0]), unicode_list_compare);
 
             if (p) {
                 uintptr_t ofs = p - dsc->cmaps[i].unicode_list;
@@ -351,7 +351,7 @@ void gfx_font_lv_init_context(gfx_font_ctx_t *font_ctx, const void *font)
  *   BINARY FONT CREATION FUNCTIONS
  **********************/
 
-lv_font_t *gfx_font_lv_create_from_binary(uint8_t *bin_addr)
+lv_font_t *gfx_font_lv_load_from_binary(uint8_t *bin_addr)
 {
     if (!bin_addr) {
         ESP_LOGE(TAG, "bin_addr is NULL");
@@ -402,7 +402,7 @@ lv_font_t *gfx_font_lv_create_from_binary(uint8_t *bin_addr)
             ptr += 4;
             cm->list_length = *(uint16_t *)ptr;
             ptr += 2;
-            cm->type = (lv_font_fmt_txt_cmap_type_t)*(uint8_t *)ptr;
+            cm->type = (lv_font_fmt_txt_cmap_type_t) * (uint8_t *)ptr;
             ptr += 1;
             ptr += 1; // padding
 
