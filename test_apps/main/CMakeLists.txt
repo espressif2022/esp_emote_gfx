@@ -11,7 +11,7 @@ get_filename_component(ESP_EMOTE_GFX_COMPONENT_DIR "${CMAKE_CURRENT_LIST_DIR}/..
 # )
 
 spiffs_create_partition_assets(
-    assets_8bit
+    test_assets
     "../test_assets"
     FLASH_IN_PROJECT
     MMAP_FILE_SUPPORT_FORMAT ".aaf,.ttf,.bin,.eaf"

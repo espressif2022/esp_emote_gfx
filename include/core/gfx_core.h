@@ -194,6 +194,13 @@ esp_err_t gfx_emote_set_bg_color(gfx_handle_t handle, gfx_color_t color);
  */
 bool gfx_emote_is_flushing_last(gfx_handle_t handle);
 
+/**
+ * @brief Invalidate full screen to trigger initial refresh
+ *
+ * @param handle Graphics handle
+ */
+void gfx_emote_refresh_all(gfx_handle_t handle);
+
 #ifdef __cplusplus
 }
 #endif

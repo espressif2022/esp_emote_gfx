@@ -3,10 +3,6 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-/**
- * @file gfx_eaf_dec.c
- * @brief EAF (Emote Animation Format) decoder implementation
- */
 
 #include <string.h>
 #include "esp_err.h"
@@ -17,14 +13,7 @@
 
 static const char *TAG = "eaf";
 
-/**********************
- *  STATIC VARIABLES
- **********************/
 static eaf_block_decoder_cb_t g_eaf_decoders[EAF_ENCODING_MAX] = {0};
-
-/**********************
- *  STATIC HELPER FUNCTIONS
- **********************/
 
 static uint32_t eaf_calculate_checksum(const uint8_t *data, uint32_t length)
 {
@@ -35,7 +24,6 @@ static uint32_t eaf_calculate_checksum(const uint8_t *data, uint32_t length)
     return checksum;
 }
 
-/* Huffman Tree Helper Functions */
 static eaf_huffman_node_t *eaf_huffman_node_create(void)
 {
     eaf_huffman_node_t *node = (eaf_huffman_node_t *)calloc(1, sizeof(eaf_huffman_node_t));
@@ -121,7 +109,7 @@ static esp_err_t eaf_huffman_decode_data(const uint8_t *encoded_data, size_t enc
         }
 
         if (current_node == NULL) {
-            ESP_LOGE(TAG, "Invalid path in Huffman tree at bit %d", (int)bit_index);
+            ESP_LOGE(TAG, "Invalid Huffman path at bit %d", (int)bit_index);
             break;
         }
 
@@ -136,9 +124,57 @@ static esp_err_t eaf_huffman_decode_data(const uint8_t *encoded_data, size_t enc
     return ESP_OK;
 }
 
-/**********************
- *  HEADER FUNCTIONS
- **********************/
+eaf_format_type_t eaf_probe_frame_info(eaf_format_handle_t handle, int frame_index)
+{
+    if (!handle) {
+        ESP_LOGE(TAG, "Invalid handle");
+        return EAF_FORMAT_INVALID;
+    }
+
+    const uint8_t *file_data = eaf_get_frame_data(handle, frame_index);
+    if (!file_data) {
+        ESP_LOGE(TAG, "Frame %d data unavailable", frame_index);
+        return EAF_FORMAT_INVALID;
+    }
+
+    size_t file_size = eaf_get_frame_size(handle, frame_index);
+    if (file_size <= 0) {
+        ESP_LOGE(TAG, "Frame %d invalid size", frame_index);
+        return EAF_FORMAT_INVALID;
+    }
+    eaf_header_t header;
+
+    memset(&header, 0, sizeof(eaf_header_t));
+    memcpy(header.format, file_data, 2);
+    header.format[2] = '\0';
+
+    if (strncmp(header.format, "_S", 2) == 0) {
+
+        memcpy(header.version, file_data + 3, 6);
+
+        header.bit_depth = file_data[9];
+
+        if (header.bit_depth != 4 && header.bit_depth != 8 && header.bit_depth != 24) {
+            ESP_LOGE(TAG, "Invalid bit depth: %d", header.bit_depth);
+            return EAF_FORMAT_INVALID;
+        }
+
+        header.width = *(uint16_t *)(file_data + 10);
+        header.height = *(uint16_t *)(file_data + 12);
+        header.blocks = *(uint16_t *)(file_data + 14);
+        header.block_height = *(uint16_t *)(file_data + 16);
+
+        if (header.width == 0 || header.height == 0 || header.blocks == 0 || header.block_height == 0) {
+            return EAF_FORMAT_INVALID;
+        }
+    } else if (strncmp(header.format, "_C", 2) == 0) {
+        return EAF_FORMAT_FLAG;
+    } else {
+        return EAF_FORMAT_INVALID;
+    }
+
+    return EAF_FORMAT_VALID;
+}
 
 eaf_format_type_t eaf_get_frame_info(eaf_format_handle_t handle, int frame_index, eaf_header_t *frame_info)
 {
@@ -149,13 +185,13 @@ eaf_format_type_t eaf_get_frame_info(eaf_format_handle_t handle, int frame_index
 
     const uint8_t *file_data = eaf_get_frame_data(handle, frame_index);
     if (!file_data) {
-        ESP_LOGE(TAG, "Failed to get frame data for frame %d", frame_index);
+        ESP_LOGE(TAG, "Frame %d data unavailable", frame_index);
         return EAF_FORMAT_INVALID;
     }
 
     size_t file_size = eaf_get_frame_size(handle, frame_index);
     if (file_size <= 0) {
-        ESP_LOGE(TAG, "Invalid frame size for frame %d", frame_index);
+        ESP_LOGE(TAG, "Frame %d invalid size", frame_index);
         return EAF_FORMAT_INVALID;
     }
 
@@ -181,7 +217,7 @@ eaf_format_type_t eaf_get_frame_info(eaf_format_handle_t handle, int frame_index
 
         frame_info->block_len = (uint32_t *)malloc(frame_info->blocks * sizeof(uint32_t));
         if (frame_info->block_len == NULL) {
-            ESP_LOGE(TAG, "Failed to allocate memory for split lengths");
+            ESP_LOGE(TAG, "No mem for block_len");
             return EAF_FORMAT_INVALID;
         }
 
@@ -197,7 +233,7 @@ eaf_format_type_t eaf_get_frame_info(eaf_format_handle_t handle, int frame_index
         } else {
             frame_info->palette = (uint8_t *)malloc(frame_info->num_colors * 4);
             if (frame_info->palette == NULL) {
-                ESP_LOGE(TAG, "Failed to allocate memory for palette");
+                ESP_LOGE(TAG, "No mem for palette");
                 free(frame_info->block_len);
                 frame_info->block_len = NULL;
                 return EAF_FORMAT_INVALID;
@@ -208,22 +244,7 @@ eaf_format_type_t eaf_get_frame_info(eaf_format_handle_t handle, int frame_index
         frame_info->data_offset = 18 + frame_info->blocks * 4 + frame_info->num_colors * 4;
         return EAF_FORMAT_VALID;
 
-    } else if (strncmp(frame_info->format, "_R", 2) == 0) {
-        uint8_t file_length = *(uint8_t *)(file_data + 2);
-
-        frame_info->palette = (uint8_t *)malloc(file_length + 1);
-        if (frame_info->palette == NULL) {
-            ESP_LOGE(TAG, "Failed to allocate memory for redirect filename");
-            return EAF_FORMAT_INVALID;
-        }
-
-        memcpy(frame_info->palette, file_data + 3, file_length);
-        frame_info->palette[file_length] = '\0';
-        frame_info->num_colors = file_length + 1;
-
-        return EAF_FORMAT_REDIRECT;
     } else if (strncmp(frame_info->format, "_C", 2) == 0) {
-        ESP_LOGE(TAG, "Invalid format: %s", frame_info->format);
         return EAF_FORMAT_FLAG;
     } else {
         ESP_LOGE(TAG, "Invalid format: %s", frame_info->format);
@@ -285,7 +306,7 @@ static esp_err_t eaf_decode_huffman_rle(const uint8_t *input_data, size_t input_
 
     uint8_t *huffman_buffer = malloc(*out_size);
     if (huffman_buffer == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate memory for Huffman buffer");
+        ESP_LOGE(TAG, "No mem for Huffman buffer");
         return ESP_FAIL;
     }
 
@@ -409,7 +430,7 @@ esp_err_t eaf_decode_jpeg(const uint8_t *jpeg_data, size_t jpeg_size,
 
     jpeg_dec_handle_t jpeg_dec;
     if (jpeg_dec_open(&config, &jpeg_dec) != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to open JPEG decoder");
+        ESP_LOGE(TAG, "JPEG decoder open failed");
         return ESP_FAIL;
     }
 
@@ -423,7 +444,7 @@ esp_err_t eaf_decode_jpeg(const uint8_t *jpeg_data, size_t jpeg_size,
             free(out_info);
         }
         jpeg_dec_close(jpeg_dec);
-        ESP_LOGE(TAG, "Failed to allocate memory for JPEG decoder");
+        ESP_LOGE(TAG, "No mem for JPEG decoder");
         return ESP_FAIL;
     }
 
@@ -437,7 +458,7 @@ esp_err_t eaf_decode_jpeg(const uint8_t *jpeg_data, size_t jpeg_size,
 
         size_t required_size = w * h * 2; // RGB565 = 2 bytes per pixel
         if (*out_size < required_size) {
-            ESP_LOGE(TAG, "Output buffer too small: need %zu, got %zu", required_size, *out_size);
+            ESP_LOGE(TAG, "Buffer too small: need %zu, got %zu", required_size, *out_size);
             free(jpeg_io);
             free(out_info);
             jpeg_dec_close(jpeg_dec);
@@ -450,7 +471,7 @@ esp_err_t eaf_decode_jpeg(const uint8_t *jpeg_data, size_t jpeg_size,
             free(jpeg_io);
             free(out_info);
             jpeg_dec_close(jpeg_dec);
-            ESP_LOGE(TAG, "Failed to decode JPEG: %d", ret);
+            ESP_LOGE(TAG, "JPEG decode failed: %d", ret);
             return ESP_FAIL;
         }
         *out_size = required_size;
@@ -458,7 +479,7 @@ esp_err_t eaf_decode_jpeg(const uint8_t *jpeg_data, size_t jpeg_size,
         free(jpeg_io);
         free(out_info);
         jpeg_dec_close(jpeg_dec);
-        ESP_LOGE(TAG, "Failed to parse JPEG header");
+        ESP_LOGE(TAG, "JPEG header parse failed");
         return ESP_FAIL;
     }
 
@@ -476,8 +497,7 @@ esp_err_t eaf_decode_huffman(const uint8_t *input_data, size_t input_size,
     size_t decoded_size = *out_size;
 
     if (!input_data || input_size < 3 || !output_buffer) {
-        ESP_LOGE(TAG, "Invalid parameters: input_data=%p, input_size=%d, output_buffer=%p",
-                 input_data, input_size, output_buffer);
+        ESP_LOGE(TAG, "Invalid parameters");
         return ESP_FAIL;
     }
 
@@ -547,7 +567,7 @@ esp_err_t eaf_init(const uint8_t *data, size_t data_len, eaf_format_handle_t *re
     if (!decoders_initialized) {
         esp_err_t ret = eaf_init_decoders();
         if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to initialize eaf_decoder");
+            ESP_LOGE(TAG, "Decoder init failed");
             return ret;
         }
         decoders_initialized = true;
@@ -605,7 +625,6 @@ err:
 esp_err_t eaf_deinit(eaf_format_handle_t handle)
 {
     if (handle == NULL) {
-        ESP_LOGW(TAG, "Handle is invalid");
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -674,14 +693,14 @@ esp_err_t eaf_frame_decode(eaf_format_handle_t handle, int frame_index,
 
     const uint8_t *frame_data = eaf_get_frame_data(handle, frame_index);
     if (!frame_data) {
-        ESP_LOGE(TAG, "Failed to get frame data for frame %d", frame_index);
+        ESP_LOGE(TAG, "Frame %d data unavailable", frame_index);
         return ESP_FAIL;
     }
 
     eaf_header_t frame_header;
     eaf_format_type_t format = eaf_get_frame_info(handle, frame_index, &frame_header);
     if (format != EAF_FORMAT_VALID) {
-        ESP_LOGE(TAG, "Failed to parse frame header");
+        ESP_LOGE(TAG, "Frame %d header parse failed", frame_index);
         return ESP_FAIL;
     }
 
@@ -695,7 +714,7 @@ esp_err_t eaf_frame_decode(eaf_format_handle_t handle, int frame_index,
 
     uint32_t *offsets = (uint32_t *)malloc(frame_header.blocks * sizeof(uint32_t));
     if (offsets == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate memory for block offsets");
+        ESP_LOGE(TAG, "No mem for block offsets");
         eaf_free_header(&frame_header);
         return ESP_ERR_NO_MEM;
     }
@@ -703,7 +722,7 @@ esp_err_t eaf_frame_decode(eaf_format_handle_t handle, int frame_index,
 
     uint8_t *compressed_buffer = malloc(block_size);
     if (!compressed_buffer) {
-        ESP_LOGE(TAG, "Failed to allocate compressed buffer");
+        ESP_LOGE(TAG, "No mem for compressed buffer");
         free(offsets);
         eaf_free_header(&frame_header);
         return ESP_ERR_NO_MEM;
@@ -718,7 +737,7 @@ esp_err_t eaf_frame_decode(eaf_format_handle_t handle, int frame_index,
         esp_err_t ret = eaf_decode_block(&frame_header, block_data, block_len, compressed_buffer, swap_bytes);
 
         if (ret != ESP_OK) {
-            ESP_LOGD(TAG, "Failed to decode block %d", block);
+            ESP_LOGD(TAG, "Block %d decode failed", block);
             continue;
         }
 
@@ -747,7 +766,7 @@ esp_err_t eaf_frame_decode(eaf_format_handle_t handle, int frame_index,
                 block_buffer[i] = color;
             }
         } else if (bit_depth == 4) {
-            ESP_LOGI(TAG, "4 bit depth not supported");
+            ESP_LOGW(TAG, "4-bit depth not supported");
         } else if (bit_depth == 24) {
             memcpy(block_buffer, compressed_buffer, valid_size);
         }

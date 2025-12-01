@@ -3,14 +3,10 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "freertos/FreeRTOS.h"
 #include "esp_timer.h"
 #include "esp_err.h"
 #include "esp_log.h"
-#include "core/gfx_core.h"
-#include "core/gfx_core_internal.h"
-#include "core/gfx_timer.h"
-#include "core/gfx_timer_internal.h"
+#include "core/gfx_core_priv.h"
 
 static const char *TAG = "gfx_timer";
 
@@ -67,61 +63,66 @@ bool gfx_timer_exec(gfx_timer_t *timer)
     return false;
 }
 
-uint32_t gfx_timer_handler(gfx_timer_manager_t *timer_mgr)
+uint32_t gfx_timer_handler(gfx_timer_mgr_t *timer_mgr)
 {
-    static uint32_t fps_sample_count = 0;
-    static uint32_t fps_total_time = 0;
-
-    uint32_t next_timer_delay = GFX_NO_TIMER_READY;
+    // ============================================================================
+    // Step 1: Execute all timers and find the minimum remaining time
+    // ============================================================================
+    uint32_t min_timer_remaining_ms = GFX_NO_TIMER_READY;
     gfx_timer_t *timer_node = timer_mgr->timer_list;
     gfx_timer_t *next_timer = NULL;
 
     while (timer_node != NULL) {
         next_timer = timer_node->next;
 
+        // Execute timer if its period has elapsed
         gfx_timer_exec(timer_node);
 
+        // Calculate remaining time until next execution for active timers
         if (!timer_node->paused && timer_node->repeat_count != 0) {
-            uint32_t elapsed_time = gfx_timer_tick_elaps(timer_node->last_run);
-            uint32_t remaining_time = (elapsed_time >= timer_node->period) ? 0 : (timer_node->period - elapsed_time);
+            uint32_t timer_elapsed_ms = gfx_timer_tick_elaps(timer_node->last_run);
+            uint32_t timer_remaining_ms = (timer_elapsed_ms >= timer_node->period)
+                                          ? 0
+                                          : (timer_node->period - timer_elapsed_ms);
 
-            if (remaining_time < next_timer_delay) {
-                next_timer_delay = remaining_time;
+            if (timer_remaining_ms < min_timer_remaining_ms) {
+                min_timer_remaining_ms = timer_remaining_ms;
             }
         }
 
         timer_node = next_timer;
     }
 
-    uint32_t schedule_elapsed = gfx_timer_tick_elaps(timer_mgr->last_tick);
-    timer_mgr->last_tick = gfx_timer_tick_get();
+    // ============================================================================
+    // Step 2: Calculate FPS period to control render frequency
+    // ============================================================================
+    uint32_t fps_period_ms = (timer_mgr->fps > 0) ? (1000 / timer_mgr->fps) : 30;
+    uint32_t fps_elapsed_ms = gfx_timer_tick_elaps(timer_mgr->last_tick);
+    uint32_t fps_remaining_ms = (fps_elapsed_ms >= fps_period_ms) ? 0 : (fps_period_ms - fps_elapsed_ms);
 
-    uint32_t schedule_period_ms = (timer_mgr->fps > 0) ? (1000 / timer_mgr->fps) : 30;
-    uint32_t schedule_remaining = (schedule_elapsed >= schedule_period_ms) ? 0 : (schedule_period_ms - schedule_elapsed);
+    timer_mgr->should_render = (fps_remaining_ms == 0);
 
-    uint32_t final_delay;
-    if (next_timer_delay == GFX_NO_TIMER_READY) {
-        final_delay = schedule_remaining;
+    if (timer_mgr->should_render) {
+        timer_mgr->last_tick = gfx_timer_tick_get();
+    }
+
+    // ============================================================================
+    // Step 3: Calculate final task delay
+    // ============================================================================
+    uint32_t task_delay_ms;
+    if (min_timer_remaining_ms == GFX_NO_TIMER_READY) {
+        task_delay_ms = (fps_remaining_ms > 0) ? fps_remaining_ms : 1;
     } else {
-        final_delay = (next_timer_delay < schedule_remaining) ? next_timer_delay : schedule_remaining;
+        task_delay_ms = (min_timer_remaining_ms < fps_remaining_ms)
+                        ? min_timer_remaining_ms
+                        : fps_remaining_ms;
+        if (task_delay_ms == 0) {
+            task_delay_ms = 1;
+        }
     }
 
-    fps_sample_count++;
-    // ESP_LOGI(TAG, "elapsed=%d, period_ms=%d, next_timer_delay=%d, final_delay=%d", schedule_elapsed, schedule_period_ms, next_timer_delay, final_delay);
-    fps_total_time += schedule_elapsed;
-    if (fps_sample_count >= 10) {
-        timer_mgr->actual_fps = 1000 / (fps_total_time / fps_sample_count);
-        ESP_LOGD(TAG, "average fps: %"PRIu32"(%"PRIu32")", timer_mgr->actual_fps, timer_mgr->fps);
-        fps_sample_count = 0;
-        fps_total_time = 0;
-    }
-
-    if (final_delay == 0) {
-        final_delay = 1;
-    }
-
-    timer_mgr->time_until_next = final_delay;
-    return final_delay;
+    timer_mgr->time_until_next = task_delay_ms;
+    return task_delay_ms;
 }
 
 gfx_timer_handle_t gfx_timer_create(void *handle, gfx_timer_cb_t timer_cb, uint32_t period, void *user_data)
@@ -131,7 +132,7 @@ gfx_timer_handle_t gfx_timer_create(void *handle, gfx_timer_cb_t timer_cb, uint3
     }
 
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
-    gfx_timer_manager_t *timer_mgr = &ctx->timer.timer_mgr;
+    gfx_timer_mgr_t *timer_mgr = &ctx->timer.timer_mgr;
 
     gfx_timer_t *new_timer = (gfx_timer_t *)malloc(sizeof(gfx_timer_t));
     if (new_timer == NULL) {
@@ -170,7 +171,7 @@ void gfx_timer_delete(void *handle, gfx_timer_handle_t timer_handle)
 
     gfx_timer_t *timer = (gfx_timer_t *)timer_handle;
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
-    gfx_timer_manager_t *timer_mgr = &ctx->timer.timer_mgr;
+    gfx_timer_mgr_t *timer_mgr = &ctx->timer.timer_mgr;
 
     // Remove from timer list
     gfx_timer_t *current_timer = timer_mgr->timer_list;
@@ -239,7 +240,16 @@ void gfx_timer_reset(gfx_timer_handle_t timer_handle)
     }
 }
 
-void gfx_timer_manager_init(gfx_timer_manager_t *timer_mgr, uint32_t fps)
+bool gfx_timer_is_running(gfx_timer_handle_t timer_handle)
+{
+    if (timer_handle != NULL) {
+        gfx_timer_t *timer = (gfx_timer_t *)timer_handle;
+        return !timer->paused;
+    }
+    return false;
+}
+
+void gfx_timer_mgr_init(gfx_timer_mgr_t *timer_mgr, uint32_t fps)
 {
     if (timer_mgr != NULL) {
         timer_mgr->timer_list = NULL;
@@ -247,12 +257,12 @@ void gfx_timer_manager_init(gfx_timer_manager_t *timer_mgr, uint32_t fps)
         timer_mgr->last_tick = gfx_timer_tick_get();
         timer_mgr->fps = fps; // Store FPS directly
         timer_mgr->actual_fps = 0; // Initialize actual FPS
+        timer_mgr->should_render = true; // Allow first render
         ESP_LOGI(TAG, "Timer manager initialized with FPS: %"PRIu32" (period: %"PRIu32" ms)", fps, (fps > 0) ? (1000 / fps) : 30);
-        esp_cpu_set_watchpoint(0, timer_mgr->timer_list, 4, ESP_CPU_WATCHPOINT_STORE);
     }
 }
 
-void gfx_timer_manager_deinit(gfx_timer_manager_t *timer_mgr)
+void gfx_timer_mgr_deinit(gfx_timer_mgr_t *timer_mgr)
 {
     if (timer_mgr == NULL) {
         return;
@@ -276,7 +286,7 @@ uint32_t gfx_timer_get_actual_fps(void *handle)
     }
 
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
-    gfx_timer_manager_t *timer_mgr = &ctx->timer.timer_mgr;
+    gfx_timer_mgr_t *timer_mgr = &ctx->timer.timer_mgr;
 
     return timer_mgr->actual_fps;
 }
