@@ -101,7 +101,7 @@ typedef struct {
  * @param src Source data pointer
  * @return esp_err_t ESP_OK on success, otherwise an error code
  */
-esp_err_t gfx_emote_add_chlid(gfx_handle_t handle, int type, void *src);
+esp_err_t gfx_emote_add_child(gfx_handle_t handle, int type, void *src);
 
 /**
  * @brief Remove a child element from the graphics context

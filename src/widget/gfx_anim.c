@@ -755,7 +755,7 @@ gfx_obj_t *gfx_anim_create(gfx_handle_t handle)
     obj->src = anim;
     obj->type = GFX_OBJ_TYPE_ANIMATION;
 
-    gfx_emote_add_chlid(handle, GFX_OBJ_TYPE_ANIMATION, obj);
+    gfx_emote_add_child(handle, GFX_OBJ_TYPE_ANIMATION, obj);
     return obj;
 }
 

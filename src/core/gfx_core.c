@@ -351,7 +351,7 @@ esp_err_t gfx_emote_unlock(gfx_handle_t handle)
  * Child Object Management Functions
  * ============================================================================ */
 
-esp_err_t gfx_emote_add_chlid(gfx_handle_t handle, int type, void *src)
+esp_err_t gfx_emote_add_child(gfx_handle_t handle, int type, void *src)
 {
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
     if (ctx == NULL || src == NULL) {

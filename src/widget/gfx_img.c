@@ -187,7 +187,7 @@ gfx_obj_t *gfx_img_create(gfx_handle_t handle)
     obj->vfunc.draw = gfx_draw_img;
     obj->vfunc.delete = gfx_img_delete;
     gfx_obj_invalidate(obj);
-    gfx_emote_add_chlid(handle, GFX_OBJ_TYPE_IMAGE, obj);
+    gfx_emote_add_child(handle, GFX_OBJ_TYPE_IMAGE, obj);
 
     ESP_LOGD(TAG, "Created image object");
     return obj;

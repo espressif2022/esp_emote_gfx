@@ -882,7 +882,7 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t *obj)
     gfx_label_t *label = (gfx_label_t *)obj->src;
     void *font_ctx = label->font.font_ctx;
     if (font_ctx == NULL) {
-        ESP_LOGI(TAG, "font context is NULL");
+        ESP_LOGD(TAG, "font context is NULL");
         return ESP_OK;
     }
 
@@ -928,7 +928,7 @@ static void gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
     if (label->text.text == NULL) {
-        ESP_LOGI(TAG, "text is NULL");
+        ESP_LOGD(TAG, "text is NULL");
         return;
     }
 
@@ -1389,7 +1389,7 @@ gfx_obj_t *gfx_label_create(gfx_handle_t handle)
 
     obj->src = label;
 
-    gfx_emote_add_chlid(handle, GFX_OBJ_TYPE_LABEL, obj);
+    gfx_emote_add_child(handle, GFX_OBJ_TYPE_LABEL, obj);
     ESP_LOGD(TAG, "Created label object with default font config");
     return obj;
 }
