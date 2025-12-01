@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -62,6 +62,14 @@ void gfx_timer_pause(gfx_timer_handle_t timer);
  * @param timer Timer handle to resume
  */
 void gfx_timer_resume(gfx_timer_handle_t timer);
+
+
+/**
+ * @brief Check if a timer is running
+ * @param timer_handle Timer handle to check
+ * @return true if timer is running, false otherwise
+ */
+bool gfx_timer_is_running(gfx_timer_handle_t timer_handle);
 
 /**
  * @brief Set timer repeat count

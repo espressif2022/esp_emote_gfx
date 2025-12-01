@@ -6,7 +6,6 @@ idf_component_register(
     INCLUDE_DIRS
         "include"
     PRIV_INCLUDE_DIRS
-        "include_priv"
-        "src/lib/eaf"
+        "src"
     REQUIRES esp_timer
 )

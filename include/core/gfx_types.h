@@ -54,6 +54,49 @@ gfx_color_t gfx_color_hex(uint32_t c);
  *      MACROS
  **********************/
 
+/* Pixel size constants */
+#define GFX_PIXEL_SIZE_16BPP   2  /**< 16-bit color format: 2 bytes per pixel */
+#define GFX_PIXEL_SIZE_8BPP    1  /**< 8-bit format: 1 byte per pixel */
+
+/**
+ * @brief Calculate buffer pointer with offset for 16-bit format (RGB565)
+ * @param buffer Base buffer pointer (any type)
+ * @param y_offset Vertical offset in pixels
+ * @param stride Width of buffer in pixels
+ * @param x_offset Horizontal offset in pixels
+ * @return Calculated gfx_color_t pointer with offset applied
+ */
+#define GFX_BUFFER_OFFSET_16BPP(buffer, y_offset, stride, x_offset) \
+    ((uint8_t *)((uint8_t *)(buffer) + \
+                     (y_offset) * (stride) * GFX_PIXEL_SIZE_16BPP + \
+                     (x_offset) * GFX_PIXEL_SIZE_16BPP))
+
+/**
+ * @brief Calculate buffer pointer with offset for 8-bit format
+ * @param buffer Base buffer pointer (any type)
+ * @param y_offset Vertical offset in pixels
+ * @param stride Width of buffer in pixels
+ * @param x_offset Horizontal offset in pixels
+ * @return Calculated uint8_t pointer with offset applied
+ */
+#define GFX_BUFFER_OFFSET_8BPP(buffer, y_offset, stride, x_offset) \
+    ((uint8_t *)((uint8_t *)(buffer) + \
+                 (y_offset) * (stride) * GFX_PIXEL_SIZE_8BPP + \
+                 (x_offset) * GFX_PIXEL_SIZE_8BPP))
+
+/**
+ * @brief Calculate buffer pointer with offset for 4-bit format (2 pixels per byte)
+ * @param buffer Base buffer pointer (any type)
+ * @param y_offset Vertical offset in pixels
+ * @param stride Width of buffer in pixels (will be divided by 2)
+ * @param x_offset Horizontal offset in pixels (will be divided by 2)
+ * @return Calculated uint8_t pointer with offset applied
+ */
+#define GFX_BUFFER_OFFSET_4BPP(buffer, y_offset, stride, x_offset) \
+    ((uint8_t *)((uint8_t *)(buffer) + \
+                 (y_offset) * ((stride) / 2) + \
+                 (x_offset) / 2))
+
 #define GFX_COLOR_HEX(color) ((gfx_color_t)gfx_color_hex(color))
 
 #ifdef __cplusplus

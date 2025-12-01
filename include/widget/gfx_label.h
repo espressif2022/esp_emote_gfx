@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -7,8 +7,6 @@
 #pragma once
 
 #include "sdkconfig.h"
-#include "core/gfx_types.h"
-#include "core/gfx_core.h"
 #include "core/gfx_obj.h"
 
 #ifdef __cplusplus
@@ -48,9 +46,10 @@ typedef enum {
  * Long text mode enumeration (similar to LVGL)
  */
 typedef enum {
-    GFX_LABEL_LONG_WRAP,    /**< Break the long lines (word wrap) */
-    GFX_LABEL_LONG_SCROLL,  /**< Make the text scrolling horizontally */
-    GFX_LABEL_LONG_CLIP,    /**< Simply clip the parts which don't fit */
+    GFX_LABEL_LONG_WRAP,         /**< Break the long lines (word wrap) */
+    GFX_LABEL_LONG_SCROLL,       /**< Make the text scrolling horizontally smoothly */
+    GFX_LABEL_LONG_CLIP,         /**< Simply clip the parts which don't fit */
+    GFX_LABEL_LONG_SCROLL_SNAP,  /**< Jump to next section after interval (horizontal paging) */
 } gfx_label_long_mode_t;
 
 /**********************
@@ -186,6 +185,35 @@ esp_err_t gfx_label_set_scroll_speed(gfx_obj_t *obj, uint32_t speed_ms);
  * @return ESP_OK on success, error code otherwise
  */
 esp_err_t gfx_label_set_scroll_loop(gfx_obj_t *obj, bool loop);
+
+/**
+ * @brief Set the scroll step size for a label object
+ * @param obj Pointer to the label object
+ * @param step Scroll step size in pixels per timer tick (default: 1, can be negative)
+ * @note Only effective when long_mode is GFX_LABEL_LONG_SCROLL
+ * @note Step cannot be zero
+ * @return ESP_OK on success, error code otherwise
+ */
+esp_err_t gfx_label_set_scroll_step(gfx_obj_t *obj, int32_t step);
+
+/**
+ * @brief Set the snap scroll interval time for a label object
+ * @param obj Pointer to the label object
+ * @param interval_ms Interval time in milliseconds to stay on each section before jumping
+ * @note Only effective when long_mode is GFX_LABEL_LONG_SCROLL_SNAP
+ * @note The jump offset is automatically calculated as the label width
+ * @return ESP_OK on success, error code otherwise
+ */
+esp_err_t gfx_label_set_snap_interval(gfx_obj_t *obj, uint32_t interval_ms);
+
+/**
+ * @brief Set whether snap scrolling should loop continuously
+ * @param obj Pointer to the label object
+ * @param loop True to enable continuous looping, false to stop at end
+ * @note Only effective when long_mode is GFX_LABEL_LONG_SCROLL_SNAP
+ * @return ESP_OK on success, error code otherwise
+ */
+esp_err_t gfx_label_set_snap_loop(gfx_obj_t *obj, bool loop);
 
 #ifdef __cplusplus
 }
