@@ -2,7 +2,10 @@
 
 All notable changes to the ESP Emote GFX component will be documented in this file.
 
-## [2.0.0] - 2025-01-XX
+## [2.0.1] - 2025-12-05
+- Add Touch event
+
+## [2.0.0] - 2025-12-01
 - Added partial refresh mode support
 - Added QR code widget (gfx_qrcode)
 

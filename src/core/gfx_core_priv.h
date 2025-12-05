@@ -9,10 +9,12 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/event_groups.h"
+#include "driver/gpio.h"
 
 #include "core/gfx_core.h"
 #include "core/gfx_timer_priv.h"
 #include "core/gfx_obj_priv.h"
+#include "core/gfx_touch.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -83,6 +85,28 @@ typedef struct {
         SemaphoreHandle_t lock_mutex;  /**< Render mutex for thread safety */
         EventGroupHandle_t event_group; /**< Event group for synchronization */
     } sync;                            /**< Synchronization primitives */
+
+    /* Touch handling */
+    struct {
+        esp_lcd_touch_handle_t handle;
+        gfx_timer_handle_t poll_timer;
+        gfx_touch_event_cb_t event_cb;
+        void *user_data;
+        uint32_t poll_ms;
+        bool pressed;
+        uint16_t last_x;
+        uint16_t last_y;
+        uint16_t last_strength;
+        uint8_t last_id;
+        gfx_touch_event_t queue[8];
+        uint8_t q_head;
+        uint8_t q_tail;
+        uint8_t q_count;
+        gpio_num_t int_gpio_num;
+        bool irq_enabled;
+        volatile bool irq_pending;
+        void *isr_ctx;
+    } touch;
 } gfx_core_context_t;
 
 /**********************
@@ -112,6 +136,21 @@ esp_err_t gfx_emote_add_child(gfx_handle_t handle, int type, void *src);
  */
 esp_err_t gfx_emote_remove_child(gfx_handle_t handle, void *src);
 
+/**
+ * @brief Initialize touch handling if configured
+ *
+ * @param ctx Graphics context
+ * @param cfg Core configuration
+ * @return esp_err_t ESP_OK on success
+ */
+esp_err_t gfx_touch_init(gfx_core_context_t *ctx, const gfx_core_config_t *cfg);
+
+/**
+ * @brief Deinitialize touch handling
+ *
+ * @param ctx Graphics context
+ */
+void gfx_touch_deinit(gfx_core_context_t *ctx);
 
 #ifdef __cplusplus
 }

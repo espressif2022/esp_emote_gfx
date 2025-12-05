@@ -21,6 +21,7 @@
 #include "core/gfx_types.h"
 #include "core/gfx_core.h"
 #include "core/gfx_timer.h"
+#include "core/gfx_touch.h"
 #include "core/gfx_obj.h"
 #include "widget/gfx_img.h"
 #include "widget/gfx_qrcode.h"
