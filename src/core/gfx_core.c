@@ -106,6 +106,20 @@ gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
         return NULL;
     }
 
+    esp_err_t touch_ret = gfx_touch_init(disp_ctx, cfg);
+    if (touch_ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize touch");
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
+        gfx_ft_lib_cleanup();
+#endif
+        gfx_buf_free_frame(disp_ctx);
+        vSemaphoreDelete(disp_ctx->sync.lock_mutex);
+        vEventGroupDelete(disp_ctx->sync.event_group);
+        gfx_image_decoder_deinit();
+        free(disp_ctx);
+        return NULL;
+    }
+
     const uint32_t stack_caps = cfg->task.task_stack_caps ? cfg->task.task_stack_caps : MALLOC_CAP_DEFAULT; // caps cannot be zero
     if (cfg->task.task_affinity < 0) {
         xTaskCreateWithCaps(gfx_core_task, "gfx_core", cfg->task.task_stack,
@@ -139,6 +153,7 @@ void gfx_emote_deinit(gfx_handle_t handle)
     ctx->disp.child_list = NULL;
 
     // Clean up timers
+    gfx_touch_deinit(ctx);
     gfx_timer_mgr_deinit(&ctx->timer.timer_mgr);
 
     // Free frame buffers
