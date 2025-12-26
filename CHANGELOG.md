@@ -2,6 +2,11 @@
 
 All notable changes to the ESP Emote GFX component will be documented in this file.
 
+## [2.0.2] - 2025-12-26
+- Add optional JPEG decoding support for EAF animations
+- Center QR code rendering in UI layout
+- Add alpha channel support for animations
+
 ## [2.0.1] - 2025-12-05
 - Add Touch event
 

@@ -91,9 +91,14 @@ static void gfx_qrcode_generate_callback(qrcode_wrapper_handle_t qrcode, void *u
     }
 
     int scaled_size = qr_size * scale;
+    int display_size = qrcode_obj->display_size;
 
-    ESP_LOGD(TAG, "Generating QR: qr_size=%d, display_size=%d, scale=%d, scaled_size=%d",
-             qr_size, qrcode_obj->display_size, scale, scaled_size);
+    /* Calculate centering offset when scaled_size < display_size */
+    int offset_x = (display_size - scaled_size) / 2;
+    int offset_y = (display_size - scaled_size) / 2;
+
+    ESP_LOGD(TAG, "Generating QR: qr_size=%d, display_size=%d, scale=%d, scaled_size=%d, offset=(%d,%d)",
+             qr_size, display_size, scale, scaled_size, offset_x, offset_y);
 
     /* Free old buffer if exists */
     if (qrcode_obj->qr_modules) {
@@ -101,8 +106,8 @@ static void gfx_qrcode_generate_callback(qrcode_wrapper_handle_t qrcode, void *u
         qrcode_obj->qr_modules = NULL;
     }
 
-    /* Allocate buffer for scaled QR code image (RGB565: 2 bytes per pixel) */
-    size_t buffer_size = scaled_size * scaled_size * sizeof(uint16_t);
+    /* Allocate buffer for display size (RGB565: 2 bytes per pixel) */
+    size_t buffer_size = display_size * display_size * sizeof(uint16_t);
     qrcode_obj->qr_modules = (uint8_t *)heap_caps_malloc(buffer_size, MALLOC_CAP_SPIRAM);
     if (!qrcode_obj->qr_modules) {
         ESP_LOGE(TAG, "Failed to allocate QR code buffer (%zu bytes)", buffer_size);
@@ -115,7 +120,14 @@ static void gfx_qrcode_generate_callback(qrcode_wrapper_handle_t qrcode, void *u
     uint16_t fg_color = swap ? __builtin_bswap16(qrcode_obj->color.full) : qrcode_obj->color.full;
     uint16_t bg_color = swap ? __builtin_bswap16(qrcode_obj->bg_color.full) : qrcode_obj->bg_color.full;
 
-    /* Generate scaled QR code image
+    /* Fill entire buffer with background color */
+    for (int y = 0; y < display_size; y++) {
+        for (int x = 0; x < display_size; x++) {
+            pixel_buf[y * display_size + x] = bg_color;
+        }
+    }
+
+    /* Generate scaled QR code image and place it centered
      * Scale it horizontally, then duplicate vertically */
     for (int qr_y = 0; qr_y < qr_size; qr_y++) {
         /* Process one QR module row */
@@ -124,25 +136,31 @@ static void gfx_qrcode_generate_callback(qrcode_wrapper_handle_t qrcode, void *u
             bool is_black = qrcode_wrapper_get_module(qrcode, qr_x, qr_y);
             uint16_t color = is_black ? fg_color : bg_color;
 
-            /* Scale horizontally */
+            /* Scale horizontally with centering offset */
             for (int sx = 0; sx < scale; sx++) {
-                int px = qr_x * scale + sx;
-                int py = qr_y * scale;
-                pixel_buf[py * scaled_size + px] = color;
+                int px = offset_x + qr_x * scale + sx;
+                int py = offset_y + qr_y * scale;
+                if (px >= 0 && px < display_size && py >= 0 && py < display_size) {
+                    pixel_buf[py * display_size + px] = color;
+                }
             }
         }
 
-        /* Duplicate row vertically for scaling */
-        uint16_t *src_row = pixel_buf + (qr_y * scale) * scaled_size;
+        /* Duplicate row vertically for scaling with centering offset */
         for (int sy = 1; sy < scale; sy++) {
-            uint16_t *dst_row = pixel_buf + (qr_y * scale + sy) * scaled_size;
-            memcpy(dst_row, src_row, scaled_size * sizeof(uint16_t));
+            int src_y = offset_y + qr_y * scale;
+            int dst_y = offset_y + qr_y * scale + sy;
+            if (src_y >= 0 && src_y < display_size && dst_y >= 0 && dst_y < display_size) {
+                uint16_t *src_row = pixel_buf + src_y * display_size + offset_x;
+                uint16_t *dst_row = pixel_buf + dst_y * display_size + offset_x;
+                memcpy(dst_row, src_row, scaled_size * sizeof(uint16_t));
+            }
         }
     }
 
-    /* Save QR code info */
+    /* Save QR code info - use display_size as the actual buffer size */
     qrcode_obj->qr_size = qr_size;
-    qrcode_obj->scaled_size = scaled_size;
+    qrcode_obj->scaled_size = display_size;
 
     ESP_LOGD(TAG, "QR code buffer generated successfully");
 }
