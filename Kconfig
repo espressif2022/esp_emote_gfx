@@ -10,4 +10,14 @@ menu "ESP Emote Graphics Framework"
             When enabled, you can use TrueType and OpenType fonts.
             When disabled, only LVGL C format fonts are supported.
 
+    config GFX_EAF_JPEG_DECODE_SUPPORT
+        bool "Enable JPEG decoding support in EAF"
+        default y
+        help
+            Enable support for JPEG decoding in EAF (Emote Animation Format).
+            This requires the ESP JPEG decoder component to be enabled.
+
+            When enabled, EAF files can use JPEG encoding for image blocks.
+            When disabled, JPEG encoding will not be available, reducing code size.
+
 endmenu

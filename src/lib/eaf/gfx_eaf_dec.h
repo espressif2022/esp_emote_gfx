@@ -21,6 +21,7 @@
 #include <stdbool.h>
 #include "esp_err.h"
 #include "core/gfx_types.h"
+#include "sdkconfig.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -188,9 +189,10 @@ void eaf_calculate_offsets(const eaf_header_t *header, uint32_t *offsets);
  * @param header Pointer to the header structure containing palette
  * @param color_index Index in the palette
  * @param swap_bytes Whether to swap color bytes
- * @return Color value in RGB565 format
+ * @param result Output parameter for color value in RGB565 format
+ * @return true if color is fully transparent (00 00 00 00), false otherwise
  */
-gfx_color_t eaf_palette_get_color(const eaf_header_t *header, uint8_t color_index, bool swap_bytes);
+bool eaf_palette_get_color(const eaf_header_t *header, uint8_t color_index, bool swap_bytes, gfx_color_t *result);
 
 /**********************
  *  COMPRESSION OPERATIONS
@@ -234,6 +236,7 @@ esp_err_t eaf_decode_huffman(const uint8_t *input_data, size_t input_size,
                              uint8_t *output_buffer, size_t *out_size,
                              bool swap_color);
 
+#if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 /**
  * @brief Decode JPEG compressed data
  * @param input_data Input JPEG data
@@ -245,6 +248,7 @@ esp_err_t eaf_decode_huffman(const uint8_t *input_data, size_t input_size,
  */
 esp_err_t eaf_decode_jpeg(const uint8_t *input_data, size_t input_size,
                           uint8_t *output_buffer, size_t *out_size, bool swap_color);
+#endif // CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 
 /**********************
  *  FRAME OPERATIONS

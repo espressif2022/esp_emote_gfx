@@ -10,6 +10,7 @@ A lightweight graphics framework for ESP-IDF with support for images, labels, an
 - **Images**: Display images in RGB565A8 format
 - **Animations**: GIF animations with [ESP32 tools](https://esp32-gif.espressif.com/)
 - **Fonts**: LVGL fonts and FreeType TTF/OTF support
+- **QR Codes**: Dynamic QR code generation and display
 - **Timers**: Built-in timing system for smooth animations
 - **Memory Optimized**: Designed for embedded systems
 
@@ -83,6 +84,12 @@ The test application includes the following widget demonstrations:
 - Multiple image objects with different formats
 - Image positioning and sizing
 
+#### QR Code Widget Examples
+- Creating QR codes with different data types
+- Configuring error correction levels (LOW, MEDIUM, QUARTILE, HIGH)
+- Customizing colors and sizes
+- Centered display with automatic scaling
+
 #### Multi-Object Scenarios
 - Combining animations, images, and labels
 - Object layering and interaction
@@ -142,8 +149,16 @@ gfx_label_set_bg_color(label_obj, GFX_COLOR_HEX(0x00FF00));   // Background colo
 gfx_label_set_bg_enable(label_obj, true);                     // Enable background
 
 // Long text handling
-gfx_label_set_long_mode(label_obj, GFX_LABEL_LONG_WRAP);      // Wrap text
-gfx_label_set_long_mode(label_obj, GFX_LABEL_LONG_SCROLL);    // Scroll text
+gfx_label_set_long_mode(label_obj, GFX_LABEL_LONG_WRAP);           // Wrap text
+gfx_label_set_long_mode(label_obj, GFX_LABEL_LONG_SCROLL);        // Scroll text smoothly
+gfx_label_set_long_mode(label_obj, GFX_LABEL_LONG_SCROLL_SNAP);   // Scroll with snap (paging)
+
+// Scroll control (for GFX_LABEL_LONG_SCROLL)
+gfx_label_set_scroll_step(label_obj, 2);                          // Set scroll speed (pixels per tick)
+
+// Snap scroll control (for GFX_LABEL_LONG_SCROLL_SNAP)
+gfx_label_set_snap_interval(label_obj, 2000);                     // Stay 2 seconds per section
+gfx_label_set_snap_loop(label_obj, true);                          // Enable continuous looping
 
 // Cleanup
 gfx_label_delete_font(freetype_font);  // Delete FreeType font when done
@@ -237,6 +252,41 @@ gfx_anim_set_mirror(anim_obj, enable, offset);  // Manual mirror effect
 gfx_anim_set_auto_mirror(anim_obj, enable);     // Auto mirror effect (automatic horizontal mirroring)
 ```
 
+### QR Code Widget Operations
+
+Generate and display QR codes dynamically:
+
+```c
+// Create QR code object
+gfx_obj_t *qrcode_obj = gfx_qrcode_create(emote_handle);
+
+// Set QR code data (text, URL, etc.)
+gfx_qrcode_set_data(qrcode_obj, "https://www.espressif.com");
+
+// Configure size (square, both width and height)
+gfx_qrcode_set_size(qrcode_obj, 200);  // 200x200 pixels
+
+// Set error correction level
+gfx_qrcode_set_ecc(qrcode_obj, GFX_QRCODE_ECC_HIGH);  // Options: LOW, MEDIUM, QUARTILE, HIGH
+
+// Customize colors
+gfx_qrcode_set_color(qrcode_obj, GFX_COLOR_HEX(0x000000));      // Foreground (modules)
+gfx_qrcode_set_bg_color(qrcode_obj, GFX_COLOR_HEX(0xFFFFFF));   // Background
+
+// Position and display
+gfx_obj_align(qrcode_obj, GFX_ALIGN_CENTER, 0, 0);
+
+// The QR code is automatically centered if the display size doesn't match the scaled QR size
+```
+
+**Error Correction Levels:**
+- `GFX_QRCODE_ECC_LOW`: ~7% error tolerance
+- `GFX_QRCODE_ECC_MEDIUM`: ~15% error tolerance
+- `GFX_QRCODE_ECC_QUARTILE`: ~25% error tolerance
+- `GFX_QRCODE_ECC_HIGH`: ~30% error tolerance
+
+**Note:** The QR code is automatically scaled and centered within the display size. If the display size cannot be evenly divided by the QR module size, the QR code will be centered with background color padding.
+
 ### Timer System Operations
 
 ```c
@@ -282,6 +332,7 @@ The main API is exposed through the `gfx.h` header file, which includes:
 - `widget/gfx_img.h` - Image widget functionality
 - `widget/gfx_label.h` - Label widget functionality
 - `widget/gfx_anim.h` - Animation framework
+- `widget/gfx_qrcode.h` - QR Code widget functionality
 
 ## License
 

@@ -22,6 +22,17 @@
 /* Use generic type checking macro from gfx_obj_priv.h */
 #define CHECK_OBJ_TYPE_ANIMATION(obj) CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_ANIMATION, TAG)
 
+/* Palette cache flags - using bit 16 as transparency marker (RGB565 uses only bits 0-15) */
+#define GFX_PALETTE_CACHE_UNINITIALIZED  0xFFFFFFFFU  /*!< Uninitialized cache entry */
+#define GFX_PALETTE_CACHE_TRANSPARENT    0x00010000U  /*!< Transparency flag bit mask */
+#define GFX_PALETTE_CACHE_COLOR_MASK     0x0000FFFFU  /*!< Color value mask (RGB565) */
+
+/* Helper macros for palette cache operations */
+#define GFX_PALETTE_IS_TRANSPARENT(cache_val)  ((cache_val) & GFX_PALETTE_CACHE_TRANSPARENT)
+#define GFX_PALETTE_GET_COLOR(cache_val)       ((cache_val) & GFX_PALETTE_CACHE_COLOR_MASK)
+#define GFX_PALETTE_SET_TRANSPARENT()          (GFX_PALETTE_CACHE_TRANSPARENT)
+#define GFX_PALETTE_SET_COLOR(color_val)       ((color_val) & GFX_PALETTE_CACHE_COLOR_MASK)
+
 /**********************
  *      TYPEDEFS
  **********************/
@@ -257,7 +268,7 @@ static esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj)
         anim->frame.color_palette = (uint32_t *)heap_caps_malloc(palette_size * sizeof(uint32_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
         ESP_GOTO_ON_FALSE(anim->frame.color_palette != NULL, ESP_ERR_NO_MEM, err, TAG, "No mem for color palette");
 
-        /* Initialize palette cache to 0xFFFFFFFF */
+        /* Initialize palette cache to uninitialized state */
         memset(anim->frame.color_palette, 0xFF, palette_size * sizeof(uint32_t));
     }
 
@@ -337,43 +348,56 @@ static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t de
         mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
     }
 
+    gfx_color_t color;
     for (int y = 0; y < clip_height; y++) {
         for (int x = 0; x < clip_width; x += 2) {
             uint8_t packed_gray = src_pixels[y * src_stride / 2 + (x / 2)];
             uint8_t index1 = (packed_gray & 0xF0) >> 4;
             uint8_t index2 = (packed_gray & 0x0F);
 
-            if (palette_cache[index1] == 0xFFFFFFFF) {
-                gfx_color_t color = eaf_palette_get_color(header, index1, swap);
-                palette_cache[index1] = color.full;
-            }
-
-            gfx_color_t color_val1;
-            color_val1.full = (uint16_t)palette_cache[index1];
-            dest_pixels[y * dest_stride + x] = color_val1;
-
-            if (mirror_mode != GFX_MIRROR_DISABLED) {
-                int mirror_x = width + mirror_offset + width - 1 - x;
-
-                if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
-                    dest_pixels[y * dest_stride + mirror_x] = color_val1;
+            if (palette_cache[index1] == GFX_PALETTE_CACHE_UNINITIALIZED) {
+                bool is_transparent = eaf_palette_get_color(header, index1, swap, &color);
+                if (is_transparent) {
+                    palette_cache[index1] = GFX_PALETTE_SET_TRANSPARENT();
+                } else {
+                    palette_cache[index1] = GFX_PALETTE_SET_COLOR(color.full);
                 }
             }
 
-            if (palette_cache[index2] == 0xFFFFFFFF) {
-                gfx_color_t color = eaf_palette_get_color(header, index2, swap);
-                palette_cache[index2] = color.full;
+            /* Skip transparent pixels */
+            if (!GFX_PALETTE_IS_TRANSPARENT(palette_cache[index1])) {
+                color.full = (uint16_t)GFX_PALETTE_GET_COLOR(palette_cache[index1]);
+                dest_pixels[y * dest_stride + x] = color;
+
+                if (mirror_mode != GFX_MIRROR_DISABLED) {
+                    int mirror_x = width + mirror_offset + width - 1 - x;
+
+                    if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
+                        dest_pixels[y * dest_stride + mirror_x] = color;
+                    }
+                }
             }
 
-            gfx_color_t color_val2;
-            color_val2.full = (uint16_t)palette_cache[index2];
-            dest_pixels[y * dest_stride + x + 1] = color_val2;
+            if (palette_cache[index2] == GFX_PALETTE_CACHE_UNINITIALIZED) {
+                bool is_transparent = eaf_palette_get_color(header, index2, swap, &color);
+                if (is_transparent) {
+                    palette_cache[index2] = GFX_PALETTE_SET_TRANSPARENT();
+                } else {
+                    palette_cache[index2] = GFX_PALETTE_SET_COLOR(color.full);
+                }
+            }
 
-            if (mirror_mode != GFX_MIRROR_DISABLED) {
-                int mirror_x = width + mirror_offset + width - 1 - (x + 1);
+            /* Skip transparent pixels */
+            if (!GFX_PALETTE_IS_TRANSPARENT(palette_cache[index2])) {
+                color.full = (uint16_t)GFX_PALETTE_GET_COLOR(palette_cache[index2]);
+                dest_pixels[y * dest_stride + x + 1] = color;
 
-                if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
-                    dest_pixels[y * dest_stride + mirror_x] = color_val1;
+                if (mirror_mode != GFX_MIRROR_DISABLED) {
+                    int mirror_x = width + mirror_offset + width - 1 - (x + 1);
+
+                    if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
+                        dest_pixels[y * dest_stride + mirror_x] = color;
+                    }
                 }
             }
         }
@@ -397,23 +421,30 @@ static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t de
         mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
     }
 
+    gfx_color_t color;
     for (int32_t y = 0; y < clip_height; y++) {
         for (int32_t x = 0; x < clip_width; x++) {
             uint8_t index = src_pixels[y * src_stride + x];
-            if (palette_cache[index] == 0xFFFFFFFF) {
-                gfx_color_t color = eaf_palette_get_color(header, index, swap);
-                palette_cache[index] = color.full;
+            if (palette_cache[index] == GFX_PALETTE_CACHE_UNINITIALIZED) {
+                bool is_transparent = eaf_palette_get_color(header, index, swap, &color);
+                if (is_transparent) {
+                    palette_cache[index] = GFX_PALETTE_SET_TRANSPARENT();
+                } else {
+                    palette_cache[index] = GFX_PALETTE_SET_COLOR(color.full);
+                }
             }
 
-            gfx_color_t color_val;
-            color_val.full = (uint16_t)palette_cache[index];
-            dest_pixels[y * dest_stride + x] = color_val;
+            /* Skip transparent pixels - no need to write to destination */
+            if (!GFX_PALETTE_IS_TRANSPARENT(palette_cache[index])) {
+                color.full = (uint16_t)GFX_PALETTE_GET_COLOR(palette_cache[index]);
+                dest_pixels[y * dest_stride + x] = color;
 
-            if (mirror_mode != GFX_MIRROR_DISABLED) {
-                int mirror_x = width + mirror_offset + width - 1 - x;
+                if (mirror_mode != GFX_MIRROR_DISABLED) {
+                    int mirror_x = width + mirror_offset + width - 1 - x;
 
-                if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
-                    dest_pixels[y * dest_stride + mirror_x] = color_val;
+                    if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
+                        dest_pixels[y * dest_stride + mirror_x] = color;
+                    }
                 }
             }
         }

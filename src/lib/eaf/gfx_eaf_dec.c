@@ -9,7 +9,9 @@
 #include "esp_log.h"
 #include "esp_check.h"
 #include "gfx_eaf_dec.h"
+#if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 #include "esp_jpeg_dec.h"
+#endif
 
 static const char *TAG = "eaf";
 
@@ -276,19 +278,24 @@ void eaf_calculate_offsets(const eaf_header_t *header, uint32_t *offsets)
  *  PALETTE FUNCTIONS
  **********************/
 
-gfx_color_t eaf_palette_get_color(const eaf_header_t *header, uint8_t color_index, bool swap_bytes)
+bool eaf_palette_get_color(const eaf_header_t *header, uint8_t color_index, bool swap_bytes, gfx_color_t *result)
 {
     const uint8_t *color_data = &header->palette[color_index * 4];
+
+    // Check if color is fully transparent (00 00 00 00)
+    if (color_data[0] == 0 && color_data[1] == 0 && color_data[2] == 0 && color_data[3] == 0) {
+        return true;
+    }
+
     // RGB888: R=color[2], G=color[1], B=color[0]
     // RGB565:
     // - R: (color[2] & 0xF8) << 8
     // - G: (color[1] & 0xFC) << 3
     // - B: (color[0] & 0xF8) >> 3
-    gfx_color_t result;
     uint16_t rgb565_value = swap_bytes ? __builtin_bswap16(((color_data[2] & 0xF8) << 8) | ((color_data[1] & 0xFC) << 3) | ((color_data[0] & 0xF8) >> 3)) : \
                             ((color_data[2] & 0xF8) << 8) | ((color_data[1] & 0xFC) << 3) | ((color_data[0] & 0xF8) >> 3);
-    result.full = rgb565_value;
-    return result;
+    result->full = rgb565_value;
+    return false;
 }
 
 /**********************
@@ -343,7 +350,9 @@ static esp_err_t eaf_init_decoders(void)
     ret |= eaf_register_decoder(EAF_ENCODING_RLE, eaf_decode_rle);
     ret |= eaf_register_decoder(EAF_ENCODING_HUFFMAN, eaf_decode_huffman_rle);
     ret |= eaf_register_decoder(EAF_ENCODING_HUFFMAN_DIRECT, eaf_decode_huffman);
+#if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
     ret |= eaf_register_decoder(EAF_ENCODING_JPEG, eaf_decode_jpeg);
+#endif
 
     return ret;
 }
@@ -369,11 +378,15 @@ esp_err_t eaf_decode_block(const eaf_header_t *header, const uint8_t *block_data
     }
 
     size_t out_size;
+#if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
     if (encoding_type == EAF_ENCODING_JPEG) {
         out_size = width * block_height * 2; // RGB565 = 2 bytes per pixel
     } else {
         out_size = width * block_height;
     }
+#else
+    out_size = width * block_height;
+#endif
 
     decode_result = decoder(block_data + 1, block_len - 1, decode_buffer, &out_size, swap_color);
 
@@ -419,6 +432,7 @@ esp_err_t eaf_decode_rle(const uint8_t *input_data, size_t input_size,
     return ESP_OK;
 }
 
+#if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 esp_err_t eaf_decode_jpeg(const uint8_t *jpeg_data, size_t jpeg_size,
                           uint8_t *decode_buffer, size_t *out_size, bool swap_color)
 {
@@ -488,6 +502,7 @@ esp_err_t eaf_decode_jpeg(const uint8_t *jpeg_data, size_t jpeg_size,
     jpeg_dec_close(jpeg_dec);
     return ESP_OK;
 }
+#endif // CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 
 esp_err_t eaf_decode_huffman(const uint8_t *input_data, size_t input_size,
                              uint8_t *output_buffer, size_t *out_size,
@@ -757,7 +772,8 @@ esp_err_t eaf_frame_decode(eaf_format_handle_t handle, int frame_index,
                 uint16_t color;
 
                 if (palette_cache[index] == 0xFFFFFFFF) {
-                    gfx_color_t eaf_color = eaf_palette_get_color(&frame_header, index, swap_bytes);
+                    gfx_color_t eaf_color;
+                    eaf_palette_get_color(&frame_header, index, swap_bytes, &eaf_color);
                     palette_cache[index] = eaf_color.full;
                     color = eaf_color.full;
                 } else {
