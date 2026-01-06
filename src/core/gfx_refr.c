@@ -5,6 +5,7 @@
  */
 
 #include <string.h>
+#include <inttypes.h>
 #include "esp_log.h"
 #include "core/gfx_refr_priv.h"
 
@@ -114,7 +115,7 @@ void gfx_refr_merge_areas(gfx_core_context_t *ctx)
                 /* Mark 'src_idx' as merged into 'dst_idx' */
                 ctx->disp.area_merged[src_idx] = 1;
 
-                ESP_LOGD(TAG, "Merged area [%d] into [%d], saved %lu pixels",
+                ESP_LOGD(TAG, "Merged area [%" PRIu32 "] into [%" PRIu32 "], saved %" PRIu32 " pixels",
                          src_idx, dst_idx, separate_size - merged_size);
             }
         }

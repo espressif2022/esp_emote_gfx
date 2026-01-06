@@ -88,4 +88,3 @@ TEST_CASE("test multi objects function", "[multi]")
 
     test_cleanup_display_and_graphics(assets_handle);
 }
-

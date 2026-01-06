@@ -183,4 +183,3 @@ TEST_CASE("test qrcode function", "[qrcode]")
 
     test_cleanup_display_and_graphics(assets_handle);
 }
-

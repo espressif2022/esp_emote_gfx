@@ -146,4 +146,3 @@ void test_cleanup_display_and_graphics(mmap_assets_handle_t assets_handle)
 
     vTaskDelay(pdMS_TO_TICKS(1000));
 }
-

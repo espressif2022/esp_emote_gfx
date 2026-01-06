@@ -62,4 +62,3 @@ void test_clock_tm_callback(void *user_data);
 #ifdef __cplusplus
 }
 #endif
-

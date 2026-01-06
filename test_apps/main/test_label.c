@@ -124,4 +124,3 @@ TEST_CASE("test label function", "[label][map]")
 
     test_cleanup_display_and_graphics(assets_handle);
 }
-

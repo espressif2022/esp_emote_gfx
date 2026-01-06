@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <inttypes.h>
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_check.h"
@@ -305,7 +306,7 @@ static void gfx_label_snap_timer_callback(void *arg)
 
     /* Jump to next section */
     label->scroll.scroll_offset += aligned_offset;
-    ESP_LOGI(TAG, "aligned_offset: %d, text_width: %d, scroll_offset: %d",
+    ESP_LOGI(TAG, "aligned_offset: %" PRId32 ", text_width: %" PRId32 ", scroll_offset: %" PRId32,
              label->scroll.scroll_offset - aligned_offset, label->scroll.text_width, label->scroll.scroll_offset);
 
     /* Handle looping */

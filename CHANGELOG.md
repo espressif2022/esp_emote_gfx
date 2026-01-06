@@ -2,6 +2,12 @@
 
 All notable changes to the ESP Emote GFX component will be documented in this file.
 
+## [2.0.3] - 2026-01-08
+- Delete local assets
+- Build acion for ['release-v5.2', 'release-v5.3', 'release-v5.4', 'release-v5.5']
+- Fix ESP-IDF version compatibility issues
+- - Change flush_callback timeout from 20 ms to wait forever
+
 ## [2.0.2] - 2025-12-26
 - Add optional JPEG decoding support for EAF animations
 - Center QR code rendering in UI layout
