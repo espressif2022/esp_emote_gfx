@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <string.h>
+#include <inttypes.h>
 #include "esp_log.h"
 #include "core/gfx_render_priv.h"
 #include "core/gfx_refr_priv.h"
@@ -111,7 +113,7 @@ uint32_t gfx_render_part_area(gfx_core_context_t *ctx, gfx_area_t *area,
 
     uint32_t per_flush = ctx->disp.buf_pixels / area_width;
     if (per_flush == 0) {
-        ESP_LOGE(TAG, "Area[%d] width %lu exceeds buffer width, skipping", area_idx, area_width);
+        ESP_LOGE(TAG, "Area[%d] width %" PRIu32 " exceeds buffer width, skipping", area_idx, area_width);
         return 0;
     }
 
@@ -139,11 +141,11 @@ uint32_t gfx_render_part_area(gfx_core_context_t *ctx, gfx_area_t *area,
             xEventGroupClearBits(ctx->sync.event_group, WAIT_FLUSH_DONE);
 
             uint32_t chunk_pixels = area_width * (y2 - y1);
-            ESP_LOGD(TAG, "Flush[%lu]: (%d,%d)->(%d,%d) %lupx",
+            ESP_LOGD(TAG, "Flush[%" PRIu32 "]: (%d,%d)->(%d,%d) %" PRIu32 "px",
                      start_block_count + flush_idx, x1, y1, x2 - 1, y2 - 1, chunk_pixels);
 
             ctx->callbacks.flush_cb(ctx, x1, y1, x2, y2, buf_act);
-            xEventGroupWaitBits(ctx->sync.event_group, WAIT_FLUSH_DONE, pdTRUE, pdFALSE, pdMS_TO_TICKS(20));
+            xEventGroupWaitBits(ctx->sync.event_group, WAIT_FLUSH_DONE, pdTRUE, pdFALSE, portMAX_DELAY);
         }
 
         current_y = y2;
@@ -241,7 +243,7 @@ bool gfx_render_handler(gfx_core_context_t *ctx)
     uint32_t rendered_blocks = gfx_render_dirty_areas(ctx);
 
     float dirty_percentage = (total_dirty_pixels * 100.0f) / screen_pixels;
-    ESP_LOGD(TAG, "Rendered %lu blocks, %lupx (%.1f%%)",
+    ESP_LOGD(TAG, "Rendered %" PRIu32 " blocks, %" PRIu32 "px (%.1f%%)",
              rendered_blocks, total_dirty_pixels, dirty_percentage);
 
     gfx_render_cleanup(ctx);

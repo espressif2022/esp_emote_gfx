@@ -67,4 +67,3 @@ TEST_CASE("test timer function", "[timer]")
 
     test_cleanup_display_and_graphics(assets_handle);
 }
-

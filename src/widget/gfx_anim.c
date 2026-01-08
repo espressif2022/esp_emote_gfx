@@ -8,6 +8,7 @@
  *      INCLUDES
  *********************/
 #include <string.h>
+#include <inttypes.h>
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
@@ -212,7 +213,7 @@ static esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj)
 
     eaf_format_type_t frame_format = eaf_probe_frame_info(file_desc, current_frame);
     if (frame_format != EAF_FORMAT_VALID) {
-        ESP_LOGE(TAG, "Invalid EAF format for frame %lu: %d", current_frame, frame_format);
+        ESP_LOGE(TAG, "Invalid EAF format for frame %" PRIu32 ": %d", current_frame, frame_format);
         return ESP_FAIL;
     }
 
@@ -220,7 +221,7 @@ static esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj)
 
     const void *frame_data = eaf_get_frame_data(file_desc, current_frame);
     size_t frame_size = eaf_get_frame_size(file_desc, current_frame);
-    ESP_RETURN_ON_FALSE(frame_data != NULL, ESP_FAIL, TAG, "Frame %lu data unavailable", current_frame);
+    ESP_RETURN_ON_FALSE(frame_data != NULL, ESP_FAIL, TAG, "Frame %" PRIu32 " data unavailable", current_frame);
 
     anim->frame.frame_data = frame_data;
     anim->frame.frame_size = frame_size;
@@ -293,7 +294,7 @@ static esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj)
         obj->geometry.width = obj->geometry.width * 2 + mirror_offset;
     }
 
-    ESP_LOGD(TAG, "Frame %lu prepared", current_frame);
+    ESP_LOGD(TAG, "Frame %" PRIu32 " prepared", current_frame);
     return ret;
 
 err:
@@ -519,7 +520,7 @@ static void gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, c
         return;
     }
     if (anim->frame.header.width <= 0) {
-        ESP_LOGE(TAG, "Invalid header for frame %lu", anim->current_frame);
+        ESP_LOGE(TAG, "Invalid header for frame %" PRIu32, anim->current_frame);
         return;
     }
 
@@ -530,7 +531,7 @@ static void gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, c
     uint32_t *palette_cache = anim->frame.color_palette;
     int *last_block_idx = &anim->frame.last_block;
     if (block_offsets == NULL || pixel_buffer == NULL) {
-        ESP_LOGE(TAG, "Parsing resources not ready for frame %lu", anim->current_frame);
+        ESP_LOGE(TAG, "Parsing resources not ready for frame %" PRIu32, anim->current_frame);
         return;
     }
 
@@ -713,7 +714,7 @@ static void gfx_anim_timer_callback(void *arg)
         if (ctx->callbacks.update_cb) {
             ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ONE_FRAME_DONE, obj);
         }
-        ESP_LOGD(TAG, "Frame %lu/%lu", anim->current_frame, anim->end_frame);
+        ESP_LOGD(TAG, "Frame %" PRIu32 "/%" PRIu32, anim->current_frame, anim->end_frame);
     }
 
     gfx_obj_invalidate(obj);
@@ -841,7 +842,7 @@ esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
 
     gfx_obj_invalidate(obj);
 
-    ESP_LOGD(TAG, "Set src [%lu-%lu]", anim->start_frame, anim->end_frame);
+    ESP_LOGD(TAG, "Set src [%" PRIu32 "-%" PRIu32 "]", anim->start_frame, anim->end_frame);
     return ESP_OK;
 }
 
@@ -870,13 +871,13 @@ esp_err_t gfx_anim_set_segment(gfx_obj_t *obj, uint32_t start, uint32_t end, uin
         if (anim->timer != NULL) {
             uint32_t new_period_ms = 1000 / fps;
             gfx_timer_set_period(anim->timer, new_period_ms);
-            ESP_LOGD(TAG, "FPS %lu->%lu", anim->fps, fps);
+            ESP_LOGD(TAG, "FPS %" PRIu32 "->%" PRIu32, anim->fps, fps);
         }
     }
 
     anim->repeat = repeat;
 
-    ESP_LOGD(TAG, "Segment [%lu-%lu] fps:%lu repeat:%d", anim->start_frame, anim->end_frame, fps, repeat);
+    ESP_LOGD(TAG, "Segment [%" PRIu32 "-%" PRIu32 "] fps:%" PRIu32 " repeat:%d", anim->start_frame, anim->end_frame, fps, repeat);
     return ESP_OK;
 }
 

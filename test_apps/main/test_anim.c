@@ -96,4 +96,3 @@ TEST_CASE("test animation function", "[animation]")
 
     test_cleanup_display_and_graphics(assets_handle);
 }
-

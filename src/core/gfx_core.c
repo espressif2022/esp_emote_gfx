@@ -120,7 +120,7 @@ gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
         return NULL;
     }
 
-    const uint32_t stack_caps = cfg->task.task_stack_caps ? cfg->task.task_stack_caps : MALLOC_CAP_DEFAULT; // caps cannot be zero
+    const uint32_t stack_caps = cfg->task.task_stack_caps ? cfg->task.task_stack_caps : (MALLOC_CAP_INTERNAL | MALLOC_CAP_DEFAULT); // caps cannot be zero
     if (cfg->task.task_affinity < 0) {
         xTaskCreateWithCaps(gfx_core_task, "gfx_core", cfg->task.task_stack,
                             disp_ctx, cfg->task.task_priority, NULL, stack_caps);
