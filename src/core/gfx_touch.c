@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -50,15 +50,6 @@ static void gfx_touch_dispatch(gfx_core_context_t *ctx, gfx_touch_event_type_t t
         evt.track_id = pt->track_id;
     }
 
-    /* Push into ring buffer */
-    if (ctx->touch.q_count < sizeof(ctx->touch.queue) / sizeof(ctx->touch.queue[0])) {
-        ctx->touch.queue[ctx->touch.q_tail] = evt;
-        ctx->touch.q_tail = (ctx->touch.q_tail + 1) % (uint8_t)(sizeof(ctx->touch.queue) / sizeof(ctx->touch.queue[0]));
-        ctx->touch.q_count++;
-    } else {
-        ESP_LOGD(TAG, "Touch event queue full, dropping event");
-    }
-
     /* Optional callback */
     if (ctx->touch.event_cb) {
         ctx->touch.event_cb((gfx_handle_t)ctx, &evt, ctx->touch.user_data);
@@ -67,6 +58,7 @@ static void gfx_touch_dispatch(gfx_core_context_t *ctx, gfx_touch_event_type_t t
 
 static void IRAM_ATTR gfx_touch_isr(esp_lcd_touch_handle_t tp)
 {
+
     if (!tp || !tp->config.user_data) {
         return;
     }
@@ -135,7 +127,7 @@ static void gfx_touch_disable_interrupt(gfx_core_context_t *ctx)
     ctx->touch.irq_pending = false;
 }
 
-static esp_err_t gfx_touch_start(gfx_core_context_t *ctx, const gfx_touch_config_t *cfg)
+esp_err_t gfx_touch_start(gfx_core_context_t *ctx, const gfx_touch_config_t *cfg)
 {
     if (!ctx || !cfg) {
         return ESP_ERR_INVALID_ARG;
@@ -154,7 +146,14 @@ static esp_err_t gfx_touch_start(gfx_core_context_t *ctx, const gfx_touch_config
     ctx->touch.isr_ctx = NULL;
 
     bool irq_requested = false;
-    gpio_num_t selected_gpio = ctx->touch.handle->config.int_gpio_num;
+    gpio_num_t selected_gpio = GPIO_NUM_NC;
+
+    if (cfg->int_gpio_num != GPIO_NUM_NC && GPIO_IS_VALID_GPIO(cfg->int_gpio_num)) {
+        selected_gpio = cfg->int_gpio_num;
+    } else if (ctx->touch.handle->config.int_gpio_num != GPIO_NUM_NC &&
+               GPIO_IS_VALID_GPIO(ctx->touch.handle->config.int_gpio_num)) {
+        selected_gpio = ctx->touch.handle->config.int_gpio_num;
+    }
 
     if (selected_gpio != GPIO_NUM_NC) {
         ctx->touch.int_gpio_num = selected_gpio;
@@ -170,9 +169,6 @@ static esp_err_t gfx_touch_start(gfx_core_context_t *ctx, const gfx_touch_config
     ctx->touch.last_y = 0;
     ctx->touch.last_strength = 0;
     ctx->touch.last_id = 0;
-    ctx->touch.q_head = 0;
-    ctx->touch.q_tail = 0;
-    ctx->touch.q_count = 0;
 
     if (irq_requested) {
         esp_err_t irq_ret = gfx_touch_enable_interrupt(ctx);
@@ -247,15 +243,6 @@ static void gfx_touch_poll_cb(void *user_data)
     ctx->touch.pressed = pressed_now;
 }
 
-esp_err_t gfx_touch_init(gfx_core_context_t *ctx, const gfx_core_config_t *cfg)
-{
-    if (!ctx || !cfg) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    return gfx_touch_start(ctx, &cfg->touch);
-}
-
 void gfx_touch_deinit(gfx_core_context_t *ctx)
 {
     if (!ctx) {
@@ -275,9 +262,6 @@ void gfx_touch_deinit(gfx_core_context_t *ctx)
     ctx->touch.event_cb = NULL;
     ctx->touch.user_data = NULL;
     ctx->touch.pressed = false;
-    ctx->touch.q_head = 0;
-    ctx->touch.q_tail = 0;
-    ctx->touch.q_count = 0;
     ctx->touch.int_gpio_num = GPIO_NUM_NC;
 }
 
@@ -305,31 +289,4 @@ esp_err_t gfx_touch_configure(gfx_handle_t handle, const gfx_touch_config_t *con
     }
 
     return ret;
-}
-
-bool gfx_touch_pop_event(gfx_handle_t handle, gfx_touch_event_t *out_event)
-{
-    if (!handle || !out_event) {
-        return false;
-    }
-
-    gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
-    bool popped = false;
-
-    if (ctx->sync.lock_mutex && xSemaphoreTakeRecursive(ctx->sync.lock_mutex, portMAX_DELAY) != pdTRUE) {
-        return false;
-    }
-
-    if (ctx->touch.q_count > 0) {
-        *out_event = ctx->touch.queue[ctx->touch.q_head];
-        ctx->touch.q_head = (ctx->touch.q_head + 1) % (uint8_t)(sizeof(ctx->touch.queue) / sizeof(ctx->touch.queue[0]));
-        ctx->touch.q_count--;
-        popped = true;
-    }
-
-    if (ctx->sync.lock_mutex) {
-        xSemaphoreGiveRecursive(ctx->sync.lock_mutex);
-    }
-
-    return popped;
 }

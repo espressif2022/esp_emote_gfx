@@ -105,4 +105,6 @@ sdkconfig.old
 
 # Generated documentation
 docs/_build/
+docs/doxygen_output/
+Doxyfile
 API_REFERENCE.md

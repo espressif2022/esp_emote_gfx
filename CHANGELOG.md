@@ -2,6 +2,12 @@
 
 All notable changes to the ESP Emote GFX component will be documented in this file.
 
+## [2.0.5] - 2026-01-22
+- Add documentation build action
+- Optimize EAF 8-bit render
+- Fix FreeType parsing performance
+- Remove duplicated label-related APIs
+
 ## [2.0.4] - 2026-01-22
 - Fix Huffman+RLE decoding buffer sizing to prevent oversized output errors (Issue [#18](https://github.com/espressif2022/esp_emote_gfx/issues/18))
 

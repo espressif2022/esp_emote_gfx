@@ -191,6 +191,8 @@ void gfx_obj_invalidate(gfx_obj_t *obj)
     obj_area.x2 = obj->geometry.x + obj->geometry.width - 1;
     obj_area.y2 = obj->geometry.y + obj->geometry.height - 1;
 
+    obj->state.dirty = true;
+
     gfx_invalidate_area(obj->parent_handle, &obj_area);
 }
 

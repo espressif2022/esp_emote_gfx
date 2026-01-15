@@ -51,14 +51,16 @@ struct gfx_obj {
 
     /* Rendering state */
     struct {
-        bool is_visible;        /**< Object visibility */
-        bool layout_dirty;      /**< Whether layout needs to be recalculated before rendering */
+        bool is_visible: 1;       /**< Object visibility */
+        bool layout_dirty: 1;     /**< Whether layout needs to be recalculated before rendering */
+        bool dirty: 1;            /**< Whether the object is dirty */
     } state;
 
     /* Virtual function table */
     struct {
         gfx_obj_draw_fn_t draw;    /**< Draw function pointer */
         gfx_obj_delete_fn_t delete; /**< Delete function pointer */
+        gfx_obj_update_fn_t update; /**< Update function pointer */
     } vfunc;
 };
 

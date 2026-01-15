@@ -42,6 +42,7 @@ Quick Links
 * :doc:`Core API Reference <api/core/index>`
 * :doc:`Widget API Reference <api/widgets/index>`
 * :doc:`Examples <examples>`
+* `Doxygen API Reference <doxygen/index.html>`_ - Auto-generated C/C++ API documentation
 
 Indices and tables
 ==================

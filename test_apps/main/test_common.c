@@ -11,6 +11,7 @@
 #include "esp_lcd_panel_ops.h"
 #include "bsp/display.h"
 #include "driver/spi_common.h"
+#include "bsp/esp-bsp.h"
 #include "test_common.h"
 
 static const char *TAG = "test_common";
@@ -34,7 +35,6 @@ static void flush_callback(gfx_handle_t emote_handle, int x1, int y1, int x2, in
 {
     esp_lcd_panel_handle_t panel = (esp_lcd_panel_handle_t)gfx_emote_get_user_data(emote_handle);
     esp_lcd_panel_draw_bitmap(panel, x1, y1, x2, y2, data);
-    gfx_emote_flush_ready(emote_handle, true);
 }
 
 void test_clock_tm_callback(void *user_data)
@@ -105,15 +105,10 @@ esp_err_t test_init_display_and_graphics(const char *partition_label, uint32_t m
         .buffers = {.buf1 = NULL, .buf2 = NULL, .buf_pixels = BSP_LCD_H_RES * 16},
         .task = GFX_EMOTE_INIT_CONFIG()
     };
-    gfx_cfg.task.task_stack_caps = MALLOC_CAP_DEFAULT;
+    gfx_cfg.task.task_stack_caps = MALLOC_CAP_DEFAULT | MALLOC_CAP_INTERNAL;
     gfx_cfg.task.task_affinity = 0;
     gfx_cfg.task.task_priority = 7;
     gfx_cfg.task.task_stack = 20 * 1024;
-
-    const esp_lcd_panel_io_callbacks_t cbs = {
-        .on_color_trans_done = flush_io_ready,
-    };
-    esp_lcd_panel_io_register_event_callbacks(io_handle, &cbs, emote_handle);
 
     emote_handle = gfx_emote_init(&gfx_cfg);
     if (emote_handle == NULL) {
@@ -121,6 +116,11 @@ esp_err_t test_init_display_and_graphics(const char *partition_label, uint32_t m
         mmap_assets_del(*assets_handle);
         return ESP_FAIL;
     }
+
+    const esp_lcd_panel_io_callbacks_t cbs = {
+        .on_color_trans_done = flush_io_ready,
+    };
+    esp_lcd_panel_io_register_event_callbacks(io_handle, &cbs, emote_handle);
 
     return ESP_OK;
 }
@@ -142,7 +142,7 @@ void test_cleanup_display_and_graphics(mmap_assets_handle_t assets_handle)
     if (io_handle) {
         esp_lcd_panel_io_del(io_handle);
     }
-    spi_bus_free(SPI3_HOST);
+    spi_bus_free(BSP_LCD_SPI_NUM);
 
     vTaskDelay(pdMS_TO_TICKS(1000));
 }

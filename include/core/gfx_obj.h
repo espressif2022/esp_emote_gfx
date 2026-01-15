@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -65,13 +65,19 @@ typedef struct gfx_obj gfx_obj_t;
  * @param dest_buf Destination buffer
  * @param swap Whether to swap color bytes
  */
-typedef void (*gfx_obj_draw_fn_t)(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap);
+typedef esp_err_t (*gfx_obj_draw_fn_t)(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap);
 
 /**
  * @brief Object delete function pointer type
  * @param obj Pointer to the object to delete
  */
 typedef esp_err_t (*gfx_obj_delete_fn_t)(gfx_obj_t *obj);
+
+/**
+ * @brief Object update function pointer type
+ * @param obj Pointer to the object to update
+ */
+typedef esp_err_t (*gfx_obj_update_fn_t)(gfx_obj_t *obj);
 
 /**********************
  * GLOBAL PROTOTYPES
