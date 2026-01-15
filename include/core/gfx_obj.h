@@ -1,14 +1,16 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include "esp_err.h"
 #include "gfx_types.h"
 #include "gfx_core.h"
-#include "esp_err.h"
+#include "core/gfx_disp.h"
+#include "core/gfx_touch.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,10 +21,11 @@ extern "C" {
  *********************/
 
 /* Object types */
+#define GFX_OBJ_TYPE_SCREEN       0x00  /**< Screen type (reserved) */
 #define GFX_OBJ_TYPE_IMAGE        0x01
-#define GFX_OBJ_TYPE_LABEL        0x02
-#define GFX_OBJ_TYPE_ANIMATION    0x03
-#define GFX_OBJ_TYPE_QRCODE       0x04
+#define GFX_OBJ_TYPE_LABEL       0x02
+#define GFX_OBJ_TYPE_ANIMATION   0x03
+#define GFX_OBJ_TYPE_QRCODE      0x04
 
 /* Alignment constants (similar to LVGL) */
 #define GFX_ALIGN_DEFAULT         0x00
@@ -56,22 +59,12 @@ extern "C" {
 typedef struct gfx_obj gfx_obj_t;
 
 /**
- * @brief Object draw function pointer type
- * @param obj Pointer to the object
- * @param x1 Left coordinate of render area
- * @param y1 Top coordinate of render area
- * @param x2 Right coordinate of render area
- * @param y2 Bottom coordinate of render area
- * @param dest_buf Destination buffer
- * @param swap Whether to swap color bytes
+ * @brief Application-level touch callback (register with gfx_obj_set_touch_cb)
+ * @param obj Object that received the touch
+ * @param event Touch event (PRESS / RELEASE / MOVE)
+ * @param user_data User data passed to gfx_obj_set_touch_cb
  */
-typedef void (*gfx_obj_draw_fn_t)(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap);
-
-/**
- * @brief Object delete function pointer type
- * @param obj Pointer to the object to delete
- */
-typedef esp_err_t (*gfx_obj_delete_fn_t)(gfx_obj_t *obj);
+typedef void (*gfx_obj_touch_cb_t)(gfx_obj_t *obj, const gfx_touch_event_t *event, void *user_data);
 
 /**********************
  * GLOBAL PROTOTYPES
@@ -157,6 +150,19 @@ esp_err_t gfx_obj_get_size(gfx_obj_t *obj, uint16_t *w, uint16_t *h);
  * @param obj Pointer to the object to delete
  */
 esp_err_t gfx_obj_delete(gfx_obj_t *obj);
+
+/**
+ * @brief Register application touch callback for an object
+ *
+ * When this object is the hit target of a touch (PRESS/MOVE/RELEASE), the callback
+ * is invoked. Pass NULL to unregister.
+ *
+ * @param obj Object to listen on
+ * @param cb Callback (NULL to clear)
+ * @param user_data Passed to cb
+ * @return ESP_OK on success
+ */
+esp_err_t gfx_obj_set_touch_cb(gfx_obj_t *obj, gfx_obj_touch_cb_t cb, void *user_data);
 
 #ifdef __cplusplus
 }

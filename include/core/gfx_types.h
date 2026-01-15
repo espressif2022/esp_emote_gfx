@@ -25,6 +25,9 @@ extern "C" {
 typedef uint8_t     gfx_opa_t;      /**< Opacity (0-255) */
 typedef int16_t     gfx_coord_t;    /**< Coordinate type */
 
+/** Graphics handle type */
+typedef void       *gfx_handle_t;      /**< Graphics handle type */
+
 /* Color type with full member for compatibility */
 typedef union {
     uint16_t full;                  /**< Full 16-bit color value */

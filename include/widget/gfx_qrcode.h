@@ -39,11 +39,11 @@ typedef enum {
  *====================*/
 
 /**
- * @brief Create a QR Code object
- * @param handle Animation player handle
+ * @brief Create a QR Code object on a display
+ * @param disp Display from gfx_emote_add_disp(handle, &disp_cfg)
  * @return Pointer to the created QR Code object
  */
-gfx_obj_t *gfx_qrcode_create(gfx_handle_t handle);
+gfx_obj_t *gfx_qrcode_create(gfx_disp_t *disp);
 
 /*=====================
  * QR Code setter functions

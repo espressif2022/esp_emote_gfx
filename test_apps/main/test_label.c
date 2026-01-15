@@ -7,7 +7,7 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "unity.h"
-#include "test_common.h"
+#include "common.h"
 
 static const char *TAG = "test_label";
 
@@ -17,7 +17,8 @@ static void test_label_map_function(mmap_assets_handle_t assets_handle)
 
     gfx_emote_lock(emote_handle);
 
-    gfx_obj_t *label_obj = gfx_label_create(emote_handle);
+    TEST_ASSERT_NOT_NULL(disp_default);
+    gfx_obj_t *label_obj = gfx_label_create(disp_default);
     TEST_ASSERT_NOT_NULL(label_obj);
 
     gfx_obj_set_size(label_obj, 150, 100);
@@ -52,7 +53,8 @@ static void test_label_freetype_function(mmap_assets_handle_t assets_handle)
 
     gfx_emote_lock(emote_handle);
 
-    gfx_obj_t *label_obj = gfx_label_create(emote_handle);
+    TEST_ASSERT_NOT_NULL(disp_default);
+    gfx_obj_t *label_obj = gfx_label_create(disp_default);
     TEST_ASSERT_NOT_NULL(label_obj);
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
@@ -103,24 +105,24 @@ static void test_label_freetype_function(mmap_assets_handle_t assets_handle)
     gfx_emote_unlock(emote_handle);
 }
 
-TEST_CASE("test label function", "[label][freetype]")
+TEST_CASE("test function obj label", "[freetype]")
 {
     mmap_assets_handle_t assets_handle = NULL;
-    esp_err_t ret = test_init_display_and_graphics("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
+    esp_err_t ret = display_and_graphics_init("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
 
     test_label_freetype_function(assets_handle);
 
-    test_cleanup_display_and_graphics(assets_handle);
+    display_and_graphics_clean(assets_handle);
 }
 
-TEST_CASE("test label function", "[label][map]")
+TEST_CASE("test function obj label", "[map]")
 {
     mmap_assets_handle_t assets_handle = NULL;
-    esp_err_t ret = test_init_display_and_graphics("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
+    esp_err_t ret = display_and_graphics_init("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
 
     test_label_map_function(assets_handle);
 
-    test_cleanup_display_and_graphics(assets_handle);
+    display_and_graphics_clean(assets_handle);
 }

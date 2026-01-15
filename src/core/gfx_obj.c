@@ -75,7 +75,7 @@ esp_err_t gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h)
 esp_err_t gfx_obj_align(gfx_obj_t *obj, uint8_t align, gfx_coord_t x_ofs, gfx_coord_t y_ofs)
 {
     GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
-    GFX_RETURN_IF_NULL(obj->parent_handle, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->disp, ESP_ERR_INVALID_STATE);
 
     if (align > GFX_ALIGN_OUT_BOTTOM_RIGHT) {
         ESP_LOGW(TAG, "Unknown alignment type: %d", align);
@@ -243,7 +243,7 @@ void gfx_obj_calc_pos_in_parent(gfx_obj_t *obj)
 
     /* Get parent container dimensions */
     uint32_t parent_w, parent_h;
-    gfx_emote_get_screen_size(obj->parent_handle, &parent_w, &parent_h);
+    gfx_disp_get_size(obj->disp, &parent_w, &parent_h);
 
     /* Calculate aligned position (modifies obj->geometry.x and obj->geometry.y in place) */
     gfx_obj_cal_aligned_pos(obj, parent_w, parent_h, &obj->geometry.x, &obj->geometry.y);
@@ -276,6 +276,18 @@ esp_err_t gfx_obj_get_size(gfx_obj_t *obj, uint16_t *w, uint16_t *h)
 }
 
 /*=====================
+ * Touch callback (application listener)
+ *====================*/
+
+esp_err_t gfx_obj_set_touch_cb(gfx_obj_t *obj, gfx_obj_touch_cb_t cb, void *user_data)
+{
+    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
+    obj->user_touch_cb = cb;
+    obj->user_touch_data = user_data;
+    return ESP_OK;
+}
+
+/*=====================
  * Other functions
  *====================*/
 
@@ -283,8 +295,8 @@ esp_err_t gfx_obj_delete(gfx_obj_t *obj)
 {
     GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
 
-    if (GFX_NOT_NULL(obj->parent_handle)) {
-        gfx_emote_remove_child(obj->parent_handle, obj);
+    if (GFX_NOT_NULL(obj->disp)) {
+        gfx_disp_remove_child(obj->disp, obj);
     }
 
     gfx_obj_invalidate(obj);

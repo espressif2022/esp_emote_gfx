@@ -26,12 +26,21 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
+/** Object draw vfunc (internal) */
+typedef esp_err_t (*gfx_obj_draw_fn_t)(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap);
+/** Object delete vfunc (internal) */
+typedef esp_err_t (*gfx_obj_delete_fn_t)(gfx_obj_t *obj);
+/** Object update vfunc (internal) */
+typedef esp_err_t (*gfx_obj_update_fn_t)(gfx_obj_t *obj);
+/** Object touch event vfunc (internal; event is const gfx_touch_event_t *) */
+typedef void (*gfx_obj_touch_fn_t)(gfx_obj_t *obj, const void *event);
+
 /* Graphics object structure - internal definition */
 struct gfx_obj {
     /* Basic properties */
     void *src;                  /**< Source data (image, label, etc.) */
     int type;                   /**< Object type */
-    gfx_handle_t parent_handle; /**< Parent graphics handle */
+    gfx_disp_t *disp;           /**< Display this object belongs to (from gfx_emote_add_disp) */
 
     /* Geometry */
     struct {
@@ -51,22 +60,28 @@ struct gfx_obj {
 
     /* Rendering state */
     struct {
-        bool is_visible;        /**< Object visibility */
-        bool layout_dirty;      /**< Whether layout needs to be recalculated before rendering */
+        bool is_visible: 1;       /**< Object visibility */
+        bool layout_dirty: 1;     /**< Whether layout needs to be recalculated before rendering */
+        bool dirty: 1;            /**< Whether the object is dirty */
     } state;
 
     /* Virtual function table */
     struct {
-        gfx_obj_draw_fn_t draw;    /**< Draw function pointer */
-        gfx_obj_delete_fn_t delete; /**< Delete function pointer */
+        gfx_obj_draw_fn_t draw;       /**< Draw function pointer */
+        gfx_obj_delete_fn_t delete;   /**< Delete function pointer */
+        gfx_obj_update_fn_t update;   /**< Update function pointer */
+        gfx_obj_touch_fn_t touch_event; /**< Touch event (optional, NULL = no handler) */
     } vfunc;
+
+    /** Application touch callback (from gfx_obj_set_touch_cb) */
+    gfx_obj_touch_cb_t user_touch_cb;
+    void *user_touch_data;
 };
 
-typedef struct gfx_core_child_t {
-    int type;
+typedef struct gfx_obj_child_t {
     void *src;
-    struct gfx_core_child_t *next;  // Pointer to next child in the list
-} gfx_core_child_t;
+    struct gfx_obj_child_t *next;
+} gfx_obj_child_t;
 
 /**********************
  * GLOBAL PROTOTYPES

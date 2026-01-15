@@ -4,8 +4,7 @@ on:
   push:
     branches:
       - main
-      - master
-      - feat/update_fps
+      - feat/delete_assets
   workflow_dispatch:
 
 permissions:
@@ -40,6 +39,11 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r docs/requirements.txt
+
+      - name: Install Doxygen and Graphviz
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen graphviz
 
       - name: Build documentation (Sphinx)
         shell: bash

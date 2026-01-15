@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -58,7 +58,7 @@ static const char *TAG = "gfx_qrcode";
  **********************/
 
 /* Virtual functions */
-static void gfx_draw_qrcode(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap);
+static esp_err_t gfx_draw_qrcode(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap);
 static esp_err_t gfx_qrcode_delete(gfx_obj_t *obj);
 
 /* Helper functions */
@@ -256,7 +256,6 @@ static void gfx_qrcode_blend_to_dest(gfx_obj_t *obj, gfx_qrcode_t *qrcode,
         NULL,  /* No alpha mask - QR codes are opaque */
         0,     /* No mask stride */
         &clip_area,
-        255,   /* Fully opaque */
         swap
     );
 }
@@ -264,16 +263,16 @@ static void gfx_qrcode_blend_to_dest(gfx_obj_t *obj, gfx_qrcode_t *qrcode,
 /**
  * @brief Virtual draw function for QR code widget
  */
-static void gfx_draw_qrcode(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap)
+static esp_err_t gfx_draw_qrcode(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap)
 {
     if (obj == NULL || obj->src == NULL) {
         ESP_LOGD(TAG, "Invalid object or source");
-        return;
+        return ESP_ERR_INVALID_ARG;
     }
 
     if (obj->type != GFX_OBJ_TYPE_QRCODE) {
         ESP_LOGW(TAG, "Object is not a QR Code type");
-        return;
+        return ESP_ERR_INVALID_ARG;
     }
 
     gfx_qrcode_t *qrcode = (gfx_qrcode_t *)obj->src;
@@ -282,18 +281,19 @@ static void gfx_draw_qrcode(gfx_obj_t *obj, int x1, int y1, int x2, int y2, cons
     if (qrcode->needs_update) {
         esp_err_t ret = gfx_qrcode_generate(obj, swap);
         if (ret != ESP_OK) {
-            return;
+            return ret;
         }
         qrcode->needs_update = false;
     }
 
     if (!qrcode->qr_modules) {
         ESP_LOGW(TAG, "No QR Code data available");
-        return;
+        return ESP_ERR_INVALID_STATE;
     }
 
     /* Blend QR code to destination */
     gfx_qrcode_blend_to_dest(obj, qrcode, x1, y1, x2, y2, dest_buf, swap);
+    return ESP_OK;
 }
 
 /**
@@ -322,10 +322,15 @@ static esp_err_t gfx_qrcode_delete(gfx_obj_t *obj)
  **********************/
 
 /**
- * @brief Create a QR code object
+ * @brief Create a QR code object on a display
  */
-gfx_obj_t *gfx_qrcode_create(gfx_handle_t handle)
+gfx_obj_t *gfx_qrcode_create(gfx_disp_t *disp)
 {
+    if (disp == NULL) {
+        ESP_LOGE(TAG, "disp must be from gfx_emote_add_disp");
+        return NULL;
+    }
+
     gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
     if (obj == NULL) {
         ESP_LOGE(TAG, "No mem for QR Code object");
@@ -334,7 +339,7 @@ gfx_obj_t *gfx_qrcode_create(gfx_handle_t handle)
 
     memset(obj, 0, sizeof(gfx_obj_t));
     obj->type = GFX_OBJ_TYPE_QRCODE;
-    obj->parent_handle = handle;
+    obj->disp = disp;
     obj->state.is_visible = true;
     obj->vfunc.draw = gfx_draw_qrcode;
     obj->vfunc.delete = gfx_qrcode_delete;
@@ -363,7 +368,7 @@ gfx_obj_t *gfx_qrcode_create(gfx_handle_t handle)
     obj->geometry.height = qrcode->display_size;
 
     gfx_obj_invalidate(obj);
-    gfx_emote_add_child(handle, GFX_OBJ_TYPE_QRCODE, obj);
+    gfx_disp_add_child(disp, obj);
 
     ESP_LOGD(TAG, "Created QR Code object");
     return obj;

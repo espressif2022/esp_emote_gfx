@@ -13,12 +13,17 @@ extern "C" {
 #endif
 
 /**
- * @brief Invalidate an area globally (mark it for redraw)
+ * @brief Invalidate an area for a specific display (internal)
+ */
+void gfx_invalidate_area_disp(gfx_disp_t *disp, const gfx_area_t *area_p);
+
+/**
+ * @brief Invalidate an area globally (mark it for redraw) - applies to first display
  * @param handle Graphics handle
  * @param area Pointer to the area to invalidate, or NULL to clear all invalid areas
  *
  * This function adds an area to the global dirty area list.
- * - If area is NULL, clears all invalid areas
+ * - If area is NULL, clears all invalid areas on all displays
  * - Areas are automatically clipped to screen bounds
  * - Overlapping/adjacent areas are merged
  * - If buffer is full, marks entire screen as dirty
@@ -34,18 +39,16 @@ void gfx_invalidate_area(gfx_handle_t handle, const gfx_area_t *area);
 void gfx_obj_invalidate(gfx_obj_t *obj);
 
 /**
- * @brief Update layout for all objects marked as layout dirty
- * @param ctx Graphics context
- * @note This function recalculates positions for objects with layout_dirty flag
- *       and should be called before rendering dirty areas
+ * @brief Update layout for all objects marked as layout dirty on a display
+ * @param disp Display to update
  */
-void gfx_refr_update_layout_dirty(gfx_core_context_t *ctx);
+void gfx_refr_update_layout_dirty(gfx_disp_t *disp);
 
 /**
  * @brief Merge overlapping/adjacent dirty areas to minimize redraw regions
- * @param ctx Graphics context containing dirty areas
+ * @param disp Display containing dirty areas
  */
-void gfx_refr_merge_areas(gfx_core_context_t *ctx);
+void gfx_refr_merge_areas(gfx_disp_t *disp);
 
 /* Area utility functions (merged from gfx_area.h) */
 /**

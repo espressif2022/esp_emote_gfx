@@ -1,5 +1,5 @@
 Core API Reference
-===================
+==================
 
 The core API provides the foundation for the graphics framework, including initialization, object management, and basic types.
 
@@ -7,15 +7,18 @@ The core API provides the foundation for the graphics framework, including initi
    :maxdepth: 2
 
    gfx_core
+   gfx_disp
    gfx_obj
-   gfx_types
    gfx_timer
+   gfx_touch
+   gfx_types
 
 Core Modules
 ------------
 
-* :doc:`gfx_core` - Core graphics system and initialization
-* :doc:`gfx_obj` - Object system for all graphical elements
-* :doc:`gfx_types` - Type definitions and constants
-* :doc:`gfx_timer` - Timer system for animations
-
+* :doc:`gfx_core` - Core Graphics System (gfx_core)
+* :doc:`gfx_disp` - Display (gfx_disp)
+* :doc:`gfx_obj` - Object (gfx_obj)
+* :doc:`gfx_timer` - Timer (gfx_timer)
+* :doc:`gfx_touch` - Touch (gfx_touch)
+* :doc:`gfx_types` - Type (gfx_types)
