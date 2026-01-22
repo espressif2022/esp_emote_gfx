@@ -311,17 +311,18 @@ static esp_err_t eaf_decode_huffman_rle(const uint8_t *input_data, size_t input_
         return ESP_FAIL;
     }
 
-    uint8_t *huffman_buffer = malloc(*out_size);
+    // Worst case, RLE stream can be 2x of the decompressed size.
+    size_t huffman_cap = *out_size * 2;
+    uint8_t *huffman_buffer = malloc(huffman_cap);
     if (huffman_buffer == NULL) {
         ESP_LOGE(TAG, "No mem for Huffman buffer");
         return ESP_FAIL;
     }
 
-    size_t huffman_out_size = *out_size;
+    size_t huffman_out_size = huffman_cap;
     esp_err_t ret = eaf_decode_huffman(input_data, input_size, huffman_buffer, &huffman_out_size, swap_color);
     if (ret == ESP_OK) {
         ret = eaf_decode_rle(huffman_buffer, huffman_out_size, output_buffer, out_size, swap_color);
-        *out_size = huffman_out_size;
     }
 
     free(huffman_buffer);
