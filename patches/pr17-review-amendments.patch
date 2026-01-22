@@ -1,0 +1,42 @@
+From 2f9266440f8439174669927ed098a43af7de81b5 Mon Sep 17 00:00:00 2001
+From: GitHub Copilot Review <copilot@github.com>
+Date: Wed, 22 Jan 2026 11:45:00 +0000
+Subject: [PATCH] PR #17 Review Amendments - Remove unused 'os' import
+
+This patch addresses the review comment from PR #17:
+- Review Comment: "Import of 'os' is not used."
+- File: docs/scripts/generate_api_docs.py
+- Status: RESOLVED
+- Resolution: Removed unused 'import os' statement
+
+PR Context:
+- PR Number: #17
+- PR Title: Fixed: Update example
+- Branch: feat/delete_assets
+- Review Thread ID: PRRT_kwDOPWayDM5qhIS-
+- Review Comment ID: PRRC_kwDOPWayDM6h5gih
+
+Changes Summary:
+This amendment removes the unused 'os' module import from the
+generate_api_docs.py script. The script uses pathlib.Path instead
+of os.path functions, making the os import unnecessary.
+
+---
+ docs/scripts/generate_api_docs.py | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/docs/scripts/generate_api_docs.py b/docs/scripts/generate_api_docs.py
+index a44d8e6..59ae662 100755
+--- a/docs/scripts/generate_api_docs.py
++++ b/docs/scripts/generate_api_docs.py
+@@ -11,7 +11,6 @@
+     3. 支持结构体、枚举、函数、宏等
+ """
+ 
+-import os
+ import re
+ import argparse
+ from pathlib import Path
+-- 
+2.34.1
+
