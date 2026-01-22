@@ -45,6 +45,7 @@
   ],
   "apply_conditions": {
     "requires_base_commit": "57c012ec878a40a2c9a3bf8d51a898b465a48e23",
+    "comment": "This is the PR #17 commit 1/2 SHA that introduced the file with the unused import",
     "target_files": [
       "docs/scripts/generate_api_docs.py"
     ],

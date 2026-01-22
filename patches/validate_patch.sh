@@ -53,15 +53,28 @@ done
 echo ""
 
 echo "5. Extracting patch metadata..."
-echo "   Patch ID: $(python3 -c "import json; print(json.load(open('patches/pr17-review-amendments.json'))['patch_metadata']['patch_id'])")"
-echo "   Version: $(python3 -c "import json; print(json.load(open('patches/pr17-review-amendments.json'))['patch_metadata']['version'])")"
-echo "   Format: $(python3 -c "import json; print(json.load(open('patches/pr17-review-amendments.json'))['patch_metadata']['format'])")"
-echo "   PR Number: $(python3 -c "import json; print(json.load(open('patches/pr17-review-amendments.json'))['pr_context']['pr_number'])")"
+# Load JSON once and parse multiple times for efficiency
+PATCH_METADATA=$(python3 << 'PYEOF'
+import json
+with open('patches/pr17-review-amendments.json') as f:
+    data = json.load(f)
+    print(f"{data['patch_metadata']['patch_id']}")
+    print(f"{data['patch_metadata']['version']}")
+    print(f"{data['patch_metadata']['format']}")
+    print(f"{data['pr_context']['pr_number']}")
+    print(f"{len(data['review_comments'])}")
+    print(f"{sum(1 for c in data['review_comments'] if c['status'] == 'RESOLVED')}")
+PYEOF
+)
+IFS=$'\n' read -d '' -r PATCH_ID VERSION FORMAT PR_NUM COMMENT_COUNT RESOLVED_COUNT <<< "$PATCH_METADATA" || true
+
+echo "   Patch ID: $PATCH_ID"
+echo "   Version: $VERSION"
+echo "   Format: $FORMAT"
+echo "   PR Number: $PR_NUM"
 echo ""
 
 echo "6. Checking review comment status..."
-COMMENT_COUNT=$(python3 -c "import json; print(len(json.load(open('patches/pr17-review-amendments.json'))['review_comments']))")
-RESOLVED_COUNT=$(python3 -c "import json; data=json.load(open('patches/pr17-review-amendments.json')); print(sum(1 for c in data['review_comments'] if c['status'] == 'RESOLVED'))")
 echo "   Total review comments: $COMMENT_COUNT"
 echo "   Resolved comments: $RESOLVED_COUNT"
 if [ "$COMMENT_COUNT" -eq "$RESOLVED_COUNT" ]; then
