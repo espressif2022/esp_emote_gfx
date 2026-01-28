@@ -34,6 +34,7 @@ static void test_animation_function(mmap_assets_handle_t assets_handle)
         {MMAP_TEST_ASSETS_MI_1_EYE_8BIT_HUFF_EAF, "MI_1_EYE 8-bit Huffman EAF"},
         {MMAP_TEST_ASSETS_MI_2_EYE_8BIT_HUFF_EAF, "MI_2_EYE 8-bit Huffman EAF"},
         {MMAP_TEST_ASSETS_TRANSPARENT_EAF,     "Transparent EAF"},
+        {MMAP_TEST_ASSETS_ONLY_HEATSHRINK_4BIT_EAF, "Only Heatshrink 4-bit EAF"},
     };
 
     gfx_emote_lock(emote_handle);

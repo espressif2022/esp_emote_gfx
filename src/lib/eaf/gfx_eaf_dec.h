@@ -111,6 +111,8 @@ typedef enum {
     EAF_ENCODING_HUFFMAN = 1,       /*!< Huffman encoding with RLE */
     EAF_ENCODING_JPEG = 2,          /*!< JPEG encoding */
     EAF_ENCODING_HUFFMAN_DIRECT = 3, /*!< Direct Huffman encoding without RLE */
+    EAF_ENCODING_HEATSHRINK = 4,    /*!< Heatshrink encoding */
+    EAF_ENCODING_RAW = 5,           /*!< Raw (uncompressed) */
     EAF_ENCODING_MAX                /*!< Maximum number of encoding types */
 } eaf_encoding_type_t;
 
@@ -235,6 +237,34 @@ esp_err_t eaf_decode_rle(const uint8_t *input_data, size_t input_size,
 esp_err_t eaf_decode_huffman(const uint8_t *input_data, size_t input_size,
                              uint8_t *output_buffer, size_t *out_size,
                              bool swap_color);
+
+#ifdef CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
+/**
+ * @brief Decode heatshrink compressed data
+ * @param input_data Input compressed data
+ * @param input_size Size of input data
+ * @param output_buffer Output buffer for decompressed data
+ * @param out_size Size of output buffer
+ * @param swap_color Whether to swap color bytes (unused)
+ * @return ESP_OK on success, ESP_FAIL on failure
+ */
+esp_err_t eaf_decode_heatshrink(const uint8_t *input_data, size_t input_size,
+                                uint8_t *output_buffer, size_t *out_size,
+                                bool swap_color);
+#endif // CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
+
+/**
+ * @brief Decode raw (uncompressed) data
+ * @param input_data Input data
+ * @param input_size Size of input data
+ * @param output_buffer Output buffer for data
+ * @param out_size Size of output buffer
+ * @param swap_color Whether to swap color bytes (unused)
+ * @return ESP_OK on success, ESP_FAIL on failure
+ */
+esp_err_t eaf_decode_raw(const uint8_t *input_data, size_t input_size,
+                         uint8_t *output_buffer, size_t *out_size,
+                         bool swap_color);
 
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 /**

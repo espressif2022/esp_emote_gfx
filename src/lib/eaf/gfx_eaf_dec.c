@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -12,6 +12,10 @@
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 #include "esp_jpeg_dec.h"
 #endif
+
+#ifdef CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
+#include "heatshrink_decoder.h"
+#endif // CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
 
 static const char *TAG = "eaf";
 
@@ -354,6 +358,10 @@ static esp_err_t eaf_init_decoders(void)
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
     ret |= eaf_register_decoder(EAF_ENCODING_JPEG, eaf_decode_jpeg);
 #endif
+#ifdef CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
+    ret |= eaf_register_decoder(EAF_ENCODING_HEATSHRINK, eaf_decode_heatshrink);
+#endif
+    ret |= eaf_register_decoder(EAF_ENCODING_RAW, eaf_decode_raw);
 
     return ret;
 }
@@ -432,6 +440,134 @@ esp_err_t eaf_decode_rle(const uint8_t *input_data, size_t input_size,
     *out_size = out_pos;
     return ESP_OK;
 }
+
+esp_err_t eaf_decode_raw(const uint8_t *input_data, size_t input_size,
+                         uint8_t *output_buffer, size_t *out_size,
+                         bool swap_color)
+{
+    (void)swap_color;
+
+    if (!input_data || !output_buffer || !out_size) {
+        ESP_LOGE(TAG, "Invalid parameters");
+        return ESP_FAIL;
+    }
+
+    if (*out_size < input_size) {
+        ESP_LOGE(TAG, "Output buffer too small: need %zu, got %zu", input_size, *out_size);
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    if (input_size > 0) {
+        memcpy(output_buffer, input_data, input_size);
+    }
+    *out_size = input_size;
+    return ESP_OK;
+}
+
+#ifdef CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
+esp_err_t eaf_decode_heatshrink(const uint8_t *input_data, size_t input_size,
+                                uint8_t *output_buffer, size_t *out_size,
+                                bool swap_color)
+{
+    (void)swap_color;
+
+    if (!input_data || !output_buffer || !out_size) {
+        ESP_LOGE(TAG, "Invalid parameters");
+        return ESP_FAIL;
+    }
+
+    size_t out_capacity = *out_size;
+    if (out_capacity == 0) {
+        return ESP_OK;
+    }
+
+#if CONFIG_HEATSHRINK_DYNAMIC_ALLOC
+    heatshrink_decoder *hsd = heatshrink_decoder_alloc(32, 8, 4);
+    if (!hsd) {
+        ESP_LOGE(TAG, "No mem for heatshrink decoder");
+        return ESP_ERR_NO_MEM;
+    }
+#else
+    heatshrink_decoder hsd_stack;
+    heatshrink_decoder *hsd = &hsd_stack;
+#endif
+
+    heatshrink_decoder_reset(hsd);
+
+    size_t in_pos = 0;
+    size_t out_pos = 0;
+    while (in_pos < input_size) {
+        size_t sunk = 0;
+        HSD_sink_res sres = heatshrink_decoder_sink(hsd, (uint8_t *)(input_data + in_pos),
+                                                    input_size - in_pos, &sunk);
+        if (sres < 0) {
+            ESP_LOGE(TAG, "Heatshrink sink error: %d", sres);
+            goto hs_fail;
+        }
+        in_pos += sunk;
+
+        while (true) {
+            size_t produced = 0;
+            size_t remain = out_capacity - out_pos;
+            if (remain == 0) {
+                ESP_LOGE(TAG, "Heatshrink output overflow");
+                goto hs_fail;
+            }
+            HSD_poll_res pres = heatshrink_decoder_poll(hsd, output_buffer + out_pos, remain, &produced);
+            if (pres < 0) {
+                ESP_LOGE(TAG, "Heatshrink poll error: %d", pres);
+                goto hs_fail;
+            }
+            out_pos += produced;
+            if (pres == HSDR_POLL_EMPTY) {
+                break;
+            }
+        }
+    }
+
+    while (true) {
+        HSD_finish_res fres = heatshrink_decoder_finish(hsd);
+        if (fres < 0) {
+            ESP_LOGE(TAG, "Heatshrink finish error: %d", fres);
+            goto hs_fail;
+        }
+
+        while (true) {
+            size_t produced = 0;
+            size_t remain = out_capacity - out_pos;
+            if (remain == 0) {
+                ESP_LOGE(TAG, "Heatshrink output overflow");
+                goto hs_fail;
+            }
+            HSD_poll_res pres = heatshrink_decoder_poll(hsd, output_buffer + out_pos, remain, &produced);
+            if (pres < 0) {
+                ESP_LOGE(TAG, "Heatshrink poll error: %d", pres);
+                goto hs_fail;
+            }
+            out_pos += produced;
+            if (pres == HSDR_POLL_EMPTY) {
+                break;
+            }
+        }
+
+        if (fres == HSDR_FINISH_DONE) {
+            break;
+        }
+    }
+
+    *out_size = out_pos;
+#if CONFIG_HEATSHRINK_DYNAMIC_ALLOC
+    heatshrink_decoder_free(hsd);
+#endif
+    return ESP_OK;
+
+hs_fail:
+#if CONFIG_HEATSHRINK_DYNAMIC_ALLOC
+    heatshrink_decoder_free(hsd);
+#endif
+    return ESP_FAIL;
+}
+#endif // CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
 
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 esp_err_t eaf_decode_jpeg(const uint8_t *jpeg_data, size_t jpeg_size,
