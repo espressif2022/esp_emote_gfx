@@ -2,6 +2,9 @@
 
 All notable changes to the ESP Emote GFX component will be documented in this file.
 
+## [2.1.0] - 2026-01-28
+- Support for decoding Heatshrink-compressed image slices
+
 ## [2.0.4] - 2026-01-22
 - Fix Huffman+RLE decoding buffer sizing to prevent oversized output errors (Issue [#18](https://github.com/espressif2022/esp_emote_gfx/issues/18))
 

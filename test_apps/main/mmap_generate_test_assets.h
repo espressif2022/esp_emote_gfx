@@ -13,8 +13,8 @@
 
 #include "esp_mmap_assets.h"
 
-#define MMAP_TEST_ASSETS_FILES           14
-#define MMAP_TEST_ASSETS_CHECKSUM        0x62FC
+#define MMAP_TEST_ASSETS_FILES           15
+#define MMAP_TEST_ASSETS_CHECKSUM        0x49C8
 
 enum MMAP_TEST_ASSETS_LISTS {
     MMAP_TEST_ASSETS_MI_1_EYE_24BIT_AAF = 0,        /*!< mi_1_eye_24bit.aaf */
@@ -29,6 +29,7 @@ enum MMAP_TEST_ASSETS_LISTS {
     MMAP_TEST_ASSETS_MI_1_EYE_8BIT_EAF = 9,        /*!< mi_1_eye_8bit.eaf */
     MMAP_TEST_ASSETS_MI_1_EYE_8BIT_HUFF_EAF = 10,        /*!< mi_1_eye_8bit_huff.eaf */
     MMAP_TEST_ASSETS_MI_2_EYE_8BIT_HUFF_EAF = 11,        /*!< mi_2_eye_8bit_huff.eaf */
-    MMAP_TEST_ASSETS_TRANSPARENT_EAF = 12,        /*!< transparent.eaf */
-    MMAP_TEST_ASSETS_DEJAVUSANS_TTF = 13,        /*!< DejaVuSans.ttf */
+    MMAP_TEST_ASSETS_ONLY_HEATSHRINK_4BIT_EAF = 12,        /*!< only_heatshrink_4bit.eaf */
+    MMAP_TEST_ASSETS_TRANSPARENT_EAF = 13,        /*!< transparent.eaf */
+    MMAP_TEST_ASSETS_DEJAVUSANS_TTF = 14,        /*!< DejaVuSans.ttf */
 };
