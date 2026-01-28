@@ -70,7 +70,6 @@ typedef struct {
         int task_affinity;      ///< CPU core ID (-1: no affinity, 0: core 0, 1: core 1)
         unsigned task_stack_caps; /*!< LVGL task stack memory capabilities (see esp_heap_caps.h) */
     } task;
-    gfx_touch_config_t touch;          ///< Optional touch configuration
 } gfx_core_config_t;
 
 /**********************

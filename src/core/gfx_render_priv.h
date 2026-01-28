@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -59,7 +59,14 @@ uint32_t gfx_render_area_summary(gfx_core_context_t *ctx);
  * @param y2 Bottom coordinate
  * @param dest_buf Destination buffer
  */
-void gfx_render_child_objects(gfx_core_context_t *ctx, int x1, int y1, int x2, int y2, const void *dest_buf);
+void gfx_render_draw_child_objects(gfx_core_context_t *ctx, int x1, int y1, int x2, int y2, const void *dest_buf);
+
+
+/**
+ * @brief Update child objects
+ * @param ctx Graphics context
+ */
+void gfx_render_update_child_objects(gfx_core_context_t *ctx);
 
 #ifdef __cplusplus
 }

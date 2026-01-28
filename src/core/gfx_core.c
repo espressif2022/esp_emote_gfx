@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -32,16 +32,20 @@ static esp_err_t gfx_buf_free_frame(gfx_core_context_t *ctx);
 
 gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
 {
-    if (!cfg) {
-        ESP_LOGE(TAG, "Invalid configuration");
-        return NULL;
-    }
+    esp_err_t ret = ESP_OK;
+    gfx_core_context_t *disp_ctx = NULL;
+    bool event_group_created = false;
+    bool frame_buf_inited = false;
+    bool mutex_created = false;
+    bool decoder_inited = false;
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
+    bool font_lib_created = false;
+#endif
 
-    gfx_core_context_t *disp_ctx = malloc(sizeof(gfx_core_context_t));
-    if (!disp_ctx) {
-        ESP_LOGE(TAG, "Failed to allocate player context");
-        return NULL;
-    }
+    ESP_GOTO_ON_FALSE(cfg, ESP_ERR_INVALID_ARG, err, TAG, "Invalid configuration");
+
+    disp_ctx = malloc(sizeof(gfx_core_context_t));
+    ESP_GOTO_ON_FALSE(disp_ctx, ESP_ERR_NO_MEM, err, TAG, "Failed to allocate player context");
 
     // Initialize all fields to zero/NULL
     memset(disp_ctx, 0, sizeof(gfx_core_context_t));
@@ -55,72 +59,37 @@ gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
     disp_ctx->callbacks.user_data = cfg->user_data;
 
     disp_ctx->sync.event_group = xEventGroupCreate();
+    ESP_GOTO_ON_FALSE(disp_ctx->sync.event_group, ESP_ERR_NO_MEM, err, TAG, "Failed to create event group");
+    event_group_created = true;
 
     disp_ctx->disp.child_list = NULL;
 
     // Initialize frame buffers (internal or external)
-    esp_err_t buffer_ret = gfx_buf_init_frame(disp_ctx, cfg);
-    if (buffer_ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize frame buffers");
-        vEventGroupDelete(disp_ctx->sync.event_group);
-        free(disp_ctx);
-        return NULL;
-    }
+    ret = gfx_buf_init_frame(disp_ctx, cfg);
+    ESP_GOTO_ON_ERROR(ret, err, TAG, "Failed to initialize frame buffers");
+    frame_buf_inited = true;
 
     // Initialize timer manager
     gfx_timer_mgr_init(&disp_ctx->timer.timer_mgr, cfg->fps);
 
     // Create recursive render mutex for protecting rendering operations
     disp_ctx->sync.lock_mutex = xSemaphoreCreateRecursiveMutex();
-    if (disp_ctx->sync.lock_mutex == NULL) {
-        ESP_LOGE(TAG, "Failed to create recursive render mutex");
-        gfx_buf_free_frame(disp_ctx);
-        vEventGroupDelete(disp_ctx->sync.event_group);
-        free(disp_ctx);
-        return NULL;
-    }
+    ESP_GOTO_ON_FALSE(disp_ctx->sync.lock_mutex, ESP_ERR_NO_MEM, err, TAG, "Failed to create recursive render mutex");
+    mutex_created = true;
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
-    esp_err_t font_ret = gfx_ft_lib_create();
-    if (font_ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to create font library");
-        gfx_buf_free_frame(disp_ctx);
-        vSemaphoreDelete(disp_ctx->sync.lock_mutex);
-        vEventGroupDelete(disp_ctx->sync.event_group);
-        free(disp_ctx);
-        return NULL;
-    }
+    ret = gfx_ft_lib_create();
+    ESP_GOTO_ON_ERROR(ret, err, TAG, "Failed to create font library");
+    font_lib_created = true;
 #endif
 
     // Initialize image decoder system
-    esp_err_t decoder_ret = gfx_image_decoder_init();
-    if (decoder_ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize image decoder");
-#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
-        gfx_ft_lib_cleanup();
-#endif
-        gfx_buf_free_frame(disp_ctx);
-        vSemaphoreDelete(disp_ctx->sync.lock_mutex);
-        vEventGroupDelete(disp_ctx->sync.event_group);
-        free(disp_ctx);
-        return NULL;
-    }
+    ret = gfx_image_decoder_init();
+    ESP_GOTO_ON_ERROR(ret, err, TAG, "Failed to initialize image decoder");
+    decoder_inited = true;
 
-    esp_err_t touch_ret = gfx_touch_init(disp_ctx, cfg);
-    if (touch_ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize touch");
-#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
-        gfx_ft_lib_cleanup();
-#endif
-        gfx_buf_free_frame(disp_ctx);
-        vSemaphoreDelete(disp_ctx->sync.lock_mutex);
-        vEventGroupDelete(disp_ctx->sync.event_group);
-        gfx_image_decoder_deinit();
-        free(disp_ctx);
-        return NULL;
-    }
-
-    const uint32_t stack_caps = cfg->task.task_stack_caps ? cfg->task.task_stack_caps : (MALLOC_CAP_INTERNAL | MALLOC_CAP_DEFAULT); // caps cannot be zero
+    // Create render task
+    const uint32_t stack_caps = cfg->task.task_stack_caps ? cfg->task.task_stack_caps : (MALLOC_CAP_INTERNAL | MALLOC_CAP_DEFAULT);
     if (cfg->task.task_affinity < 0) {
         xTaskCreateWithCaps(gfx_core_task, "gfx_core", cfg->task.task_stack,
                             disp_ctx, cfg->task.task_priority, NULL, stack_caps);
@@ -130,6 +99,27 @@ gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
     }
 
     return (gfx_handle_t)disp_ctx;
+
+err:
+    if (decoder_inited) {
+        gfx_image_decoder_deinit();
+    }
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
+    if (font_lib_created) {
+        gfx_ft_lib_cleanup();
+    }
+#endif
+    if (mutex_created) {
+        vSemaphoreDelete(disp_ctx->sync.lock_mutex);
+    }
+    if (frame_buf_inited) {
+        gfx_buf_free_frame(disp_ctx);
+    }
+    if (event_group_created) {
+        vEventGroupDelete(disp_ctx->sync.event_group);
+    }
+    free(disp_ctx);
+    return NULL;
 }
 
 void gfx_emote_deinit(gfx_handle_t handle)

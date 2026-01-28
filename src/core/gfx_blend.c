@@ -1,9 +1,10 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <string.h>
 #include "esp_log.h"
 #include "esp_err.h"
 
@@ -41,9 +42,34 @@ gfx_color_t gfx_blend_color_mix(gfx_color_t c1, gfx_color_t c2, uint8_t mix, boo
     return ret;
 }
 
+/**
+ * @brief Fast fill buffer with background color
+ * @param buf Pointer to uint16_t buffer
+ * @param color 16-bit color value
+ * @param pixels Number of pixels to fill
+ */
+void gfx_sw_blend_fill(uint16_t *buf, uint16_t color, size_t pixels)
+{
+    if ((color & 0xFF) == (color >> 8)) {
+        memset(buf, color & 0xFF, pixels * sizeof(uint16_t));
+    } else {
+        uint32_t color32 = (color << 16) | color;
+        uint32_t *buf32 = (uint32_t *)buf;
+        size_t pixels_half = pixels / 2;
+
+        for (size_t i = 0; i < pixels_half; i++) {
+            buf32[i] = color32;
+        }
+
+        if (pixels & 1) {
+            buf[pixels - 1] = color;
+        }
+    }
+}
+
 void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
-                       gfx_color_t color, gfx_opa_t opa,
-                       const gfx_opa_t *mask, gfx_area_t *clip_area, gfx_coord_t mask_stride, bool swap)
+                       const gfx_opa_t *mask, gfx_coord_t mask_stride,
+                       gfx_area_t *clip_area, gfx_color_t color, gfx_opa_t opa, bool swap)
 {
     int32_t w = clip_area->x2 - clip_area->x1;
     int32_t h = clip_area->y2 - clip_area->y1;
@@ -64,14 +90,13 @@ void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                 uint32_t mask32 = *((uint32_t *)mask);
                 if (mask32 == 0xFFFFFFFF) {
                     if ((unsigned int)dest_buf & 0x3) {/*dest_buf is not 4-byte aligned*/
-                        *(dest_buf + 0) = color;
-                        uint32_t *d = (uint32_t *)(dest_buf + 1);
-                        *d = c32;
-                        *(dest_buf + 3) = color;
+                        dest_buf[0] = color;
+                        ((uint32_t *)(dest_buf + 1))[0] = c32;
+                        dest_buf[3] = color;
                     } else {
-                        uint32_t *d = (uint32_t *)dest_buf;
-                        *d = c32;
-                        *(d + 1) = c32;
+                        uint32_t *d32 = (uint32_t *)dest_buf;
+                        d32[0] = c32;
+                        d32[1] = c32;
                     }
                     dest_buf += 4;
                     mask += 4;
@@ -80,7 +105,7 @@ void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                     FILL_NORMAL_MASK_PX(color, swap)
                     FILL_NORMAL_MASK_PX(color, swap)
                     FILL_NORMAL_MASK_PX(color, swap)
-                } else {
+                } else { //transparent
                     mask += 4;
                     dest_buf += 4;
                 }
@@ -104,8 +129,9 @@ void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
         for (y = 0; y < h; y++) {
             for (x = 0; x < w; x++) {
                 if (*mask) {
-                    if (*mask != last_mask) opa_tmp = *mask == OPA_COVER ? opa :
-                                                          (uint32_t)((uint32_t)(*mask) * opa) >> 8;
+                    if (*mask != last_mask) {
+                        opa_tmp = (*mask == OPA_COVER) ? opa : ((uint32_t)((uint32_t)(*mask) * opa) >> 8);
+                    }
                     if (*mask != last_mask || last_dest_color.full != dest_buf[x].full) {
                         if (opa_tmp == OPA_COVER) {
                             last_res_color = color;
@@ -128,7 +154,7 @@ void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
 void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                            const gfx_color_t *src_buf, gfx_coord_t src_stride,
                            const gfx_opa_t *mask, gfx_coord_t mask_stride,
-                           gfx_area_t *clip_area, gfx_opa_t opa, bool swap)
+                           gfx_area_t *clip_area, bool swap)
 {
     int32_t w = clip_area->x2 - clip_area->x1;
     int32_t h = clip_area->y2 - clip_area->y1;
@@ -136,7 +162,7 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
     int32_t x, y;
 
     // Fast path: no mask, opaque rendering (RGB565 format)
-    if (mask == NULL && opa >= OPA_MAX) {
+    if (mask == NULL) {
         for (y = 0; y < h; y++) {
             for (x = 0; x < w; x++) {
                 dest_buf[x] = src_buf[x];
@@ -147,7 +173,7 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
         return;
     }
 
-    // Slow path: with mask or partial opacity
+    // Slow path: with mask
     gfx_color_t last_dest_color;
     gfx_color_t last_res_color;
     gfx_color_t last_src_color;
@@ -155,20 +181,15 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
     last_dest_color.full = dest_buf[0].full;
     last_res_color.full = dest_buf[0].full;
     last_src_color.full = src_buf[0].full;
-    gfx_opa_t opa_tmp = opa; // Initialize with base opacity
 
     for (y = 0; y < h; y++) {
         for (x = 0; x < w; x++) {
             if (mask == NULL || *mask) {
-                if (mask && *mask != last_mask) {
-                    opa_tmp = (*mask == OPA_COVER) ? opa : (uint32_t)((uint32_t)(*mask) * opa) >> 8;
-                }
-
                 if (mask == NULL || *mask != last_mask || last_dest_color.full != dest_buf[x].full || last_src_color.full != src_buf[x].full) {
-                    if (opa_tmp == OPA_COVER) {
+                    if (mask == NULL || *mask == OPA_COVER) {
                         last_res_color = src_buf[x];
                     } else {
-                        last_res_color = gfx_blend_color_mix(src_buf[x], dest_buf[x], opa_tmp, swap);
+                        last_res_color = gfx_blend_color_mix(src_buf[x], dest_buf[x], *mask, swap);
                     }
                     if (mask) {
                         last_mask = *mask;

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -39,16 +39,8 @@ typedef struct {
     uint32_t poll_ms;
     gfx_touch_event_cb_t event_cb;
     void *user_data;
+    gpio_num_t int_gpio_num;  ///< Interrupt GPIO number (GPIO_NUM_NC if not used or to use handle's config)
 } gfx_touch_config_t;
-
-/**
- * @brief Pop one queued touch event (non-blocking)
- *
- * @param handle Graphics handle
- * @param out_event Output event buffer
- * @return true if an event was popped, false if queue is empty or handle invalid
- */
-bool gfx_touch_pop_event(gfx_handle_t handle, gfx_touch_event_t *out_event);
 
 /**
  * @brief Configure touch handling at runtime

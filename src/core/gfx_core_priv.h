@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -98,10 +98,6 @@ typedef struct {
         uint16_t last_y;
         uint16_t last_strength;
         uint8_t last_id;
-        gfx_touch_event_t queue[8];
-        uint8_t q_head;
-        uint8_t q_tail;
-        uint8_t q_count;
         gpio_num_t int_gpio_num;
         bool irq_enabled;
         volatile bool irq_pending;
@@ -137,13 +133,13 @@ esp_err_t gfx_emote_add_child(gfx_handle_t handle, int type, void *src);
 esp_err_t gfx_emote_remove_child(gfx_handle_t handle, void *src);
 
 /**
- * @brief Initialize touch handling if configured
+ * @brief Start touch handling with configuration
  *
  * @param ctx Graphics context
- * @param cfg Core configuration
+ * @param cfg Touch configuration
  * @return esp_err_t ESP_OK on success
  */
-esp_err_t gfx_touch_init(gfx_core_context_t *ctx, const gfx_core_config_t *cfg);
+esp_err_t gfx_touch_start(gfx_core_context_t *ctx, const gfx_touch_config_t *cfg);
 
 /**
  * @brief Deinitialize touch handling

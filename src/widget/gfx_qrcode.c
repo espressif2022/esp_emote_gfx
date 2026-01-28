@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -58,7 +58,7 @@ static const char *TAG = "gfx_qrcode";
  **********************/
 
 /* Virtual functions */
-static void gfx_draw_qrcode(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap);
+static esp_err_t gfx_draw_qrcode(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap);
 static esp_err_t gfx_qrcode_delete(gfx_obj_t *obj);
 
 /* Helper functions */
@@ -256,7 +256,6 @@ static void gfx_qrcode_blend_to_dest(gfx_obj_t *obj, gfx_qrcode_t *qrcode,
         NULL,  /* No alpha mask - QR codes are opaque */
         0,     /* No mask stride */
         &clip_area,
-        255,   /* Fully opaque */
         swap
     );
 }
@@ -264,16 +263,16 @@ static void gfx_qrcode_blend_to_dest(gfx_obj_t *obj, gfx_qrcode_t *qrcode,
 /**
  * @brief Virtual draw function for QR code widget
  */
-static void gfx_draw_qrcode(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap)
+static esp_err_t gfx_draw_qrcode(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap)
 {
     if (obj == NULL || obj->src == NULL) {
         ESP_LOGD(TAG, "Invalid object or source");
-        return;
+        return ESP_ERR_INVALID_ARG;
     }
 
     if (obj->type != GFX_OBJ_TYPE_QRCODE) {
         ESP_LOGW(TAG, "Object is not a QR Code type");
-        return;
+        return ESP_ERR_INVALID_ARG;
     }
 
     gfx_qrcode_t *qrcode = (gfx_qrcode_t *)obj->src;
@@ -282,18 +281,19 @@ static void gfx_draw_qrcode(gfx_obj_t *obj, int x1, int y1, int x2, int y2, cons
     if (qrcode->needs_update) {
         esp_err_t ret = gfx_qrcode_generate(obj, swap);
         if (ret != ESP_OK) {
-            return;
+            return ret;
         }
         qrcode->needs_update = false;
     }
 
     if (!qrcode->qr_modules) {
         ESP_LOGW(TAG, "No QR Code data available");
-        return;
+        return ESP_ERR_INVALID_STATE;
     }
 
     /* Blend QR code to destination */
     gfx_qrcode_blend_to_dest(obj, qrcode, x1, y1, x2, y2, dest_buf, swap);
+    return ESP_OK;
 }
 
 /**

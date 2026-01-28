@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -35,7 +35,7 @@ static const char *TAG = "gfx_img";
 /**********************
  *  STATIC PROTOTYPES
  **********************/
-static void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap);
+static esp_err_t gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap);
 static esp_err_t gfx_img_delete(gfx_obj_t *obj);
 
 /**********************
@@ -45,16 +45,16 @@ static esp_err_t gfx_img_delete(gfx_obj_t *obj);
 /**
  * @brief Virtual draw function for image widget
  */
-static void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap)
+static esp_err_t gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap)
 {
     if (obj == NULL || obj->src == NULL) {
         ESP_LOGD(TAG, "Invalid object or source");
-        return;
+        return ESP_ERR_INVALID_ARG;
     }
 
     if (obj->type != GFX_OBJ_TYPE_IMAGE) {
         ESP_LOGW(TAG, "Object is not an image type");
-        return;
+        return ESP_ERR_INVALID_ARG;
     }
 
     /* Use unified decoder to get image information */
@@ -65,7 +65,7 @@ static void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
     esp_err_t ret = gfx_image_decoder_info(&dsc, &header);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to get image info");
-        return;
+        return ret;
     }
 
     uint16_t image_width = header.w;
@@ -75,7 +75,7 @@ static void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
     /* Check color format - support RGB565 and RGB565A8 formats */
     if (color_format != GFX_COLOR_FORMAT_RGB565 && color_format != GFX_COLOR_FORMAT_RGB565A8) {
         ESP_LOGW(TAG, "Unsupported color format");
-        return;
+        return ESP_ERR_NOT_SUPPORTED;
     }
 
     /* Get image data using unified decoder */
@@ -90,14 +90,14 @@ static void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
     ret = gfx_image_decoder_open(&decoder_dsc);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to open image decoder");
-        return;
+        return ret;
     }
 
     const uint8_t *image_data = decoder_dsc.data;
     if (image_data == NULL) {
         ESP_LOGE(TAG, "No image data available");
         gfx_image_decoder_close(&decoder_dsc);
-        return;
+        return ESP_ERR_INVALID_STATE;
     }
 
     /* Get parent dimensions and calculate aligned position */
@@ -110,7 +110,7 @@ static void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
 
     if (!gfx_area_intersect(&clip_area, &render_area, &obj_area)) {
         gfx_image_decoder_close(&decoder_dsc);
-        return;
+        return ESP_OK;
     }
 
     gfx_coord_t dest_stride = (x2 - x1);
@@ -146,12 +146,12 @@ static void gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
         alpha_mask,
         alpha_mask ? src_stride : 0,
         &clip_area,
-        255,
         swap
     );
 
     /* Close decoder */
     gfx_image_decoder_close(&decoder_dsc);
+    return ESP_OK;
 }
 
 /**

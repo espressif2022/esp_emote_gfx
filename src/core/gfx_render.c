@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -10,33 +10,9 @@
 #include "core/gfx_render_priv.h"
 #include "core/gfx_refr_priv.h"
 #include "core/gfx_timer_priv.h"
+#include "core/gfx_blend_priv.h"
 
 static const char *TAG = "gfx_render";
-
-/**
- * @brief Fast fill buffer with background color
- * @param buf Pointer to uint16_t buffer
- * @param color 16-bit color value
- * @param pixels Number of pixels to fill
- */
-static inline void gfx_fill_color(uint16_t *buf, uint16_t color, size_t pixels)
-{
-    if ((color & 0xFF) == (color >> 8)) {
-        memset(buf, color & 0xFF, pixels * sizeof(uint16_t));
-    } else {
-        uint32_t color32 = (color << 16) | color;
-        uint32_t *buf32 = (uint32_t *)buf;
-        size_t pixels_half = pixels / 2;
-
-        for (size_t i = 0; i < pixels_half; i++) {
-            buf32[i] = color32;
-        }
-
-        if (pixels & 1) {
-            buf[pixels - 1] = color;
-        }
-    }
-}
 
 /**
  * @brief Draw child objects in the specified area
@@ -47,7 +23,7 @@ static inline void gfx_fill_color(uint16_t *buf, uint16_t color, size_t pixels)
  * @param y2 Bottom coordinate
  * @param dest_buf Destination buffer
  */
-void gfx_render_child_objects(gfx_core_context_t *ctx, int x1, int y1, int x2, int y2, const void *dest_buf)
+void gfx_render_draw_child_objects(gfx_core_context_t *ctx, int x1, int y1, int x2, int y2, const void *dest_buf)
 {
     if (ctx->disp.child_list == NULL) {
         return;
@@ -68,6 +44,33 @@ void gfx_render_child_objects(gfx_core_context_t *ctx, int x1, int y1, int x2, i
         /* Call object's draw function if available */
         if (obj->vfunc.draw) {
             obj->vfunc.draw(obj, x1, y1, x2, y2, dest_buf, swap);
+        }
+
+        child_node = child_node->next;
+    }
+}
+
+
+void gfx_render_update_child_objects(gfx_core_context_t *ctx)
+{
+    if (ctx->disp.child_list == NULL) {
+        return;
+    }
+
+    gfx_core_child_t *child_node = ctx->disp.child_list;
+
+    while (child_node != NULL) {
+        gfx_obj_t *obj = (gfx_obj_t *)child_node->src;
+
+        // Skip rendering if object is not visible
+        if (!obj->state.is_visible) {
+            child_node = child_node->next;
+            continue;
+        }
+
+        /* Call object's draw function if available */
+        if (obj->vfunc.update) {
+            obj->vfunc.update(obj);
         }
 
         child_node = child_node->next;
@@ -134,8 +137,8 @@ uint32_t gfx_render_part_area(gfx_core_context_t *ctx, gfx_area_t *area,
 
         uint16_t *buf_act = ctx->disp.buf_act;
 
-        gfx_fill_color(buf_act, ctx->disp.bg_color.full, ctx->disp.buf_pixels);
-        gfx_render_child_objects(ctx, x1, y1, x2, y2, buf_act);
+        gfx_sw_blend_fill(buf_act, ctx->disp.bg_color.full, ctx->disp.buf_pixels);
+        gfx_render_draw_child_objects(ctx, x1, y1, x2, y2, buf_act);
 
         if (ctx->callbacks.flush_cb) {
             xEventGroupClearBits(ctx->sync.event_group, WAIT_FLUSH_DONE);
@@ -236,6 +239,8 @@ bool gfx_render_handler(gfx_core_context_t *ctx)
     if (ctx->disp.dirty_count == 0) {
         return false;
     }
+
+    gfx_render_update_child_objects(ctx);
 
     uint32_t total_dirty_pixels = gfx_render_area_summary(ctx);
     uint32_t screen_pixels = ctx->display.h_res * ctx->display.v_res;
