@@ -11,7 +11,6 @@
     3. 支持结构体、枚举、函数、宏等
 """
 
-import os
 import re
 import argparse
 from pathlib import Path
