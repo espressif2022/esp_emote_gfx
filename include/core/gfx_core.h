@@ -72,6 +72,23 @@ typedef struct {
     } task;
 } gfx_core_config_t;
 
+/**
+ * @brief Configuration for adding an extra display (multi-screen)
+ */
+typedef struct {
+    uint32_t h_res;             ///< Screen width in pixels
+    uint32_t v_res;             ///< Screen height in pixels
+    gfx_player_flush_cb_t flush_cb;  ///< Flush callback for this display (NULL to use default from init)
+    struct {
+        unsigned char swap: 1;  ///< Color swap flag
+    } flags;
+    struct {
+        void *buf1;             ///< Frame buffer 1 (NULL for internal allocation)
+        void *buf2;             ///< Frame buffer 2 (NULL for internal allocation)
+        size_t buf_pixels;      ///< Size of each buffer in pixels (0 for auto-calculation)
+    } buffers;
+} gfx_disp_config_t;
+
 /**********************
  * GLOBAL PROTOTYPES
  **********************/
@@ -127,6 +144,15 @@ typedef struct {
  * @endcode
  */
 gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg);
+
+/**
+ * @brief Add an extra display (multi-screen support)
+ *
+ * @param handle Graphics handle from gfx_emote_init
+ * @param cfg Display configuration (resolution, flush callback, buffers)
+ * @return esp_err_t ESP_OK on success, otherwise an error code
+ */
+esp_err_t gfx_emote_add_disp(gfx_handle_t handle, const gfx_disp_config_t *cfg);
 
 /**
  * @brief Deinitialize graphics context

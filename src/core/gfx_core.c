@@ -62,10 +62,18 @@ gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
     ESP_GOTO_ON_FALSE(disp_ctx->sync.event_group, ESP_ERR_NO_MEM, err, TAG, "Failed to create event group");
     event_group_created = true;
 
-    disp_ctx->disp.child_list = NULL;
+    disp_ctx->disp = (gfx_disp_t *)malloc(sizeof(gfx_disp_t));
+    ESP_GOTO_ON_FALSE(disp_ctx->disp, ESP_ERR_NO_MEM, err, TAG, "Failed to allocate display");
+    memset(disp_ctx->disp, 0, sizeof(gfx_disp_t));
+    disp_ctx->disp->h_res = cfg->h_res;
+    disp_ctx->disp->v_res = cfg->v_res;
+    disp_ctx->disp->flags.swap = cfg->flags.swap;
+    disp_ctx->disp->flush_cb = NULL;  /* use ctx->callbacks.flush_cb */
+    disp_ctx->disp->child_list = NULL;
+    disp_ctx->disp->next = NULL;
 
     // Initialize frame buffers (internal or external)
-    ret = gfx_buf_init_frame(disp_ctx, cfg);
+    ret = gfx_buf_init_frame(disp_ctx, disp_ctx->disp, cfg);
     ESP_GOTO_ON_ERROR(ret, err, TAG, "Failed to initialize frame buffers");
     frame_buf_inited = true;
 
@@ -112,14 +120,56 @@ err:
     if (mutex_created) {
         vSemaphoreDelete(disp_ctx->sync.lock_mutex);
     }
-    if (frame_buf_inited) {
-        gfx_buf_free_frame(disp_ctx);
+    if (frame_buf_inited && disp_ctx->disp) {
+        gfx_buf_free_frame(disp_ctx->disp);
+        free(disp_ctx->disp);
+        disp_ctx->disp = NULL;
     }
     if (event_group_created) {
         vEventGroupDelete(disp_ctx->sync.event_group);
     }
     free(disp_ctx);
     return NULL;
+}
+
+esp_err_t gfx_emote_add_disp(gfx_handle_t handle, const gfx_disp_config_t *cfg)
+{
+    gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
+    if (ctx == NULL || cfg == NULL) {
+        ESP_LOGE(TAG, "Invalid parameters");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    gfx_disp_t *new_disp = (gfx_disp_t *)malloc(sizeof(gfx_disp_t));
+    if (new_disp == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate display");
+        return ESP_ERR_NO_MEM;
+    }
+    memset(new_disp, 0, sizeof(gfx_disp_t));
+    new_disp->h_res = cfg->h_res;
+    new_disp->v_res = cfg->v_res;
+    new_disp->flags.swap = cfg->flags.swap;
+    new_disp->flush_cb = cfg->flush_cb;
+    new_disp->child_list = NULL;
+    new_disp->next = NULL;
+
+    esp_err_t ret = gfx_buf_init_disp(new_disp, cfg);
+    if (ret != ESP_OK) {
+        free(new_disp);
+        return ret;
+    }
+
+    /* Append to list */
+    if (ctx->disp == NULL) {
+        ctx->disp = new_disp;
+    } else {
+        gfx_disp_t *tail = ctx->disp;
+        while (tail->next != NULL) {
+            tail = tail->next;
+        }
+        tail->next = new_disp;
+    }
+    return ESP_OK;
 }
 
 void gfx_emote_deinit(gfx_handle_t handle)
@@ -133,21 +183,30 @@ void gfx_emote_deinit(gfx_handle_t handle)
     xEventGroupSetBits(ctx->sync.event_group, NEED_DELETE);
     xEventGroupWaitBits(ctx->sync.event_group, DELETE_DONE, pdTRUE, pdFALSE, portMAX_DELAY);
 
-    // Free all child nodes
-    gfx_core_child_t *child_node = ctx->disp.child_list;
-    while (child_node != NULL) {
-        gfx_core_child_t *next_child = child_node->next;
-        free(child_node);
-        child_node = next_child;
+    // Free all displays and their child nodes
+    while (ctx->disp != NULL) {
+        gfx_disp_t *d = ctx->disp;
+        ctx->disp = d->next;
+        gfx_core_child_t *child_node = d->child_list;
+        while (child_node != NULL) {
+            gfx_core_child_t *next_child = child_node->next;
+            free(child_node);
+            child_node = next_child;
+        }
+        if (!d->ext_bufs) {
+            if (d->buf1) {
+                free(d->buf1);
+            }
+            if (d->buf2) {
+                free(d->buf2);
+            }
+        }
+        free(d);
     }
-    ctx->disp.child_list = NULL;
 
     // Clean up timers
     gfx_touch_deinit(ctx);
     gfx_timer_mgr_deinit(&ctx->timer.timer_mgr);
-
-    // Free frame buffers
-    gfx_buf_free_frame(ctx);
 
     // Delete font library
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
@@ -177,20 +236,20 @@ void gfx_emote_deinit(gfx_handle_t handle)
  * Buffer Management Functions
  * ============================================================================ */
 
-static esp_err_t gfx_buf_init_frame(gfx_core_context_t *ctx, const gfx_core_config_t *cfg)
+static esp_err_t gfx_buf_init_frame(gfx_core_context_t *ctx, gfx_disp_t *disp, const gfx_core_config_t *cfg)
 {
     if (cfg->buffers.buf1 != NULL) {
-        ctx->disp.buf1 = (uint16_t *)cfg->buffers.buf1;
-        ctx->disp.buf2 = (uint16_t *)cfg->buffers.buf2;
+        disp->buf1 = (uint16_t *)cfg->buffers.buf1;
+        disp->buf2 = (uint16_t *)cfg->buffers.buf2;
 
         if (cfg->buffers.buf_pixels > 0) {
-            ctx->disp.buf_pixels = cfg->buffers.buf_pixels;
+            disp->buf_pixels = cfg->buffers.buf_pixels;
         } else {
             ESP_LOGW(TAG, "buf_pixels=0, use default");
-            ctx->disp.buf_pixels = ctx->display.h_res * ctx->display.v_res;
+            disp->buf_pixels = disp->h_res * disp->v_res;
         }
 
-        ctx->disp.ext_bufs = true;
+        disp->ext_bufs = true;
     } else {
         // Allocate internal buffers
         uint32_t buff_caps = 0;
@@ -210,48 +269,72 @@ static esp_err_t gfx_buf_init_frame(gfx_core_context_t *ctx, const gfx_core_conf
             buff_caps |= MALLOC_CAP_DEFAULT;
         }
 
-        size_t buf_pixels = cfg->buffers.buf_pixels > 0 ? cfg->buffers.buf_pixels : ctx->display.h_res * ctx->display.v_res;
+        size_t buf_pixels = cfg->buffers.buf_pixels > 0 ? cfg->buffers.buf_pixels : disp->h_res * disp->v_res;
 
-        ctx->disp.buf1 = (uint16_t *)heap_caps_malloc(buf_pixels * sizeof(uint16_t), buff_caps);
-        if (!ctx->disp.buf1) {
+        disp->buf1 = (uint16_t *)heap_caps_malloc(buf_pixels * sizeof(uint16_t), buff_caps);
+        if (!disp->buf1) {
             ESP_LOGE(TAG, "Failed to allocate frame buffer 1");
             return ESP_ERR_NO_MEM;
         }
 
         if (cfg->flags.double_buffer) {
-            ctx->disp.buf2 = (uint16_t *)heap_caps_malloc(buf_pixels * sizeof(uint16_t), buff_caps);
-            if (!ctx->disp.buf2) {
+            disp->buf2 = (uint16_t *)heap_caps_malloc(buf_pixels * sizeof(uint16_t), buff_caps);
+            if (!disp->buf2) {
                 ESP_LOGE(TAG, "Failed to allocate frame buffer 2");
-                free(ctx->disp.buf1);
-                ctx->disp.buf1 = NULL;
+                free(disp->buf1);
+                disp->buf1 = NULL;
                 return ESP_ERR_NO_MEM;
             }
         }
 
-        ctx->disp.buf_pixels = buf_pixels;
-        ctx->disp.ext_bufs = false;
+        disp->buf_pixels = buf_pixels;
+        disp->ext_bufs = false;
     }
 
-    ctx->disp.buf_act = ctx->disp.buf1;
-    ctx->disp.bg_color.full = 0x0000;
+    disp->buf_act = disp->buf1;
+    disp->bg_color.full = 0x0000;
     return ESP_OK;
 }
 
-static esp_err_t gfx_buf_free_frame(gfx_core_context_t *ctx)
+static esp_err_t gfx_buf_free_frame(gfx_disp_t *disp)
 {
-    // Only free buffers if they were internally allocated
-    if (!ctx->disp.ext_bufs) {
-        if (ctx->disp.buf1) {
-            free(ctx->disp.buf1);
-            ctx->disp.buf1 = NULL;
+    if (!disp) {
+        return ESP_OK;
+    }
+    if (!disp->ext_bufs) {
+        if (disp->buf1) {
+            free(disp->buf1);
+            disp->buf1 = NULL;
         }
-        if (ctx->disp.buf2) {
-            free(ctx->disp.buf2);
-            ctx->disp.buf2 = NULL;
+        if (disp->buf2) {
+            free(disp->buf2);
+            disp->buf2 = NULL;
         }
     }
-    ctx->disp.buf_pixels = 0;
-    ctx->disp.ext_bufs = false;
+    disp->buf_pixels = 0;
+    disp->ext_bufs = false;
+    return ESP_OK;
+}
+
+static esp_err_t gfx_buf_init_disp(gfx_disp_t *disp, const gfx_disp_config_t *cfg)
+{
+    if (cfg->buffers.buf1 != NULL) {
+        disp->buf1 = (uint16_t *)cfg->buffers.buf1;
+        disp->buf2 = (uint16_t *)cfg->buffers.buf2;
+        disp->buf_pixels = cfg->buffers.buf_pixels > 0 ? cfg->buffers.buf_pixels : disp->h_res * disp->v_res;
+        disp->ext_bufs = true;
+    } else {
+        size_t buf_pixels = cfg->buffers.buf_pixels > 0 ? cfg->buffers.buf_pixels : disp->h_res * disp->v_res;
+        disp->buf1 = (uint16_t *)malloc(buf_pixels * sizeof(uint16_t));
+        if (!disp->buf1) {
+            return ESP_ERR_NO_MEM;
+        }
+        disp->buf2 = NULL;
+        disp->buf_pixels = buf_pixels;
+        disp->ext_bufs = false;
+    }
+    disp->buf_act = disp->buf1;
+    disp->bg_color.full = 0x0000;
     return ESP_OK;
 }
 
@@ -301,7 +384,7 @@ static void gfx_core_task(void *arg)
             timer_delay = gfx_timer_handler(&ctx->timer.timer_mgr);
 
             // Only render when FPS period has elapsed (controlled by timer_mgr->should_render)
-            if (ctx->timer.timer_mgr.should_render && ctx->disp.child_list != NULL) {
+            if (ctx->timer.timer_mgr.should_render && ctx->disp != NULL) {
                 gfx_render_handler(ctx);
             }
 
@@ -374,10 +457,10 @@ esp_err_t gfx_emote_add_child(gfx_handle_t handle, int type, void *src)
     new_child->src = src;
     new_child->next = NULL;
 
-    if (ctx->disp.child_list == NULL) {
-        ctx->disp.child_list = new_child;
+    if (ctx->disp->child_list == NULL) {
+        ctx->disp->child_list = new_child;
     } else {
-        gfx_core_child_t *current = ctx->disp.child_list;
+        gfx_core_child_t *current = ctx->disp->child_list;
         while (current->next != NULL) {
             current = current->next;
         }
@@ -395,13 +478,13 @@ esp_err_t gfx_emote_remove_child(gfx_handle_t handle, void *src)
         return ESP_ERR_INVALID_ARG;
     }
 
-    gfx_core_child_t *current = ctx->disp.child_list;
+    gfx_core_child_t *current = ctx->disp->child_list;
     gfx_core_child_t *prev = NULL;
 
     while (current != NULL) {
         if (current->src == src) {
             if (prev == NULL) {
-                ctx->disp.child_list = current->next;
+                ctx->disp->child_list = current->next;
             } else {
                 prev->next = current->next;
             }
@@ -445,14 +528,18 @@ bool gfx_emote_flush_ready(gfx_handle_t handle, bool swap_act_buf)
 
     if (xPortInIsrContext()) {
         BaseType_t pxHigherPriorityTaskWoken = pdFALSE;
-        ctx->disp.swap_act_buf = swap_act_buf;
+        if (ctx->disp) {
+            ctx->disp->swap_act_buf = swap_act_buf;
+        }
         bool result = xEventGroupSetBitsFromISR(ctx->sync.event_group, WAIT_FLUSH_DONE, &pxHigherPriorityTaskWoken);
         if (pxHigherPriorityTaskWoken == pdTRUE) {
             portYIELD_FROM_ISR();
         }
         return result;
     } else {
-        ctx->disp.swap_act_buf = swap_act_buf;
+        if (ctx->disp) {
+            ctx->disp->swap_act_buf = swap_act_buf;
+        }
         return xEventGroupSetBits(ctx->sync.event_group, WAIT_FLUSH_DONE);
     }
 }
@@ -480,8 +567,7 @@ esp_err_t gfx_emote_get_screen_size(gfx_handle_t handle, uint32_t *width, uint32
     }
 
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
-    if (ctx == NULL || ctx->display.h_res == 0 || ctx->display.v_res == 0) {
-        /* Use default screen dimensions if context is invalid */
+    if (ctx == NULL || ctx->disp == NULL) {
         *width = DEFAULT_SCREEN_WIDTH;
         *height = DEFAULT_SCREEN_HEIGHT;
         if (ctx == NULL) {
@@ -490,8 +576,8 @@ esp_err_t gfx_emote_get_screen_size(gfx_handle_t handle, uint32_t *width, uint32
         return ESP_OK;
     }
 
-    *width = ctx->display.h_res;
-    *height = ctx->display.v_res;
+    *width = ctx->disp->h_res;
+    *height = ctx->disp->v_res;
 
     return ESP_OK;
 }
@@ -504,7 +590,9 @@ esp_err_t gfx_emote_set_bg_color(gfx_handle_t handle, gfx_color_t color)
         return ESP_ERR_INVALID_ARG;
     }
 
-    ctx->disp.bg_color = color;
+    if (ctx->disp) {
+        ctx->disp->bg_color = color;
+    }
     ESP_LOGD(TAG, "BG color: 0x%04X", color.full);
     return ESP_OK;
 }
@@ -517,5 +605,5 @@ bool gfx_emote_is_flushing_last(gfx_handle_t handle)
         return false;
     }
 
-    return ctx->disp.flushing_last;
+    return ctx->disp ? ctx->disp->flushing_last : false;
 }

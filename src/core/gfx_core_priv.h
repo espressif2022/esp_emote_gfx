@@ -39,9 +39,38 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
+/**
+ * @brief Per-display state (one per screen, linked list for multi-display)
+ */
+typedef struct gfx_disp {
+    struct gfx_disp *next;             /**< Next display in list */
+
+    uint32_t h_res;                    /**< Horizontal resolution */
+    uint32_t v_res;                    /**< Vertical resolution */
+    struct {
+        unsigned char swap: 1;         /**< Color swap flag */
+    } flags;
+
+    gfx_player_flush_cb_t flush_cb;    /**< Flush callback (NULL = use ctx->callbacks.flush_cb) */
+
+    gfx_core_child_t *child_list;     /**< Child object list */
+    uint16_t *buf1;                    /**< Frame buffer 1 */
+    uint16_t *buf2;                    /**< Frame buffer 2 */
+    uint16_t *buf_act;                 /**< Active frame buffer */
+    size_t buf_pixels;                 /**< Buffer size in pixels */
+    gfx_color_t bg_color;              /**< Default background color */
+    bool ext_bufs;                     /**< Whether using external buffers */
+    bool flushing_last;                /**< Whether flushing the last block */
+    bool swap_act_buf;                 /**< Whether swap the active buffer */
+
+    gfx_area_t dirty_areas[GFX_INV_BUF_SIZE];
+    uint8_t area_merged[GFX_INV_BUF_SIZE];
+    uint8_t dirty_count;
+} gfx_disp_t;
+
 /* Core context structure */
 typedef struct {
-    /* Display configuration */
+    /* Display configuration (mirrored from first disp for backward compat) */
     struct {
         uint32_t h_res;                /**< Horizontal resolution */
         uint32_t v_res;                /**< Vertical resolution */
@@ -63,22 +92,8 @@ typedef struct {
         gfx_timer_mgr_t timer_mgr; /**< Timer manager */
     } timer;                           /**< Timer management */
 
-    /* Graphics rendering */
-    struct {
-        gfx_core_child_t *child_list;  /**< Child object list */
-        uint16_t *buf1;                /**< Frame buffer 1 */
-        uint16_t *buf2;                /**< Frame buffer 2 */
-        uint16_t *buf_act;          /**< Active frame buffer */
-        size_t buf_pixels;              /**< Buffer size in pixels */
-        gfx_color_t bg_color;     /**< Default background color */
-        bool ext_bufs;         /**< Whether using external buffers */
-        bool flushing_last;      /**< Whether flushing the last block */
-        bool swap_act_buf;       /**< Whether swap the active buffer */
-
-        gfx_area_t dirty_areas[GFX_INV_BUF_SIZE]; /**< Array of invalid (dirty) areas */
-        uint8_t area_merged[GFX_INV_BUF_SIZE]; /**< Flags: 1 if area is merged into another */
-        uint8_t dirty_count;                /**< Number of invalid areas */
-    } disp;
+    /**< Display list (one per screen, malloc'd) */
+    gfx_disp_t *disp;
 
     /* Synchronization primitives */
     struct {
