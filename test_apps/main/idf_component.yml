@@ -12,7 +12,12 @@ dependencies:
   espressif/esp-box:
     version: "*"
     rules:
-    - if: "${IDF_TARGET} == esp32s3"
+    - if: "$CONFIG{GFX_TEST_BOARD_S3_BOX} == True"
+
+  espressif/esp-box-3:
+    version: "*"
+    rules:
+    - if: "$CONFIG{GFX_TEST_BOARD_S3_BOX_3} == True"
 
   espressif/esp32_c3_lcdkit:
     version: "^1.1.*"

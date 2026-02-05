@@ -106,3 +106,6 @@ sdkconfig.old
 # Generated documentation
 docs/_build/
 API_REFERENCE.md
+
+# Log files
+log.test*.txt

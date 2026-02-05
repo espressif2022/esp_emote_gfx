@@ -1,0 +1,15 @@
+menu "GFX Test App Configuration"
+
+    choice GFX_TEST_BOARD
+        prompt "Developer Board"
+        depends on IDF_TARGET_ESP32S3 
+        default GFX_TEST_BOARD_S3_BOX
+        help
+            Select the developer board to use for the GFX test app.
+        config GFX_TEST_BOARD_S3_BOX
+            bool "ESP32-S3-BOX"
+        config GFX_TEST_BOARD_S3_BOX_3
+            bool "ESP32-S3-BOX-3"
+    endchoice
+
+endmenu
