@@ -1,0 +1,29 @@
+INFO - Processing original frame poweron_0 with size 2373 bytes
+INFO - Processing original frame poweron_1 with size 23747 bytes
+INFO - Processing original frame poweron_2 with size 61169 bytes
+INFO - Processing original frame poweron_3 with size 112889 bytes
+INFO - Processing original frame poweron_4 with size 144959 bytes
+INFO - Processing original frame poweron_5 with size 142509 bytes
+INFO - Processing original frame poweron_6 with size 139151 bytes
+INFO - Processing original frame poweron_7 with size 143813 bytes
+INFO - Processing original frame poweron_8 with size 141551 bytes
+INFO - Processing original frame poweron_9 with size 140057 bytes
+INFO - Processing original frame poweron_10 with size 146641 bytes
+INFO - Processing original frame poweron_11 with size 111359 bytes
+INFO - Processing original frame poweron_12 with size 29553 bytes
+INFO - Processing original frame poweron_13 with size 25117 bytes
+INFO - Processing original frame poweron_14 with size 29533 bytes
+INFO - Processing original frame poweron_15 with size 36275 bytes
+INFO - Processing original frame poweron_16 with size 33093 bytes
+INFO - Processing original frame poweron_17 with size 35433 bytes
+INFO - Processing original frame poweron_18 with size 36139 bytes
+INFO - Processing original frame poweron_19 with size 36019 bytes
+INFO - Processing original frame poweron_20 with size 42041 bytes
+INFO - Processing original frame poweron_21 with size 59309 bytes
+INFO - Processing original frame poweron_22 with size 41881 bytes
+INFO - 
+Successfully packed 23 .sbmp files into ./poweron.aaf
+INFO - Total size: 1714892 bytes
+INFO - Header size: 8 bytes
+INFO - Table size: 184 bytes
+INFO - Data size: 1714696 bytes
