@@ -38,8 +38,8 @@ struct gfx_disp {
         unsigned char swap : 1;
     } flags;
 
-    gfx_player_flush_cb_t flush_cb;
-    gfx_player_update_cb_t update_cb;
+    gfx_disp_flush_cb_t flush_cb;
+    gfx_disp_update_cb_t update_cb;
     void *user_data;
     EventGroupHandle_t event_group;
 

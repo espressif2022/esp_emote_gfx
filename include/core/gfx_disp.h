@@ -25,16 +25,16 @@ typedef struct gfx_disp gfx_disp_t;
  *   ENUMS
  *********************/
 typedef enum {
-    GFX_PLAYER_EVENT_IDLE = 0,
-    GFX_PLAYER_EVENT_ONE_FRAME_DONE,
-    GFX_PLAYER_EVENT_ALL_FRAME_DONE,
-} gfx_player_event_t;
+    GFX_DISP_EVENT_IDLE = 0,
+    GFX_DISP_EVENT_ONE_FRAME_DONE,
+    GFX_DISP_EVENT_ALL_FRAME_DONE,
+} gfx_disp_event_t;
 
 /*********************
  *   CALLBACK TYPES
  *********************/
-typedef void (*gfx_player_flush_cb_t)(gfx_disp_t *disp, int x1, int y1, int x2, int y2, const void *data);
-typedef void (*gfx_player_update_cb_t)(gfx_disp_t *disp, gfx_player_event_t event, const void *obj);
+typedef void (*gfx_disp_flush_cb_t)(gfx_disp_t *disp, int x1, int y1, int x2, int y2, const void *data);
+typedef void (*gfx_disp_update_cb_t)(gfx_disp_t *disp, gfx_disp_event_t event, const void *obj);
 
 /*********************
  *   CONFIG STRUCTS
@@ -43,8 +43,8 @@ typedef void (*gfx_player_update_cb_t)(gfx_disp_t *disp, gfx_player_event_t even
 typedef struct {
     uint32_t h_res;                          /**< Screen width in pixels */
     uint32_t v_res;                          /**< Screen height in pixels */
-    gfx_player_flush_cb_t flush_cb;          /**< Flush callback for this display */
-    gfx_player_update_cb_t update_cb;       /**< Update callback (frame/playback events) */
+    gfx_disp_flush_cb_t flush_cb;          /**< Flush callback for this display */
+    gfx_disp_update_cb_t update_cb;       /**< Update callback (frame/playback events) */
     void *user_data;                         /**< User data for this display */
     struct {
         unsigned char swap : 1;              /**< Color swap flag */

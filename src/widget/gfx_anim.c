@@ -834,14 +834,14 @@ static void gfx_anim_timer_callback(void *arg)
         if (anim->repeat) {
             ESP_LOGD(TAG, "Repeat");
             if (obj->disp && obj->disp->update_cb) {
-                obj->disp->update_cb(obj->disp, GFX_PLAYER_EVENT_ALL_FRAME_DONE, obj);
+                obj->disp->update_cb(obj->disp, GFX_DISP_EVENT_ALL_FRAME_DONE, obj);
             }
             anim->current_frame = anim->start_frame;
         } else {
             ESP_LOGD(TAG, "Done");
             anim->is_playing = false;
             if (obj->disp && obj->disp->update_cb) {
-                obj->disp->update_cb(obj->disp, GFX_PLAYER_EVENT_ALL_FRAME_DONE, obj);
+                obj->disp->update_cb(obj->disp, GFX_DISP_EVENT_ALL_FRAME_DONE, obj);
             }
             return;
         }
@@ -849,7 +849,7 @@ static void gfx_anim_timer_callback(void *arg)
         gfx_anim_prepare_frame(obj);
         anim->current_frame++;
         if (obj->disp && obj->disp->update_cb) {
-            obj->disp->update_cb(obj->disp, GFX_PLAYER_EVENT_ONE_FRAME_DONE, obj);
+            obj->disp->update_cb(obj->disp, GFX_DISP_EVENT_ONE_FRAME_DONE, obj);
         }
         ESP_LOGD(TAG, "Frame %" PRIu32 "/%" PRIu32, anim->current_frame, anim->end_frame);
     }

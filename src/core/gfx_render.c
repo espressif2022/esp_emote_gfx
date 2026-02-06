@@ -119,7 +119,7 @@ uint32_t gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area,
     uint32_t flush_idx = 0;
     uint32_t flushes_done = 0;
 
-    gfx_player_flush_cb_t flush_cb = disp->flush_cb;
+    gfx_disp_flush_cb_t flush_cb = disp->flush_cb;
 
     while (current_y <= area->y2) {
         flush_idx++;
