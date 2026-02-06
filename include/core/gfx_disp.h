@@ -16,37 +16,42 @@ extern "C" {
 #endif
 
 /*********************
- *      TYPEDEFS
+ *   OPAQUE TYPES
  *********************/
-
-/** Opaque display type - one per screen; from gfx_disp_add() */
+/** Display handle: one per screen; from gfx_disp_add(), use with all gfx_disp_* APIs */
 typedef struct gfx_disp gfx_disp_t;
 
+/*********************
+ *   ENUMS
+ *********************/
 typedef enum {
     GFX_PLAYER_EVENT_IDLE = 0,
     GFX_PLAYER_EVENT_ONE_FRAME_DONE,
     GFX_PLAYER_EVENT_ALL_FRAME_DONE,
 } gfx_player_event_t;
 
+/*********************
+ *   CALLBACK TYPES
+ *********************/
 typedef void (*gfx_player_flush_cb_t)(gfx_disp_t *disp, int x1, int y1, int x2, int y2, const void *data);
-
 typedef void (*gfx_player_update_cb_t)(gfx_disp_t *disp, gfx_player_event_t event, const void *obj);
 
-/**
- * @brief Configuration for adding a display (multi-screen)
- */
+/*********************
+ *   CONFIG STRUCTS
+ *********************/
+/** Passed to gfx_disp_add() for multi-screen setup */
 typedef struct {
-    uint32_t h_res;             ///< Screen width in pixels
-    uint32_t v_res;             ///< Screen height in pixels
-    gfx_player_flush_cb_t flush_cb;  ///< Flush callback for this display
-    void *user_data;                 ///< User data for this display
+    uint32_t h_res;                          /**< Screen width in pixels */
+    uint32_t v_res;                          /**< Screen height in pixels */
+    gfx_player_flush_cb_t flush_cb;          /**< Flush callback for this display */
+    void *user_data;                         /**< User data for this display */
     struct {
-        unsigned char swap: 1;  ///< Color swap flag
+        unsigned char swap : 1;              /**< Color swap flag */
     } flags;
     struct {
-        void *buf1;             ///< Frame buffer 1 (NULL for internal allocation)
-        void *buf2;             ///< Frame buffer 2 (NULL for internal allocation)
-        size_t buf_pixels;      ///< Size of each buffer in pixels (0 for auto-calculation)
+        void *buf1;                          /**< Frame buffer 1 (NULL = internal alloc) */
+        void *buf2;                          /**< Frame buffer 2 (NULL = internal alloc) */
+        size_t buf_pixels;                   /**< Size per buffer in pixels (0 = auto) */
     } buffers;
 } gfx_disp_config_t;
 

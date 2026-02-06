@@ -21,7 +21,7 @@
 
 static const char *TAG = "gfx_core";
 
-static void gfx_core_task(void *arg);
+static void gfx_render_loop_task(void *arg);
 static bool gfx_event_handler(gfx_core_context_t *ctx);
 static uint32_t gfx_cal_task_delay(uint32_t timer_delay);
 /* ============================================================================
@@ -32,7 +32,7 @@ gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
 {
     esp_err_t ret = ESP_OK;
     gfx_core_context_t *disp_ctx = NULL;
-    bool event_group_created = false;
+    bool lifecycle_events_created = false;
     bool mutex_created = false;
     bool decoder_inited = false;
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
@@ -47,13 +47,13 @@ gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
     // Initialize all fields to zero/NULL
     memset(disp_ctx, 0, sizeof(gfx_core_context_t));
 
-    disp_ctx->sync.event_group = xEventGroupCreate();
-    ESP_GOTO_ON_FALSE(disp_ctx->sync.event_group, ESP_ERR_NO_MEM, err, TAG, "Failed to create event group");
-    event_group_created = true;
+    disp_ctx->sync.lifecycle_events = xEventGroupCreate();
+    ESP_GOTO_ON_FALSE(disp_ctx->sync.lifecycle_events, ESP_ERR_NO_MEM, err, TAG, "Failed to create event group");
+    lifecycle_events_created = true;
 
     // Create recursive render mutex for protecting rendering operations
-    disp_ctx->sync.lock_mutex = xSemaphoreCreateRecursiveMutex();
-    ESP_GOTO_ON_FALSE(disp_ctx->sync.lock_mutex, ESP_ERR_NO_MEM, err, TAG, "Failed to create recursive render mutex");
+    disp_ctx->sync.render_mutex = xSemaphoreCreateRecursiveMutex();
+    ESP_GOTO_ON_FALSE(disp_ctx->sync.render_mutex, ESP_ERR_NO_MEM, err, TAG, "Failed to create recursive render mutex");
     mutex_created = true;
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
@@ -61,6 +61,9 @@ gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
     ESP_GOTO_ON_ERROR(ret, err, TAG, "Failed to create font library");
     font_lib_created = true;
 #endif
+
+    // Initialize timer manager
+    gfx_timer_mgr_init(&disp_ctx->timer_mgr, cfg->fps);
 
     // Initialize image decoder system
     ret = gfx_image_decoder_init();
@@ -70,10 +73,10 @@ gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
     // Create render task
     const uint32_t stack_caps = cfg->task.task_stack_caps ? cfg->task.task_stack_caps : (MALLOC_CAP_INTERNAL | MALLOC_CAP_DEFAULT);
     if (cfg->task.task_affinity < 0) {
-        xTaskCreateWithCaps(gfx_core_task, "gfx_core", cfg->task.task_stack,
+        xTaskCreateWithCaps(gfx_render_loop_task, "gfx_render", cfg->task.task_stack,
                             disp_ctx, cfg->task.task_priority, NULL, stack_caps);
     } else {
-        xTaskCreatePinnedToCoreWithCaps(gfx_core_task, "gfx_core", cfg->task.task_stack,
+        xTaskCreatePinnedToCoreWithCaps(gfx_render_loop_task, "gfx_render", cfg->task.task_stack,
                                         disp_ctx, cfg->task.task_priority, NULL, cfg->task.task_affinity, stack_caps);
     }
 
@@ -89,10 +92,10 @@ err:
     }
 #endif
     if (mutex_created) {
-        vSemaphoreDelete(disp_ctx->sync.lock_mutex);
+        vSemaphoreDelete(disp_ctx->sync.render_mutex);
     }
-    if (event_group_created) {
-        vEventGroupDelete(disp_ctx->sync.event_group);
+    if (lifecycle_events_created) {
+        vEventGroupDelete(disp_ctx->sync.lifecycle_events);
     }
     free(disp_ctx);
     return NULL;
@@ -106,8 +109,8 @@ void gfx_emote_deinit(gfx_handle_t handle)
         return;
     }
 
-    xEventGroupSetBits(ctx->sync.event_group, NEED_DELETE);
-    xEventGroupWaitBits(ctx->sync.event_group, DELETE_DONE, pdTRUE, pdFALSE, portMAX_DELAY);
+    xEventGroupSetBits(ctx->sync.lifecycle_events, NEED_DELETE);
+    xEventGroupWaitBits(ctx->sync.lifecycle_events, DELETE_DONE, pdTRUE, pdFALSE, portMAX_DELAY);
 
     // Free all displays and their child nodes
     while (ctx->disp != NULL) {
@@ -127,9 +130,15 @@ void gfx_emote_deinit(gfx_handle_t handle)
         free(d);
     }
 
-    // Clean up timers
-    gfx_touch_deinit(&ctx->touch);
-    gfx_timer_mgr_deinit(&ctx->timer.timer_mgr);
+    // Free all touch nodes
+    while (ctx->touch != NULL) {
+        gfx_touch_t *t = ctx->touch;
+        ctx->touch = t->next;
+        gfx_touch_deinit(t);
+        free(t);
+    }
+
+    gfx_timer_mgr_deinit(&ctx->timer_mgr);
 
     // Delete font library
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
@@ -137,15 +146,15 @@ void gfx_emote_deinit(gfx_handle_t handle)
 #endif
 
     // Delete mutex
-    if (ctx->sync.lock_mutex) {
-        vSemaphoreDelete(ctx->sync.lock_mutex);
-        ctx->sync.lock_mutex = NULL;
+    if (ctx->sync.render_mutex) {
+        vSemaphoreDelete(ctx->sync.render_mutex);
+        ctx->sync.render_mutex = NULL;
     }
 
     // Delete event group
-    if (ctx->sync.event_group) {
-        vEventGroupDelete(ctx->sync.event_group);
-        ctx->sync.event_group = NULL;
+    if (ctx->sync.lifecycle_events) {
+        vEventGroupDelete(ctx->sync.lifecycle_events);
+        ctx->sync.lifecycle_events = NULL;
     }
 
     // Deinitialize image decoder system
@@ -172,11 +181,11 @@ static uint32_t gfx_cal_task_delay(uint32_t timer_delay)
 
 static bool gfx_event_handler(gfx_core_context_t *ctx)
 {
-    EventBits_t event_bits = xEventGroupWaitBits(ctx->sync.event_group,
+    EventBits_t event_bits = xEventGroupWaitBits(ctx->sync.lifecycle_events,
                              NEED_DELETE, pdTRUE, pdFALSE, pdMS_TO_TICKS(0));
 
     if (event_bits & NEED_DELETE) {
-        xEventGroupSetBits(ctx->sync.event_group, DELETE_DONE);
+        xEventGroupSetBits(ctx->sync.lifecycle_events, DELETE_DONE);
         vTaskDeleteWithCaps(NULL);
         return true;
     }
@@ -184,28 +193,28 @@ static bool gfx_event_handler(gfx_core_context_t *ctx)
     return false;
 }
 
-static void gfx_core_task(void *arg)
+static void gfx_render_loop_task(void *arg)
 {
     gfx_core_context_t *ctx = (gfx_core_context_t *)arg;
     uint32_t timer_delay = 1; // Default delay
 
     while (1) {
-        if (ctx->sync.lock_mutex && xSemaphoreTakeRecursive(ctx->sync.lock_mutex, portMAX_DELAY) == pdTRUE) {
+        if (ctx->sync.render_mutex && xSemaphoreTakeRecursive(ctx->sync.render_mutex, portMAX_DELAY) == pdTRUE) {
             if (gfx_event_handler(ctx)) {
-                xSemaphoreGiveRecursive(ctx->sync.lock_mutex);
+                xSemaphoreGiveRecursive(ctx->sync.render_mutex);
                 break;
             }
 
-            timer_delay = gfx_timer_handler(&ctx->timer.timer_mgr);
+            timer_delay = gfx_timer_handler(&ctx->timer_mgr);
 
             // Only render when FPS period has elapsed (controlled by timer_mgr->should_render)
-            if (ctx->timer.timer_mgr.should_render && ctx->disp != NULL) {
+            if (ctx->timer_mgr.should_render && ctx->disp != NULL) {
                 gfx_render_handler(ctx);
             }
 
             uint32_t task_delay = gfx_cal_task_delay(timer_delay);
 
-            xSemaphoreGiveRecursive(ctx->sync.lock_mutex);
+            xSemaphoreGiveRecursive(ctx->sync.render_mutex);
             vTaskDelay(pdMS_TO_TICKS(task_delay));
         } else {
             ESP_LOGW(TAG, "Failed to acquire mutex, retrying...");
@@ -221,12 +230,12 @@ static void gfx_core_task(void *arg)
 esp_err_t gfx_emote_lock(gfx_handle_t handle)
 {
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
-    if (ctx == NULL || ctx->sync.lock_mutex == NULL) {
+    if (ctx == NULL || ctx->sync.render_mutex == NULL) {
         ESP_LOGE(TAG, "Invalid graphics context or mutex");
         return ESP_ERR_INVALID_ARG;
     }
 
-    if (xSemaphoreTakeRecursive(ctx->sync.lock_mutex, portMAX_DELAY) != pdTRUE) {
+    if (xSemaphoreTakeRecursive(ctx->sync.render_mutex, portMAX_DELAY) != pdTRUE) {
         ESP_LOGE(TAG, "Failed to acquire graphics lock");
         return ESP_ERR_TIMEOUT;
     }
@@ -237,12 +246,12 @@ esp_err_t gfx_emote_lock(gfx_handle_t handle)
 esp_err_t gfx_emote_unlock(gfx_handle_t handle)
 {
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
-    if (ctx == NULL || ctx->sync.lock_mutex == NULL) {
+    if (ctx == NULL || ctx->sync.render_mutex == NULL) {
         ESP_LOGE(TAG, "Invalid graphics context or mutex");
         return ESP_ERR_INVALID_ARG;
     }
 
-    if (xSemaphoreGiveRecursive(ctx->sync.lock_mutex) != pdTRUE) {
+    if (xSemaphoreGiveRecursive(ctx->sync.render_mutex) != pdTRUE) {
         ESP_LOGE(TAG, "Failed to release graphics lock");
         return ESP_ERR_INVALID_STATE;
     }

@@ -17,12 +17,9 @@ extern "C" {
 #endif
 
 /*********************
- *      DEFINES
+ *   DEFAULT CONFIG MACRO
  *********************/
-
-/**
- * @brief LVGL port configuration structure
- */
+/** Use as .task = GFX_EMOTE_INIT_CONFIG() when initializing gfx_core_config_t */
 #define GFX_EMOTE_INIT_CONFIG()                   \
     {                                              \
         .task_priority = 4,                        \
@@ -31,18 +28,22 @@ extern "C" {
         .task_stack_caps = MALLOC_CAP_DEFAULT,     \
     }
 
+/*********************
+ *   CONFIG STRUCTS
+ *********************/
+/** Passed to gfx_emote_init(); add displays with gfx_disp_add() after init */
 typedef struct {
-    uint32_t fps;              ///< Target frame rate (frames per second)
+    uint32_t fps;                               /**< Target FPS (frames per second) */
     struct {
-        int task_priority;      ///< Task priority (1-20)
-        int task_stack;         ///< Task stack size in bytes
-        int task_affinity;      ///< CPU core ID (-1: no affinity, 0: core 0, 1: core 1)
-        unsigned task_stack_caps; /*!< LVGL task stack memory capabilities (see esp_heap_caps.h) */
+        int task_priority;                       /**< Render task priority (1–20) */
+        int task_stack;                         /**< Render task stack size (bytes) */
+        int task_affinity;                       /**< CPU core (-1: any, 0/1: pinned) */
+        unsigned task_stack_caps;                /**< Stack heap caps (see esp_heap_caps.h) */
     } task;
 } gfx_core_config_t;
 
 /**********************
- * GLOBAL PROTOTYPES
+ *   GLOBAL PROTOTYPES
  **********************/
 
 /*=====================

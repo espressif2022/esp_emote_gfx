@@ -23,45 +23,29 @@ extern "C" {
 #endif
 
 /*********************
- *      DEFINES
+ *   DEFINES
  *********************/
-
-/* Event bits for synchronization */
+/* Event bits (sync.lifecycle_events) */
 #define NEED_DELETE         BIT0
 #define DELETE_DONE         BIT1
 #define WAIT_FLUSH_DONE     BIT2
 
-/* Animation timer constants */
+/* Animation: no timer ready yet */
 #define ANIM_NO_TIMER_READY 0xFFFFFFFF
 
-/**********************
- *      TYPEDEFS
- **********************/
-
-
-/* Core context structure */
+/*********************
+ *   CONTEXT STRUCT
+ *********************/
 typedef struct gfx_core_context {
-    /* Timer management */
     struct {
-        gfx_timer_mgr_t timer_mgr; /**< Timer manager */
-    } timer;                           /**< Timer management */
+        SemaphoreHandle_t render_mutex;      /**< Recursive mutex for render/touch */
+        EventGroupHandle_t lifecycle_events; /**< NEED_DELETE / DELETE_DONE / WAIT_FLUSH_DONE */
+    } sync;
 
-    /* Synchronization primitives */
-    struct {
-        SemaphoreHandle_t lock_mutex;  /**< Render mutex for thread safety */
-        EventGroupHandle_t event_group; /**< Event group for synchronization */
-    } sync;                            /**< Synchronization primitives */
-    
-    /**< Display list (one per screen, malloc'd) */
-    gfx_disp_t *disp;
-
-    /**< Touch state (see gfx_touch_priv.h) */
-    gfx_touch_t touch;
+    gfx_timer_mgr_t timer_mgr;         /**< Timer manager (see gfx_timer_priv.h) */
+    gfx_disp_t *disp;                  /**< Display list (one per screen, malloc'd) */
+    gfx_touch_t *touch;                /**< Touch list (multiple touch devices, malloc'd) */
 } gfx_core_context_t;
-
-/**********************
- * GLOBAL PROTOTYPES
- **********************/
 
 #ifdef __cplusplus
 }

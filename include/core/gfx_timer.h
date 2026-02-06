@@ -98,13 +98,6 @@ void gfx_timer_reset(gfx_timer_handle_t timer);
 uint32_t gfx_timer_tick_get(void);
 
 /**
- * @brief Calculate elapsed time since previous tick
- * @param prev_tick Previous tick value
- * @return Elapsed time in milliseconds
- */
-uint32_t gfx_timer_tick_elaps(uint32_t prev_tick);
-
-/**
  * @brief Get actual FPS from timer manager
  * @param handle Player handle
  * @return Actual FPS value, 0 if handle is invalid

@@ -16,14 +16,17 @@
 extern "C" {
 #endif
 
+/*********************
+ *   FORWARD DECL
+ *********************/
 struct gfx_core_context;
 
-/**
- * @brief Touch module internal state (one per graphics context)
- *
- * Full definition of struct gfx_touch; public API uses opaque gfx_touch_t.
- */
+/*********************
+ *   INTERNAL STRUCTS
+ *********************/
+/** Touch node (one per device); list chained by next; public API uses opaque gfx_touch_t */
 struct gfx_touch {
+    struct gfx_touch *next;
     struct gfx_core_context *ctx;
     esp_lcd_touch_handle_t handle;
     gfx_timer_handle_t poll_timer;
@@ -43,7 +46,9 @@ struct gfx_touch {
     void *isr_ctx;
 };
 
-/* Internal API (used by gfx_core.c and gfx_touch.c) */
+/*********************
+ *   INTERNAL API
+ *********************/
 esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *cfg);
 void gfx_touch_deinit(gfx_touch_t *touch);
 

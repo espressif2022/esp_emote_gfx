@@ -7,6 +7,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "driver/gpio.h"
 #include "esp_attr.h"
@@ -267,29 +268,40 @@ void gfx_touch_deinit(gfx_touch_t *touch)
 
 gfx_touch_t *gfx_touch_add(gfx_handle_t handle, const gfx_touch_config_t *cfg)
 {
-    if (!handle) {
+    if (!handle || !cfg || !cfg->handle) {
         return NULL;
     }
 
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
 
-    if (ctx->sync.lock_mutex && xSemaphoreTakeRecursive(ctx->sync.lock_mutex, portMAX_DELAY) != pdTRUE) {
+    if (ctx->sync.render_mutex && xSemaphoreTakeRecursive(ctx->sync.render_mutex, portMAX_DELAY) != pdTRUE) {
         return NULL;
     }
 
-    gfx_touch_deinit(&ctx->touch);
-
-    if (cfg && cfg->handle) {
-        if (gfx_touch_start(&ctx->touch, cfg) == ESP_OK) {
-            if (ctx->sync.lock_mutex) {
-                xSemaphoreGiveRecursive(ctx->sync.lock_mutex);
-            }
-            return (gfx_touch_t *)&ctx->touch;
+    gfx_touch_t *new_touch = (gfx_touch_t *)malloc(sizeof(gfx_touch_t));
+    if (!new_touch) {
+        if (ctx->sync.render_mutex) {
+            xSemaphoreGiveRecursive(ctx->sync.render_mutex);
         }
+        return NULL;
+    }
+    memset(new_touch, 0, sizeof(gfx_touch_t));
+    new_touch->ctx = ctx;
+
+    esp_err_t ret = gfx_touch_start(new_touch, cfg);
+    if (ret != ESP_OK) {
+        free(new_touch);
+        if (ctx->sync.render_mutex) {
+            xSemaphoreGiveRecursive(ctx->sync.render_mutex);
+        }
+        return NULL;
     }
 
-    if (ctx->sync.lock_mutex) {
-        xSemaphoreGiveRecursive(ctx->sync.lock_mutex);
+    new_touch->next = ctx->touch;
+    ctx->touch = new_touch;
+
+    if (ctx->sync.render_mutex) {
+        xSemaphoreGiveRecursive(ctx->sync.render_mutex);
     }
-    return NULL;
+    return new_touch;
 }

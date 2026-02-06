@@ -46,7 +46,7 @@ static void test_multi_disp_function(mmap_assets_handle_t assets_handle)
         .flags = { .swap = true },
         .buffers = { .buf1 = NULL, .buf2 = NULL, .buf_pixels =  320 * 16},
     };
-    gfx_disp_t *new_disp1 = gfx_emote_add_disp(emote_handle, &disp_cfg1);
+    gfx_disp_t *new_disp1 = gfx_disp_add(emote_handle, &disp_cfg1);
     TEST_ASSERT_NOT_NULL(new_disp1);
 
     gfx_disp_config_t disp_cfg2 = {

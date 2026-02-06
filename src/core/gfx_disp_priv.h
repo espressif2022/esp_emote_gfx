@@ -14,14 +14,20 @@
 extern "C" {
 #endif
 
+/*********************
+ *   FORWARD DECL
+ *********************/
 struct gfx_core_context;
 
-/* Invalidation buffer size - max number of dirty areas per display */
-#define GFX_DISP_INV_BUF_SIZE  16
+/*********************
+ *   DEFINES
+ *********************/
+#define GFX_DISP_INV_BUF_SIZE  16   /**< Max dirty areas per display */
 
-/**
- * @brief Per-display state (one per screen, linked list for multi-display)
- */
+/*********************
+ *   INTERNAL STRUCTS
+ *********************/
+/** Per-display state; one per screen, linked list for multi-display */
 struct gfx_disp {
     struct gfx_disp *next;
     struct gfx_core_context *ctx;
@@ -29,7 +35,7 @@ struct gfx_disp {
     uint32_t h_res;
     uint32_t v_res;
     struct {
-        unsigned char swap: 1;
+        unsigned char swap : 1;
     } flags;
 
     gfx_player_flush_cb_t flush_cb;

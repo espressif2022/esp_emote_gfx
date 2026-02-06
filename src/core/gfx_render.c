@@ -225,9 +225,9 @@ bool gfx_render_handler(gfx_core_context_t *ctx)
         last_render_tick = current_tick;
 
         if (fps_sample_count >= 100) {
-            gfx_timer_mgr_t *timer_mgr = &ctx->timer.timer_mgr;
+            gfx_timer_mgr_t *timer_mgr = &ctx->timer_mgr;
             timer_mgr->actual_fps = (fps_sample_count * 1000) / fps_total_time;
-            ESP_LOGD(TAG, "average fps: %"PRIu32"(%"PRIu32")", timer_mgr->actual_fps, timer_mgr->fps);
+            ESP_LOGI(TAG, "average fps: %"PRIu32"(%"PRIu32")", timer_mgr->actual_fps, timer_mgr->fps);
             fps_sample_count = 0;
             fps_total_time = 0;
         }
