@@ -170,10 +170,15 @@ static esp_err_t gfx_img_delete(gfx_obj_t *obj)
  **********************/
 
 /**
- * @brief Create an image object
+ * @brief Create an image object on a display
  */
-gfx_obj_t *gfx_img_create(gfx_handle_t handle)
+gfx_obj_t *gfx_img_create(gfx_disp_t *disp)
 {
+    if (disp == NULL) {
+        ESP_LOGE(TAG, "disp must be from gfx_emote_add_disp");
+        return NULL;
+    }
+
     gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
     if (obj == NULL) {
         ESP_LOGE(TAG, "No mem for image object");
@@ -182,12 +187,16 @@ gfx_obj_t *gfx_img_create(gfx_handle_t handle)
 
     memset(obj, 0, sizeof(gfx_obj_t));
     obj->type = GFX_OBJ_TYPE_IMAGE;
-    obj->parent_handle = handle;
+    obj->disp = disp;
     obj->state.is_visible = true;
     obj->vfunc.draw = gfx_draw_img;
     obj->vfunc.delete = gfx_img_delete;
     gfx_obj_invalidate(obj);
-    gfx_emote_add_child(handle, GFX_OBJ_TYPE_IMAGE, obj);
+
+    if (gfx_disp_add_child(disp, GFX_OBJ_TYPE_IMAGE, obj) != ESP_OK) {
+        free(obj);
+        return NULL;
+    }
 
     ESP_LOGD(TAG, "Created image object");
     return obj;

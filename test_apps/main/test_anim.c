@@ -37,7 +37,7 @@ static void test_animation_function(mmap_assets_handle_t assets_handle)
     };
 
     gfx_emote_lock(emote_handle);
-    gfx_emote_set_bg_color(emote_handle, GFX_COLOR_HEX(0xFF0000));
+    gfx_disp_set_bg_color(emote_disp, GFX_COLOR_HEX(0xFF0000));
     gfx_emote_unlock(emote_handle);
 
     for (int i = 0; i < sizeof(test_cases) / sizeof(test_cases[0]); i++) {
@@ -45,7 +45,8 @@ static void test_animation_function(mmap_assets_handle_t assets_handle)
 
         gfx_emote_lock(emote_handle);
 
-        gfx_obj_t *anim_obj = gfx_anim_create(emote_handle);
+        TEST_ASSERT_NOT_NULL(emote_disp);
+        gfx_obj_t *anim_obj = gfx_anim_create(emote_disp);
         TEST_ASSERT_NOT_NULL(anim_obj);
 
         const void *anim_data = mmap_assets_get_mem(assets_handle, test_cases[i].asset_id);

@@ -75,7 +75,7 @@ void gfx_area_join(gfx_area_t *result, const gfx_area_t *a1, const gfx_area_t *a
     result->y2 = (a1->y2 > a2->y2) ? a1->y2 : a2->y2;
 }
 
-void gfx_refr_merge_areas(gfx_core_context_t *ctx, gfx_disp_t *disp)
+void gfx_refr_merge_areas(gfx_disp_t *disp)
 {
     uint32_t src_idx;
     uint32_t dst_idx;
@@ -118,9 +118,9 @@ void gfx_refr_merge_areas(gfx_core_context_t *ctx, gfx_disp_t *disp)
     }
 }
 
-void gfx_invalidate_area_disp(gfx_core_context_t *ctx, gfx_disp_t *disp, const gfx_area_t *area_p)
+void gfx_invalidate_area_disp(gfx_disp_t *disp, const gfx_area_t *area_p)
 {
-    if (ctx == NULL || disp == NULL) {
+    if (disp == NULL) {
         return;
     }
 
@@ -151,7 +151,7 @@ void gfx_invalidate_area_disp(gfx_core_context_t *ctx, gfx_disp_t *disp, const g
         }
     }
 
-    if (disp->dirty_count < GFX_INV_BUF_SIZE) {
+    if (disp->dirty_count < GFX_DISP_INV_BUF_SIZE) {
         gfx_area_copy(&disp->dirty_areas[disp->dirty_count], &clipped_area);
         disp->dirty_count++;
         ESP_LOGD(TAG, "Added dirty area [%d,%d,%d,%d], total: %d",
@@ -174,14 +174,14 @@ void gfx_invalidate_area(gfx_handle_t handle, const gfx_area_t *area_p)
 
     if (area_p == NULL) {
         for (gfx_disp_t *d = ctx->disp; d != NULL; d = d->next) {
-            gfx_invalidate_area_disp(ctx, d, NULL);
+            gfx_invalidate_area_disp(d, NULL);
         }
         return;
     }
 
     /* Invalidate first display (backward compat) */
     if (ctx->disp != NULL) {
-        gfx_invalidate_area_disp(ctx, ctx->disp, area_p);
+        gfx_invalidate_area_disp(ctx->disp, area_p);
     }
 }
 
@@ -192,8 +192,8 @@ void gfx_obj_invalidate(gfx_obj_t *obj)
         return;
     }
 
-    if (obj->parent_handle == NULL) {
-        ESP_LOGE(TAG, "Object has no parent handle");
+    if (obj->disp == NULL) {
+        ESP_LOGE(TAG, "Object has no display");
         return;
     }
 
@@ -205,19 +205,19 @@ void gfx_obj_invalidate(gfx_obj_t *obj)
 
     obj->state.dirty = true;
 
-    gfx_invalidate_area(obj->parent_handle, &obj_area);
+    gfx_invalidate_area_disp(obj->disp, &obj_area);
 }
 
-void gfx_refr_update_layout_dirty(gfx_core_context_t *ctx, gfx_disp_t *disp)
+void gfx_refr_update_layout_dirty(gfx_disp_t *disp)
 {
-    if (ctx == NULL || disp == NULL || disp->child_list == NULL) {
+    if (disp == NULL || disp->child_list == NULL) {
         return;
     }
 
     uint32_t parent_w = disp->h_res;
     uint32_t parent_h = disp->v_res;
 
-    gfx_core_child_t *child_node = disp->child_list;
+    gfx_obj_child_t *child_node = disp->child_list;
 
     while (child_node != NULL) {
         gfx_obj_t *obj = (gfx_obj_t *)child_node->src;

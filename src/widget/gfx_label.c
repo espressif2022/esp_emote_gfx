@@ -265,7 +265,7 @@ esp_err_t gfx_label_set_long_mode(gfx_obj_t *obj, gfx_label_long_mode_t long_mod
 
         /* Handle smooth scroll timer */
         if (long_mode == GFX_LABEL_LONG_SCROLL && !label->scroll.timer) {
-            label->scroll.timer = gfx_timer_create(obj->parent_handle,
+            label->scroll.timer = gfx_timer_create(obj->disp->ctx,
                                                    gfx_label_scroll_timer_callback,
                                                    label->scroll.speed,
                                                    obj);
@@ -273,13 +273,13 @@ esp_err_t gfx_label_set_long_mode(gfx_obj_t *obj, gfx_label_long_mode_t long_mod
                 gfx_timer_set_repeat_count(label->scroll.timer, -1);
             }
         } else if (long_mode != GFX_LABEL_LONG_SCROLL && label->scroll.timer) {
-            gfx_timer_delete(obj->parent_handle, label->scroll.timer);
+            gfx_timer_delete(obj->disp->ctx, label->scroll.timer);
             label->scroll.timer = NULL;
         }
 
         /* Handle snap scroll timer */
         if (long_mode == GFX_LABEL_LONG_SCROLL_SNAP && !label->snap.timer) {
-            label->snap.timer = gfx_timer_create(obj->parent_handle,
+            label->snap.timer = gfx_timer_create(obj->disp->ctx,
                                                  gfx_label_snap_timer_callback,
                                                  label->snap.interval,
                                                  obj);
@@ -287,7 +287,7 @@ esp_err_t gfx_label_set_long_mode(gfx_obj_t *obj, gfx_label_long_mode_t long_mod
                 gfx_timer_set_repeat_count(label->snap.timer, -1);
             }
         } else if (long_mode != GFX_LABEL_LONG_SCROLL_SNAP && label->snap.timer) {
-            gfx_timer_delete(obj->parent_handle, label->snap.timer);
+            gfx_timer_delete(obj->disp->ctx, label->snap.timer);
             label->snap.timer = NULL;
         }
 
@@ -390,8 +390,13 @@ esp_err_t gfx_label_set_snap_loop(gfx_obj_t *obj, bool loop)
 * Label object creation
 *====================*/
 
-gfx_obj_t *gfx_label_create(gfx_handle_t handle)
+gfx_obj_t *gfx_label_create(gfx_disp_t *disp)
 {
+    if (disp == NULL) {
+        ESP_LOGE(TAG, "disp must be from gfx_emote_add_disp");
+        return NULL;
+    }
+
     gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
     if (obj == NULL) {
         ESP_LOGE(TAG, "No mem for label object");
@@ -400,7 +405,7 @@ gfx_obj_t *gfx_label_create(gfx_handle_t handle)
 
     memset(obj, 0, sizeof(gfx_obj_t));
     obj->type = GFX_OBJ_TYPE_LABEL;
-    obj->parent_handle = handle;
+    obj->disp = disp;
     obj->state.is_visible = true;
     obj->vfunc.draw = gfx_draw_label;
     obj->vfunc.delete = gfx_label_delete;
@@ -445,7 +450,7 @@ gfx_obj_t *gfx_label_create(gfx_handle_t handle)
 
     obj->src = label;
 
-    gfx_emote_add_child(handle, GFX_OBJ_TYPE_LABEL, obj);
+    gfx_disp_add_child(disp, GFX_OBJ_TYPE_LABEL, obj);
     ESP_LOGD(TAG, "Created label object with default font config");
     return obj;
 }
@@ -457,12 +462,12 @@ static esp_err_t gfx_label_delete(gfx_obj_t *obj)
     gfx_label_t *label = (gfx_label_t *)obj->src;
     if (label) {
         if (label->scroll.timer) {
-            gfx_timer_delete(obj->parent_handle, label->scroll.timer);
+            gfx_timer_delete(obj->disp->ctx, label->scroll.timer);
             label->scroll.timer = NULL;
         }
 
         if (label->snap.timer) {
-            gfx_timer_delete(obj->parent_handle, label->snap.timer);
+            gfx_timer_delete(obj->disp->ctx, label->snap.timer);
             label->snap.timer = NULL;
         }
 

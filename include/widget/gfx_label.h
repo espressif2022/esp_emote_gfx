@@ -61,12 +61,11 @@ typedef enum {
  *====================*/
 
 /**
- * @brief Create a label object
- * @param handle Animation player handle
- * @param cfg Font configuration
+ * @brief Create a label object on a display
+ * @param disp Display from gfx_emote_add_disp(handle, &disp_cfg)
  * @return Pointer to the created label object
  */
-gfx_obj_t *gfx_label_create(gfx_handle_t handle);
+gfx_obj_t *gfx_label_create(gfx_disp_t *disp);
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
 /**

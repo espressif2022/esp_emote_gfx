@@ -17,9 +17,10 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
 
     gfx_emote_lock(emote_handle);
 
-    gfx_obj_t *anim_obj = gfx_anim_create(emote_handle);
-    gfx_obj_t *img_obj = gfx_img_create(emote_handle);
-    gfx_obj_t *label_obj = gfx_label_create(emote_handle);
+    TEST_ASSERT_NOT_NULL(emote_disp);
+    gfx_obj_t *anim_obj = gfx_anim_create(emote_disp);
+    gfx_obj_t *img_obj = gfx_img_create(emote_disp);
+    gfx_obj_t *label_obj = gfx_label_create(emote_disp);
     gfx_timer_handle_t timer = gfx_timer_create(emote_handle, test_clock_tm_callback, 5000, label_obj);
 
     TEST_ASSERT_NOT_NULL(anim_obj);

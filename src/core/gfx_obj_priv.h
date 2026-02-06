@@ -31,7 +31,7 @@ struct gfx_obj {
     /* Basic properties */
     void *src;                  /**< Source data (image, label, etc.) */
     int type;                   /**< Object type */
-    gfx_handle_t parent_handle; /**< Parent graphics handle */
+    gfx_disp_t *disp;           /**< Display this object belongs to (from gfx_emote_add_disp) */
 
     /* Geometry */
     struct {
@@ -64,11 +64,11 @@ struct gfx_obj {
     } vfunc;
 };
 
-typedef struct gfx_core_child_t {
+typedef struct gfx_obj_child_t {
     int type;
     void *src;
-    struct gfx_core_child_t *next;  // Pointer to next child in the list
-} gfx_core_child_t;
+    struct gfx_obj_child_t *next;  // Pointer to next child in the list
+} gfx_obj_child_t;
 
 /**********************
  * GLOBAL PROTOTYPES

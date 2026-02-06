@@ -19,10 +19,11 @@ extern "C" {
  *********************/
 
 /* Object types */
+#define GFX_OBJ_TYPE_SCREEN       0x00  /**< Screen type (reserved) */
 #define GFX_OBJ_TYPE_IMAGE        0x01
-#define GFX_OBJ_TYPE_LABEL        0x02
-#define GFX_OBJ_TYPE_ANIMATION    0x03
-#define GFX_OBJ_TYPE_QRCODE       0x04
+#define GFX_OBJ_TYPE_LABEL       0x02
+#define GFX_OBJ_TYPE_ANIMATION   0x03
+#define GFX_OBJ_TYPE_QRCODE      0x04
 
 /* Alignment constants (similar to LVGL) */
 #define GFX_ALIGN_DEFAULT         0x00

@@ -272,8 +272,7 @@ static esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj)
         memset(anim->frame.color_palette, 0xFF, palette_size * sizeof(uint32_t));
 #else
         /* Initialize palette cache directly based on bit depth */
-        gfx_core_context_t *ctx = (gfx_core_context_t *)obj->parent_handle;
-        bool swap = ctx ? ctx->display.flags.swap : false;
+        bool swap = obj->disp ? obj->disp->flags.swap : false;
         gfx_color_t color;
 
         for (int i = 0; i < palette_size; i++) {
@@ -293,7 +292,7 @@ static esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj)
 
     /* Get parent screen size for mirror offset calculation */
     uint32_t parent_w, parent_h;
-    gfx_emote_get_screen_size(obj->parent_handle, &parent_w, &parent_h);
+    gfx_disp_get_size(obj->disp, &parent_w, &parent_h);
 
     /* Calculate mirror offset */
     uint32_t mirror_offset = 0;
@@ -787,7 +786,7 @@ static esp_err_t gfx_anim_delete(gfx_obj_t *obj)
         }
 
         if (anim->timer != NULL) {
-            gfx_timer_delete((void *)obj->parent_handle, anim->timer);
+            gfx_timer_delete(obj->disp->ctx, anim->timer);
             anim->timer = NULL;
         }
 
@@ -831,28 +830,27 @@ static void gfx_anim_timer_callback(void *arg)
         return;
     }
 
-    gfx_core_context_t *ctx = obj->parent_handle;
     if (anim->current_frame >= anim->end_frame) {
         if (anim->repeat) {
             ESP_LOGD(TAG, "Repeat");
-            if (ctx->callbacks.update_cb) {
-                ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ALL_FRAME_DONE, obj);
-            }
+            // if (ctx->callbacks.update_cb) {
+            //     ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ALL_FRAME_DONE, obj);
+            // }
             anim->current_frame = anim->start_frame;
         } else {
             ESP_LOGD(TAG, "Done");
             anim->is_playing = false;
-            if (ctx->callbacks.update_cb) {
-                ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ALL_FRAME_DONE, obj);
-            }
+            // if (ctx->callbacks.update_cb) {
+            //     ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ALL_FRAME_DONE, obj);
+            // }
             return;
         }
     } else {
         gfx_anim_prepare_frame(obj);
         anim->current_frame++;
-        if (ctx->callbacks.update_cb) {
-            ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ONE_FRAME_DONE, obj);
-        }
+        // if (ctx->callbacks.update_cb) {
+        //     ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ONE_FRAME_DONE, obj);
+        // }
         ESP_LOGD(TAG, "Frame %" PRIu32 "/%" PRIu32, anim->current_frame, anim->end_frame);
     }
 
@@ -864,10 +862,15 @@ static void gfx_anim_timer_callback(void *arg)
  **********************/
 
 /**
- * @brief Create an animation object
+ * @brief Create an animation object on a display
  */
-gfx_obj_t *gfx_anim_create(gfx_handle_t handle)
+gfx_obj_t *gfx_anim_create(gfx_disp_t *disp)
 {
+    if (disp == NULL) {
+        ESP_LOGE(TAG, "disp must be from gfx_emote_add_disp");
+        return NULL;
+    }
+
     gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
     if (obj == NULL) {
         ESP_LOGE(TAG, "No mem for animation object");
@@ -876,7 +879,7 @@ gfx_obj_t *gfx_anim_create(gfx_handle_t handle)
 
     memset(obj, 0, sizeof(gfx_obj_t));
     obj->type = GFX_OBJ_TYPE_ANIMATION;
-    obj->parent_handle = handle;
+    obj->disp = disp;
     obj->state.is_visible = true;
     obj->vfunc.draw = gfx_draw_animation;
     obj->vfunc.delete = gfx_anim_delete;
@@ -902,7 +905,7 @@ gfx_obj_t *gfx_anim_create(gfx_handle_t handle)
     anim->mirror_offset = 0;
 
     uint32_t period_ms = 1000 / anim->fps;
-    anim->timer = gfx_timer_create((void *)obj->parent_handle, gfx_anim_timer_callback, period_ms, obj);
+    anim->timer = gfx_timer_create((void *)disp->ctx, gfx_anim_timer_callback, period_ms, obj);
     if (anim->timer == NULL) {
         ESP_LOGE(TAG, "Failed to create animation timer");
         free(anim);
@@ -927,7 +930,7 @@ gfx_obj_t *gfx_anim_create(gfx_handle_t handle)
     obj->src = anim;
     obj->type = GFX_OBJ_TYPE_ANIMATION;
 
-    gfx_emote_add_child(handle, GFX_OBJ_TYPE_ANIMATION, obj);
+    gfx_disp_add_child(disp, GFX_OBJ_TYPE_ANIMATION, obj);
     return obj;
 }
 

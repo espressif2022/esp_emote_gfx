@@ -20,6 +20,7 @@ extern const lv_font_t font_puhui_16_4;
 
 /* Shared global variables */
 extern gfx_handle_t emote_handle;
+extern gfx_disp_t *emote_disp;  /* First display (from gfx_emote_add_disp in test_init) */
 extern esp_lcd_panel_io_handle_t io_handle;
 extern esp_lcd_panel_handle_t panel_handle;
 extern gfx_obj_t *label_tips;

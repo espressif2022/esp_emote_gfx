@@ -16,20 +16,20 @@ static const char *TAG = "gfx_render";
 
 /**
  * @brief Draw child objects in the specified area
- * @param ctx Graphics context
+ * @param disp Display
  * @param x1 Left coordinate
  * @param y1 Top coordinate
  * @param x2 Right coordinate
  * @param y2 Bottom coordinate
  * @param dest_buf Destination buffer
  */
-void gfx_render_draw_child_objects(gfx_core_context_t *ctx, gfx_disp_t *disp, int x1, int y1, int x2, int y2, const void *dest_buf)
+void gfx_render_draw_child_objects(gfx_disp_t *disp, int x1, int y1, int x2, int y2, const void *dest_buf)
 {
     if (disp == NULL || disp->child_list == NULL) {
         return;
     }
 
-    gfx_core_child_t *child_node = disp->child_list;
+    gfx_obj_child_t *child_node = disp->child_list;
     bool swap = disp->flags.swap;
 
     while (child_node != NULL) {
@@ -49,13 +49,13 @@ void gfx_render_draw_child_objects(gfx_core_context_t *ctx, gfx_disp_t *disp, in
 }
 
 
-void gfx_render_update_child_objects(gfx_core_context_t *ctx, gfx_disp_t *disp)
+void gfx_render_update_child_objects(gfx_disp_t *disp)
 {
     if (disp == NULL || disp->child_list == NULL) {
         return;
     }
 
-    gfx_core_child_t *child_node = disp->child_list;
+    gfx_obj_child_t *child_node = disp->child_list;
 
     while (child_node != NULL) {
         gfx_obj_t *obj = (gfx_obj_t *)child_node->src;
@@ -75,10 +75,10 @@ void gfx_render_update_child_objects(gfx_core_context_t *ctx, gfx_disp_t *disp)
 
 /**
  * @brief Print summary of dirty areas
- * @param ctx Graphics context
+ * @param disp Display
  * @return Total dirty pixels
  */
-uint32_t gfx_render_area_summary(gfx_core_context_t *ctx, gfx_disp_t *disp)
+uint32_t gfx_render_area_summary(gfx_disp_t *disp)
 {
     uint32_t total_dirty_pixels = 0;
 
@@ -103,18 +103,13 @@ uint32_t gfx_render_area_summary(gfx_core_context_t *ctx, gfx_disp_t *disp)
 
 /**
  * @brief Render a single dirty area with dynamic height-based blocking
- * @param ctx Graphics context
- * @param area Area to render
- * @param area_idx Area index for logging
- * @param start_block_count Starting block count for logging
- * @return Number of flush operations performed
  */
-uint32_t gfx_render_part_area(gfx_core_context_t *ctx, gfx_area_t *area,
+uint32_t gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area,
                               uint8_t area_idx, uint32_t start_block_count)
 {
     uint32_t area_width = area->x2 - area->x1 + 1;
 
-    uint32_t per_flush = ctx->disp.buf_pixels / area_width;
+    uint32_t per_flush = disp->buf_pixels / area_width;
     if (per_flush == 0) {
         ESP_LOGE(TAG, "Area[%d] width %" PRIu32 " exceeds buffer width, skipping", area_idx, area_width);
         return 0;
@@ -123,6 +118,8 @@ uint32_t gfx_render_part_area(gfx_core_context_t *ctx, gfx_area_t *area,
     int current_y = area->y1;
     uint32_t flush_idx = 0;
     uint32_t flushes_done = 0;
+
+    gfx_player_flush_cb_t flush_cb = disp->flush_cb;
 
     while (current_y <= area->y2) {
         flush_idx++;
@@ -135,20 +132,20 @@ uint32_t gfx_render_part_area(gfx_core_context_t *ctx, gfx_area_t *area,
             y2 = area->y2 + 1;
         }
 
-        uint16_t *buf_act = ctx->disp.buf_act;
+        uint16_t *buf_act = disp->buf_act;
 
-        gfx_sw_blend_fill(buf_act, ctx->disp.bg_color.full, ctx->disp.buf_pixels);
-        gfx_render_draw_child_objects(ctx, x1, y1, x2, y2, buf_act);
+        gfx_sw_blend_fill(buf_act, disp->bg_color.full, disp->buf_pixels);
+        gfx_render_draw_child_objects(disp, x1, y1, x2, y2, buf_act);
 
-        if (ctx->callbacks.flush_cb) {
-            xEventGroupClearBits(ctx->sync.event_group, WAIT_FLUSH_DONE);
+        if (flush_cb) {
+            xEventGroupClearBits(disp->event_group, WAIT_FLUSH_DONE);
 
             uint32_t chunk_pixels = area_width * (y2 - y1);
             ESP_LOGD(TAG, "Flush[%" PRIu32 "]: (%d,%d)->(%d,%d) %" PRIu32 "px",
                      start_block_count + flush_idx, x1, y1, x2 - 1, y2 - 1, chunk_pixels);
 
-            ctx->callbacks.flush_cb(ctx, x1, y1, x2, y2, buf_act);
-            xEventGroupWaitBits(ctx->sync.event_group, WAIT_FLUSH_DONE, pdTRUE, pdFALSE, portMAX_DELAY);
+            flush_cb(disp, x1, y1, x2, y2, buf_act);
+            xEventGroupWaitBits(disp->event_group, WAIT_FLUSH_DONE, pdTRUE, pdFALSE, portMAX_DELAY);
         }
 
         current_y = y2;
@@ -160,10 +157,10 @@ uint32_t gfx_render_part_area(gfx_core_context_t *ctx, gfx_area_t *area,
 
 /**
  * @brief Render all dirty areas
- * @param ctx Graphics context
+ * @param disp Display
  * @return Total number of flush operations
  */
-uint32_t gfx_render_dirty_areas(gfx_core_context_t *ctx, gfx_disp_t *disp)
+uint32_t gfx_render_dirty_areas(gfx_disp_t *disp)
 {
     uint32_t rendered_blocks = 0;
 
@@ -177,7 +174,7 @@ uint32_t gfx_render_dirty_areas(gfx_core_context_t *ctx, gfx_disp_t *disp)
         }
 
         gfx_area_t *area = &disp->dirty_areas[i];
-        rendered_blocks += gfx_render_part_area(ctx, disp, area, i, rendered_blocks);
+        rendered_blocks += gfx_render_part_area(disp, area, i, rendered_blocks);
     }
 
     return rendered_blocks;
@@ -185,9 +182,9 @@ uint32_t gfx_render_dirty_areas(gfx_core_context_t *ctx, gfx_disp_t *disp)
 
 /**
  * @brief Cleanup after rendering - swap buffers and clear dirty flags
- * @param ctx Graphics context
+ * @param disp Display
  */
-void gfx_render_cleanup(gfx_core_context_t *ctx, gfx_disp_t *disp)
+void gfx_render_cleanup(gfx_disp_t *disp)
 {
     if (disp == NULL) {
         return;
@@ -203,7 +200,7 @@ void gfx_render_cleanup(gfx_core_context_t *ctx, gfx_disp_t *disp)
     }
 
     if (disp->dirty_count > 0) {
-        gfx_invalidate_area_disp(ctx, disp, NULL);
+        gfx_invalidate_area_disp(disp, NULL);
     }
 }
 
@@ -239,22 +236,22 @@ bool gfx_render_handler(gfx_core_context_t *ctx)
     bool any_rendered = false;
 
     for (gfx_disp_t *disp = ctx->disp; disp != NULL; disp = disp->next) {
-        gfx_refr_update_layout_dirty(ctx, disp);
+        gfx_refr_update_layout_dirty(disp);
 
         if (disp->dirty_count > 1) {
-            gfx_refr_merge_areas(ctx, disp);
+            gfx_refr_merge_areas(disp);
         }
 
         if (disp->dirty_count == 0) {
             continue;
         }
 
-        gfx_render_update_child_objects(ctx, disp);
+        gfx_render_update_child_objects(disp);
 
-        uint32_t total_dirty_pixels = gfx_render_area_summary(ctx, disp);
+        uint32_t total_dirty_pixels = gfx_render_area_summary(disp);
         uint32_t screen_pixels = disp->h_res * disp->v_res;
 
-        uint32_t rendered_blocks = gfx_render_dirty_areas(ctx, disp);
+        uint32_t rendered_blocks = gfx_render_dirty_areas(disp);
 
         if (rendered_blocks > 0) {
             any_rendered = true;
@@ -263,7 +260,7 @@ bool gfx_render_handler(gfx_core_context_t *ctx)
                      rendered_blocks, total_dirty_pixels, dirty_percentage);
         }
 
-        gfx_render_cleanup(ctx, disp);
+        gfx_render_cleanup(disp);
     }
 
     return any_rendered;

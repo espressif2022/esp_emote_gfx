@@ -322,10 +322,15 @@ static esp_err_t gfx_qrcode_delete(gfx_obj_t *obj)
  **********************/
 
 /**
- * @brief Create a QR code object
+ * @brief Create a QR code object on a display
  */
-gfx_obj_t *gfx_qrcode_create(gfx_handle_t handle)
+gfx_obj_t *gfx_qrcode_create(gfx_disp_t *disp)
 {
+    if (disp == NULL) {
+        ESP_LOGE(TAG, "disp must be from gfx_emote_add_disp");
+        return NULL;
+    }
+
     gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
     if (obj == NULL) {
         ESP_LOGE(TAG, "No mem for QR Code object");
@@ -334,7 +339,7 @@ gfx_obj_t *gfx_qrcode_create(gfx_handle_t handle)
 
     memset(obj, 0, sizeof(gfx_obj_t));
     obj->type = GFX_OBJ_TYPE_QRCODE;
-    obj->parent_handle = handle;
+    obj->disp = disp;
     obj->state.is_visible = true;
     obj->vfunc.draw = gfx_draw_qrcode;
     obj->vfunc.delete = gfx_qrcode_delete;
@@ -363,7 +368,7 @@ gfx_obj_t *gfx_qrcode_create(gfx_handle_t handle)
     obj->geometry.height = qrcode->display_size;
 
     gfx_obj_invalidate(obj);
-    gfx_emote_add_child(handle, GFX_OBJ_TYPE_QRCODE, obj);
+    gfx_disp_add_child(disp, GFX_OBJ_TYPE_QRCODE, obj);
 
     ESP_LOGD(TAG, "Created QR Code object");
     return obj;

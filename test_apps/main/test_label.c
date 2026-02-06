@@ -17,7 +17,8 @@ static void test_label_map_function(mmap_assets_handle_t assets_handle)
 
     gfx_emote_lock(emote_handle);
 
-    gfx_obj_t *label_obj = gfx_label_create(emote_handle);
+    TEST_ASSERT_NOT_NULL(emote_disp);
+    gfx_obj_t *label_obj = gfx_label_create(emote_disp);
     TEST_ASSERT_NOT_NULL(label_obj);
 
     gfx_obj_set_size(label_obj, 150, 100);
@@ -52,7 +53,8 @@ static void test_label_freetype_function(mmap_assets_handle_t assets_handle)
 
     gfx_emote_lock(emote_handle);
 
-    gfx_obj_t *label_obj = gfx_label_create(emote_handle);
+    TEST_ASSERT_NOT_NULL(emote_disp);
+    gfx_obj_t *label_obj = gfx_label_create(emote_disp);
     TEST_ASSERT_NOT_NULL(label_obj);
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT

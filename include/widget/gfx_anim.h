@@ -25,11 +25,11 @@ extern "C" {
  *====================*/
 
 /**
- * @brief Create an animation object
- * @param handle Animation player handle
+ * @brief Create an animation object on a display
+ * @param disp Display from gfx_emote_add_disp(handle, &disp_cfg)
  * @return Pointer to the created animation object
  */
-gfx_obj_t *gfx_anim_create(gfx_handle_t handle);
+gfx_obj_t *gfx_anim_create(gfx_disp_t *disp);
 
 /*=====================
  * Animation setter functions

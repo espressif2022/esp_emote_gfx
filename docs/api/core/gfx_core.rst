@@ -125,14 +125,14 @@ Check if flush is ready
 
 * bool True if the flush is ready, false otherwise
 
-gfx_emote_get_screen_size()
+gfx_emote_get_disp_size()
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Get the user data of the graphics context
 
 .. code-block:: c
 
-   esp_err_t gfx_emote_get_screen_size(gfx_handle_t handle, uint32_t *width, uint32_t *height);
+   esp_err_t gfx_emote_get_disp_size(gfx_handle_t handle, uint32_t *width, uint32_t *height);
 
 **Parameters:**
 

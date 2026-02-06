@@ -19,7 +19,8 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
 
     gfx_emote_lock(emote_handle);
 
-    gfx_obj_t *img_obj_c_array = gfx_img_create(emote_handle);
+    TEST_ASSERT_NOT_NULL(emote_disp);
+    gfx_obj_t *img_obj_c_array = gfx_img_create(emote_disp);
     TEST_ASSERT_NOT_NULL(img_obj_c_array);
 
     gfx_img_set_src(img_obj_c_array, (void *)&icon_rgb565);
@@ -44,7 +45,7 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
     gfx_emote_lock(emote_handle);
     gfx_obj_delete(img_obj_c_array);
 
-    gfx_obj_t *img_obj_bin = gfx_img_create(emote_handle);
+    gfx_obj_t *img_obj_bin = gfx_img_create(emote_disp);
     TEST_ASSERT_NOT_NULL(img_obj_bin);
 
     esp_err_t ret = test_load_image(assets_handle, MMAP_TEST_ASSETS_ICON_RGB565A8_BIN, &img_dsc);
@@ -65,8 +66,8 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
     gfx_obj_delete(img_obj_bin);
 
     ESP_LOGI(TAG, "--- Testing multiple images with different formats ---");
-    gfx_obj_t *img_obj1 = gfx_img_create(emote_handle);
-    gfx_obj_t *img_obj2 = gfx_img_create(emote_handle);
+    gfx_obj_t *img_obj1 = gfx_img_create(emote_disp);
+    gfx_obj_t *img_obj2 = gfx_img_create(emote_disp);
     TEST_ASSERT_NOT_NULL(img_obj1);
     TEST_ASSERT_NOT_NULL(img_obj2);
 

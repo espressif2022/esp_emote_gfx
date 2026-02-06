@@ -12,9 +12,11 @@
 #include "driver/gpio.h"
 
 #include "core/gfx_core.h"
+#include "core/gfx_disp_priv.h"
 #include "core/gfx_timer_priv.h"
 #include "core/gfx_obj_priv.h"
 #include "core/gfx_touch.h"
+#include "core/gfx_touch_priv.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,136 +34,34 @@ extern "C" {
 /* Animation timer constants */
 #define ANIM_NO_TIMER_READY 0xFFFFFFFF
 
-/* Invalidation buffer size - max number of dirty areas globally */
-#define GFX_INV_BUF_SIZE    16
-
 /**********************
  *      TYPEDEFS
  **********************/
 
-/**
- * @brief Per-display state (one per screen, linked list for multi-display)
- */
-typedef struct gfx_disp {
-    struct gfx_disp *next;             /**< Next display in list */
-
-    uint32_t h_res;                    /**< Horizontal resolution */
-    uint32_t v_res;                    /**< Vertical resolution */
-    struct {
-        unsigned char swap: 1;         /**< Color swap flag */
-    } flags;
-
-    gfx_player_flush_cb_t flush_cb;    /**< Flush callback (NULL = use ctx->callbacks.flush_cb) */
-
-    gfx_core_child_t *child_list;     /**< Child object list */
-    uint16_t *buf1;                    /**< Frame buffer 1 */
-    uint16_t *buf2;                    /**< Frame buffer 2 */
-    uint16_t *buf_act;                 /**< Active frame buffer */
-    size_t buf_pixels;                 /**< Buffer size in pixels */
-    gfx_color_t bg_color;              /**< Default background color */
-    bool ext_bufs;                     /**< Whether using external buffers */
-    bool flushing_last;                /**< Whether flushing the last block */
-    bool swap_act_buf;                 /**< Whether swap the active buffer */
-
-    gfx_area_t dirty_areas[GFX_INV_BUF_SIZE];
-    uint8_t area_merged[GFX_INV_BUF_SIZE];
-    uint8_t dirty_count;
-} gfx_disp_t;
 
 /* Core context structure */
-typedef struct {
-    /* Display configuration (mirrored from first disp for backward compat) */
-    struct {
-        uint32_t h_res;                /**< Horizontal resolution */
-        uint32_t v_res;                /**< Vertical resolution */
-        uint32_t fb_v_res;             /**< Frame buffer vertical resolution */
-        struct {
-            unsigned char swap: 1;     /**< Color swap flag */
-        } flags;                       /**< Display flags */
-    } display;                         /**< Display configuration */
-
-    /* Callback functions */
-    struct {
-        gfx_player_flush_cb_t flush_cb;       /**< Flush callback function */
-        gfx_player_update_cb_t update_cb;     /**< Update callback function */
-        void *user_data;               /**< User data pointer */
-    } callbacks;                       /**< Callback functions */
-
+typedef struct gfx_core_context {
     /* Timer management */
     struct {
         gfx_timer_mgr_t timer_mgr; /**< Timer manager */
     } timer;                           /**< Timer management */
-
-    /**< Display list (one per screen, malloc'd) */
-    gfx_disp_t *disp;
 
     /* Synchronization primitives */
     struct {
         SemaphoreHandle_t lock_mutex;  /**< Render mutex for thread safety */
         EventGroupHandle_t event_group; /**< Event group for synchronization */
     } sync;                            /**< Synchronization primitives */
+    
+    /**< Display list (one per screen, malloc'd) */
+    gfx_disp_t *disp;
 
-    /* Touch handling */
-    struct {
-        esp_lcd_touch_handle_t handle;
-        gfx_timer_handle_t poll_timer;
-        gfx_touch_event_cb_t event_cb;
-        void *user_data;
-        uint32_t poll_ms;
-        bool pressed;
-        uint16_t last_x;
-        uint16_t last_y;
-        uint16_t last_strength;
-        uint8_t last_id;
-        gpio_num_t int_gpio_num;
-        bool irq_enabled;
-        volatile bool irq_pending;
-        void *isr_ctx;
-    } touch;
+    /**< Touch state (see gfx_touch_priv.h) */
+    gfx_touch_t touch;
 } gfx_core_context_t;
 
 /**********************
  * GLOBAL PROTOTYPES
  **********************/
-
-/*=====================
- * Internal core functions
- *====================*/
-
-/**
- * @brief Add a child element to the graphics context
- *
- * @param handle Graphics handle
- * @param type Type of the child element
- * @param src Source data pointer
- * @return esp_err_t ESP_OK on success, otherwise an error code
- */
-esp_err_t gfx_emote_add_child(gfx_handle_t handle, int type, void *src);
-
-/**
- * @brief Remove a child element from the graphics context
- *
- * @param handle Graphics handle
- * @param src Source data pointer to remove
- * @return esp_err_t ESP_OK on success, otherwise an error code
- */
-esp_err_t gfx_emote_remove_child(gfx_handle_t handle, void *src);
-
-/**
- * @brief Start touch handling with configuration
- *
- * @param ctx Graphics context
- * @param cfg Touch configuration
- * @return esp_err_t ESP_OK on success
- */
-esp_err_t gfx_touch_start(gfx_core_context_t *ctx, const gfx_touch_config_t *cfg);
-
-/**
- * @brief Deinitialize touch handling
- *
- * @param ctx Graphics context
- */
-void gfx_touch_deinit(gfx_core_context_t *ctx);
 
 #ifdef __cplusplus
 }

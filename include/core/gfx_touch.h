@@ -18,6 +18,9 @@ typedef void *gfx_handle_t;
 extern "C" {
 #endif
 
+/** Opaque touch type - from gfx_touch_add() */
+typedef struct gfx_touch gfx_touch_t;
+
 typedef enum {
     GFX_TOUCH_EVENT_PRESS = 0,
     GFX_TOUCH_EVENT_RELEASE,
@@ -32,7 +35,7 @@ typedef struct {
     uint32_t timestamp_ms;
 } gfx_touch_event_t;
 
-typedef void (*gfx_touch_event_cb_t)(gfx_handle_t handle, const gfx_touch_event_t *event, void *user_data);
+typedef void (*gfx_touch_event_cb_t)(gfx_touch_t *touch, const gfx_touch_event_t *event, void *user_data);
 
 typedef struct {
     esp_lcd_touch_handle_t handle;
@@ -43,15 +46,15 @@ typedef struct {
 } gfx_touch_config_t;
 
 /**
- * @brief Configure touch handling at runtime
+ * @brief Add or reconfigure touch handling (like gfx_disp_add)
  *
- * Passing NULL or a config without handle disables touch support.
+ * Passing NULL or a config without handle disables touch and returns NULL.
  *
- * @param handle Graphics handle
- * @param config Touch configuration or NULL to disable
- * @return esp_err_t ESP_OK on success, otherwise error code
+ * @param handle Graphics handle from gfx_emote_init
+ * @param cfg Touch configuration (handle, poll_ms, event_cb, etc.), or NULL to disable
+ * @return gfx_touch_t* Touch pointer on success, NULL on disable or error
  */
-esp_err_t gfx_touch_configure(gfx_handle_t handle, const gfx_touch_config_t *config);
+gfx_touch_t *gfx_touch_add(gfx_handle_t handle, const gfx_touch_config_t *cfg);
 
 #ifdef __cplusplus
 }

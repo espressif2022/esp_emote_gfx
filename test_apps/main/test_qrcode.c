@@ -18,9 +18,11 @@ static void test_qrcode_function(mmap_assets_handle_t assets_handle)
 
     gfx_emote_lock(emote_handle);
 
+    TEST_ASSERT_NOT_NULL(emote_disp);
+
     // Test 1: Basic QR Code creation and data setting
     ESP_LOGI(TAG, "--- Test 1: Basic QR Code ---");
-    gfx_obj_t *qrcode_obj1 = gfx_qrcode_create(emote_handle);
+    gfx_obj_t *qrcode_obj1 = gfx_qrcode_create(emote_disp);
     TEST_ASSERT_NOT_NULL(qrcode_obj1);
 
     esp_err_t ret = gfx_qrcode_set_data(qrcode_obj1, "https://www.espressif.com");
@@ -40,7 +42,7 @@ static void test_qrcode_function(mmap_assets_handle_t assets_handle)
     ESP_LOGI(TAG, "--- Test 2: Different ECC Levels ---");
     gfx_emote_lock(emote_handle);
 
-    gfx_obj_t *qrcode_obj2 = gfx_qrcode_create(emote_handle);
+    gfx_obj_t *qrcode_obj2 = gfx_qrcode_create(emote_disp);
     TEST_ASSERT_NOT_NULL(qrcode_obj2);
 
     gfx_qrcode_set_data(qrcode_obj2, "Hello, QR Code!");
@@ -72,7 +74,7 @@ static void test_qrcode_function(mmap_assets_handle_t assets_handle)
     ESP_LOGI(TAG, "--- Test 3: Different Sizes ---");
     gfx_emote_lock(emote_handle);
 
-    gfx_obj_t *qrcode_obj3 = gfx_qrcode_create(emote_handle);
+    gfx_obj_t *qrcode_obj3 = gfx_qrcode_create(emote_disp);
     TEST_ASSERT_NOT_NULL(qrcode_obj3);
 
     gfx_qrcode_set_data(qrcode_obj3, "Size Test");
@@ -98,7 +100,7 @@ static void test_qrcode_function(mmap_assets_handle_t assets_handle)
     ESP_LOGI(TAG, "--- Test 4: Different Colors ---");
     gfx_emote_lock(emote_handle);
 
-    gfx_obj_t *qrcode_obj4 = gfx_qrcode_create(emote_handle);
+    gfx_obj_t *qrcode_obj4 = gfx_qrcode_create(emote_disp);
     TEST_ASSERT_NOT_NULL(qrcode_obj4);
 
     gfx_qrcode_set_data(qrcode_obj4, "Color Test");
@@ -120,7 +122,7 @@ static void test_qrcode_function(mmap_assets_handle_t assets_handle)
     ESP_LOGI(TAG, "--- Test 5: Alignment and Positioning ---");
     gfx_emote_lock(emote_handle);
 
-    gfx_obj_t *qrcode_obj5 = gfx_qrcode_create(emote_handle);
+    gfx_obj_t *qrcode_obj5 = gfx_qrcode_create(emote_disp);
     TEST_ASSERT_NOT_NULL(qrcode_obj5);
 
     gfx_qrcode_set_data(qrcode_obj5, "Alignment Test");
@@ -145,7 +147,7 @@ static void test_qrcode_function(mmap_assets_handle_t assets_handle)
     ESP_LOGI(TAG, "--- Test 6: Long Text Data ---");
     gfx_emote_lock(emote_handle);
 
-    gfx_obj_t *qrcode_obj6 = gfx_qrcode_create(emote_handle);
+    gfx_obj_t *qrcode_obj6 = gfx_qrcode_create(emote_disp);
     TEST_ASSERT_NOT_NULL(qrcode_obj6);
 
     const char *long_text = "This is a longer text to test QR code";
