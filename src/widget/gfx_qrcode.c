@@ -368,7 +368,7 @@ gfx_obj_t *gfx_qrcode_create(gfx_disp_t *disp)
     obj->geometry.height = qrcode->display_size;
 
     gfx_obj_invalidate(obj);
-    gfx_disp_add_child(disp, GFX_OBJ_TYPE_QRCODE, obj);
+    gfx_disp_add_child(disp, obj);
 
     ESP_LOGD(TAG, "Created QR Code object");
     return obj;

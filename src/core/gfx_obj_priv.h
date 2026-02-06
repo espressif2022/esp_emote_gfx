@@ -65,9 +65,8 @@ struct gfx_obj {
 };
 
 typedef struct gfx_obj_child_t {
-    int type;
     void *src;
-    struct gfx_obj_child_t *next;  // Pointer to next child in the list
+    struct gfx_obj_child_t *next;
 } gfx_obj_child_t;
 
 /**********************

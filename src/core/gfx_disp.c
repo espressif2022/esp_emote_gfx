@@ -84,6 +84,7 @@ gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg)
     new_disp->v_res = cfg->v_res;
     new_disp->flags.swap = cfg->flags.swap;
     new_disp->flush_cb = cfg->flush_cb;
+    new_disp->update_cb = cfg->update_cb;
     new_disp->user_data = cfg->user_data;
     new_disp->child_list = NULL;
     new_disp->next = NULL;
@@ -123,7 +124,7 @@ gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg)
     return new_disp;
 }
 
-esp_err_t gfx_disp_add_child(gfx_disp_t *disp, int type, void *src)
+esp_err_t gfx_disp_add_child(gfx_disp_t *disp, void *src)
 {
     if (disp == NULL || src == NULL) {
         ESP_LOGE(TAG, "Invalid parameters");
@@ -140,7 +141,6 @@ esp_err_t gfx_disp_add_child(gfx_disp_t *disp, int type, void *src)
         ESP_LOGE(TAG, "Failed to allocate child node");
         return ESP_ERR_NO_MEM;
     }
-    new_child->type = type;
     new_child->src = src;
     new_child->next = NULL;
 

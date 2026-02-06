@@ -833,24 +833,24 @@ static void gfx_anim_timer_callback(void *arg)
     if (anim->current_frame >= anim->end_frame) {
         if (anim->repeat) {
             ESP_LOGD(TAG, "Repeat");
-            // if (ctx->callbacks.update_cb) {
-            //     ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ALL_FRAME_DONE, obj);
-            // }
+            if (obj->disp && obj->disp->update_cb) {
+                obj->disp->update_cb(obj->disp, GFX_PLAYER_EVENT_ALL_FRAME_DONE, obj);
+            }
             anim->current_frame = anim->start_frame;
         } else {
             ESP_LOGD(TAG, "Done");
             anim->is_playing = false;
-            // if (ctx->callbacks.update_cb) {
-            //     ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ALL_FRAME_DONE, obj);
-            // }
+            if (obj->disp && obj->disp->update_cb) {
+                obj->disp->update_cb(obj->disp, GFX_PLAYER_EVENT_ALL_FRAME_DONE, obj);
+            }
             return;
         }
     } else {
         gfx_anim_prepare_frame(obj);
         anim->current_frame++;
-        // if (ctx->callbacks.update_cb) {
-        //     ctx->callbacks.update_cb(ctx, GFX_PLAYER_EVENT_ONE_FRAME_DONE, obj);
-        // }
+        if (obj->disp && obj->disp->update_cb) {
+            obj->disp->update_cb(obj->disp, GFX_PLAYER_EVENT_ONE_FRAME_DONE, obj);
+        }
         ESP_LOGD(TAG, "Frame %" PRIu32 "/%" PRIu32, anim->current_frame, anim->end_frame);
     }
 
@@ -901,9 +901,6 @@ gfx_obj_t *gfx_anim_create(gfx_disp_t *disp)
     anim->repeat = true;
     anim->is_playing = false;
 
-    anim->mirror_mode = GFX_MIRROR_DISABLED;
-    anim->mirror_offset = 0;
-
     uint32_t period_ms = 1000 / anim->fps;
     anim->timer = gfx_timer_create((void *)disp->ctx, gfx_anim_timer_callback, period_ms, obj);
     if (anim->timer == NULL) {
@@ -930,7 +927,7 @@ gfx_obj_t *gfx_anim_create(gfx_disp_t *disp)
     obj->src = anim;
     obj->type = GFX_OBJ_TYPE_ANIMATION;
 
-    gfx_disp_add_child(disp, GFX_OBJ_TYPE_ANIMATION, obj);
+    gfx_disp_add_child(disp, obj);
     return obj;
 }
 

@@ -44,6 +44,7 @@ typedef struct {
     uint32_t h_res;                          /**< Screen width in pixels */
     uint32_t v_res;                          /**< Screen height in pixels */
     gfx_player_flush_cb_t flush_cb;          /**< Flush callback for this display */
+    gfx_player_update_cb_t update_cb;       /**< Update callback (frame/playback events) */
     void *user_data;                         /**< User data for this display */
     struct {
         unsigned char swap : 1;              /**< Color swap flag */

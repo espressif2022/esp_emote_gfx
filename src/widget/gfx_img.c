@@ -193,7 +193,7 @@ gfx_obj_t *gfx_img_create(gfx_disp_t *disp)
     obj->vfunc.delete = gfx_img_delete;
     gfx_obj_invalidate(obj);
 
-    if (gfx_disp_add_child(disp, GFX_OBJ_TYPE_IMAGE, obj) != ESP_OK) {
+    if (gfx_disp_add_child(disp, obj) != ESP_OK) {
         free(obj);
         return NULL;
     }

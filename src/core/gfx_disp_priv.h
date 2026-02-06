@@ -39,6 +39,7 @@ struct gfx_disp {
     } flags;
 
     gfx_player_flush_cb_t flush_cb;
+    gfx_player_update_cb_t update_cb;
     void *user_data;
     EventGroupHandle_t event_group;
 
@@ -90,7 +91,7 @@ esp_err_t gfx_disp_buf_init(gfx_disp_t *disp, const gfx_disp_config_t *cfg);
  * @return ESP_OK on success
  * @internal Used by gfx_anim_create, gfx_img_create, gfx_label_create, gfx_qrcode_create.
  */
-esp_err_t gfx_disp_add_child(gfx_disp_t *disp, int type, void *src);
+esp_err_t gfx_disp_add_child(gfx_disp_t *disp, void *src);
 
 /**
  * @brief Remove a child object from a display

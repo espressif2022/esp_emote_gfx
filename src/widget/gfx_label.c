@@ -450,7 +450,7 @@ gfx_obj_t *gfx_label_create(gfx_disp_t *disp)
 
     obj->src = label;
 
-    gfx_disp_add_child(disp, GFX_OBJ_TYPE_LABEL, obj);
+    gfx_disp_add_child(disp, obj);
     ESP_LOGD(TAG, "Created label object with default font config");
     return obj;
 }
