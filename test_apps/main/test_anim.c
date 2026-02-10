@@ -8,7 +8,7 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "unity.h"
-#include "test_common.h"
+#include "common.h"
 
 static const char *TAG = "test_anim";
 
@@ -38,7 +38,7 @@ static void test_animation_function(mmap_assets_handle_t assets_handle)
     };
 
     gfx_emote_lock(emote_handle);
-    gfx_emote_set_bg_color(emote_handle, GFX_COLOR_HEX(0xFF0000));
+    gfx_disp_set_bg_color(disp_default, GFX_COLOR_HEX(0xFF0000));
     gfx_emote_unlock(emote_handle);
 
     for (int i = 0; i < sizeof(test_cases) / sizeof(test_cases[0]); i++) {
@@ -46,7 +46,8 @@ static void test_animation_function(mmap_assets_handle_t assets_handle)
 
         gfx_emote_lock(emote_handle);
 
-        gfx_obj_t *anim_obj = gfx_anim_create(emote_handle);
+        TEST_ASSERT_NOT_NULL(disp_default);
+        gfx_obj_t *anim_obj = gfx_anim_create(disp_default);
         TEST_ASSERT_NOT_NULL(anim_obj);
 
         const void *anim_data = mmap_assets_get_mem(assets_handle, test_cases[i].asset_id);
@@ -87,13 +88,13 @@ static void test_animation_function(mmap_assets_handle_t assets_handle)
     ESP_LOGI(TAG, "=== Animation Function Testing Completed ===");
 }
 
-TEST_CASE("test animation function", "[animation]")
+TEST_CASE("test function obj anim", "")
 {
     mmap_assets_handle_t assets_handle = NULL;
-    esp_err_t ret = test_init_display_and_graphics("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
+    esp_err_t ret = display_and_graphics_init("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
 
     test_animation_function(assets_handle);
 
-    test_cleanup_display_and_graphics(assets_handle);
+    display_and_graphics_clean(assets_handle);
 }

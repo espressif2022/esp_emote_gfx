@@ -5,15 +5,16 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 DOC_BUILD_DIR="docs/_build/html"
-API_DIR="${DOC_BUILD_DIR}/api"
+DOXYGEN_DIR="${DOC_BUILD_DIR}/doxygen"
 ASSETS_DIR="${DOC_BUILD_DIR}/assets"
 
 mkdir -p "$DOC_BUILD_DIR" "$ASSETS_DIR"
 
+# Create Doxyfile if it doesn't exist
 if [ ! -f Doxyfile ]; then
   cat <<'EOF' > Doxyfile
 PROJECT_NAME           = esp_emote_gfx
-OUTPUT_DIRECTORY       = docs/doxygen
+OUTPUT_DIRECTORY       = docs/doxygen_output
 GENERATE_HTML          = YES
 HTML_OUTPUT            = html
 INPUT                  = . src include components
@@ -27,30 +28,50 @@ QUIET                  = YES
 EOF
 fi
 
-sudo apt-get update
-sudo apt-get install -y doxygen graphviz
-
-rm -rf "$API_DIR"
-mkdir -p "$API_DIR"
-
-doxygen Doxyfile
-
-if [ -d docs/doxygen/html ]; then
-  cp -r docs/doxygen/html/. "$API_DIR"/
-elif [ -d html ]; then
-  cp -r html/. "$API_DIR"/
-elif [ -d docs/html ]; then
-  cp -r docs/html/. "$API_DIR"/
+# Doxygen and graphviz should be installed by the CI workflow
+if ! command -v doxygen >/dev/null 2>&1; then
+  echo "Warning: doxygen not found, Doxygen API docs will be skipped"
 fi
 
-if [ ! -f "$API_DIR/index.html" ]; then
-  cat <<'EOF' > "$API_DIR/index.html"
+# Create doxygen output directory (separate from Sphinx api/)
+rm -rf "$DOXYGEN_DIR"
+mkdir -p "$DOXYGEN_DIR"
+
+# Run doxygen if available
+if command -v doxygen >/dev/null 2>&1; then
+  doxygen Doxyfile
+  
+  # Copy doxygen output to the doxygen directory
+  if [ -d docs/doxygen_output/html ]; then
+    cp -r docs/doxygen_output/html/. "$DOXYGEN_DIR"/
+  fi
+fi
+
+# Create fallback doxygen index if no output was generated
+if [ ! -f "$DOXYGEN_DIR/index.html" ]; then
+  cat <<'EOF' > "$DOXYGEN_DIR/index.html"
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>API Reference</title></head>
-<body><h1>API Reference</h1><p>No API generated.</p></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Doxygen API Reference</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem; line-height: 1.6; }
+    a { color: #0052cc; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>Doxygen API Reference</h1>
+  <p>Doxygen documentation was not generated. Please check the build logs.</p>
+  <p><a href="../index.html">← Back to Documentation</a></p>
+</body>
+</html>
 EOF
 fi
 
+# Create custom CSS for styling
 cat <<'EOF' > "$ASSETS_DIR/espidf.css"
 :root { --bg:#fff; --text:#1f2328; --accent:#0052cc; --muted:#6a737d; --border:#e1e4e8; --code-bg:#f6f8fa; }
 body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,"Noto Sans",sans-serif; }
@@ -59,11 +80,15 @@ pre, code { background:var(--code-bg); border:1px solid var(--border); border-ra
 .header,.headertitle,.navpath,.footer,.memitem,.memdoc,.memberdecls,.directory { border-color:var(--border)!important; }
 .memname { font-weight:600; } .mdescLeft,.mdescRight,.qindex { color:var(--muted); }
 EOF
-cp "$ASSETS_DIR/espidf.css" "$API_DIR/espidf.css"
 
-python3 <<'PY'
+# Copy CSS to doxygen directory if it exists
+if [ -d "$DOXYGEN_DIR" ]; then
+  cp "$ASSETS_DIR/espidf.css" "$DOXYGEN_DIR/espidf.css"
+  
+  # Inject custom CSS into all doxygen HTML files
+  python3 <<'PY'
 import os, io
-root = os.path.join("docs", "_build", "html", "api")
+root = os.path.join("docs", "_build", "html", "doxygen")
 css = '<link rel="stylesheet" href="espidf.css" />'
 if not os.path.isdir(root):
     raise SystemExit(0)
@@ -80,65 +105,8 @@ for dirpath, _, files in os.walk(root):
         with io.open(path, "w", encoding="utf-8") as fh:
             fh.write(html)
 PY
-
-mkdir -p "$API_DIR/core"
-cat <<'EOF' > "$API_DIR/core/index.html"
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Core API</title>
-  <link rel="stylesheet" href="../espidf.css" />
-</head>
-<body>
-  <main style="margin:2rem">
-    <h1>Core API</h1>
-    <ul>
-      <li><a href="../index.html">API Index</a></li>
-      <li><a href="../modules.html">Modules</a></li>
-      <li><a href="../classes.html">Classes</a></li>
-      <li><a href="../files.html">Files</a></li>
-      <li><a href="../globals.html">Globals</a></li>
-    </ul>
-  </main>
-</body>
-</html>
-EOF
-
-if [ ! -f "$DOC_BUILD_DIR/index.html" ]; then
-  cat <<'EOF' > "$DOC_BUILD_DIR/index.html"
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>esp_emote_gfx Documentation</title>
-  <link rel="stylesheet" href="./api/espidf.css" />
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem; line-height: 1.6; }
-    a { color: #0052cc; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    .card { border: 1px solid #e1e4e8; border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem; }
-  </style>
-</head>
-<body>
-  <h1>esp_emote_gfx Documentation</h1>
-  <div class="card">
-    <h2>Project Guide</h2>
-    <p>Start with the repository README for build/setup instructions.</p>
-    <a href="https://github.com/espressif2022/esp_emote_gfx#readme" target="_blank">View README on GitHub →</a>
-  </div>
-  <div class="card">
-    <h2>API Reference</h2>
-    <p>Browse structures, modules, and files generated by Doxygen.</p>
-    <ul>
-      <li><a href="./api/index.html">API Index</a></li>
-      <li><a href="./api/modules.html">Modules</a></li>
-      <li><a href="./api/files.html">Files</a></li>
-    </ul>
-  </div>
-</body>
-</html>
-EOF
 fi
+
+echo "Documentation post-processing complete."
+echo "  - Sphinx docs: $DOC_BUILD_DIR/"
+echo "  - Doxygen docs: $DOXYGEN_DIR/"

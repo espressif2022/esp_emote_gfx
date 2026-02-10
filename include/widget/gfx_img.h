@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "core/gfx_core.h"
 #include "core/gfx_obj.h"
 
 #ifdef __cplusplus
@@ -57,11 +58,11 @@ typedef struct {
  *====================*/
 
 /**
- * @brief Create an image object
- * @param handle Animation player handle
- * @return Pointer to the created image object
+ * @brief Create an image object on a display
+ * @param disp Display from gfx_emote_add_disp(handle, &disp_cfg)
+ * @return Pointer to the created image object, NULL on error
  */
-gfx_obj_t *gfx_img_create(gfx_handle_t handle);
+gfx_obj_t *gfx_img_create(gfx_disp_t *disp);
 
 /*=====================
  * Image setter functions

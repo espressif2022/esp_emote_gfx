@@ -20,9 +20,11 @@ extern const lv_font_t font_puhui_16_4;
 
 /* Shared global variables */
 extern gfx_handle_t emote_handle;
+extern gfx_disp_t *disp_default;  /* First display (from gfx_emote_add_disp in test_init) */
+extern gfx_touch_t *touch_default;
+
 extern esp_lcd_panel_io_handle_t io_handle;
 extern esp_lcd_panel_handle_t panel_handle;
-extern gfx_obj_t *label_tips;
 
 /**
  * @brief Initialize display and graphics system
@@ -33,14 +35,14 @@ extern gfx_obj_t *label_tips;
  * @param assets_handle Output parameter for assets handle
  * @return esp_err_t ESP_OK on success
  */
-esp_err_t test_init_display_and_graphics(const char *partition_label, uint32_t max_files, uint32_t checksum, mmap_assets_handle_t *assets_handle);
+esp_err_t display_and_graphics_init(const char *partition_label, uint32_t max_files, uint32_t checksum, mmap_assets_handle_t *assets_handle);
 
 /**
  * @brief Cleanup display and graphics system
  *
  * @param assets_handle Assets handle to cleanup
  */
-void test_cleanup_display_and_graphics(mmap_assets_handle_t assets_handle);
+void display_and_graphics_clean(mmap_assets_handle_t assets_handle);
 
 /**
  * @brief Load image from mmap assets and prepare image descriptor
@@ -50,14 +52,14 @@ void test_cleanup_display_and_graphics(mmap_assets_handle_t assets_handle);
  * @param img_dsc Pointer to image descriptor to be filled
  * @return esp_err_t ESP_OK on success, ESP_FAIL on failure
  */
-esp_err_t test_load_image(mmap_assets_handle_t assets_handle, int asset_id, gfx_image_dsc_t *img_dsc);
+esp_err_t load_image(mmap_assets_handle_t assets_handle, int asset_id, gfx_image_dsc_t *img_dsc);
 
 /**
  * @brief Clock timer callback function
  *
  * @param user_data User data pointer (label object)
  */
-void test_clock_tm_callback(void *user_data);
+void clock_tm_callback(void *user_data);
 
 #ifdef __cplusplus
 }

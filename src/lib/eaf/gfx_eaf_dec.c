@@ -415,7 +415,7 @@ esp_err_t eaf_decode_rle(const uint8_t *input_data, size_t input_size,
     size_t in_pos = 0;
     size_t out_pos = 0;
 
-    while (in_pos + 1 <= input_size) {
+    while (in_pos + 1 < input_size) {
         uint8_t repeat_count = input_data[in_pos++];
         uint8_t repeat_value = input_data[in_pos++];
 
@@ -426,6 +426,7 @@ esp_err_t eaf_decode_rle(const uint8_t *input_data, size_t input_size,
 
         uint32_t value_4bytes = repeat_value | (repeat_value << 8) | (repeat_value << 16) | (repeat_value << 24);
         while (repeat_count >= 4) {
+            // ESP_LOGI(TAG, "4 bit align:%s", ((uintptr_t)(output_buffer + out_pos) & 0x03) ? "no" : "yes");
             *((uint32_t *)(output_buffer + out_pos)) = value_4bytes;
             out_pos += 4;
             repeat_count -= 4;
@@ -573,71 +574,60 @@ hs_fail:
 esp_err_t eaf_decode_jpeg(const uint8_t *jpeg_data, size_t jpeg_size,
                           uint8_t *decode_buffer, size_t *out_size, bool swap_color)
 {
+    esp_err_t ret = ESP_OK;
     uint32_t w, h;
+    jpeg_dec_handle_t jpeg_dec = NULL;
+    jpeg_dec_io_t *jpeg_io = NULL;
+    jpeg_dec_header_info_t *out_info = NULL;
+
     jpeg_dec_config_t config = {
         .output_type = swap_color ? JPEG_PIXEL_FORMAT_RGB565_BE : JPEG_PIXEL_FORMAT_RGB565_LE,
         .rotate = JPEG_ROTATE_0D,
     };
 
-    jpeg_dec_handle_t jpeg_dec;
-    if (jpeg_dec_open(&config, &jpeg_dec) != ESP_OK) {
-        ESP_LOGE(TAG, "JPEG decoder open failed");
-        return ESP_FAIL;
-    }
+    ESP_GOTO_ON_ERROR(jpeg_dec_open(&config, &jpeg_dec), err, TAG, "JPEG decoder open failed");
 
-    jpeg_dec_io_t *jpeg_io = malloc(sizeof(jpeg_dec_io_t));
-    jpeg_dec_header_info_t *out_info = malloc(sizeof(jpeg_dec_header_info_t));
-    if (!jpeg_io || !out_info) {
-        if (jpeg_io) {
-            free(jpeg_io);
-        }
-        if (out_info) {
-            free(out_info);
-        }
-        jpeg_dec_close(jpeg_dec);
-        ESP_LOGE(TAG, "No mem for JPEG decoder");
-        return ESP_FAIL;
-    }
+    jpeg_io = malloc(sizeof(jpeg_dec_io_t));
+    ESP_GOTO_ON_FALSE(jpeg_io, ESP_ERR_NO_MEM, err, TAG, "No mem for jpeg_io");
+
+    out_info = malloc(sizeof(jpeg_dec_header_info_t));
+    ESP_GOTO_ON_FALSE(out_info, ESP_ERR_NO_MEM, err, TAG, "No mem for out_info");
 
     jpeg_io->inbuf = (unsigned char *)jpeg_data;
     jpeg_io->inbuf_len = jpeg_size;
 
-    jpeg_error_t ret = jpeg_dec_parse_header(jpeg_dec, jpeg_io, out_info);
-    if (ret == JPEG_ERR_OK) {
-        w = out_info->width;
-        h = out_info->height;
+    jpeg_error_t jpeg_ret = jpeg_dec_parse_header(jpeg_dec, jpeg_io, out_info);
+    ESP_GOTO_ON_FALSE(jpeg_ret == JPEG_ERR_OK, ESP_FAIL, err, TAG, "JPEG header parse failed");
 
-        size_t required_size = w * h * 2; // RGB565 = 2 bytes per pixel
-        if (*out_size < required_size) {
-            ESP_LOGE(TAG, "Buffer too small: need %zu, got %zu", required_size, *out_size);
-            free(jpeg_io);
-            free(out_info);
-            jpeg_dec_close(jpeg_dec);
-            return ESP_ERR_INVALID_SIZE;
-        }
+    w = out_info->width;
+    h = out_info->height;
 
-        jpeg_io->outbuf = decode_buffer;
-        ret = jpeg_dec_process(jpeg_dec, jpeg_io);
-        if (ret != JPEG_ERR_OK) {
-            free(jpeg_io);
-            free(out_info);
-            jpeg_dec_close(jpeg_dec);
-            ESP_LOGE(TAG, "JPEG decode failed: %d", ret);
-            return ESP_FAIL;
-        }
-        *out_size = required_size;
-    } else {
-        free(jpeg_io);
-        free(out_info);
-        jpeg_dec_close(jpeg_dec);
-        ESP_LOGE(TAG, "JPEG header parse failed");
-        return ESP_FAIL;
-    }
+    size_t required_size = w * h * 2; // RGB565 = 2 bytes per pixel
+    ESP_GOTO_ON_FALSE(*out_size >= required_size, ESP_ERR_INVALID_SIZE, err, TAG,
+                      "Buffer too small: need %zu, got %zu", required_size, *out_size);
+
+    jpeg_io->outbuf = decode_buffer;
+    jpeg_ret = jpeg_dec_process(jpeg_dec, jpeg_io);
+    ESP_GOTO_ON_FALSE(jpeg_ret == JPEG_ERR_OK, ESP_FAIL, err, TAG, "JPEG decode failed: %d", jpeg_ret);
+
+    *out_size = required_size;
 
     free(jpeg_io);
     free(out_info);
     jpeg_dec_close(jpeg_dec);
     return ESP_OK;
+
+err:
+    if (jpeg_io) {
+        free(jpeg_io);
+    }
+    if (out_info) {
+        free(out_info);
+    }
+    if (jpeg_dec) {
+        jpeg_dec_close(jpeg_dec);
+    }
+    return ret;
 }
 #endif // CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 

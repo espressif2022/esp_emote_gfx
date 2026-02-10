@@ -132,7 +132,7 @@ gfx_timer_handle_t gfx_timer_create(void *handle, gfx_timer_cb_t timer_cb, uint3
     }
 
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
-    gfx_timer_mgr_t *timer_mgr = &ctx->timer.timer_mgr;
+    gfx_timer_mgr_t *timer_mgr = &ctx->timer_mgr;
 
     gfx_timer_t *new_timer = (gfx_timer_t *)malloc(sizeof(gfx_timer_t));
     if (new_timer == NULL) {
@@ -171,7 +171,7 @@ void gfx_timer_delete(void *handle, gfx_timer_handle_t timer_handle)
 
     gfx_timer_t *timer = (gfx_timer_t *)timer_handle;
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
-    gfx_timer_mgr_t *timer_mgr = &ctx->timer.timer_mgr;
+    gfx_timer_mgr_t *timer_mgr = &ctx->timer_mgr;
 
     // Remove from timer list
     gfx_timer_t *current_timer = timer_mgr->timer_list;
@@ -286,7 +286,7 @@ uint32_t gfx_timer_get_actual_fps(void *handle)
     }
 
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
-    gfx_timer_mgr_t *timer_mgr = &ctx->timer.timer_mgr;
+    gfx_timer_mgr_t *timer_mgr = &ctx->timer_mgr;
 
     return timer_mgr->actual_fps;
 }

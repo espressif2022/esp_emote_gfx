@@ -1,4 +1,5 @@
 _build/
+doxygen_output/
 *.pyc
 *.pyo
 *.pyd

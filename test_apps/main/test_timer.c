@@ -7,7 +7,7 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "unity.h"
-#include "test_common.h"
+#include "common.h"
 
 static const char *TAG = "test_timer";
 
@@ -16,7 +16,7 @@ static void test_timer_function(void)
     ESP_LOGI(TAG, "=== Testing Timer Function ===");
 
     gfx_emote_lock(emote_handle);
-    gfx_timer_handle_t timer = gfx_timer_create(emote_handle, test_clock_tm_callback, 1000, label_tips);
+    gfx_timer_handle_t timer = gfx_timer_create(emote_handle, clock_tm_callback, 1000, NULL);
     TEST_ASSERT_NOT_NULL(timer);
     gfx_emote_unlock(emote_handle);
 
@@ -57,13 +57,13 @@ static void test_timer_function(void)
     gfx_emote_unlock(emote_handle);
 }
 
-TEST_CASE("test timer function", "[timer]")
+TEST_CASE("test function obj timer", "")
 {
     mmap_assets_handle_t assets_handle = NULL;
-    esp_err_t ret = test_init_display_and_graphics("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
+    esp_err_t ret = display_and_graphics_init("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
 
     test_timer_function();
 
-    test_cleanup_display_and_graphics(assets_handle);
+    display_and_graphics_clean(assets_handle);
 }

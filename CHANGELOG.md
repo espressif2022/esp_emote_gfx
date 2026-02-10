@@ -2,6 +2,12 @@
 
 All notable changes to the ESP Emote GFX component will be documented in this file.
 
+## [3.0.0] - 2026-01-22
+- Add documentation build action
+- Optimize EAF 8-bit render
+- Fix FreeType parsing performance
+- Remove duplicated label-related APIs
+
 ## [2.1.0] - 2026-01-28
 - Support for decoding Heatshrink-compressed image slices
 
