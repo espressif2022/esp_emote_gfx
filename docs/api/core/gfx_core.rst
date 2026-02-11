@@ -1,5 +1,5 @@
-Core Graphics System (gfx_core)
-===============================
+Core System (gfx_core)
+======================
 
 Types
 -----

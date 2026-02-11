@@ -16,7 +16,7 @@ The core API provides the foundation for the graphics framework, including initi
 Core Modules
 ------------
 
-* :doc:`gfx_core` - Core Graphics System (gfx_core)
+* :doc:`gfx_core` - Core System (gfx_core)
 * :doc:`gfx_disp` - Display (gfx_disp)
 * :doc:`gfx_obj` - Object (gfx_obj)
 * :doc:`gfx_timer` - Timer (gfx_timer)

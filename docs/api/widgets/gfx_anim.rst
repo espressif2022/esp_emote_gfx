@@ -4,12 +4,31 @@ Animation (gfx_anim)
 Functions
 ---------
 
+gfx_anim_create()
+~~~~~~~~~~~~~~~~~
+
+.. code-block:: c
+
+   gfx_obj_t * gfx_anim_create(gfx_disp_t *disp);
+
 gfx_anim_set_src()
 ~~~~~~~~~~~~~~~~~~
+
+Set the source data for an animation object
 
 .. code-block:: c
 
    esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len);
+
+**Parameters:**
+
+* ``obj`` - Pointer to the animation object
+* ``src_data`` - Source data
+* ``src_len`` - Source data length
+
+**Returns:**
+
+* ESP_OK on success, error code otherwise
 
 gfx_anim_set_segment()
 ~~~~~~~~~~~~~~~~~~~~~~

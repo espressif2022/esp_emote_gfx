@@ -52,12 +52,30 @@ gfx_touch_config_t
 Functions
 ---------
 
+gfx_touch_add()
+~~~~~~~~~~~~~~~
+
+.. code-block:: c
+
+   gfx_touch_t * gfx_touch_add(gfx_handle_t handle, const gfx_touch_config_t *cfg);
+
 gfx_touch_set_disp()
 ~~~~~~~~~~~~~~~~~~~~
+
+Set the user data for a touch device
 
 .. code-block:: c
 
    esp_err_t gfx_touch_set_disp(gfx_touch_t *touch, gfx_disp_t *disp);
+
+**Parameters:**
+
+* ``touch`` - Touch pointer returned from gfx_touch_add
+* ``user_data`` - User data to set
+
+**Returns:**
+
+* ESP_OK on success, ESP_ERR_INVALID_ARG if touch is NULL
 
 gfx_touch_del()
 ~~~~~~~~~~~~~~~

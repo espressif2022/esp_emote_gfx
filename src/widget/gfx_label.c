@@ -495,6 +495,10 @@ static esp_err_t gfx_label_update(gfx_obj_t *obj)
     gfx_label_t *label = (gfx_label_t *)obj->src;
     ESP_RETURN_ON_FALSE(label, ESP_ERR_INVALID_STATE, TAG, "label is NULL");
 
+    if (label->text.text == NULL) {
+        return ESP_OK;
+    }
+
     /* Sync render offset based on long mode */
     switch (label->text.long_mode) {
     case GFX_LABEL_LONG_SCROLL:

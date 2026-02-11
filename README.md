@@ -27,18 +27,20 @@ A lightweight graphics framework for ESP-IDF with support for images, labels, an
 
 ## Quick Start
 
-Initialize the graphics core with `gfx_emote_init()`, then add a display with `gfx_disp_add()` and optionally touch with `gfx_touch_add()`. Widgets are created on a display (`gfx_label_create(disp)`, etc.). When modifying widgets from another task, use `gfx_emote_lock()` / `gfx_emote_unlock()`.
+- Initialize the graphics core with `gfx_emote_init()`, then add a display with `gfx_disp_add()` and optionally touch with `gfx_touch_add()`.
+- Widgets are created on a display (`gfx_label_create(disp)`, etc.).
+- When modifying widgets from another task, use `gfx_emote_lock()` / `gfx_emote_unlock()`.
 
-For step-by-step setup and code examples, see the [Quick Start Guide](docs/quickstart.rst) in the docs.
+For step-by-step setup and code examples, see the [Quick Start Guide](https://espressif2022.github.io/esp_emote_gfx/quickstart.html) in the docs.
 
 ## Examples
-
-For comprehensive examples and detailed API documentation, see the [official documentation website](https://espressif2022.github.io/esp_emote_gfx/examples.html#complete-application-example).
 
 The documentation includes:
 - Basic examples (Simple Label, Image Display)
 - Advanced examples (Multiple Widgets, Text Scrolling, FreeType Font Usage, Timer-Based Updates, QR Code Generation, Thread-Safe Operations)
 - Complete application examples
+
+See the [documentation](https://espressif2022.github.io/esp_emote_gfx/examples.html) for runnable examples and full API reference.
 
 ### Running Test Applications
 
@@ -86,7 +88,7 @@ The main API is exposed through the `gfx.h` header file, which includes:
 - `widget/gfx_anim.h` - Animation framework
 - `widget/gfx_qrcode.h` - QR Code widget functionality
 
-For detailed API documentation and usage examples, visit the [official documentation](https://espressif2022.github.io/esp_emote_gfx/).
+For the full API reference of these modules, see the [documentation](https://espressif2022.github.io/esp_emote_gfx/).
 
 ## License
 
