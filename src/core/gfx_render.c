@@ -134,7 +134,9 @@ uint32_t gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area,
 
         uint16_t *buf_act = disp->buf_act;
 
-        gfx_sw_blend_fill(buf_act, disp->bg_color.full, disp->buf_pixels);
+        gfx_sw_blend_fill(buf_act, \
+                          disp->flags.swap ? __builtin_bswap16(disp->bg_color.full) : disp->bg_color.full, \
+                          disp->buf_pixels);
         gfx_render_draw_child_objects(disp, x1, y1, x2, y2, buf_act);
 
         if (flush_cb) {
@@ -146,6 +148,14 @@ uint32_t gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area,
 
             flush_cb(disp, x1, y1, x2, y2, buf_act);
             xEventGroupWaitBits(disp->event_group, WAIT_FLUSH_DONE, pdTRUE, pdFALSE, portMAX_DELAY);
+
+            if (disp->buf2 != NULL) {
+                if (disp->buf_act == disp->buf1) {
+                    disp->buf_act = disp->buf2;
+                } else {
+                    disp->buf_act = disp->buf1;
+                }
+            }
         }
 
         current_y = y2;
@@ -191,14 +201,6 @@ void gfx_render_cleanup(gfx_disp_t *disp)
     }
 
     disp->flushing_last = true;
-    if (disp->buf2 != NULL) {
-        if (disp->buf_act == disp->buf1) {
-            disp->buf_act = disp->buf2;
-        } else {
-            disp->buf_act = disp->buf1;
-        }
-    }
-
     if (disp->dirty_count > 0) {
         gfx_invalidate_area_disp(disp, NULL);
     }

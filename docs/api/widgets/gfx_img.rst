@@ -45,9 +45,27 @@ gfx_image_dsc_t
 Functions
 ---------
 
+gfx_img_create()
+~~~~~~~~~~~~~~~~
+
+.. code-block:: c
+
+   gfx_obj_t * gfx_img_create(gfx_disp_t *disp);
+
 gfx_img_set_src()
 ~~~~~~~~~~~~~~~~~
+
+Set the source data for an image object
 
 .. code-block:: c
 
    esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src);
+
+**Parameters:**
+
+* ``obj`` - Pointer to the image object
+* ``src`` - Pointer to the image source data
+
+**Returns:**
+
+* Pointer to the object

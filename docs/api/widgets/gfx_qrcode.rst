@@ -19,12 +19,34 @@ gfx_qrcode_ecc_t
 Functions
 ---------
 
+gfx_qrcode_create()
+~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: c
+
+   gfx_obj_t * gfx_qrcode_create(gfx_disp_t *disp);
+
 gfx_qrcode_set_data()
 ~~~~~~~~~~~~~~~~~~~~~
+
+Set the data/text for a QR Code object
 
 .. code-block:: c
 
    esp_err_t gfx_qrcode_set_data(gfx_obj_t *obj, const char *data);
+
+**Parameters:**
+
+* ``obj`` - Pointer to the QR Code object
+* ``data`` - Pointer to the null-terminated string to encode
+
+**Returns:**
+
+* ESP_OK on success, error code otherwise
+
+**Note:**
+
+The length is automatically calculated using strlen()
 
 gfx_qrcode_set_size()
 ~~~~~~~~~~~~~~~~~~~~~

@@ -500,7 +500,7 @@ esp_err_t eaf_decode_heatshrink(const uint8_t *input_data, size_t input_size,
     while (in_pos < input_size) {
         size_t sunk = 0;
         HSD_sink_res sres = heatshrink_decoder_sink(hsd, (uint8_t *)(input_data + in_pos),
-                                                    input_size - in_pos, &sunk);
+                            input_size - in_pos, &sunk);
         if (sres < 0) {
             ESP_LOGE(TAG, "Heatshrink sink error: %d", sres);
             goto hs_fail;
@@ -514,13 +514,13 @@ esp_err_t eaf_decode_heatshrink(const uint8_t *input_data, size_t input_size,
                 ESP_LOGE(TAG, "Heatshrink output overflow");
                 goto hs_fail;
             }
-            HSD_poll_res pres = heatshrink_decoder_poll(hsd, output_buffer + out_pos, remain, &produced);
-            if (pres < 0) {
-                ESP_LOGE(TAG, "Heatshrink poll error: %d", pres);
+            HSD_poll_res press = heatshrink_decoder_poll(hsd, output_buffer + out_pos, remain, &produced);
+            if (press < 0) {
+                ESP_LOGE(TAG, "Heatshrink poll error: %d", press);
                 goto hs_fail;
             }
             out_pos += produced;
-            if (pres == HSDR_POLL_EMPTY) {
+            if (press == HSDR_POLL_EMPTY) {
                 break;
             }
         }
@@ -540,13 +540,13 @@ esp_err_t eaf_decode_heatshrink(const uint8_t *input_data, size_t input_size,
                 ESP_LOGE(TAG, "Heatshrink output overflow");
                 goto hs_fail;
             }
-            HSD_poll_res pres = heatshrink_decoder_poll(hsd, output_buffer + out_pos, remain, &produced);
-            if (pres < 0) {
-                ESP_LOGE(TAG, "Heatshrink poll error: %d", pres);
+            HSD_poll_res press = heatshrink_decoder_poll(hsd, output_buffer + out_pos, remain, &produced);
+            if (press < 0) {
+                ESP_LOGE(TAG, "Heatshrink poll error: %d", press);
                 goto hs_fail;
             }
             out_pos += produced;
-            if (pres == HSDR_POLL_EMPTY) {
+            if (press == HSDR_POLL_EMPTY) {
                 break;
             }
         }

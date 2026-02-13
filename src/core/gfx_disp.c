@@ -335,7 +335,7 @@ esp_err_t gfx_disp_set_bg_color(gfx_disp_t *disp, gfx_color_t color)
         ESP_LOGE(TAG, "disp is NULL");
         return ESP_ERR_INVALID_ARG;
     }
-    disp->bg_color.full = __builtin_bswap16(color.full);
+    disp->bg_color.full = color.full;
     ESP_LOGD(TAG, "BG color: 0x%04X", color.full);
     return ESP_OK;
 }

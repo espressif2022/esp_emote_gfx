@@ -202,8 +202,8 @@ class HeaderParser:
     
     def _parse_functions(self):
         """解析函数声明"""
-        # 匹配函数声明：返回类型 函数名(参数);
-        pattern = r'/\*\*[\s\S]*?\*/\s*\n\s*(\w+(?:\s*\*)?)\s+(\w+)\s*\(([^)]*)\)\s*;'
+        # 匹配函数声明：返回类型 函数名(参数); 返回类型与函数名之间允许无空格（如 gfx_touch_t *gfx_touch_add）
+        pattern = r'/\*\*[\s\S]*?\*/\s*\n\s*(\w+(?:\s*\*)?)\s*(\w+)\s*\(([^)]*)\)\s*;'
         
         for match in re.finditer(pattern, self.content):
             full_match = match.group(0)
@@ -373,11 +373,11 @@ class RstGenerator:
 
 # 定义要处理的头文件映射
 HEADER_MAPPING = {
-    'include/core/gfx_core.h': ('api/core/gfx_core.rst', 'Core Graphics System (gfx_core)'),
-    'include/core/gfx_disp.h': ('api/core/gfx_disp.rst', 'Display (gfx_disp)'),
-    'include/core/gfx_obj.h': ('api/core/gfx_obj.rst', 'Object (gfx_obj)'),
+    'include/core/gfx_core.h': ('api/core/gfx_core.rst', 'Core System (gfx_core)'),
     'include/core/gfx_types.h': ('api/core/gfx_types.rst', 'Type (gfx_types)'),
+    'include/core/gfx_disp.h': ('api/core/gfx_disp.rst', 'Display (gfx_disp)'),
     'include/core/gfx_touch.h': ('api/core/gfx_touch.rst', 'Touch (gfx_touch)'),
+    'include/core/gfx_obj.h': ('api/core/gfx_obj.rst', 'Object (gfx_obj)'),
     'include/core/gfx_timer.h': ('api/core/gfx_timer.rst', 'Timer (gfx_timer)'),
     'include/widget/gfx_img.h': ('api/widgets/gfx_img.rst', 'Image (gfx_img)'),
     'include/widget/gfx_label.h': ('api/widgets/gfx_label.rst', 'Label (gfx_label)'),

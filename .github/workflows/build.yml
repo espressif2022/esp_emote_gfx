@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 120
     strategy:
       matrix:
-        idf-version: ['release-v5.2', 'release-v5.3', 'release-v5.4', 'release-v5.5']
+        idf-version: ['release-v5.3', 'release-v5.4', 'release-v5.5']
       fail-fast: false
     container: espressif/idf:${{matrix.idf-version}}
     steps:
@@ -49,12 +49,13 @@ jobs:
           pip install idf-build-apps
 
           cd $GITHUB_WORKSPACE
-          IDF_CCACHE_ENABLE=1 idf-build-apps build -p test_apps -t esp32s3 -vv
+          # Build both BSP configs: sdkconfig.bsp.esp-box (esp32s3) and sdkconfig.bsp.esp32_p4_function_ev_board (esp32p4)
+          IDF_CCACHE_ENABLE=1 idf-build-apps build -p test_apps --config-rules "sdkconfig.bsp.*=" -vv
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: test_apps-build-idf-${{matrix.idf-version}}
-          path: build_esp32s3_*/
+          path: test_apps/build_*/
           retention-days: 7
           if-no-files-found: warn

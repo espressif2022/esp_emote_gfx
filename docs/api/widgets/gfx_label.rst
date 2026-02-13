@@ -50,12 +50,30 @@ gfx_label_cfg_t
 Functions
 ---------
 
+gfx_label_create()
+~~~~~~~~~~~~~~~~~~
+
+.. code-block:: c
+
+   gfx_obj_t * gfx_label_create(gfx_disp_t *disp);
+
 gfx_label_new_font()
 ~~~~~~~~~~~~~~~~~~~~
+
+Create a new font
 
 .. code-block:: c
 
    esp_err_t gfx_label_new_font(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font);
+
+**Parameters:**
+
+* ``cfg`` - Font configuration
+* ``ret_font`` - Pointer to store the font handle
+
+**Returns:**
+
+* ESP_OK on success, error code otherwise
 
 gfx_label_delete_font()
 ~~~~~~~~~~~~~~~~~~~~~~~

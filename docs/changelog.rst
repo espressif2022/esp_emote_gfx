@@ -3,6 +3,13 @@ Changelog
 
 All notable changes to the ESP Emote GFX component will be documented in this file.
 
+[3.0.1] - 2026-02-13
+--------------------
+* Add CI build action for P4
+* Optimize multi-buffer switching logic
+* Fix crash when text is NULL
+* Fix missing API documentation (e.g. gfx_touch_add)
+
 [3.0.0] - 2026-01-22
 --------------------
 * Add documentation build action

@@ -23,3 +23,8 @@ dependencies:
     version: "^1.6.*"
     rules:
     - if: "${IDF_TARGET} == esp32"
+
+  espressif/esp32_p4_function_ev_board_noglib:
+    version: "*"
+    rules:
+    - if: "${IDF_TARGET} == esp32p4"
