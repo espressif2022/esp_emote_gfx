@@ -1,0 +1,37 @@
+/*
+ * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: CC0-1.0
+ */
+#include <stdio.h>
+#include "unity.h"
+#include "unity_test_runner.h"
+#include "unity_test_utils_memory.h"
+#include "esp_heap_caps.h"
+
+#define TEST_MEMORY_LEAK_THRESHOLD (500)
+
+static size_t before_free_8bit;
+static size_t before_free_32bit;
+
+void setUp(void)
+{
+    before_free_8bit = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+    before_free_32bit = heap_caps_get_free_size(MALLOC_CAP_32BIT);
+}
+
+void tearDown(void)
+{
+    size_t after_free_8bit = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+    size_t after_free_32bit = heap_caps_get_free_size(MALLOC_CAP_32BIT);
+    unity_utils_check_leak(before_free_8bit, after_free_8bit, "8BIT", TEST_MEMORY_LEAK_THRESHOLD);
+    unity_utils_check_leak(before_free_32bit, after_free_32bit, "32BIT", TEST_MEMORY_LEAK_THRESHOLD);
+}
+
+extern void test_image_function_main(void);
+
+void app_main(void)
+{
+    // unity_run_menu();
+    test_image_function_main();
+}
