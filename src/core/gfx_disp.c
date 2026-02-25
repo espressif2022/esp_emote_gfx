@@ -201,7 +201,7 @@ gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg)
         }
         tail->next = new_disp;
     }
-    gfx_disp_refresh_all(new_disp);
+    // gfx_disp_refresh_all(new_disp);
     return new_disp;
 }
 

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: CC0-1.0
  */
@@ -43,7 +43,7 @@ static esp_lcd_touch_handle_t touch_handle = NULL;   // LCD touch handle
 // }
 
 static bool flush_rgb_vsync_ready_callback(esp_lcd_panel_handle_t panel_io,
-                                           const esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx)
+        const esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx)
 {
     BaseType_t need_yield = pdFALSE;
 
@@ -61,7 +61,7 @@ static bool flush_rgb_vsync_ready_callback(esp_lcd_panel_handle_t panel_io,
 
 #elif CONFIG_IDF_TARGET_ESP32P4
 static bool flush_dpi_panel_ready_callback(esp_lcd_panel_handle_t panel_io,
-                                           esp_lcd_dpi_panel_event_data_t *edata, void *user_ctx)
+        esp_lcd_dpi_panel_event_data_t *edata, void *user_ctx)
 {
     gfx_disp_t *disp = (gfx_disp_t *)user_ctx;
     if (disp) {
@@ -77,10 +77,11 @@ static void disp_flush_callback(gfx_disp_t *disp, int x1, int y1, int x2, int y2
 {
     esp_lcd_panel_handle_t panel = (esp_lcd_panel_handle_t)gfx_disp_get_user_data(disp);
 
-    if (gfx_disp_is_flushing_last(disp)) {
+    ESP_LOGI(TAG, "flush callback: %p(last:%d)",
+             data, gfx_disp_is_flushing_last(disp) ? 1 : 0);
+    if (1) {
+        // if (gfx_disp_is_flushing_last(disp)) {
         esp_lcd_panel_draw_bitmap(panel, x1, y1, x2, y2, data);
-        ESP_LOGI(TAG, "flush callback: %p(%s), (%d, %d), (%d, %d)",
-                 data, "last", x1, y1, x2, y2);
 
         xSemaphoreTake(trans_sem, 0);
         xSemaphoreTake(trans_sem, portMAX_DELAY);
@@ -194,7 +195,7 @@ esp_err_t display_and_graphics_init(const char *partition_label, uint32_t max_fi
 
     uint16_t *buf1, *buf2;
     esp_lcd_rgb_panel_get_frame_buffer(panel_handle, 2, (void *)&buf1, (void *)&buf2);
-    ESP_LOGI(TAG, "get frame buffer: buf1: %p, buf2: %p", buf1, buf2);
+    ESP_LOGI(TAG, "get frame buffer: buf0: %p, buf1: %p", buf1, buf2);
     disp_cfg.buffers.buf1 = buf1;
     disp_cfg.buffers.buf2 = buf2;
     disp_cfg.buffers.buf_pixels = BSP_LCD_H_RES * BSP_LCD_V_RES;
@@ -211,8 +212,8 @@ esp_err_t display_and_graphics_init(const char *partition_label, uint32_t max_fi
     // esp_lcd_panel_io_register_event_callbacks(io_handle, &cbs, disp_default);
 
     const esp_lcd_rgb_panel_event_callbacks_t vsync_cbs = {
-        .on_vsync = flush_rgb_vsync_ready_callback,
-        // .on_bounce_frame_finish = flush_rgb_vsync_ready_callback,
+        // .on_vsync = flush_rgb_vsync_ready_callback,
+        .on_bounce_frame_finish = flush_rgb_vsync_ready_callback,
     };
     esp_lcd_rgb_panel_register_event_callbacks(panel_handle, &vsync_cbs, disp_default);
 #elif CONFIG_IDF_TARGET_ESP32P4

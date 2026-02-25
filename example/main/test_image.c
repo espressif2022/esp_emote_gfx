@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: CC0-1.0
  */
@@ -84,11 +84,10 @@ err:
     return LV_RES_INV;
 }
 
-int64_t refer_now_time = 0;
 void decode_jpeg_rgb565_from_memory(const unsigned char *jpeg_data, size_t jpeg_size, gfx_obj_t *image)
 {
 
-    uint8_t *output_buffer = NULL;
+    static uint8_t *output_buffer = NULL;
     uint32_t width, height;
 
     int64_t start_time = esp_timer_get_time();
@@ -101,7 +100,7 @@ void decode_jpeg_rgb565_from_memory(const unsigned char *jpeg_data, size_t jpeg_
 
     gfx_emote_lock(emote_handle);
 
-    static gfx_image_dsc_t img_lv_dec_video = {
+    static gfx_image_dsc_t img_dec = {
         .header.magic = C_ARRAY_HEADER_MAGIC,
         .header.w = 0,
         .header.h = 0,
@@ -110,23 +109,28 @@ void decode_jpeg_rgb565_from_memory(const unsigned char *jpeg_data, size_t jpeg_
         .data = NULL,
     };
 
-    img_lv_dec_video.header.w = width;
-    img_lv_dec_video.header.h = height;
-    img_lv_dec_video.data_size = width * height * 2; // RGB565 is 2 bytes per pixel
-    img_lv_dec_video.data = (const uint8_t*)output_buffer;
+    img_dec.header.w = width;
+    img_dec.header.h = height;
+    img_dec.data_size = width * height * 2; // RGB565 is 2 bytes per pixel
+    img_dec.data = (const uint8_t *)output_buffer;
 
-    gfx_img_set_src(image, &img_lv_dec_video);
+    gfx_img_set_src(image, &img_dec);
 
-    gfx_emote_unlock(emote_handle);
 
     start_time = esp_timer_get_time();
-    refer_now_time = start_time;
+    // gfx_refr_now(emote_handle);
     ESP_LOGW("####", "[2]refr end: %" PRIu64 " ms", (esp_timer_get_time() - start_time) / 1000);
 
+    gfx_emote_unlock(emote_handle); //
+    vTaskDelay(pdMS_TO_TICKS(10));
+
+    gfx_emote_lock(emote_handle);
     // Clean up
     if (output_buffer) {
+        ESP_LOGI(TAG, "Free");
         free(output_buffer);
     }
+    gfx_emote_unlock(emote_handle);
 }
 
 static void test_image_function(mmap_assets_handle_t assets_handle)
@@ -144,7 +148,7 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
 
     gfx_emote_unlock(emote_handle);
 
-// RETRY:
+RETRY:
     int total_files = mmap_assets_get_stored_files(assets_handle);
     for (int i = 0; i < total_files; i++) {
         const void *img_data = mmap_assets_get_mem(assets_handle, i);
@@ -159,10 +163,10 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
         }
 
         decode_jpeg_rgb565_from_memory(
-            (const unsigned char*)img_data, img_size, img_obj_bin);
-        // vTaskDelay(pdMS_TO_TICKS(100));
+            (const unsigned char *)img_data, img_size, img_obj_bin);
+        // vTaskDelay(pdMS_TO_TICKS(1000));
     }
-    // goto RETRY;
+    goto RETRY;
 }
 
 // TEST_CASE("test function obj image", "")

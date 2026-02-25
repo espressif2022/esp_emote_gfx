@@ -28,6 +28,10 @@ extern "C" {
 #define DELETE_DONE         BIT1
 #define WAIT_FLUSH_DONE     BIT2
 
+/* Event bits (sync.render_events) - wake render task */
+#define GFX_EVENT_INVALIDATE    BIT0
+#define GFX_EVENT_ALL           0xFF
+
 /* Animation: no timer ready yet */
 #define ANIM_NO_TIMER_READY 0xFFFFFFFF
 
@@ -38,6 +42,7 @@ typedef struct gfx_core_context {
     struct {
         SemaphoreHandle_t render_mutex;      /**< Recursive mutex for render/touch */
         EventGroupHandle_t lifecycle_events; /**< NEED_DELETE / DELETE_DONE / WAIT_FLUSH_DONE */
+        EventGroupHandle_t render_events;   /**< GFX_EVENT_INVALIDATE etc. - wake render task */
     } sync;
 
     gfx_timer_mgr_t timer_mgr;         /**< Timer manager (see gfx_timer_priv.h) */

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -81,6 +81,15 @@ esp_err_t gfx_emote_lock(gfx_handle_t handle);
  * @return esp_err_t ESP_OK on success, otherwise an error code
  */
 esp_err_t gfx_emote_unlock(gfx_handle_t handle);
+
+/**
+ * @brief Perform one synchronous refresh (render and flush) immediately.
+ *        Holds the render mutex for the duration; safe to call from any task.
+ *
+ * @param handle Graphics handle
+ * @return esp_err_t ESP_OK on success, otherwise an error code
+ */
+esp_err_t gfx_refr_now(gfx_handle_t handle);
 
 
 #ifdef __cplusplus

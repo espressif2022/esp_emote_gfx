@@ -134,9 +134,11 @@ uint32_t gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area,
 
         uint16_t *buf_act = disp->buf_act;
 
-        gfx_sw_blend_fill(buf_act, \
-                          disp->flags.swap ? __builtin_bswap16(disp->bg_color.full) : disp->bg_color.full, \
-                          disp->buf_pixels);
+        // ESP_LOGI(TAG, "buf_act: %p, (%d, %d)->(%d, %d)",
+        //     buf_act, x1, y1, x2, y2);
+        // gfx_sw_blend_fill(buf_act,
+        //                   disp->flags.swap ? __builtin_bswap16(disp->bg_color.full) : disp->bg_color.full,
+        //                   disp->buf_pixels);
         gfx_render_draw_child_objects(disp, x1, y1, x2, y2, buf_act);
 
         if (flush_cb) {
@@ -156,6 +158,7 @@ uint32_t gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area,
                     disp->buf_act = disp->buf1;
                 }
             }
+            ESP_LOGI(TAG, "Flush done, swap buf -> %s", disp->buf_act == disp->buf1 ? "buf1" : "buf2");
         }
 
         current_y = y2;
@@ -200,7 +203,6 @@ void gfx_render_cleanup(gfx_disp_t *disp)
         return;
     }
 
-    disp->flushing_last = true;
     if (disp->dirty_count > 0) {
         gfx_invalidate_area_disp(disp, NULL);
     }

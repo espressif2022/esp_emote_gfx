@@ -7,7 +7,10 @@
 #include <string.h>
 #include <inttypes.h>
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
 #include "core/gfx_refr_priv.h"
+#include "core/gfx_core_priv.h"
 
 static const char *TAG = "gfx_refr";
 
@@ -160,6 +163,12 @@ void gfx_invalidate_area_disp(gfx_disp_t *disp, const gfx_area_t *area_p)
         disp->dirty_count = 1;
         gfx_area_copy(&disp->dirty_areas[0], &screen_area);
         ESP_LOGW(TAG, "Dirty area buffer full, marking entire screen as dirty");
+    }
+
+    /* Wake render task so it refrs without waiting for next timer */
+    gfx_core_context_t *ctx = (gfx_core_context_t *)disp->ctx;
+    if (ctx != NULL && ctx->sync.render_events != NULL) {
+        xEventGroupSetBits(ctx->sync.render_events, GFX_EVENT_INVALIDATE);
     }
 }
 
