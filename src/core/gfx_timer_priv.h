@@ -7,6 +7,7 @@
 #pragma once
 
 #include "core/gfx_timer.h"
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,10 +42,9 @@ typedef struct {
     uint32_t last_tick;
     uint32_t fps; ///< Target FPS for timer scheduling
     uint32_t actual_fps; ///< Actual measured FPS
-    bool should_render; ///< Flag indicating if render should be called (controlled by FPS)
     /* FPS statistics */
-    uint32_t fps_last_report_tick; ///< Last time FPS was reported
-    uint32_t fps_report_interval_ms; ///< FPS report interval in milliseconds (default 500 ms)
+    uint32_t fps_last_report_tick;
+    uint32_t fps_report_interval_ms;
 } gfx_timer_mgr_t;
 
 /**********************
@@ -77,9 +77,10 @@ bool gfx_timer_exec(gfx_timer_t *timer);
 /**
  * @brief Handle timer manager operations
  * @param timer_mgr Timer manager
- * @return Time until next timer execution
+ * @param out_should_render If non-NULL, set to true when a render is due this frame (FPS interval elapsed)
+ * @return Time in ms until next timer or FPS tick (for task sleep)
  */
-uint32_t gfx_timer_handler(gfx_timer_mgr_t *timer_mgr);
+uint32_t gfx_timer_handler(gfx_timer_mgr_t *timer_mgr, bool *out_should_render);
 
 /**
  * @brief Initialize timer manager

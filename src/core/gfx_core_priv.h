@@ -35,6 +35,9 @@ extern "C" {
 /* Animation: no timer ready yet */
 #define ANIM_NO_TIMER_READY 0xFFFFFFFF
 
+/** Render task sleeps at most this long when no timer and no event (ms) */
+#define GFX_RENDER_TASK_IDLE_SLEEP_MS  100
+
 /*********************
  *   CONTEXT STRUCT
  *********************/

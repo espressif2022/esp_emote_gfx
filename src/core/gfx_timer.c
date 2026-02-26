@@ -63,7 +63,7 @@ bool gfx_timer_exec(gfx_timer_t *timer)
     return false;
 }
 
-uint32_t gfx_timer_handler(gfx_timer_mgr_t *timer_mgr)
+uint32_t gfx_timer_handler(gfx_timer_mgr_t *timer_mgr, bool *out_should_render)
 {
     // ============================================================================
     // Step 1: Execute all timers and find the minimum remaining time
@@ -94,16 +94,24 @@ uint32_t gfx_timer_handler(gfx_timer_mgr_t *timer_mgr)
     }
 
     // ============================================================================
-    // Step 2: Calculate FPS period to control render frequency
+    // Step 2: FPS period and render-due (output via out_should_render, no struct field)
     // ============================================================================
     uint32_t fps_period_ms = (timer_mgr->fps > 0) ? (1000 / timer_mgr->fps) : 30;
-    uint32_t fps_elapsed_ms = gfx_timer_tick_elaps(timer_mgr->last_tick);
-    uint32_t fps_remaining_ms = (fps_elapsed_ms >= fps_period_ms) ? 0 : (fps_period_ms - fps_elapsed_ms);
+    uint32_t fps_elapsed_ms;
+    uint32_t fps_remaining_ms;
+    bool render_due;
 
-    timer_mgr->should_render = (fps_remaining_ms == 0);
-
-    if (timer_mgr->should_render) {
+    if (timer_mgr->last_tick == 0) {
+        render_due = true;
         timer_mgr->last_tick = gfx_timer_tick_get();
+        fps_remaining_ms = fps_period_ms;
+    } else {
+        fps_elapsed_ms = gfx_timer_tick_elaps(timer_mgr->last_tick);
+        fps_remaining_ms = (fps_elapsed_ms >= fps_period_ms) ? 0 : (fps_period_ms - fps_elapsed_ms);
+        render_due = (fps_remaining_ms == 0);
+        if (render_due) {
+            timer_mgr->last_tick = gfx_timer_tick_get();
+        }
     }
 
     // ============================================================================
@@ -122,6 +130,10 @@ uint32_t gfx_timer_handler(gfx_timer_mgr_t *timer_mgr)
     }
 
     timer_mgr->time_until_next = task_delay_ms;
+
+    if (out_should_render != NULL) {
+        *out_should_render = render_due;
+    }
     return task_delay_ms;
 }
 
@@ -254,10 +266,9 @@ void gfx_timer_mgr_init(gfx_timer_mgr_t *timer_mgr, uint32_t fps)
     if (timer_mgr != NULL) {
         timer_mgr->timer_list = NULL;
         timer_mgr->time_until_next = GFX_NO_TIMER_READY;
-        timer_mgr->last_tick = gfx_timer_tick_get();
-        timer_mgr->fps = fps; // Store FPS directly
-        timer_mgr->actual_fps = 0; // Initialize actual FPS
-        timer_mgr->should_render = true; // Allow first render
+        timer_mgr->last_tick = 0;  /* 0 = first run, handler will set and set render_due */
+        timer_mgr->fps = fps;
+        timer_mgr->actual_fps = 0;
         ESP_LOGI(TAG, "Timer manager initialized with FPS: %"PRIu32" (period: %"PRIu32" ms)", fps, (fps > 0) ? (1000 / fps) : 30);
     }
 }

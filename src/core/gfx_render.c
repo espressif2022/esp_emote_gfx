@@ -158,7 +158,6 @@ uint32_t gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area,
                     disp->buf_act = disp->buf1;
                 }
             }
-            ESP_LOGI(TAG, "Flush done, swap buf -> %s", disp->buf_act == disp->buf1 ? "buf1" : "buf2");
         }
 
         current_y = y2;
