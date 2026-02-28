@@ -292,8 +292,8 @@ static esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj)
     obj->geometry.height = header->height;
 
     /* Get parent screen size for mirror offset calculation */
-    uint32_t parent_w, parent_h;
-    gfx_disp_get_size(obj->disp, &parent_w, &parent_h);
+    uint32_t parent_w = gfx_disp_get_hor_res(obj->disp);
+    uint32_t parent_h = gfx_disp_get_ver_res(obj->disp);
 
     /* Calculate mirror offset */
     uint32_t mirror_offset = 0;

@@ -242,8 +242,8 @@ void gfx_obj_calc_pos_in_parent(gfx_obj_t *obj)
     GFX_RETURN_IF_NULL_VOID(obj);
 
     /* Get parent container dimensions */
-    uint32_t parent_w, parent_h;
-    gfx_disp_get_size(obj->disp, &parent_w, &parent_h);
+    uint32_t parent_w = gfx_disp_get_hor_res(obj->disp);
+    uint32_t parent_h = gfx_disp_get_ver_res(obj->disp);
 
     /* Calculate aligned position (modifies obj->geometry.x and obj->geometry.y in place) */
     gfx_obj_cal_aligned_pos(obj, parent_w, parent_h, &obj->geometry.x, &obj->geometry.y);

@@ -41,10 +41,7 @@ struct gfx_disp {
     /** Option flags */
     struct {
         unsigned char swap : 1;
-        unsigned char buff_dma : 1;
-        unsigned char buff_spiram : 1;
-        unsigned char double_buffer : 1;
-        unsigned char full_frame_buf : 1;
+        unsigned char full_frame : 1;
     } flags;
 
     /** Callbacks and user data */
@@ -74,6 +71,7 @@ struct gfx_disp {
     /** Display style (e.g. background color) */
     struct {
         gfx_color_t bg_color;
+        bool bg_enable;   /**< true = fill background before draw; default true */
     } style;
 
     /** Render state (flush / swap) */
@@ -89,10 +87,9 @@ struct gfx_disp {
         uint8_t count;
     } dirty;
 
-    /** Pending sync: dirty areas from previous frame to sync into buf_act at next render start (only sync parts not covered by new dirty) */
+    /** Pending sync: dirty areas from previous frame to sync into buf_act at next render start (only non-merged areas, no merged flags) */
     struct {
         gfx_area_t areas[GFX_DISP_INV_BUF_SIZE];
-        uint8_t merged[GFX_DISP_INV_BUF_SIZE];
         uint8_t count;
     } sync_pending;
 };
@@ -140,24 +137,6 @@ esp_err_t gfx_disp_add_child(gfx_disp_t *disp, void *src);
  * @internal Used by gfx_obj_delete.
  */
 esp_err_t gfx_disp_remove_child(gfx_disp_t *disp, void *src);
-
-/**
- * @brief Get display size in pixels
- * @param disp Display (NULL allowed; then width/height get defaults)
- * @param width Output width
- * @param height Output height
- * @return ESP_OK
- * @internal Used by gfx_obj (alignment) and gfx_anim (parent size).
- */
-esp_err_t gfx_disp_get_size(gfx_disp_t *disp, uint32_t *width, uint32_t *height);
-
-/**
- * @brief Check if display is currently flushing the last block
- * @param disp Display
- * @return true if flushing last block, false otherwise
- * @internal Used by render path; not exposed to application.
- */
-bool gfx_disp_is_flushing_last(gfx_disp_t *disp);
 
 #ifdef __cplusplus
 }

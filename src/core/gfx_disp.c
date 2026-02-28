@@ -160,15 +160,23 @@ gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg)
     new_disp->res.h_res = cfg->h_res;
     new_disp->res.v_res = cfg->v_res;
     new_disp->flags.swap = cfg->flags.swap;
-    new_disp->flags.buff_dma = cfg->flags.buff_dma;
-    new_disp->flags.buff_spiram = cfg->flags.buff_spiram;
-    new_disp->flags.double_buffer = cfg->flags.double_buffer;
-    new_disp->flags.full_frame_buf = cfg->flags.full_frame_buf;
+    new_disp->flags.full_frame = cfg->flags.full_frame;
     new_disp->cb.flush_cb = cfg->flush_cb;
     new_disp->cb.update_cb = cfg->update_cb;
     new_disp->cb.user_data = cfg->user_data;
     new_disp->child_list = NULL;
     new_disp->next = NULL;
+    new_disp->style.bg_enable = true;  /* default: show background */
+
+    if (cfg->flags.full_frame && cfg->buffers.buf_pixels > 0) {
+        uint32_t screen_px = new_disp->res.h_res * new_disp->res.v_res;
+        if (cfg->buffers.buf_pixels != screen_px) {
+            ESP_LOGE(TAG, "full_frame requires buf_pixels (%u) == screen size (%u)",
+                     (unsigned)cfg->buffers.buf_pixels, (unsigned)screen_px);
+            free(new_disp);
+            return NULL;
+        }
+    }
 
     new_disp->sync.event_group = xEventGroupCreate();
     if (new_disp->sync.event_group == NULL) {
@@ -313,21 +321,20 @@ void *gfx_disp_get_user_data(gfx_disp_t *disp)
     return disp->cb.user_data;
 }
 
-esp_err_t gfx_disp_get_size(gfx_disp_t *disp, uint32_t *width, uint32_t *height)
+uint32_t gfx_disp_get_hor_res(gfx_disp_t *disp)
 {
-    if (width == NULL || height == NULL) {
-        ESP_LOGE(TAG, "Invalid parameters");
-        return ESP_ERR_INVALID_ARG;
-    }
     if (disp == NULL) {
-        *width = DEFAULT_SCREEN_WIDTH;
-        *height = DEFAULT_SCREEN_HEIGHT;
-        ESP_LOGW(TAG, "disp is NULL, using default screen size");
-        return ESP_OK;
+        return DEFAULT_SCREEN_WIDTH;
     }
-    *width = disp->res.h_res;
-    *height = disp->res.v_res;
-    return ESP_OK;
+    return disp->res.h_res;
+}
+
+uint32_t gfx_disp_get_ver_res(gfx_disp_t *disp)
+{
+    if (disp == NULL) {
+        return DEFAULT_SCREEN_HEIGHT;
+    }
+    return disp->res.v_res;
 }
 
 esp_err_t gfx_disp_set_bg_color(gfx_disp_t *disp, gfx_color_t color)
@@ -338,6 +345,16 @@ esp_err_t gfx_disp_set_bg_color(gfx_disp_t *disp, gfx_color_t color)
     }
     disp->style.bg_color.full = color.full;
     ESP_LOGD(TAG, "BG color: 0x%04X", color.full);
+    return ESP_OK;
+}
+
+esp_err_t gfx_disp_set_bg_enable(gfx_disp_t *disp, bool enable)
+{
+    if (disp == NULL) {
+        ESP_LOGE(TAG, "disp is NULL");
+        return ESP_ERR_INVALID_ARG;
+    }
+    disp->style.bg_enable = enable;
     return ESP_OK;
 }
 

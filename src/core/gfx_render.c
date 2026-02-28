@@ -142,10 +142,10 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
 
         uint16_t *buf = disp->buf.buf_act;
 
-        int dest_stride = disp->flags.full_frame_buf ? disp->res.h_res : (chunk_x2 - chunk_x1);
+        int dest_stride = disp->flags.full_frame ? disp->res.h_res : (chunk_x2 - chunk_x1);
 
         gfx_area_t buf_area;
-        if (disp->flags.full_frame_buf) {
+        if (disp->flags.full_frame) {
             buf_area.x1 = 0;
             buf_area.y1 = 0;
             buf_area.x2 = (gfx_coord_t)disp->res.h_res - 1;
@@ -165,13 +165,15 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
             .swap = disp->flags.swap,
         };
 
-        uint16_t bg = disp->flags.swap ? (uint16_t)__builtin_bswap16(disp->style.bg_color.full) : (uint16_t)disp->style.bg_color.full;
-        if (disp->flags.full_frame_buf) {
-            gfx_area_t fill_area = { chunk_x1, chunk_y1, chunk_x2, chunk_y2 };  /* exclusive x2,y2 */
-            gfx_sw_blend_fill_area(buf, (gfx_coord_t)disp->res.h_res, &fill_area, bg);
-        } else {
-            gfx_area_t fill_area = { 0, 0, chunk_x2 - chunk_x1, chunk_y2 - chunk_y1 };
-            gfx_sw_blend_fill_area(buf, chunk_x2 - chunk_x1, &fill_area, bg);
+        if (disp->style.bg_enable) {
+            uint16_t bg = disp->flags.swap ? (uint16_t)__builtin_bswap16(disp->style.bg_color.full) : (uint16_t)disp->style.bg_color.full;
+            if (disp->flags.full_frame) {
+                gfx_area_t fill_area = { chunk_x1, chunk_y1, chunk_x2, chunk_y2 };  /* exclusive x2,y2 */
+                gfx_sw_blend_fill_area(buf, (gfx_coord_t)disp->res.h_res, &fill_area, bg);
+            } else {
+                gfx_area_t fill_area = { 0, 0, chunk_x2 - chunk_x1, chunk_y2 - chunk_y1 };
+                gfx_sw_blend_fill_area(buf, chunk_x2 - chunk_x1, &fill_area, bg);
+            }
         }
         gfx_render_draw_child_objects(disp, &draw_ctx);
 
@@ -191,7 +193,7 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
 
             xEventGroupWaitBits(disp->sync.event_group, WAIT_FLUSH_DONE, pdTRUE, pdFALSE, portMAX_DELAY);
 
-            if (disp->buf.buf2 != NULL && (!disp->flags.full_frame_buf || disp->render.flushing_last)) {
+            if (disp->buf.buf2 != NULL && (!disp->flags.full_frame || disp->render.flushing_last)) {
                 disp->buf.buf_act = (disp->buf.buf_act == disp->buf.buf1) ? disp->buf.buf2 : disp->buf.buf1;
             }
         }
@@ -204,25 +206,18 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
  * @brief Copy from on-screen buffer to buf_act only for pending areas NOT covered by current dirty.
  * Called at start of render: if next frame redraws full screen (e.g. 480x480), skip sync entirely.
  */
-#include "esp_timer.h"
 static void gfx_render_sync_dirty_areas(gfx_disp_t *disp)
 {
-    if (!disp->flags.full_frame_buf || disp->buf.buf2 == NULL || disp->sync_pending.count == 0) {
+    if (!disp->flags.full_frame || disp->buf.buf2 == NULL || disp->sync_pending.count == 0) {
         return;
     }
 
-    uint16_t *buf_off_screen = disp->buf.buf_act;
-    uint16_t *buf_on_screen = (disp->buf.buf_act == disp->buf.buf1) ? disp->buf.buf2 : disp->buf.buf1;
+    uint16_t *dst_screen_buf = disp->buf.buf_act;
+    uint16_t *src_screen_buf = (disp->buf.buf_act == disp->buf.buf1) ? disp->buf.buf2 : disp->buf.buf1;
     uint32_t stride = disp->res.h_res;
     const size_t px_size = sizeof(uint16_t);
 
-    uint8_t sync_count = 0;
-    int64_t start_time = esp_timer_get_time();
-
     for (uint8_t i = 0; i < disp->sync_pending.count; i++) {
-        if (disp->sync_pending.merged[i]) {
-            continue;
-        }
         const gfx_area_t *a = &disp->sync_pending.areas[i];
         bool covered = false;
         for (uint8_t j = 0; j < disp->dirty.count && !covered; j++) {
@@ -236,21 +231,12 @@ static void gfx_render_sync_dirty_areas(gfx_disp_t *disp)
         if (covered) {
             continue;
         }
-        ESP_LOGI(TAG, "sync area: (%d,%d)->(%d,%d)", a->x1, a->y1, a->x2, a->y2);
         uint32_t w = (uint32_t)(a->x2 - a->x1 + 1);
         uint32_t h = (uint32_t)(a->y2 - a->y1 + 1);
         for (uint32_t y = 0; y < h; y++) {
-            size_t src_off = (size_t)(a->y1 + (gfx_coord_t)y) * stride + (size_t)a->x1;
-            size_t dst_off = (size_t)(a->y1 + (gfx_coord_t)y) * stride + (size_t)a->x1;
-            memcpy(buf_off_screen + dst_off, buf_on_screen + src_off, w * px_size);
+            size_t offset = (size_t)(a->y1 + (gfx_coord_t)y) * stride + (size_t)a->x1;
+            memcpy(dst_screen_buf + offset, src_screen_buf + offset, w * px_size);
         }
-        sync_count++;
-    }
-
-    if (sync_count > 0) {
-        int64_t end_time = esp_timer_get_time();
-        ESP_LOGI(TAG, "[sync] %d areas copied, %" PRId64 " ms",
-                 sync_count, (end_time - start_time) / 1000);
     }
 }
 
@@ -266,7 +252,6 @@ void gfx_render_dirty_areas(gfx_disp_t *disp)
 
     gfx_render_sync_dirty_areas(disp);
 
-    /* Find index of last non-merged area so we can set flushing_last only on last chunk of last area */
     uint8_t last_area_idx = 0;
     for (uint8_t i = 0; i < disp->dirty.count; i++) {
         if (!disp->dirty.merged[i]) {
@@ -274,20 +259,18 @@ void gfx_render_dirty_areas(gfx_disp_t *disp)
         }
     }
 
+    uint8_t sync_points = 0;
     for (uint8_t i = 0; i < disp->dirty.count; i++) {
         if (disp->dirty.merged[i]) {
             continue;
         }
-
         gfx_area_t *area = &disp->dirty.areas[i];
         bool is_last_area = (i == last_area_idx);
         gfx_render_part_area(disp, area, i, is_last_area);
+        sync_points++;
+        gfx_area_copy(&disp->sync_pending.areas[sync_points], area);
     }
-
-    /* Record this frame's dirty areas for next frame's minimal sync */
-    disp->sync_pending.count = disp->dirty.count;
-    memcpy(disp->sync_pending.areas, disp->dirty.areas, sizeof(disp->dirty.areas));
-    memcpy(disp->sync_pending.merged, disp->dirty.merged, sizeof(disp->dirty.merged));
+    disp->sync_pending.count = sync_points;
 }
 
 /**
