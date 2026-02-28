@@ -15,6 +15,7 @@
 #include "lib/qrcode/qrcode_wrapper.h"
 #include "common/gfx_comm.h"
 #include "core/gfx_blend_priv.h"
+#include "core/gfx_obj_priv.h"
 #include "core/gfx_refr_priv.h"
 #include "widget/gfx_qrcode.h"
 
@@ -58,15 +59,14 @@ static const char *TAG = "gfx_qrcode";
  **********************/
 
 /* Virtual functions */
-static esp_err_t gfx_draw_qrcode(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap);
+static esp_err_t gfx_draw_qrcode(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx);
 static esp_err_t gfx_qrcode_delete(gfx_obj_t *obj);
 
 /* Helper functions */
 static void gfx_qrcode_generate_callback(qrcode_wrapper_handle_t qrcode, void *user_data);
 static esp_err_t gfx_qrcode_generate(gfx_obj_t *obj, bool swap);
 static void gfx_qrcode_blend_to_dest(gfx_obj_t *obj, gfx_qrcode_t *qrcode,
-                                     int x1, int y1, int x2, int y2,
-                                     const void *dest_buf, bool swap);
+                                     const gfx_draw_ctx_t *ctx);
 
 /**********************
  *   STATIC FUNCTIONS
@@ -215,14 +215,11 @@ static esp_err_t gfx_qrcode_generate(gfx_obj_t *obj, bool swap)
  * @brief Blend QR code image to destination buffer
  */
 static void gfx_qrcode_blend_to_dest(gfx_obj_t *obj, gfx_qrcode_t *qrcode,
-                                     int x1, int y1, int x2, int y2,
-                                     const void *dest_buf, bool swap)
+                                     const gfx_draw_ctx_t *ctx)
 {
-    /* Get parent dimensions and calculate aligned position */
     gfx_obj_calc_pos_in_parent(obj);
 
-    /* Calculate clipping area */
-    gfx_area_t render_area = {x1, y1, x2, y2};
+    gfx_area_t render_area = ctx->clip_area;
     gfx_area_t obj_area = {obj->geometry.x, obj->geometry.y,
                            obj->geometry.x + qrcode->scaled_size,
                            obj->geometry.y + qrcode->scaled_size
@@ -233,39 +230,31 @@ static void gfx_qrcode_blend_to_dest(gfx_obj_t *obj, gfx_qrcode_t *qrcode,
         return;
     }
 
-    /* Prepare buffer parameters for blend operation */
-    gfx_coord_t dest_stride = (x2 - x1);
     gfx_coord_t src_stride = qrcode->scaled_size;
-
-    /* Calculate source and destination buffer pointers with offset */
     gfx_color_t *src_pixels = (gfx_color_t *)GFX_BUFFER_OFFSET_16BPP(qrcode->qr_modules,
                               clip_area.y1 - obj->geometry.y,
                               src_stride,
                               clip_area.x1 - obj->geometry.x);
-    gfx_color_t *dest_pixels = (gfx_color_t *)GFX_BUFFER_OFFSET_16BPP(dest_buf,
-                               clip_area.y1 - y1,
-                               dest_stride,
-                               clip_area.x1 - x1);
+    gfx_color_t *dest_pixels = GFX_DRAW_CTX_DEST_PTR(ctx, clip_area.x1, clip_area.y1);
 
-    /* Blend QR code to destination */
     gfx_sw_blend_img_draw(
         dest_pixels,
-        dest_stride,
+        ctx->stride,
         src_pixels,
         src_stride,
-        NULL,  /* No alpha mask - QR codes are opaque */
-        0,     /* No mask stride */
+        NULL,
+        0,
         &clip_area,
-        swap
+        ctx->swap
     );
 }
 
 /**
  * @brief Virtual draw function for QR code widget
  */
-static esp_err_t gfx_draw_qrcode(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap)
+static esp_err_t gfx_draw_qrcode(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 {
-    if (obj == NULL || obj->src == NULL) {
+    if (obj == NULL || obj->src == NULL || ctx == NULL) {
         ESP_LOGD(TAG, "Invalid object or source");
         return ESP_ERR_INVALID_ARG;
     }
@@ -277,9 +266,8 @@ static esp_err_t gfx_draw_qrcode(gfx_obj_t *obj, int x1, int y1, int x2, int y2,
 
     gfx_qrcode_t *qrcode = (gfx_qrcode_t *)obj->src;
 
-    /* Generate QR Code if needed */
     if (qrcode->needs_update) {
-        esp_err_t ret = gfx_qrcode_generate(obj, swap);
+        esp_err_t ret = gfx_qrcode_generate(obj, ctx->swap);
         if (ret != ESP_OK) {
             return ret;
         }
@@ -291,8 +279,7 @@ static esp_err_t gfx_draw_qrcode(gfx_obj_t *obj, int x1, int y1, int x2, int y2,
         return ESP_ERR_INVALID_STATE;
     }
 
-    /* Blend QR code to destination */
-    gfx_qrcode_blend_to_dest(obj, qrcode, x1, y1, x2, y2, dest_buf, swap);
+    gfx_qrcode_blend_to_dest(obj, qrcode, ctx);
     return ESP_OK;
 }
 

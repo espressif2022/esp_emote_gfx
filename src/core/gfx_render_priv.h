@@ -22,13 +22,13 @@ bool gfx_render_handler(gfx_core_context_t *ctx);
 /**
  * @brief Render all dirty areas for one display
  */
-uint32_t gfx_render_dirty_areas(gfx_disp_t *disp);
+void gfx_render_dirty_areas(gfx_disp_t *disp);
 
 /**
  * @brief Render a single dirty area with dynamic height-based blocking
+ * @param is_last_area true if this is the last dirty area in the list (flushing_last = last chunk of this area AND is_last_area)
  */
-uint32_t gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area,
-                              uint8_t area_idx, uint32_t start_block_count);
+void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, bool is_last_area);
 
 /**
  * @brief Cleanup after rendering - swap buffers and clear dirty flags for one display
@@ -42,9 +42,10 @@ void gfx_render_cleanup(gfx_disp_t *disp);
 uint32_t gfx_render_area_summary(gfx_disp_t *disp);
 
 /**
- * @brief Draw child objects in the specified area for one display
+ * @brief Draw child objects for one display using draw context (buf_area + clip_area)
+ * @param ctx Draw context: buf, buf_area, clip_area, stride, swap
  */
-void gfx_render_draw_child_objects(gfx_disp_t *disp, int x1, int y1, int x2, int y2, const void *dest_buf);
+void gfx_render_draw_child_objects(gfx_disp_t *disp, const gfx_draw_ctx_t *ctx);
 
 /**
  * @brief Update child objects for one display

@@ -88,31 +88,31 @@ void gfx_refr_merge_areas(gfx_disp_t *disp)
         return;
     }
 
-    memset(disp->area_merged, 0, sizeof(disp->area_merged));
+    memset(disp->dirty.merged, 0, sizeof(disp->dirty.merged));
 
-    for (dst_idx = 0; dst_idx < disp->dirty_count; dst_idx++) {
-        if (disp->area_merged[dst_idx] != 0) {
+    for (dst_idx = 0; dst_idx < disp->dirty.count; dst_idx++) {
+        if (disp->dirty.merged[dst_idx] != 0) {
             continue;
         }
 
-        for (src_idx = 0; src_idx < disp->dirty_count; src_idx++) {
-            if (disp->area_merged[src_idx] != 0 || dst_idx == src_idx) {
+        for (src_idx = 0; src_idx < disp->dirty.count; src_idx++) {
+            if (disp->dirty.merged[src_idx] != 0 || dst_idx == src_idx) {
                 continue;
             }
 
-            if (!gfx_area_is_on(&disp->dirty_areas[dst_idx], &disp->dirty_areas[src_idx])) {
+            if (!gfx_area_is_on(&disp->dirty.areas[dst_idx], &disp->dirty.areas[src_idx])) {
                 continue;
             }
 
-            gfx_area_join(&merged_area, &disp->dirty_areas[dst_idx], &disp->dirty_areas[src_idx]);
+            gfx_area_join(&merged_area, &disp->dirty.areas[dst_idx], &disp->dirty.areas[src_idx]);
 
             uint32_t merged_size = gfx_area_get_size(&merged_area);
-            uint32_t separate_size = gfx_area_get_size(&disp->dirty_areas[dst_idx]) +
-                                     gfx_area_get_size(&disp->dirty_areas[src_idx]);
+            uint32_t separate_size = gfx_area_get_size(&disp->dirty.areas[dst_idx]) +
+                                     gfx_area_get_size(&disp->dirty.areas[src_idx]);
 
             if (merged_size < separate_size) {
-                gfx_area_copy(&disp->dirty_areas[dst_idx], &merged_area);
-                disp->area_merged[src_idx] = 1;
+                gfx_area_copy(&disp->dirty.areas[dst_idx], &merged_area);
+                disp->dirty.merged[src_idx] = 1;
 
                 ESP_LOGD(TAG, "Merged area [%" PRIu32 "] into [%" PRIu32 "], saved %" PRIu32 " pixels",
                          src_idx, dst_idx, separate_size - merged_size);
@@ -128,8 +128,8 @@ void gfx_invalidate_area_disp(gfx_disp_t *disp, const gfx_area_t *area_p)
     }
 
     if (area_p == NULL) {
-        disp->dirty_count = 0;
-        memset(disp->area_merged, 0, sizeof(disp->area_merged));
+        disp->dirty.count = 0;
+        memset(disp->dirty.merged, 0, sizeof(disp->dirty.merged));
         ESP_LOGD(TAG, "Cleared all dirty areas");
         return;
     }
@@ -137,8 +137,8 @@ void gfx_invalidate_area_disp(gfx_disp_t *disp, const gfx_area_t *area_p)
     gfx_area_t screen_area;
     screen_area.x1 = 0;
     screen_area.y1 = 0;
-    screen_area.x2 = disp->h_res - 1;
-    screen_area.y2 = disp->v_res - 1;
+    screen_area.x2 = disp->res.h_res - 1;
+    screen_area.y2 = disp->res.v_res - 1;
 
     gfx_area_t clipped_area;
     bool success = gfx_area_intersect(&clipped_area, area_p, &screen_area);
@@ -147,21 +147,21 @@ void gfx_invalidate_area_disp(gfx_disp_t *disp, const gfx_area_t *area_p)
         return;
     }
 
-    for (uint8_t i = 0; i < disp->dirty_count; i++) {
-        if (gfx_area_is_in(&clipped_area, &disp->dirty_areas[i])) {
+    for (uint8_t i = 0; i < disp->dirty.count; i++) {
+        if (gfx_area_is_in(&clipped_area, &disp->dirty.areas[i])) {
             ESP_LOGD(TAG, "Area already covered by existing dirty area %d", i);
             return;
         }
     }
 
-    if (disp->dirty_count < GFX_DISP_INV_BUF_SIZE) {
-        gfx_area_copy(&disp->dirty_areas[disp->dirty_count], &clipped_area);
-        disp->dirty_count++;
+    if (disp->dirty.count < GFX_DISP_INV_BUF_SIZE) {
+        gfx_area_copy(&disp->dirty.areas[disp->dirty.count], &clipped_area);
+        disp->dirty.count++;
         ESP_LOGD(TAG, "Added dirty area [%d,%d,%d,%d], total: %d",
-                 clipped_area.x1, clipped_area.y1, clipped_area.x2, clipped_area.y2, disp->dirty_count);
+                 clipped_area.x1, clipped_area.y1, clipped_area.x2, clipped_area.y2, disp->dirty.count);
     } else {
-        disp->dirty_count = 1;
-        gfx_area_copy(&disp->dirty_areas[0], &screen_area);
+        disp->dirty.count = 1;
+        gfx_area_copy(&disp->dirty.areas[0], &screen_area);
         ESP_LOGW(TAG, "Dirty area buffer full, marking entire screen as dirty");
     }
 
@@ -223,8 +223,8 @@ void gfx_refr_update_layout_dirty(gfx_disp_t *disp)
         return;
     }
 
-    uint32_t parent_w = disp->h_res;
-    uint32_t parent_h = disp->v_res;
+    uint32_t parent_w = disp->res.h_res;
+    uint32_t parent_h = disp->res.v_res;
 
     gfx_obj_child_t *child_node = disp->child_list;
 

@@ -50,6 +50,7 @@ typedef struct {
         unsigned char buff_dma : 1;          /**< Alloc buffer with MALLOC_CAP_DMA (internal alloc only) */
         unsigned char buff_spiram : 1;       /**< Alloc buffer in PSRAM (internal alloc only) */
         unsigned char double_buffer : 1;     /**< Alloc second buffer for double buffering (internal alloc only) */
+        unsigned char full_frame_buf : 1;    /**< 1 = buf1/buf2 are full-screen framebuffers (e.g. RGB); draw at chunk region. 0 = partition buffer; draw from start. */
     } flags;
     struct {
         void *buf1;                          /**< Frame buffer 1 (NULL = internal alloc) */

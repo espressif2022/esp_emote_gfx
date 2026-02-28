@@ -27,38 +27,74 @@ struct gfx_core_context;
 /*********************
  *   INTERNAL STRUCTS
  *********************/
-/** Per-display state; one per screen, linked list for multi-display */
+/** Per-display state; one per screen, linked list for multi-display. Fields grouped by category. */
 struct gfx_disp {
     struct gfx_disp *next;
     struct gfx_core_context *ctx;
 
-    uint32_t h_res;
-    uint32_t v_res;
+    /** Resolution */
+    struct {
+        uint32_t h_res;
+        uint32_t v_res;
+    } res;
+
+    /** Option flags */
     struct {
         unsigned char swap : 1;
         unsigned char buff_dma : 1;
         unsigned char buff_spiram : 1;
         unsigned char double_buffer : 1;
+        unsigned char full_frame_buf : 1;
     } flags;
 
-    gfx_disp_flush_cb_t flush_cb;
-    gfx_disp_update_cb_t update_cb;
-    void *user_data;
-    EventGroupHandle_t event_group;
+    /** Callbacks and user data */
+    struct {
+        gfx_disp_flush_cb_t flush_cb;
+        gfx_disp_update_cb_t update_cb;
+        void *user_data;
+    } cb;
 
+    /** Sync (event group for flush done) */
+    struct {
+        EventGroupHandle_t event_group;
+    } sync;
+
+    /** Child object list */
     gfx_obj_child_t *child_list;
-    uint16_t *buf1;
-    uint16_t *buf2;
-    uint16_t *buf_act;
-    size_t buf_pixels;
-    gfx_color_t bg_color;
-    bool ext_bufs;
-    bool flushing_last;
-    bool swap_act_buf;
 
-    gfx_area_t dirty_areas[GFX_DISP_INV_BUF_SIZE];
-    uint8_t area_merged[GFX_DISP_INV_BUF_SIZE];
-    uint8_t dirty_count;
+    /** Frame buffers */
+    struct {
+        uint16_t *buf1;
+        uint16_t *buf2;
+        uint16_t *buf_act;
+        size_t buf_pixels;
+        bool ext_bufs;
+    } buf;
+
+    /** Display style (e.g. background color) */
+    struct {
+        gfx_color_t bg_color;
+    } style;
+
+    /** Render state (flush / swap) */
+    struct {
+        bool flushing_last;
+        bool swap_act_buf;
+    } render;
+
+    /** Dirty / invalidation state */
+    struct {
+        gfx_area_t areas[GFX_DISP_INV_BUF_SIZE];
+        uint8_t merged[GFX_DISP_INV_BUF_SIZE];
+        uint8_t count;
+    } dirty;
+
+    /** Pending sync: dirty areas from previous frame to sync into buf_act at next render start (only sync parts not covered by new dirty) */
+    struct {
+        gfx_area_t areas[GFX_DISP_INV_BUF_SIZE];
+        uint8_t merged[GFX_DISP_INV_BUF_SIZE];
+        uint8_t count;
+    } sync_pending;
 };
 
 /* ============================================================================

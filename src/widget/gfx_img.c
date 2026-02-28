@@ -13,6 +13,7 @@
 #include "esp_check.h"
 #include "common/gfx_comm.h"
 #include "core/gfx_blend_priv.h"
+#include "core/gfx_obj_priv.h"
 #include "core/gfx_refr_priv.h"
 #include "widget/gfx_img.h"
 #include "decoder/gfx_img_dec_priv.h"
@@ -35,7 +36,7 @@ static const char *TAG = "gfx_img";
 /**********************
  *  STATIC PROTOTYPES
  **********************/
-static esp_err_t gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap);
+static esp_err_t gfx_draw_img(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx);
 static esp_err_t gfx_img_delete(gfx_obj_t *obj);
 
 /**********************
@@ -45,9 +46,9 @@ static esp_err_t gfx_img_delete(gfx_obj_t *obj);
 /**
  * @brief Virtual draw function for image widget
  */
-static esp_err_t gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap)
+static esp_err_t gfx_draw_img(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 {
-    if (obj == NULL || obj->src == NULL) {
+    if (obj == NULL || obj->src == NULL || ctx == NULL) {
         ESP_LOGD(TAG, "Invalid object or source");
         return ESP_ERR_INVALID_ARG;
     }
@@ -103,8 +104,8 @@ static esp_err_t gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, co
     /* Get parent dimensions and calculate aligned position */
     gfx_obj_calc_pos_in_parent(obj);
 
-    /* Calculate clipping area */
-    gfx_area_t render_area = {x1, y1, x2, y2};
+    /* Intersect object with clip_area (widget computes clip and dest from ctx) */
+    gfx_area_t render_area = ctx->clip_area;
     gfx_area_t obj_area = {obj->geometry.x, obj->geometry.y, obj->geometry.x + image_width, obj->geometry.y + image_height};
     gfx_area_t clip_area;
 
@@ -113,23 +114,18 @@ static esp_err_t gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, co
         return ESP_OK;
     }
 
-    gfx_coord_t dest_stride = (x2 - x1);
     gfx_coord_t src_stride = image_width;
 
-    /* Calculate source and destination buffer pointers with offset */
+    /* Dest pointer from ctx (buf_area + stride) */
+    gfx_color_t *dest_pixels = GFX_DRAW_CTX_DEST_PTR(ctx, clip_area.x1, clip_area.y1);
     gfx_color_t *src_pixels = (gfx_color_t *)GFX_BUFFER_OFFSET_16BPP(image_data,
                               clip_area.y1 - obj->geometry.y,
                               src_stride,
                               clip_area.x1 - obj->geometry.x);
-    gfx_color_t *dest_pixels = (gfx_color_t *)GFX_BUFFER_OFFSET_16BPP(dest_buf,
-                               clip_area.y1 - y1,
-                               dest_stride,
-                               clip_area.x1 - x1);
 
     /* Alpha mask is only present in RGB565A8 format */
     gfx_opa_t *alpha_mask = NULL;
     if (color_format == GFX_COLOR_FORMAT_RGB565A8) {
-        /* Alpha mask starts after RGB565 data */
         const uint8_t *alpha_base = image_data + src_stride * image_height * GFX_PIXEL_SIZE_16BPP;
         alpha_mask = (gfx_opa_t *)GFX_BUFFER_OFFSET_8BPP(alpha_base,
                      clip_area.y1 - obj->geometry.y,
@@ -137,19 +133,17 @@ static esp_err_t gfx_draw_img(gfx_obj_t *obj, int x1, int y1, int x2, int y2, co
                      clip_area.x1 - obj->geometry.x);
     }
 
-    /* Blend image to destination buffer */
     gfx_sw_blend_img_draw(
         dest_pixels,
-        dest_stride,
+        ctx->stride,
         src_pixels,
         src_stride,
         alpha_mask,
         alpha_mask ? src_stride : 0,
         &clip_area,
-        swap
+        ctx->swap
     );
 
-    /* Close decoder */
     gfx_image_decoder_close(&decoder_dsc);
     return ESP_OK;
 }

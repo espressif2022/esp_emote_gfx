@@ -25,33 +25,33 @@ esp_err_t gfx_disp_buf_free(gfx_disp_t *disp)
     if (!disp) {
         return ESP_OK;
     }
-    if (!disp->ext_bufs) {
-        if (disp->buf1) {
-            heap_caps_free(disp->buf1);
-            disp->buf1 = NULL;
+    if (!disp->buf.ext_bufs) {
+        if (disp->buf.buf1) {
+            heap_caps_free(disp->buf.buf1);
+            disp->buf.buf1 = NULL;
         }
-        if (disp->buf2) {
-            heap_caps_free(disp->buf2);
-            disp->buf2 = NULL;
+        if (disp->buf.buf2) {
+            heap_caps_free(disp->buf.buf2);
+            disp->buf.buf2 = NULL;
         }
     }
-    disp->buf_pixels = 0;
-    disp->ext_bufs = false;
+    disp->buf.buf_pixels = 0;
+    disp->buf.ext_bufs = false;
     return ESP_OK;
 }
 
 esp_err_t gfx_disp_buf_init(gfx_disp_t *disp, const gfx_disp_config_t *cfg)
 {
     if (cfg->buffers.buf1 != NULL) {
-        disp->buf1 = (uint16_t *)cfg->buffers.buf1;
-        disp->buf2 = (uint16_t *)cfg->buffers.buf2;
+        disp->buf.buf1 = (uint16_t *)cfg->buffers.buf1;
+        disp->buf.buf2 = (uint16_t *)cfg->buffers.buf2;
         if (cfg->buffers.buf_pixels > 0) {
-            disp->buf_pixels = cfg->buffers.buf_pixels;
+            disp->buf.buf_pixels = cfg->buffers.buf_pixels;
         } else {
             ESP_LOGW(TAG, "buf_pixels=0, use default");
-            disp->buf_pixels = disp->h_res * disp->v_res;
+            disp->buf.buf_pixels = disp->res.h_res * disp->res.v_res;
         }
-        disp->ext_bufs = true;
+        disp->buf.ext_bufs = true;
     } else {
 #if SOC_PSRAM_DMA_CAPABLE == 0
         if (cfg->flags.buff_dma && cfg->flags.buff_spiram) {
@@ -70,31 +70,31 @@ esp_err_t gfx_disp_buf_init(gfx_disp_t *disp, const gfx_disp_config_t *cfg)
             buff_caps = MALLOC_CAP_DEFAULT;
         }
 
-        size_t buf_pixels = cfg->buffers.buf_pixels > 0 ? cfg->buffers.buf_pixels : disp->h_res * disp->v_res;
+        size_t buf_pixels = cfg->buffers.buf_pixels > 0 ? cfg->buffers.buf_pixels : disp->res.h_res * disp->res.v_res;
 
-        disp->buf1 = (uint16_t *)heap_caps_malloc(buf_pixels * sizeof(uint16_t), buff_caps);
-        if (!disp->buf1) {
+        disp->buf.buf1 = (uint16_t *)heap_caps_malloc(buf_pixels * sizeof(uint16_t), buff_caps);
+        if (!disp->buf.buf1) {
             ESP_LOGE(TAG, "Failed to allocate frame buffer 1");
             return ESP_ERR_NO_MEM;
         }
 
         if (cfg->flags.double_buffer) {
-            disp->buf2 = (uint16_t *)heap_caps_malloc(buf_pixels * sizeof(uint16_t), buff_caps);
-            if (!disp->buf2) {
+            disp->buf.buf2 = (uint16_t *)heap_caps_malloc(buf_pixels * sizeof(uint16_t), buff_caps);
+            if (!disp->buf.buf2) {
                 ESP_LOGE(TAG, "Failed to allocate frame buffer 2");
-                heap_caps_free(disp->buf1);
-                disp->buf1 = NULL;
+                heap_caps_free(disp->buf.buf1);
+                disp->buf.buf1 = NULL;
                 return ESP_ERR_NO_MEM;
             }
         } else {
-            disp->buf2 = NULL;
+            disp->buf.buf2 = NULL;
         }
 
-        disp->buf_pixels = buf_pixels;
-        disp->ext_bufs = false;
+        disp->buf.buf_pixels = buf_pixels;
+        disp->buf.ext_bufs = false;
     }
-    disp->buf_act = disp->buf1;
-    disp->bg_color.full = 0x0000;
+    disp->buf.buf_act = disp->buf.buf1;
+    disp->style.bg_color.full = 0x0000;
     return ESP_OK;
 }
 
@@ -131,9 +131,9 @@ void gfx_disp_del(gfx_disp_t *disp)
     }
     disp->child_list = NULL;
 
-    if (disp->event_group) {
-        vEventGroupDelete(disp->event_group);
-        disp->event_group = NULL;
+    if (disp->sync.event_group) {
+        vEventGroupDelete(disp->sync.event_group);
+        disp->sync.event_group = NULL;
     }
 
     gfx_disp_buf_free(disp);
@@ -157,36 +157,37 @@ gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg)
     }
     memset(new_disp, 0, sizeof(gfx_disp_t));
     new_disp->ctx = ctx;
-    new_disp->h_res = cfg->h_res;
-    new_disp->v_res = cfg->v_res;
+    new_disp->res.h_res = cfg->h_res;
+    new_disp->res.v_res = cfg->v_res;
     new_disp->flags.swap = cfg->flags.swap;
     new_disp->flags.buff_dma = cfg->flags.buff_dma;
     new_disp->flags.buff_spiram = cfg->flags.buff_spiram;
     new_disp->flags.double_buffer = cfg->flags.double_buffer;
-    new_disp->flush_cb = cfg->flush_cb;
-    new_disp->update_cb = cfg->update_cb;
-    new_disp->user_data = cfg->user_data;
+    new_disp->flags.full_frame_buf = cfg->flags.full_frame_buf;
+    new_disp->cb.flush_cb = cfg->flush_cb;
+    new_disp->cb.update_cb = cfg->update_cb;
+    new_disp->cb.user_data = cfg->user_data;
     new_disp->child_list = NULL;
     new_disp->next = NULL;
 
-    new_disp->event_group = xEventGroupCreate();
-    if (new_disp->event_group == NULL) {
+    new_disp->sync.event_group = xEventGroupCreate();
+    if (new_disp->sync.event_group == NULL) {
         ESP_LOGE(TAG, "Failed to create disp event group");
         free(new_disp);
         return NULL;
     }
 
     if (cfg->buffers.buf1 != NULL) {
-        new_disp->buf1 = (uint16_t *)cfg->buffers.buf1;
-        new_disp->buf2 = (uint16_t *)cfg->buffers.buf2;
-        new_disp->buf_pixels = cfg->buffers.buf_pixels > 0 ? cfg->buffers.buf_pixels : new_disp->h_res * new_disp->v_res;
-        new_disp->ext_bufs = true;
-        new_disp->buf_act = new_disp->buf1;
-        new_disp->bg_color.full = 0x0000;
+        new_disp->buf.buf1 = (uint16_t *)cfg->buffers.buf1;
+        new_disp->buf.buf2 = (uint16_t *)cfg->buffers.buf2;
+        new_disp->buf.buf_pixels = cfg->buffers.buf_pixels > 0 ? cfg->buffers.buf_pixels : new_disp->res.h_res * new_disp->res.v_res;
+        new_disp->buf.ext_bufs = true;
+        new_disp->buf.buf_act = new_disp->buf.buf1;
+        new_disp->style.bg_color.full = 0x0000;
     } else {
         ret = gfx_disp_buf_init(new_disp, cfg);
         if (ret != ESP_OK) {
-            vEventGroupDelete(new_disp->event_group);
+            vEventGroupDelete(new_disp->sync.event_group);
             free(new_disp);
             return NULL;
         }
@@ -277,26 +278,26 @@ void gfx_disp_refresh_all(gfx_disp_t *disp)
     gfx_area_t full_screen;
     full_screen.x1 = 0;
     full_screen.y1 = 0;
-    full_screen.x2 = (int)disp->h_res - 1;
-    full_screen.y2 = (int)disp->v_res - 1;
+    full_screen.x2 = (int)disp->res.h_res - 1;
+    full_screen.y2 = (int)disp->res.v_res - 1;
     gfx_invalidate_area_disp(disp, &full_screen);
 }
 
 bool gfx_disp_flush_ready(gfx_disp_t *disp, bool swap_act_buf)
 {
-    if (disp == NULL || disp->event_group == NULL) {
+    if (disp == NULL || disp->sync.event_group == NULL) {
         return false;
     }
-    disp->swap_act_buf = swap_act_buf;
+    disp->render.swap_act_buf = swap_act_buf;
     if (xPortInIsrContext()) {
         BaseType_t pxHigherPriorityTaskWoken = pdFALSE;
-        bool result = xEventGroupSetBitsFromISR(disp->event_group, WAIT_FLUSH_DONE, &pxHigherPriorityTaskWoken);
+        bool result = xEventGroupSetBitsFromISR(disp->sync.event_group, WAIT_FLUSH_DONE, &pxHigherPriorityTaskWoken);
         if (pxHigherPriorityTaskWoken == pdTRUE) {
             portYIELD_FROM_ISR();
         }
         return result;
     }
-    return xEventGroupSetBits(disp->event_group, WAIT_FLUSH_DONE);
+    return xEventGroupSetBits(disp->sync.event_group, WAIT_FLUSH_DONE);
 }
 
 /* ============================================================================
@@ -309,7 +310,7 @@ void *gfx_disp_get_user_data(gfx_disp_t *disp)
         ESP_LOGE(TAG, "Invalid display");
         return NULL;
     }
-    return disp->user_data;
+    return disp->cb.user_data;
 }
 
 esp_err_t gfx_disp_get_size(gfx_disp_t *disp, uint32_t *width, uint32_t *height)
@@ -324,8 +325,8 @@ esp_err_t gfx_disp_get_size(gfx_disp_t *disp, uint32_t *width, uint32_t *height)
         ESP_LOGW(TAG, "disp is NULL, using default screen size");
         return ESP_OK;
     }
-    *width = disp->h_res;
-    *height = disp->v_res;
+    *width = disp->res.h_res;
+    *height = disp->res.v_res;
     return ESP_OK;
 }
 
@@ -335,7 +336,7 @@ esp_err_t gfx_disp_set_bg_color(gfx_disp_t *disp, gfx_color_t color)
         ESP_LOGE(TAG, "disp is NULL");
         return ESP_ERR_INVALID_ARG;
     }
-    disp->bg_color.full = color.full;
+    disp->style.bg_color.full = color.full;
     ESP_LOGD(TAG, "BG color: 0x%04X", color.full);
     return ESP_OK;
 }
@@ -345,5 +346,5 @@ bool gfx_disp_is_flushing_last(gfx_disp_t *disp)
     if (disp == NULL) {
         return false;
     }
-    return disp->flushing_last;
+    return disp->render.flushing_last;
 }

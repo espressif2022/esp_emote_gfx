@@ -14,6 +14,7 @@
 #include "common/gfx_comm.h"
 #include "core/gfx_blend_priv.h"
 #include "core/gfx_core_priv.h"
+#include "core/gfx_obj_priv.h"
 #include "core/gfx_refr_priv.h"
 
 #include "widget/gfx_label.h"
@@ -863,9 +864,9 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t *obj)
  * @param y2 Bottom boundary of destination area
  * @param dest_buf Destination buffer for blending
  */
-esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap)
+esp_err_t gfx_draw_label(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 {
-    if (!obj) {
+    if (!obj || !ctx) {
         ESP_LOGE(TAG, "invalid handle");
         return ESP_ERR_INVALID_ARG;
     }
@@ -876,11 +877,9 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
         return ESP_OK;
     }
 
-    /* Get parent dimensions and calculate aligned position */
     gfx_obj_calc_pos_in_parent(obj);
 
-    /* Calculate clipping area */
-    gfx_area_t render_area = {x1, y1, x2, y2};
+    gfx_area_t render_area = ctx->clip_area;
     gfx_area_t obj_area = {obj->geometry.x, obj->geometry.y, obj->geometry.x + obj->geometry.width, obj->geometry.y + obj->geometry.height};
     gfx_area_t clip_area;
 
@@ -889,18 +888,14 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
     }
 
     if (label->style.bg_enable) {
-        gfx_color_t *dest_pixels = (gfx_color_t *)dest_buf;
-        gfx_coord_t buffer_width = (x2 - x1);
         gfx_color_t bg_color = label->style.bg_color;
-
-        if (swap) {
+        if (ctx->swap) {
             bg_color.full = __builtin_bswap16(bg_color.full);
         }
-
         for (int y = clip_area.y1; y < clip_area.y2; y++) {
             for (int x = clip_area.x1; x < clip_area.x2; x++) {
-                int pixel_index = (y - y1) * buffer_width + (x - x1);
-                dest_pixels[pixel_index] = bg_color;
+                gfx_color_t *dest_pixels = GFX_DRAW_CTX_DEST_PTR(ctx, x, y);
+                *dest_pixels = bg_color;
             }
         }
     }
@@ -909,13 +904,7 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
         return ESP_OK;
     }
 
-    /* Calculate destination and mask buffer pointers with offset */
-    gfx_coord_t dest_stride = (x2 - x1);
-    gfx_color_t *dest_pixels = (gfx_color_t *)GFX_BUFFER_OFFSET_16BPP(dest_buf,
-                               clip_area.y1 - y1,
-                               dest_stride,
-                               clip_area.x1 - x1);
-
+    gfx_color_t *dest_pixels = GFX_DRAW_CTX_DEST_PTR(ctx, clip_area.x1, clip_area.y1);
     gfx_coord_t mask_stride = obj->geometry.width;
     gfx_opa_t *mask = (gfx_opa_t *)GFX_BUFFER_OFFSET_8BPP(label->render.mask,
                       clip_area.y1 - obj->geometry.y,
@@ -923,10 +912,10 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const v
                       clip_area.x1 - obj->geometry.x);
 
     gfx_color_t color = label->style.color;
-    if (swap) {
+    if (ctx->swap) {
         color.full = __builtin_bswap16(color.full);
     }
 
-    gfx_sw_blend_draw(dest_pixels, dest_stride, mask, mask_stride, &clip_area, color, label->style.opa, swap);
+    gfx_sw_blend_draw(dest_pixels, ctx->stride, mask, mask_stride, &clip_area, color, label->style.opa, ctx->swap);
     return ESP_OK;
 }

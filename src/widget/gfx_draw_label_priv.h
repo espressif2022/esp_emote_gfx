@@ -9,9 +9,8 @@
 #include "widget/gfx_label.h"
 #include "widget/gfx_font_priv.h"
 
-/**********************
- *      TYPEDEFS
- **********************/
+/* Forward declare draw context (full type in core/gfx_obj_priv.h) */
+typedef struct gfx_draw_ctx gfx_draw_ctx_t;
 /* Label context structure */
 typedef struct {
     /* Text properties */
@@ -81,5 +80,5 @@ void gfx_label_snap_timer_callback(void *arg);
 /* Function to get glphy dsc - implemented in gfx_draw_label.c */
 esp_err_t gfx_get_glphy_dsc(gfx_obj_t *obj);
 
-/* Function to draw label - implemented in gfx_draw_label.c */
-esp_err_t gfx_draw_label(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap);
+/* Function to draw label - implemented in gfx_draw_label.c (signature matches gfx_obj_draw_fn_t) */
+esp_err_t gfx_draw_label(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx);

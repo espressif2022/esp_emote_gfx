@@ -67,6 +67,26 @@ void gfx_sw_blend_fill(uint16_t *buf, uint16_t color, size_t pixels)
     }
 }
 
+/**
+ * @brief Fill a rectangle in dest buffer (dest_buf + stride + area; area x2,y2 exclusive)
+ */
+void gfx_sw_blend_fill_area(uint16_t *dest_buf, gfx_coord_t dest_stride,
+                            const gfx_area_t *area, uint16_t color)
+{
+    if (dest_buf == NULL || area == NULL) {
+        return;
+    }
+    int32_t w = area->x2 - area->x1;
+    int32_t h = area->y2 - area->y1;
+    if (w <= 0 || h <= 0) {
+        return;
+    }
+    for (int32_t y = area->y1; y < area->y2; y++) {
+        uint16_t *row = dest_buf + (size_t)y * dest_stride + area->x1;
+        gfx_sw_blend_fill(row, color, (size_t)w);
+    }
+}
+
 void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                        const gfx_opa_t *mask, gfx_coord_t mask_stride,
                        gfx_area_t *clip_area, gfx_color_t color, gfx_opa_t opa, bool swap)

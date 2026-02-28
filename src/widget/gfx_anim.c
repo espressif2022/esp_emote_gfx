@@ -13,6 +13,7 @@
 #include "esp_log.h"
 #include "esp_check.h"
 #include "common/gfx_comm.h"
+#include "core/gfx_obj_priv.h"
 #include "core/gfx_refr_priv.h"
 #include "widget/gfx_anim.h"
 #include "lib/eaf/gfx_eaf_dec.h"
@@ -113,7 +114,7 @@ static const char *TAG = "gfx_anim";
 /* Virtual functions */
 static esp_err_t gfx_anim_delete(gfx_obj_t *obj);
 static esp_err_t gfx_anim_update(gfx_obj_t *obj);
-static esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap);
+static esp_err_t gfx_draw_animation(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx);
 
 /* Frame management functions */
 static void free_frame_buffers(gfx_anim_frame_info_t *frame);
@@ -619,9 +620,9 @@ static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t d
 /**
  * @brief Virtual draw function for animation widget
  */
-static esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int y2, const void *dest_buf, bool swap)
+static esp_err_t gfx_draw_animation(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 {
-    if (obj == NULL || obj->src == NULL) {
+    if (obj == NULL || obj->src == NULL || ctx == NULL) {
         ESP_LOGE(TAG, "Invalid object or source");
         return ESP_ERR_INVALID_ARG;
     }
@@ -630,13 +631,11 @@ static esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int 
         return ESP_ERR_INVALID_ARG;
     }
 
-    /* Animation property and validation */
     gfx_anim_t *anim = (gfx_anim_t *)obj->src;
     if (anim->file_desc == NULL) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    /* Frame data validation */
     const void *frame_data = anim->frame.frame_data;
     if (frame_data == NULL) {
         return ESP_ERR_INVALID_STATE;
@@ -646,7 +645,6 @@ static esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int 
         return ESP_ERR_INVALID_STATE;
     }
 
-    /* Frame processing resources */
     const eaf_header_t *header = &anim->frame.header;
     uint8_t *pixel_buffer = anim->frame.pixel_buffer;
     uint32_t *block_offsets = anim->frame.block_offsets;
@@ -657,17 +655,14 @@ static esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int 
         return ESP_ERR_INVALID_STATE;
     }
 
-    /* Frame dimensions */
     int frame_width = header->width;
     int frame_height = header->height;
     int block_height = header->block_height;
     int num_blocks = header->blocks;
 
-    /* Get parent dimensions and calculate aligned position */
     gfx_obj_calc_pos_in_parent(obj);
 
-    /* Calculate clipping area for object */
-    gfx_area_t render_area = {x1, y1, x2, y2};
+    gfx_area_t render_area = ctx->clip_area;
     gfx_area_t obj_area = {obj->geometry.x, obj->geometry.y, obj->geometry.x + obj->geometry.width, obj->geometry.y + obj->geometry.height};
     gfx_area_t clip_area;
 
@@ -675,21 +670,17 @@ static esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int 
         return ESP_OK;
     }
 
-    /* Process animation blocks */
     for (int block_idx = 0; block_idx < num_blocks; block_idx++) {
-        /* Calculate block boundaries in frame coordinates */
         int block_start_y = block_idx * block_height;
         int block_end_y = (block_idx == num_blocks - 1) ? frame_height : (block_idx + 1) * block_height;
         int block_start_x = 0;
         int block_end_x = frame_width;
 
-        /* Translate to screen coordinates */
         block_start_y += obj->geometry.y;
         block_end_y += obj->geometry.y;
         block_start_x += obj->geometry.x;
         block_end_x += obj->geometry.x;
 
-        /* Calculate clipping area for this block */
         gfx_area_t block_area = {block_start_x, block_start_y, block_end_x, block_end_y};
         gfx_area_t clip_block;
 
@@ -697,7 +688,6 @@ static esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int 
             continue;
         }
 
-        /* Calculate source buffer offset */
         int src_offset_x = clip_block.x1 - block_start_x;
         int src_offset_y = clip_block.y1 - block_start_y;
 
@@ -706,20 +696,17 @@ static esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int 
             continue;
         }
 
-        /* Decode block if needed */
         if (block_idx != *last_block_idx) {
             const uint8_t *block_data = (const uint8_t *)frame_data + block_offsets[block_idx];
             int block_len = header->block_len[block_idx];
 
-            esp_err_t decode_result = eaf_decode_block(header, block_data, block_len, pixel_buffer, swap);
+            esp_err_t decode_result = eaf_decode_block(header, block_data, block_len, pixel_buffer, ctx->swap);
             if (decode_result != ESP_OK) {
                 continue;
             }
             *last_block_idx = block_idx;
         }
 
-        /* Calculate buffer strides */
-        gfx_coord_t dest_stride = (x2 - x1);
         gfx_coord_t src_stride = frame_width;
 
         /* Calculate source pixel pointer based on bit depth */
@@ -747,18 +734,15 @@ static esp_err_t gfx_draw_animation(gfx_obj_t *obj, int x1, int y1, int x2, int 
             return ESP_ERR_INVALID_ARG;
         }
 
-        /* Calculate destination pixel pointer */
-        int dest_x_offset = clip_block.x1 - x1;
-        gfx_color_t *dest_pixels = (gfx_color_t *)GFX_BUFFER_OFFSET_16BPP(dest_buf,
-                                   clip_block.y1 - y1,
-                                   dest_stride,
-                                   clip_block.x1 - x1);
+        /* Dest pointer from draw context */
+        gfx_color_t *dest_pixels = GFX_DRAW_CTX_DEST_PTR(ctx, clip_block.x1, clip_block.y1);
+        int dest_x_offset = clip_block.x1 - ctx->buf_area.x1;
 
         /* Render pixels */
         esp_err_t render_result = gfx_anim_render_pixels(
                                       header->bit_depth,
                                       dest_pixels,
-                                      dest_stride,
+                                      ctx->stride,
                                       src_pixels,
                                       src_stride,
                                       header, palette_cache,
@@ -833,23 +817,23 @@ static void gfx_anim_timer_callback(void *arg)
     if (anim->current_frame >= anim->end_frame) {
         if (anim->repeat) {
             ESP_LOGD(TAG, "Repeat");
-            if (obj->disp && obj->disp->update_cb) {
-                obj->disp->update_cb(obj->disp, GFX_DISP_EVENT_ALL_FRAME_DONE, obj);
+            if (obj->disp && obj->disp->cb.update_cb) {
+                obj->disp->cb.update_cb(obj->disp, GFX_DISP_EVENT_ALL_FRAME_DONE, obj);
             }
             anim->current_frame = anim->start_frame;
         } else {
             ESP_LOGD(TAG, "Done");
             anim->is_playing = false;
-            if (obj->disp && obj->disp->update_cb) {
-                obj->disp->update_cb(obj->disp, GFX_DISP_EVENT_ALL_FRAME_DONE, obj);
+            if (obj->disp && obj->disp->cb.update_cb) {
+                obj->disp->cb.update_cb(obj->disp, GFX_DISP_EVENT_ALL_FRAME_DONE, obj);
             }
             return;
         }
     } else {
         gfx_anim_prepare_frame(obj);
         anim->current_frame++;
-        if (obj->disp && obj->disp->update_cb) {
-            obj->disp->update_cb(obj->disp, GFX_DISP_EVENT_ONE_FRAME_DONE, obj);
+        if (obj->disp && obj->disp->cb.update_cb) {
+            obj->disp->cb.update_cb(obj->disp, GFX_DISP_EVENT_ONE_FRAME_DONE, obj);
         }
         ESP_LOGD(TAG, "Frame %" PRIu32 "/%" PRIu32, anim->current_frame, anim->end_frame);
     }
