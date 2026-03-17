@@ -12,6 +12,8 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
+#define GFX_LOG_MODULE GFX_LOG_MODULE_EAF_DEC
+#include "common/gfx_log.h"
 
 #include "gfx_eaf_dec.h"
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
@@ -141,7 +143,7 @@ static esp_err_t eaf_huffman_decode_data(const uint8_t *encoded_data, size_t enc
         }
 
         if (current_node == NULL) {
-            ESP_LOGE(TAG, "Invalid Huffman path at bit %d", (int)bit_index);
+            GFX_LOGE(TAG, "Invalid Huffman path at bit %d", (int)bit_index);
             break;
         }
 
@@ -159,19 +161,19 @@ static esp_err_t eaf_huffman_decode_data(const uint8_t *encoded_data, size_t enc
 eaf_format_type_t eaf_probe_frame_info(eaf_format_handle_t handle, int frame_index)
 {
     if (!handle) {
-        ESP_LOGE(TAG, "Invalid handle");
+        GFX_LOGE(TAG, "Invalid handle");
         return EAF_FORMAT_INVALID;
     }
 
     const uint8_t *file_data = eaf_get_frame_data(handle, frame_index);
     if (!file_data) {
-        ESP_LOGE(TAG, "Frame %d data unavailable", frame_index);
+        GFX_LOGE(TAG, "Frame %d data unavailable", frame_index);
         return EAF_FORMAT_INVALID;
     }
 
     size_t file_size = eaf_get_frame_size(handle, frame_index);
     if (file_size <= 0) {
-        ESP_LOGE(TAG, "Frame %d invalid size", frame_index);
+        GFX_LOGE(TAG, "Frame %d invalid size", frame_index);
         return EAF_FORMAT_INVALID;
     }
     eaf_header_t header;
@@ -187,7 +189,7 @@ eaf_format_type_t eaf_probe_frame_info(eaf_format_handle_t handle, int frame_ind
         header.bit_depth = file_data[9];
 
         if (header.bit_depth != 4 && header.bit_depth != 8 && header.bit_depth != 24) {
-            ESP_LOGE(TAG, "Invalid bit depth: %d", header.bit_depth);
+            GFX_LOGE(TAG, "Invalid bit depth: %d", header.bit_depth);
             return EAF_FORMAT_INVALID;
         }
 
@@ -211,19 +213,19 @@ eaf_format_type_t eaf_probe_frame_info(eaf_format_handle_t handle, int frame_ind
 eaf_format_type_t eaf_get_frame_info(eaf_format_handle_t handle, int frame_index, eaf_header_t *frame_info)
 {
     if (!handle) {
-        ESP_LOGE(TAG, "Invalid handle");
+        GFX_LOGE(TAG, "Invalid handle");
         return EAF_FORMAT_INVALID;
     }
 
     const uint8_t *file_data = eaf_get_frame_data(handle, frame_index);
     if (!file_data) {
-        ESP_LOGE(TAG, "Frame %d data unavailable", frame_index);
+        GFX_LOGE(TAG, "Frame %d data unavailable", frame_index);
         return EAF_FORMAT_INVALID;
     }
 
     size_t file_size = eaf_get_frame_size(handle, frame_index);
     if (file_size <= 0) {
-        ESP_LOGE(TAG, "Frame %d invalid size", frame_index);
+        GFX_LOGE(TAG, "Frame %d invalid size", frame_index);
         return EAF_FORMAT_INVALID;
     }
 
@@ -238,7 +240,7 @@ eaf_format_type_t eaf_get_frame_info(eaf_format_handle_t handle, int frame_index
         frame_info->bit_depth = file_data[9];
 
         if (frame_info->bit_depth != 4 && frame_info->bit_depth != 8 && frame_info->bit_depth != 24) {
-            ESP_LOGE(TAG, "Invalid bit depth: %d", frame_info->bit_depth);
+            GFX_LOGE(TAG, "Invalid bit depth: %d", frame_info->bit_depth);
             return EAF_FORMAT_INVALID;
         }
 
@@ -249,7 +251,7 @@ eaf_format_type_t eaf_get_frame_info(eaf_format_handle_t handle, int frame_index
 
         frame_info->block_len = (uint32_t *)malloc(frame_info->blocks * sizeof(uint32_t));
         if (frame_info->block_len == NULL) {
-            ESP_LOGE(TAG, "No mem for block_len");
+            GFX_LOGE(TAG, "No mem for block_len");
             return EAF_FORMAT_INVALID;
         }
 
@@ -265,7 +267,7 @@ eaf_format_type_t eaf_get_frame_info(eaf_format_handle_t handle, int frame_index
         } else {
             frame_info->palette = (uint8_t *)malloc(frame_info->num_colors * 4);
             if (frame_info->palette == NULL) {
-                ESP_LOGE(TAG, "No mem for palette");
+                GFX_LOGE(TAG, "No mem for palette");
                 free(frame_info->block_len);
                 frame_info->block_len = NULL;
                 return EAF_FORMAT_INVALID;
@@ -279,7 +281,7 @@ eaf_format_type_t eaf_get_frame_info(eaf_format_handle_t handle, int frame_index
     } else if (strncmp(frame_info->format, "_C", 2) == 0) {
         return EAF_FORMAT_FLAG;
     } else {
-        ESP_LOGE(TAG, "Invalid format: %s", frame_info->format);
+        GFX_LOGE(TAG, "Invalid format: %s", frame_info->format);
         return EAF_FORMAT_INVALID;
     }
 }
@@ -331,14 +333,14 @@ static esp_err_t eaf_decode_huffman_rle(const uint8_t *input_data, size_t input_
                                         bool swap_color)
 {
     if (out_size == NULL || *out_size == 0) {
-        ESP_LOGE(TAG, "Output size is invalid");
+        GFX_LOGE(TAG, "Output size is invalid");
         return ESP_FAIL;
     }
 
     size_t huffman_cap = *out_size * 2;
     uint8_t *huffman_buffer = malloc(huffman_cap);
     if (huffman_buffer == NULL) {
-        ESP_LOGE(TAG, "No mem for Huffman buffer");
+        GFX_LOGE(TAG, "No mem for Huffman buffer");
         return ESP_FAIL;
     }
 
@@ -355,12 +357,12 @@ static esp_err_t eaf_decode_huffman_rle(const uint8_t *input_data, size_t input_
 static esp_err_t eaf_register_decoder(eaf_encoding_type_t type, eaf_block_decoder_cb_t decoder)
 {
     if (type >= EAF_ENCODING_MAX) {
-        ESP_LOGE(TAG, "Invalid encoding type: %d", type);
+        GFX_LOGE(TAG, "Invalid encoding type: %d", type);
         return ESP_ERR_INVALID_ARG;
     }
 
     if (s_eaf_decoders[type] != NULL) {
-        ESP_LOGW(TAG, "Decoder already registered for type: %d", type);
+        GFX_LOGW(TAG, "Decoder already registered for type: %d", type);
     }
 
     s_eaf_decoders[type] = decoder;
@@ -395,13 +397,13 @@ esp_err_t eaf_decode_block(const eaf_header_t *header, const uint8_t *block_data
     esp_err_t decode_result = ESP_FAIL;
 
     if (encoding_type >= sizeof(s_eaf_decoders) / sizeof(s_eaf_decoders[0])) {
-        ESP_LOGE(TAG, "Unknown encoding type: %02X", encoding_type);
+        GFX_LOGE(TAG, "Unknown encoding type: %02X", encoding_type);
         return ESP_FAIL;
     }
 
     eaf_block_decoder_cb_t decoder = s_eaf_decoders[encoding_type];
     if (!decoder) {
-        ESP_LOGE(TAG, "No decoder for encoding type: %02X", encoding_type);
+        GFX_LOGE(TAG, "No decoder for encoding type: %02X", encoding_type);
         return ESP_FAIL;
     }
 
@@ -439,7 +441,7 @@ esp_err_t eaf_decode_rle(const uint8_t *input_data, size_t input_size,
         uint8_t repeat_value = input_data[in_pos++];
 
         if (out_pos + repeat_count > *out_size) {
-            ESP_LOGE(TAG, "Decompressed buffer overflow, %d > %d", out_pos + repeat_count, *out_size);
+            GFX_LOGE(TAG, "Decompressed buffer overflow, %d > %d", out_pos + repeat_count, *out_size);
             return ESP_FAIL;
         }
 
@@ -467,12 +469,12 @@ esp_err_t eaf_decode_raw(const uint8_t *input_data, size_t input_size,
     (void)swap_color;
 
     if (!input_data || !output_buffer || !out_size) {
-        ESP_LOGE(TAG, "Invalid parameters");
+        GFX_LOGE(TAG, "Invalid parameters");
         return ESP_FAIL;
     }
 
     if (*out_size < input_size) {
-        ESP_LOGE(TAG, "Output buffer too small: need %zu, got %zu", input_size, *out_size);
+        GFX_LOGE(TAG, "Output buffer too small: need %zu, got %zu", input_size, *out_size);
         return ESP_ERR_INVALID_SIZE;
     }
 
@@ -491,7 +493,7 @@ esp_err_t eaf_decode_heatshrink(const uint8_t *input_data, size_t input_size,
     (void)swap_color;
 
     if (!input_data || !output_buffer || !out_size) {
-        ESP_LOGE(TAG, "Invalid parameters");
+        GFX_LOGE(TAG, "Invalid parameters");
         return ESP_FAIL;
     }
 
@@ -503,7 +505,7 @@ esp_err_t eaf_decode_heatshrink(const uint8_t *input_data, size_t input_size,
 #if CONFIG_HEATSHRINK_DYNAMIC_ALLOC
     heatshrink_decoder *hsd = heatshrink_decoder_alloc(32, 8, 4);
     if (!hsd) {
-        ESP_LOGE(TAG, "No mem for heatshrink decoder");
+        GFX_LOGE(TAG, "No mem for heatshrink decoder");
         return ESP_ERR_NO_MEM;
     }
 #else
@@ -520,7 +522,7 @@ esp_err_t eaf_decode_heatshrink(const uint8_t *input_data, size_t input_size,
         HSD_sink_res sres = heatshrink_decoder_sink(hsd, (uint8_t *)(input_data + in_pos),
                             input_size - in_pos, &sunk);
         if (sres < 0) {
-            ESP_LOGE(TAG, "Heatshrink sink error: %d", sres);
+            GFX_LOGE(TAG, "Heatshrink sink error: %d", sres);
             goto hs_fail;
         }
         in_pos += sunk;
@@ -529,12 +531,12 @@ esp_err_t eaf_decode_heatshrink(const uint8_t *input_data, size_t input_size,
             size_t produced = 0;
             size_t remain = out_capacity - out_pos;
             if (remain == 0) {
-                ESP_LOGE(TAG, "Heatshrink output overflow");
+                GFX_LOGE(TAG, "Heatshrink output overflow");
                 goto hs_fail;
             }
             HSD_poll_res press = heatshrink_decoder_poll(hsd, output_buffer + out_pos, remain, &produced);
             if (press < 0) {
-                ESP_LOGE(TAG, "Heatshrink poll error: %d", press);
+                GFX_LOGE(TAG, "Heatshrink poll error: %d", press);
                 goto hs_fail;
             }
             out_pos += produced;
@@ -547,7 +549,7 @@ esp_err_t eaf_decode_heatshrink(const uint8_t *input_data, size_t input_size,
     while (true) {
         HSD_finish_res fres = heatshrink_decoder_finish(hsd);
         if (fres < 0) {
-            ESP_LOGE(TAG, "Heatshrink finish error: %d", fres);
+            GFX_LOGE(TAG, "Heatshrink finish error: %d", fres);
             goto hs_fail;
         }
 
@@ -555,12 +557,12 @@ esp_err_t eaf_decode_heatshrink(const uint8_t *input_data, size_t input_size,
             size_t produced = 0;
             size_t remain = out_capacity - out_pos;
             if (remain == 0) {
-                ESP_LOGE(TAG, "Heatshrink output overflow");
+                GFX_LOGE(TAG, "Heatshrink output overflow");
                 goto hs_fail;
             }
             HSD_poll_res press = heatshrink_decoder_poll(hsd, output_buffer + out_pos, remain, &produced);
             if (press < 0) {
-                ESP_LOGE(TAG, "Heatshrink poll error: %d", press);
+                GFX_LOGE(TAG, "Heatshrink poll error: %d", press);
                 goto hs_fail;
             }
             out_pos += produced;
@@ -657,13 +659,13 @@ esp_err_t eaf_decode_huffman(const uint8_t *input_data, size_t input_size,
     size_t decoded_size = *out_size;
 
     if (!input_data || input_size < 3 || !output_buffer) {
-        ESP_LOGE(TAG, "Invalid parameters");
+        GFX_LOGE(TAG, "Invalid parameters");
         return ESP_FAIL;
     }
 
     uint16_t dict_size = (input_data[1] << 8) | input_data[0];
     if (input_size < 2 + dict_size) {
-        ESP_LOGE(TAG, "Compressed data too short for dictionary");
+        GFX_LOGE(TAG, "Compressed data too short for dictionary");
         return ESP_FAIL;
     }
 
@@ -703,12 +705,12 @@ esp_err_t eaf_decode_huffman(const uint8_t *input_data, size_t input_size,
     }
 
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Huffman decoding failed: %d", ret);
+        GFX_LOGE(TAG, "Huffman decoding failed: %d", ret);
         return ESP_FAIL;
     }
 
     if (decoded_size > *out_size) {
-        ESP_LOGE(TAG, "Decoded data too large: %d > %d", decoded_size, *out_size);
+        GFX_LOGE(TAG, "Decoded data too large: %d > %d", decoded_size, *out_size);
         return ESP_FAIL;
     }
     *out_size = decoded_size;
@@ -727,7 +729,7 @@ esp_err_t eaf_init(const uint8_t *data, size_t data_len, eaf_format_handle_t *re
     if (!decoders_initialized) {
         esp_err_t ret = eaf_init_decoders();
         if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Decoder init failed");
+            GFX_LOGE(TAG, "Decoder init failed");
             return ret;
         }
         decoders_initialized = true;
@@ -801,7 +803,7 @@ esp_err_t eaf_deinit(eaf_format_handle_t handle)
 int eaf_get_total_frames(eaf_format_handle_t handle)
 {
     if (handle == NULL) {
-        ESP_LOGE(TAG, "Handle is invalid");
+        GFX_LOGE(TAG, "Handle is invalid");
         return -1;
     }
 
@@ -812,7 +814,7 @@ int eaf_get_total_frames(eaf_format_handle_t handle)
 const uint8_t *eaf_get_frame_data(eaf_format_handle_t handle, int index)
 {
     if (handle == NULL) {
-        ESP_LOGE(TAG, "Handle is invalid");
+        GFX_LOGE(TAG, "Handle is invalid");
         return NULL;
     }
 
@@ -821,7 +823,7 @@ const uint8_t *eaf_get_frame_data(eaf_format_handle_t handle, int index)
     if (parser->total_frames > index) {
         return (const uint8_t *)((parser->entries + index)->frame_mem + EAF_MAGIC_LEN);
     } else {
-        ESP_LOGE(TAG, "Invalid index: %d. Maximum index is %d.", index, parser->total_frames);
+        GFX_LOGE(TAG, "Invalid index: %d. Maximum index is %d.", index, parser->total_frames);
         return NULL;
     }
 }
@@ -829,7 +831,7 @@ const uint8_t *eaf_get_frame_data(eaf_format_handle_t handle, int index)
 int eaf_get_frame_size(eaf_format_handle_t handle, int index)
 {
     if (handle == NULL) {
-        ESP_LOGE(TAG, "Handle is invalid");
+        GFX_LOGE(TAG, "Handle is invalid");
         return -1;
     }
 
@@ -838,7 +840,7 @@ int eaf_get_frame_size(eaf_format_handle_t handle, int index)
     if (parser->total_frames > index) {
         return ((parser->entries + index)->table->frame_size - EAF_MAGIC_LEN);
     } else {
-        ESP_LOGE(TAG, "Invalid index: %d. Maximum index is %d.", index, parser->total_frames);
+        GFX_LOGE(TAG, "Invalid index: %d. Maximum index is %d.", index, parser->total_frames);
         return -1;
     }
 }
@@ -853,14 +855,14 @@ esp_err_t eaf_frame_decode(eaf_format_handle_t handle, int frame_index,
 
     const uint8_t *frame_data = eaf_get_frame_data(handle, frame_index);
     if (!frame_data) {
-        ESP_LOGE(TAG, "Frame %d data unavailable", frame_index);
+        GFX_LOGE(TAG, "Frame %d data unavailable", frame_index);
         return ESP_FAIL;
     }
 
     eaf_header_t frame_header;
     eaf_format_type_t format = eaf_get_frame_info(handle, frame_index, &frame_header);
     if (format != EAF_FORMAT_VALID) {
-        ESP_LOGE(TAG, "Frame %d header parse failed", frame_index);
+        GFX_LOGE(TAG, "Frame %d header parse failed", frame_index);
         return ESP_FAIL;
     }
 
@@ -874,7 +876,7 @@ esp_err_t eaf_frame_decode(eaf_format_handle_t handle, int frame_index,
 
     uint32_t *offsets = (uint32_t *)malloc(frame_header.blocks * sizeof(uint32_t));
     if (offsets == NULL) {
-        ESP_LOGE(TAG, "No mem for block offsets");
+        GFX_LOGE(TAG, "No mem for block offsets");
         eaf_free_header(&frame_header);
         return ESP_ERR_NO_MEM;
     }
@@ -882,7 +884,7 @@ esp_err_t eaf_frame_decode(eaf_format_handle_t handle, int frame_index,
 
     uint8_t *compressed_buffer = malloc(block_size);
     if (!compressed_buffer) {
-        ESP_LOGE(TAG, "No mem for compressed buffer");
+        GFX_LOGE(TAG, "No mem for compressed buffer");
         free(offsets);
         eaf_free_header(&frame_header);
         return ESP_ERR_NO_MEM;
@@ -897,7 +899,7 @@ esp_err_t eaf_frame_decode(eaf_format_handle_t handle, int frame_index,
         esp_err_t ret = eaf_decode_block(&frame_header, block_data, block_len, compressed_buffer, swap_bytes);
 
         if (ret != ESP_OK) {
-            ESP_LOGD(TAG, "Block %d decode failed", block);
+            GFX_LOGD(TAG, "Block %d decode failed", block);
             continue;
         }
 
@@ -927,7 +929,7 @@ esp_err_t eaf_frame_decode(eaf_format_handle_t handle, int frame_index,
                 block_buffer[i] = color;
             }
         } else if (bit_depth == 4) {
-            ESP_LOGW(TAG, "4-bit depth not supported");
+            GFX_LOGW(TAG, "4-bit depth not supported");
         } else if (bit_depth == 24) {
             memcpy(block_buffer, compressed_buffer, valid_size);
         }

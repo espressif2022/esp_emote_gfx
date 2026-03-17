@@ -11,6 +11,8 @@
 #include <inttypes.h>
 
 #include "esp_log.h"
+#define GFX_LOG_MODULE GFX_LOG_MODULE_RENDER
+#include "common/gfx_log.h"
 
 #include "core/gfx_render_priv.h"
 #include "core/gfx_refr_priv.h"
@@ -143,7 +145,7 @@ uint32_t gfx_render_area_summary(gfx_disp_t *disp)
         gfx_area_t *area = &disp->dirty.areas[i];
         uint32_t area_size = gfx_area_get_size(area);
         total_dirty_pixels += area_size;
-        ESP_LOGD(TAG, "Draw area [%d]: (%d,%d)->(%d,%d) %dx%d",
+        GFX_LOGD(TAG, "Draw area [%d]: (%d,%d)->(%d,%d) %dx%d",
                  i, area->x1, area->y1, area->x2, area->y2,
                  area->x2 - area->x1 + 1, area->y2 - area->y1 + 1);
     }
@@ -158,7 +160,7 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
     }
 
     if (area->x2 < area->x1 || area->y2 < area->y1) {
-        ESP_LOGE(TAG, "Area[%d] invalid bounds (%d,%d)-(%d,%d)", area_idx,
+        GFX_LOGE(TAG, "Area[%d] invalid bounds (%d,%d)-(%d,%d)", area_idx,
                  area->x1, area->y1, area->x2, area->y2);
         return;
     }
@@ -166,13 +168,13 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
     uint32_t area_w = (uint32_t)(area->x2 - area->x1 + 1);
     uint32_t row_h = disp->buf.buf_pixels / area_w;
     if (row_h == 0) {
-        ESP_LOGE(TAG, "Area[%d] width %" PRIu32 " exceeds buffer, skip", area_idx, area_w);
+        GFX_LOGE(TAG, "Area[%d] width %" PRIu32 " exceeds buffer, skip", area_idx, area_w);
         return;
     }
 
     gfx_disp_flush_cb_t flush_cb = disp->cb.flush_cb;
     if (flush_cb != NULL && disp->sync.event_group == NULL) {
-        ESP_LOGE(TAG, "Area[%d] flush_cb set but event_group NULL", area_idx);
+        GFX_LOGE(TAG, "Area[%d] flush_cb set but event_group NULL", area_idx);
         return;
     }
 
@@ -234,7 +236,7 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
             bool is_last_chunk = (chunk_y2 >= area->y2 + 1);
             disp->render.flushing_last = is_last_chunk && is_last_area;
 
-            ESP_LOGD(TAG, "Flush: (%d,%d)-(%d,%d) %" PRIu32 " px%s",
+            GFX_LOGD(TAG, "Flush: (%d,%d)-(%d,%d) %" PRIu32 " px%s",
                      chunk_x1, chunk_y1, chunk_x2 - 1, chunk_y2 - 1, chunk_px,
                      disp->render.flushing_last ? " (last)" : "");
 
@@ -348,7 +350,7 @@ bool gfx_render_handler(gfx_core_context_t *ctx)
             did_render = true;
             uint32_t screen_px = disp->res.h_res * disp->res.v_res;
             float dirty_pct = (dirty_px * 100.0f) / (float)screen_px;
-            ESP_LOGD(TAG, "Rendered %" PRIu32 " px (%.1f%%)", dirty_px, dirty_pct);
+            GFX_LOGD(TAG, "Rendered %" PRIu32 " px (%.1f%%)", dirty_px, dirty_pct);
         }
 
         gfx_render_cleanup(disp);

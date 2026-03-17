@@ -11,59 +11,64 @@
 
 static const char *TAG = "test_timer";
 
-static void test_timer_function(void)
+static void test_timer_run(void)
 {
-    ESP_LOGI(TAG, "=== Testing Timer Function ===");
+    test_app_log_case(TAG, "Timer API Demo");
 
-    gfx_emote_lock(emote_handle);
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_timer_handle_t timer = gfx_timer_create(emote_handle, clock_tm_callback, 1000, NULL);
     TEST_ASSERT_NOT_NULL(timer);
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
 
-    vTaskDelay(pdMS_TO_TICKS(3000));
+    test_app_wait_ms(3000);
 
-    gfx_emote_lock(emote_handle);
+    test_app_log_step(TAG, "Set period to 500 ms");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_timer_set_period(timer, 500);
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
 
-    vTaskDelay(pdMS_TO_TICKS(3000));
+    test_app_wait_ms(3000);
 
-    gfx_emote_lock(emote_handle);
+    test_app_log_step(TAG, "Set repeat count");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_timer_set_repeat_count(timer, 5);
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
 
-    vTaskDelay(pdMS_TO_TICKS(3000));
+    test_app_wait_ms(3000);
 
-    gfx_emote_lock(emote_handle);
+    test_app_log_step(TAG, "Pause timer");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_timer_pause(timer);
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
 
-    vTaskDelay(pdMS_TO_TICKS(3000));
+    test_app_wait_ms(3000);
 
-    gfx_emote_lock(emote_handle);
+    test_app_log_step(TAG, "Resume timer");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_timer_resume(timer);
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
 
-    vTaskDelay(pdMS_TO_TICKS(3000));
+    test_app_wait_ms(3000);
 
-    gfx_emote_lock(emote_handle);
+    test_app_log_step(TAG, "Reset timer");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_timer_reset(timer);
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
 
-    vTaskDelay(pdMS_TO_TICKS(3000));
+    test_app_wait_ms(3000);
 
-    gfx_emote_lock(emote_handle);
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_timer_delete(emote_handle, timer);
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
 }
 
-TEST_CASE("test function obj timer", "")
+TEST_CASE("gfx demo: timer api", "[demo][timer]")
 {
-    mmap_assets_handle_t assets_handle = NULL;
-    esp_err_t ret = display_and_graphics_init("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
+    test_app_runtime_t runtime;
+    esp_err_t ret = test_app_runtime_open(&runtime);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
 
-    test_timer_function();
+    test_timer_run();
 
-    display_and_graphics_clean(assets_handle);
+    test_app_runtime_close(&runtime);
 }

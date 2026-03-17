@@ -10,6 +10,8 @@
 #include "esp_timer.h"
 #include "esp_err.h"
 #include "esp_log.h"
+#define GFX_LOG_MODULE GFX_LOG_MODULE_TIMER
+#include "common/gfx_log.h"
 
 #include "core/gfx_core_priv.h"
 
@@ -64,7 +66,7 @@ uint32_t gfx_timer_tick_elaps(uint32_t prev_tick)
 bool gfx_timer_exec(gfx_timer_t *timer)
 {
     if (timer == NULL || timer->paused) {
-        ESP_LOGD(TAG, "timer is NULL or paused");
+        GFX_LOGD(TAG, "timer is NULL or paused");
         return false;
     }
 
@@ -170,7 +172,7 @@ gfx_timer_handle_t gfx_timer_create(void *handle, gfx_timer_cb_t timer_cb, uint3
 
     gfx_timer_t *new_timer = (gfx_timer_t *)malloc(sizeof(gfx_timer_t));
     if (new_timer == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate timer");
+        GFX_LOGE(TAG, "Failed to allocate timer");
         return NULL;
     }
 
@@ -221,7 +223,7 @@ void gfx_timer_delete(void *handle, gfx_timer_handle_t timer_handle)
         }
 
         free(timer);
-        ESP_LOGD(TAG, "Deleted timer");
+        GFX_LOGD(TAG, "Deleted timer");
     }
 }
 
@@ -287,7 +289,7 @@ void gfx_timer_mgr_init(gfx_timer_mgr_t *timer_mgr, uint32_t fps)
         timer_mgr->last_tick = 0;
         timer_mgr->fps = fps;
         timer_mgr->actual_fps = 0;
-        ESP_LOGI(TAG, "Timer manager initialized with FPS: %"PRIu32" (period: %"PRIu32" ms)", fps, (fps > 0) ? (1000 / fps) : 30);
+        GFX_LOGI(TAG, "Timer manager initialized with FPS: %"PRIu32" (period: %"PRIu32" ms)", fps, (fps > 0) ? (1000 / fps) : 30);
     }
 }
 

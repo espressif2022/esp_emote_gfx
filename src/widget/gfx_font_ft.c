@@ -16,6 +16,8 @@
 #include <stddef.h>
 #include "esp_log.h"
 #include "esp_check.h"
+#define GFX_LOG_MODULE GFX_LOG_MODULE_FONT_FT
+#include "common/gfx_log.h"
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
@@ -73,7 +75,7 @@ static esp_err_t gfx_font_ft_lib_create_internal(void)
 
     error = FT_Init_FreeType(&s_library);
     if (error) {
-        ESP_LOGE(TAG, "error initializing FT library: %d", error);
+        GFX_LOGE(TAG, "error initializing FT library: %d", error);
         free(lib);
         return ESP_ERR_INVALID_STATE;
     }

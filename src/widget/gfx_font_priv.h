@@ -29,7 +29,7 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
-typedef struct _gfx_font_ctx_t gfx_font_ctx_t;
+typedef struct _gfx_font_adapter_t gfx_font_adapter_t;
 
 typedef struct {
     uint32_t bitmap_index;      /**< Start index of the bitmap */
@@ -40,20 +40,23 @@ typedef struct {
     int16_t ofs_y;              /**< Y offset of the bounding box */
 } gfx_glyph_dsc_t;
 
-typedef struct _gfx_font_ctx_t {
+typedef struct _gfx_font_adapter_t {
     void *font;
+    void *glyph_cache;
 
-    bool (*get_glyph_dsc)(struct _gfx_font_ctx_t *font, void *glyph_dsc, uint32_t unicode, uint32_t unicode_next);
-    const uint8_t *(*get_glyph_bitmap)(struct _gfx_font_ctx_t *font, uint32_t unicode, void *glyph_dsc);
-    int (*get_glyph_width)(struct _gfx_font_ctx_t *font, uint32_t unicode);
-    int (*get_line_height)(struct _gfx_font_ctx_t *font);
-    int (*get_base_line)(struct _gfx_font_ctx_t *font);
-    uint8_t (*get_pixel_value)(struct _gfx_font_ctx_t *font, const uint8_t *bitmap, int32_t x, int32_t y, int32_t box_w);
-    int (*adjust_baseline_offset)(struct _gfx_font_ctx_t *font, void *glyph_dsc);
-    int (*get_advance_width)(struct _gfx_font_ctx_t *font, void *glyph_dsc);
-} gfx_font_ctx_t;
+    bool (*get_glyph_dsc)(struct _gfx_font_adapter_t *font, void *glyph_dsc, uint32_t unicode, uint32_t unicode_next);
+    const uint8_t *(*get_glyph_bitmap)(struct _gfx_font_adapter_t *font, uint32_t unicode, void *glyph_dsc);
+    int (*get_glyph_width)(struct _gfx_font_adapter_t *font, uint32_t unicode);
+    int (*get_line_height)(struct _gfx_font_adapter_t *font);
+    int (*get_base_line)(struct _gfx_font_adapter_t *font);
+    uint8_t (*get_pixel_value)(struct _gfx_font_adapter_t *font, const uint8_t *bitmap, int32_t x, int32_t y, int32_t box_w);
+    int (*adjust_baseline_offset)(struct _gfx_font_adapter_t *font, void *glyph_dsc);
+    int (*get_advance_width)(struct _gfx_font_adapter_t *font, void *glyph_dsc);
+} gfx_font_adapter_t;
 
-typedef gfx_font_ctx_t *gfx_font_handle_t;
+typedef gfx_font_adapter_t gfx_font_ctx_t;
+
+typedef gfx_font_adapter_t *gfx_font_handle_t;
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
 typedef void *gfx_ft_handle_t;

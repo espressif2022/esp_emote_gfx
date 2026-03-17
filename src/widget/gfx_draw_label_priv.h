@@ -14,7 +14,6 @@
  **********************/
 
 typedef struct gfx_draw_ctx gfx_draw_ctx_t;
-
 typedef struct {
     struct {
         char *text;                      /**< Text string */
@@ -32,19 +31,14 @@ typedef struct {
     } style;
 
     struct {
-        gfx_font_ctx_t *font_ctx;       /**< Unified font context */
+        gfx_font_handle_t handle;       /**< Internal font adapter handle */
     } font;
 
     struct {
         gfx_opa_t *mask;                /**< Text mask buffer */
+        size_t mask_capacity;           /**< Allocated mask buffer size in bytes */
         int32_t offset;                 /**< Offset of the text */
     } render;
-
-    struct {
-        char **lines;                   /**< Cached parsed lines */
-        int line_count;                 /**< Number of cached lines */
-        int *line_widths;               /**< Cached line widths for alignment */
-    } cache;
 
     struct {
         int32_t offset;                 /**< Current scroll offset */
@@ -52,7 +46,6 @@ typedef struct {
         uint32_t speed;                 /**< Scroll speed in ms per pixel */
         bool loop;                      /**< Enable continuous looping */
         bool scrolling;                 /**< Is currently scrolling */
-        bool changed;                   /**< Scroll position changed */
         void *timer;                    /**< Timer handle for scroll animation */
     } scroll;
 
@@ -68,7 +61,7 @@ typedef struct {
  *   INTERNAL API
  **********************/
 
-void gfx_label_clear_cached_lines(gfx_label_t *label);
+void gfx_label_clear_glyph_cache(gfx_label_t *label);
 void gfx_label_scroll_timer_callback(void *arg);
 void gfx_label_snap_timer_callback(void *arg);
 esp_err_t gfx_get_glphy_dsc(gfx_obj_t *obj);

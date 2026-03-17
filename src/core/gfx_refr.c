@@ -11,6 +11,8 @@
 #include <inttypes.h>
 
 #include "esp_log.h"
+#define GFX_LOG_MODULE GFX_LOG_MODULE_REFR
+#include "common/gfx_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 
@@ -143,7 +145,7 @@ void gfx_refr_merge_areas(gfx_disp_t *disp)
                 gfx_area_copy(&disp->dirty.areas[dst_idx], &merged_area);
                 disp->dirty.merged[src_idx] = 1;
 
-                ESP_LOGD(TAG, "Merged area [%" PRIu32 "] into [%" PRIu32 "], saved %" PRIu32 " pixels",
+                GFX_LOGD(TAG, "Merged area [%" PRIu32 "] into [%" PRIu32 "], saved %" PRIu32 " pixels",
                          src_idx, dst_idx, separate_size - merged_size);
             }
         }
@@ -159,7 +161,7 @@ void gfx_invalidate_area_disp(gfx_disp_t *disp, const gfx_area_t *area_p)
     if (area_p == NULL) {
         disp->dirty.count = 0;
         memset(disp->dirty.merged, 0, sizeof(disp->dirty.merged));
-        ESP_LOGD(TAG, "Cleared all dirty areas");
+        GFX_LOGD(TAG, "Cleared all dirty areas");
         return;
     }
 
@@ -172,13 +174,13 @@ void gfx_invalidate_area_disp(gfx_disp_t *disp, const gfx_area_t *area_p)
     gfx_area_t clipped_area;
     bool success = gfx_area_intersect(&clipped_area, area_p, &screen_area);
     if (!success) {
-        ESP_LOGD(TAG, "Area out of screen bounds");
+        GFX_LOGD(TAG, "Area out of screen bounds");
         return;
     }
 
     for (uint8_t i = 0; i < disp->dirty.count; i++) {
         if (gfx_area_is_in(&clipped_area, &disp->dirty.areas[i])) {
-            ESP_LOGD(TAG, "Area already covered by existing dirty area %d", i);
+            GFX_LOGD(TAG, "Area already covered by existing dirty area %d", i);
             return;
         }
     }
@@ -186,12 +188,12 @@ void gfx_invalidate_area_disp(gfx_disp_t *disp, const gfx_area_t *area_p)
     if (disp->dirty.count < GFX_DISP_INV_BUF_SIZE) {
         gfx_area_copy(&disp->dirty.areas[disp->dirty.count], &clipped_area);
         disp->dirty.count++;
-        ESP_LOGD(TAG, "Added dirty area [%d,%d,%d,%d], total: %d",
+        GFX_LOGD(TAG, "Added dirty area [%d,%d,%d,%d], total: %d",
                  clipped_area.x1, clipped_area.y1, clipped_area.x2, clipped_area.y2, disp->dirty.count);
     } else {
         disp->dirty.count = 1;
         gfx_area_copy(&disp->dirty.areas[0], &screen_area);
-        ESP_LOGW(TAG, "Dirty area buffer full, marking entire screen as dirty");
+        GFX_LOGW(TAG, "Dirty area buffer full, marking entire screen as dirty");
     }
 
     /* Wake render task so it refreshes without waiting for the next timer tick */
@@ -204,7 +206,7 @@ void gfx_invalidate_area_disp(gfx_disp_t *disp, const gfx_area_t *area_p)
 void gfx_invalidate_area(gfx_handle_t handle, const gfx_area_t *area_p)
 {
     if (handle == NULL) {
-        ESP_LOGE(TAG, "Handle is NULL");
+        GFX_LOGE(TAG, "Handle is NULL");
         return;
     }
 
@@ -226,12 +228,12 @@ void gfx_invalidate_area(gfx_handle_t handle, const gfx_area_t *area_p)
 void gfx_obj_invalidate(gfx_obj_t *obj)
 {
     if (obj == NULL) {
-        ESP_LOGE(TAG, "Object is NULL");
+        GFX_LOGE(TAG, "Object is NULL");
         return;
     }
 
     if (obj->disp == NULL) {
-        ESP_LOGE(TAG, "Object has no display");
+        GFX_LOGE(TAG, "Object has no display");
         return;
     }
 

@@ -11,6 +11,8 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
+#define GFX_LOG_MODULE GFX_LOG_MODULE_IMG
+#include "common/gfx_log.h"
 #include "common/gfx_comm.h"
 #include "core/gfx_blend_priv.h"
 #include "core/gfx_obj_priv.h"
@@ -45,12 +47,12 @@ static esp_err_t gfx_img_delete_impl(gfx_obj_t *obj);
 static esp_err_t gfx_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 {
     if (obj == NULL || obj->src == NULL || ctx == NULL) {
-        ESP_LOGD(TAG, "Invalid object or source");
+        GFX_LOGD(TAG, "Invalid object or source");
         return ESP_ERR_INVALID_ARG;
     }
 
     if (obj->type != GFX_OBJ_TYPE_IMAGE) {
-        ESP_LOGW(TAG, "Object is not an image type");
+        GFX_LOGW(TAG, "Object is not an image type");
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -60,7 +62,7 @@ static esp_err_t gfx_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     };
     esp_err_t ret = gfx_image_decoder_info(&dsc, &header);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to get image info");
+        GFX_LOGE(TAG, "Failed to get image info");
         return ret;
     }
 
@@ -69,7 +71,7 @@ static esp_err_t gfx_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     uint8_t color_format = header.cf;
 
     if (color_format != GFX_COLOR_FORMAT_RGB565 && color_format != GFX_COLOR_FORMAT_RGB565A8) {
-        ESP_LOGW(TAG, "Unsupported color format");
+        GFX_LOGW(TAG, "Unsupported color format");
         return ESP_ERR_NOT_SUPPORTED;
     }
 
@@ -83,13 +85,13 @@ static esp_err_t gfx_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 
     ret = gfx_image_decoder_open(&decoder_dsc);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to open image decoder");
+        GFX_LOGE(TAG, "Failed to open image decoder");
         return ret;
     }
 
     const uint8_t *image_data = decoder_dsc.data;
     if (image_data == NULL) {
-        ESP_LOGE(TAG, "No image data available");
+        GFX_LOGE(TAG, "No image data available");
         gfx_image_decoder_close(&decoder_dsc);
         return ESP_ERR_INVALID_STATE;
     }
@@ -151,13 +153,13 @@ static esp_err_t gfx_img_delete_impl(gfx_obj_t *obj)
 gfx_obj_t *gfx_img_create(gfx_disp_t *disp)
 {
     if (disp == NULL) {
-        ESP_LOGE(TAG, "disp must be from gfx_emote_add_disp");
+        GFX_LOGE(TAG, "disp must be from gfx_emote_add_disp");
         return NULL;
     }
 
     gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
     if (obj == NULL) {
-        ESP_LOGE(TAG, "No mem for image object");
+        GFX_LOGE(TAG, "No mem for image object");
         return NULL;
     }
 
@@ -174,7 +176,7 @@ gfx_obj_t *gfx_img_create(gfx_disp_t *disp)
         return NULL;
     }
 
-    ESP_LOGD(TAG, "Created image object");
+    GFX_LOGD(TAG, "Created image object");
     return obj;
 }
 
@@ -183,7 +185,7 @@ esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src)
     CHECK_OBJ_TYPE_IMAGE(obj);
 
     if (src == NULL) {
-        ESP_LOGE(TAG, "Source is NULL");
+        GFX_LOGE(TAG, "Source is NULL");
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -200,7 +202,7 @@ esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src)
         obj->geometry.width = header.w;
         obj->geometry.height = header.h;
     } else {
-        ESP_LOGE(TAG, "Failed to get image info");
+        GFX_LOGE(TAG, "Failed to get image info");
     }
 
     gfx_obj_update_layout(obj);

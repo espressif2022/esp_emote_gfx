@@ -9,6 +9,8 @@
  *********************/
 #include <stdlib.h>
 #include "esp_log.h"
+#define GFX_LOG_MODULE GFX_LOG_MODULE_OBJ
+#include "common/gfx_log.h"
 #include "common/gfx_comm.h"
 #include "core/gfx_obj.h"
 #include "core/gfx_core_priv.h"
@@ -54,7 +56,7 @@ esp_err_t gfx_obj_set_pos(gfx_obj_t *obj, gfx_coord_t x, gfx_coord_t y)
     obj->align.enabled = false;
     //invalidate the new position
     gfx_obj_invalidate(obj);
-    ESP_LOGD(TAG, "Set object position: (%d, %d)", x, y);
+    GFX_LOGD(TAG, "Set object position: (%d, %d)", x, y);
     return ESP_OK;
 }
 
@@ -65,7 +67,7 @@ esp_err_t gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h)
     if (obj->type == GFX_OBJ_TYPE_ANIMATION ||
             obj->type == GFX_OBJ_TYPE_IMAGE ||
             obj->type == GFX_OBJ_TYPE_QRCODE) {
-        ESP_LOGD(TAG, "Set size is not useful for type: %d", obj->type);
+        GFX_LOGD(TAG, "Set size is not useful for type: %d", obj->type);
     } else {
         //invalidate the old size
         gfx_obj_invalidate(obj);
@@ -77,7 +79,7 @@ esp_err_t gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h)
         gfx_obj_invalidate(obj);
     }
 
-    ESP_LOGD(TAG, "Set object size: %dx%d", w, h);
+    GFX_LOGD(TAG, "Set object size: %dx%d", w, h);
     return ESP_OK;
 }
 
@@ -87,7 +89,7 @@ esp_err_t gfx_obj_align(gfx_obj_t *obj, uint8_t align, gfx_coord_t x_ofs, gfx_co
     GFX_RETURN_IF_NULL(obj->disp, ESP_ERR_INVALID_STATE);
 
     if (align > GFX_ALIGN_OUT_BOTTOM_RIGHT) {
-        ESP_LOGW(TAG, "Unknown alignment type: %d", align);
+        GFX_LOGW(TAG, "Unknown alignment type: %d", align);
         return ESP_ERR_INVALID_ARG;
     }
     // Invalidate old position first
@@ -101,7 +103,7 @@ esp_err_t gfx_obj_align(gfx_obj_t *obj, uint8_t align, gfx_coord_t x_ofs, gfx_co
 
     gfx_obj_update_layout(obj);
 
-    ESP_LOGD(TAG, "Set object alignment: type=%d, offset=(%d, %d)", align, x_ofs, y_ofs);
+    GFX_LOGD(TAG, "Set object alignment: type=%d, offset=(%d, %d)", align, x_ofs, y_ofs);
     return ESP_OK;
 }
 
@@ -112,7 +114,7 @@ esp_err_t gfx_obj_set_visible(gfx_obj_t *obj, bool visible)
     obj->state.is_visible = visible;
     gfx_obj_invalidate(obj);
 
-    ESP_LOGD(TAG, "Set object visibility: %s", visible ? "visible" : "hidden");
+    GFX_LOGD(TAG, "Set object visibility: %s", visible ? "visible" : "hidden");
     return ESP_OK;
 }
 
@@ -234,7 +236,7 @@ void gfx_obj_cal_aligned_pos(gfx_obj_t *obj, uint32_t parent_width, uint32_t par
         calculated_y = (gfx_coord_t)parent_height + obj->align.y_ofs;
         break;
     default:
-        ESP_LOGW(TAG, "Unknown alignment type: %d", obj->align.type);
+        GFX_LOGW(TAG, "Unknown alignment type: %d", obj->align.type);
         calculated_x = obj->geometry.x;
         calculated_y = obj->geometry.y;
         break;

@@ -16,6 +16,8 @@
 #include "esp_attr.h"
 #include "esp_timer.h"
 #include "esp_log.h"
+#define GFX_LOG_MODULE GFX_LOG_MODULE_TOUCH
+#include "common/gfx_log.h"
 
 #include "core/gfx_core_priv.h"
 #include "core/gfx_touch_priv.h"
@@ -173,7 +175,7 @@ static esp_err_t gfx_touch_enable_interrupt(gfx_touch_t *touch)
 
     touch->irq_enabled = true;
     touch->irq_pending = false;
-    ESP_LOGI(TAG, "Touch interrupt enabled on GPIO %d", touch->int_gpio_num);
+    GFX_LOGI(TAG, "Touch interrupt enabled on GPIO %d", touch->int_gpio_num);
     return ESP_OK;
 }
 
@@ -186,7 +188,7 @@ static void gfx_touch_disable_interrupt(gfx_touch_t *touch)
     if (touch->irq_enabled && touch->int_gpio_num != GPIO_NUM_NC && GPIO_IS_VALID_GPIO(touch->int_gpio_num)) {
         esp_err_t gpio_ret = gpio_intr_disable(touch->int_gpio_num);
         if (gpio_ret != ESP_OK) {
-            ESP_LOGW(TAG, "Failed to disable GPIO interrupt on pin %d (%d)", touch->int_gpio_num, gpio_ret);
+            GFX_LOGW(TAG, "Failed to disable GPIO interrupt on pin %d (%d)", touch->int_gpio_num, gpio_ret);
         }
     }
 
@@ -221,7 +223,7 @@ static void gfx_touch_poll_cb(void *user_data)
 
     esp_err_t ret = esp_lcd_touch_read_data(touch->handle);
     if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "Touch read failed: %d", ret);
+        GFX_LOGW(TAG, "Touch read failed: %d", ret);
         return;
     }
 
@@ -230,7 +232,7 @@ static void gfx_touch_poll_cb(void *user_data)
 
     ret = esp_lcd_touch_get_data(touch->handle, points, &count, 1);
     if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "Touch get data failed: %d", ret);
+        GFX_LOGW(TAG, "Touch get data failed: %d", ret);
         return;
     }
 
@@ -309,7 +311,7 @@ esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *cfg)
     if (irq_requested) {
         esp_err_t irq_ret = gfx_touch_enable_interrupt(touch);
         if (irq_ret != ESP_OK) {
-            ESP_LOGW(TAG, "Failed to enable touch interrupt on GPIO %d (%d), using polling mode", touch->int_gpio_num, irq_ret);
+            GFX_LOGW(TAG, "Failed to enable touch interrupt on GPIO %d (%d), using polling mode", touch->int_gpio_num, irq_ret);
             touch->int_gpio_num = GPIO_NUM_NC;
             touch->irq_enabled = false;
             touch->irq_pending = false;
@@ -321,14 +323,14 @@ esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *cfg)
 
     touch->poll_timer = gfx_timer_create(touch->ctx, gfx_touch_poll_cb, touch->poll_ms, touch);
     if (!touch->poll_timer) {
-        ESP_LOGE(TAG, "Failed to create touch timer");
+        GFX_LOGE(TAG, "Failed to create touch timer");
         if (touch->irq_enabled || touch->isr_ctx) {
             gfx_touch_disable_interrupt(touch);
         }
         return ESP_ERR_NO_MEM;
     }
 
-    ESP_LOGD(TAG, "Touch polling started (%"PRIu32" ms)", touch->poll_ms);
+    GFX_LOGD(TAG, "Touch polling started (%"PRIu32" ms)", touch->poll_ms);
     return ESP_OK;
 }
 

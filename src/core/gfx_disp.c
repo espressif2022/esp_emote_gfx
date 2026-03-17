@@ -9,6 +9,8 @@
  *********************/
 #include <string.h>
 #include "esp_log.h"
+#define GFX_LOG_MODULE GFX_LOG_MODULE_DISP
+#include "common/gfx_log.h"
 #include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
@@ -83,14 +85,14 @@ esp_err_t gfx_disp_buf_init(gfx_disp_t *disp, const gfx_disp_config_t *cfg)
         if (cfg->buffers.buf_pixels > 0) {
             disp->buf.buf_pixels = cfg->buffers.buf_pixels;
         } else {
-            ESP_LOGW(TAG, "buf_pixels=0, use default");
+            GFX_LOGW(TAG, "buf_pixels=0, use default");
             disp->buf.buf_pixels = disp->res.h_res * disp->res.v_res;
         }
         disp->buf.ext_bufs = true;
     } else {
 #if SOC_PSRAM_DMA_CAPABLE == 0
         if (cfg->flags.buff_dma && cfg->flags.buff_spiram) {
-            ESP_LOGW(TAG, "DMA+SPIRAM not supported");
+            GFX_LOGW(TAG, "DMA+SPIRAM not supported");
             return ESP_ERR_NOT_SUPPORTED;
         }
 #endif
@@ -109,14 +111,14 @@ esp_err_t gfx_disp_buf_init(gfx_disp_t *disp, const gfx_disp_config_t *cfg)
 
         disp->buf.buf1 = (uint16_t *)heap_caps_malloc(buf_pixels * sizeof(uint16_t), buff_caps);
         if (!disp->buf.buf1) {
-            ESP_LOGE(TAG, "Failed to allocate frame buffer 1");
+            GFX_LOGE(TAG, "Failed to allocate frame buffer 1");
             return ESP_ERR_NO_MEM;
         }
 
         if (cfg->flags.double_buffer) {
             disp->buf.buf2 = (uint16_t *)heap_caps_malloc(buf_pixels * sizeof(uint16_t), buff_caps);
             if (!disp->buf.buf2) {
-                ESP_LOGE(TAG, "Failed to allocate frame buffer 2");
+                GFX_LOGE(TAG, "Failed to allocate frame buffer 2");
                 heap_caps_free(disp->buf.buf1);
                 disp->buf.buf1 = NULL;
                 return ESP_ERR_NO_MEM;
@@ -177,13 +179,13 @@ gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg)
     esp_err_t ret;
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
     if (ctx == NULL || cfg == NULL) {
-        ESP_LOGE(TAG, "Invalid parameters");
+        GFX_LOGE(TAG, "Invalid parameters");
         return NULL;
     }
 
     gfx_disp_t *new_disp = (gfx_disp_t *)malloc(sizeof(gfx_disp_t));
     if (new_disp == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate display");
+        GFX_LOGE(TAG, "Failed to allocate display");
         return NULL;
     }
     memset(new_disp, 0, sizeof(gfx_disp_t));
@@ -200,7 +202,7 @@ gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg)
     if (cfg->flags.full_frame && cfg->buffers.buf_pixels > 0) {
         uint32_t screen_px = new_disp->res.h_res * new_disp->res.v_res;
         if (cfg->buffers.buf_pixels != screen_px) {
-            ESP_LOGE(TAG, "full_frame requires buf_pixels (%u) == screen size (%u)",
+            GFX_LOGE(TAG, "full_frame requires buf_pixels (%u) == screen size (%u)",
                      (unsigned)cfg->buffers.buf_pixels, (unsigned)screen_px);
             free(new_disp);
             return NULL;
@@ -209,7 +211,7 @@ gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg)
 
     new_disp->sync.event_group = xEventGroupCreate();
     if (new_disp->sync.event_group == NULL) {
-        ESP_LOGE(TAG, "Failed to create disp event group");
+        GFX_LOGE(TAG, "Failed to create disp event group");
         free(new_disp);
         return NULL;
     }
@@ -245,7 +247,7 @@ gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg)
 esp_err_t gfx_disp_add_child(gfx_disp_t *disp, void *src)
 {
     if (disp == NULL || src == NULL) {
-        ESP_LOGE(TAG, "Invalid parameters");
+        GFX_LOGE(TAG, "Invalid parameters");
         return ESP_ERR_INVALID_ARG;
     }
     gfx_core_context_t *ctx = disp->ctx;
@@ -256,7 +258,7 @@ esp_err_t gfx_disp_add_child(gfx_disp_t *disp, void *src)
 
     gfx_obj_child_t *new_child = (gfx_obj_child_t *)malloc(sizeof(gfx_obj_child_t));
     if (new_child == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate child node");
+        GFX_LOGE(TAG, "Failed to allocate child node");
         return ESP_ERR_NO_MEM;
     }
     new_child->src = src;
@@ -277,7 +279,7 @@ esp_err_t gfx_disp_add_child(gfx_disp_t *disp, void *src)
 esp_err_t gfx_disp_remove_child(gfx_disp_t *disp, void *src)
 {
     if (disp == NULL || src == NULL) {
-        ESP_LOGE(TAG, "Invalid parameters");
+        GFX_LOGE(TAG, "Invalid parameters");
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -332,7 +334,7 @@ esp_err_t gfx_disp_delete_children(gfx_disp_t *disp)
 void gfx_disp_refresh_all(gfx_disp_t *disp)
 {
     if (disp == NULL) {
-        ESP_LOGE(TAG, "disp is NULL");
+        GFX_LOGE(TAG, "disp is NULL");
         return;
     }
     gfx_area_t full_screen;
@@ -367,7 +369,7 @@ bool gfx_disp_flush_ready(gfx_disp_t *disp, bool swap_act_buf)
 void *gfx_disp_get_user_data(gfx_disp_t *disp)
 {
     if (disp == NULL) {
-        ESP_LOGE(TAG, "Invalid display");
+        GFX_LOGE(TAG, "Invalid display");
         return NULL;
     }
     return disp->cb.user_data;
@@ -392,18 +394,18 @@ uint32_t gfx_disp_get_ver_res(gfx_disp_t *disp)
 esp_err_t gfx_disp_set_bg_color(gfx_disp_t *disp, gfx_color_t color)
 {
     if (disp == NULL) {
-        ESP_LOGE(TAG, "disp is NULL");
+        GFX_LOGE(TAG, "disp is NULL");
         return ESP_ERR_INVALID_ARG;
     }
     disp->style.bg_color.full = color.full;
-    ESP_LOGD(TAG, "BG color: 0x%04X", color.full);
+    GFX_LOGD(TAG, "BG color: 0x%04X", color.full);
     return ESP_OK;
 }
 
 esp_err_t gfx_disp_set_bg_enable(gfx_disp_t *disp, bool enable)
 {
     if (disp == NULL) {
-        ESP_LOGE(TAG, "disp is NULL");
+        GFX_LOGE(TAG, "disp is NULL");
         return ESP_ERR_INVALID_ARG;
     }
     disp->style.bg_enable = enable;

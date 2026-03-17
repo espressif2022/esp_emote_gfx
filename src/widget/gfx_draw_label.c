@@ -14,6 +14,8 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_check.h"
+#define GFX_LOG_MODULE GFX_LOG_MODULE_DRAW_LABEL
+#include "common/gfx_log.h"
 #include "common/gfx_comm.h"
 #include "core/gfx_blend_priv.h"
 #include "core/gfx_core_priv.h"
@@ -31,41 +33,103 @@
 static const char *TAG = "draw_label";
 
 #define CHECK_OBJ_TYPE_LABEL(obj) CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_LABEL, TAG)
+#define GFX_LABEL_GLYPH_CACHE_MAX_ENTRIES 64
+#define GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES (12 * 1024)
+#define GFX_LABEL_GLYPH_ATLAS_PAGE_BYTES 1024
+
+/**********************
+ *      TYPEDEFS
+ **********************/
+
+typedef struct gfx_glyph_atlas_page {
+    uint8_t *buf;
+    size_t capacity;
+    size_t used;
+    int ref_count;
+    struct gfx_glyph_atlas_page *next;
+} gfx_glyph_atlas_page_t;
+
+typedef struct gfx_label_glyph_cache_entry {
+    uint32_t unicode;
+    gfx_glyph_dsc_t glyph_dsc;
+    int advance_width;
+    uint8_t *alpha_bitmap;
+    size_t alpha_bitmap_size;
+    bool alpha_in_atlas;
+    gfx_glyph_atlas_page_t *atlas_page;
+    bool available;
+    struct gfx_label_glyph_cache_entry *next;
+} gfx_label_glyph_cache_entry_t;
+
+typedef struct gfx_font_glyph_cache {
+    void *font_key;
+    int ref_count;
+    gfx_label_glyph_cache_entry_t *glyphs;
+    int glyph_count;
+    size_t glyph_bitmap_bytes;
+    size_t allocated_bytes;
+    gfx_glyph_atlas_page_t *atlas_pages;
+    uint32_t access_count;
+    uint32_t hit_count;
+    uint32_t miss_count;
+    uint32_t atlas_alloc_count;
+    uint32_t fallback_alloc_count;
+    uint32_t evict_count;
+    struct gfx_font_glyph_cache *next;
+} gfx_font_glyph_cache_t;
+
+typedef struct {
+    const char *cursor;
+    const char *start;
+    const char *end;
+    int width;
+} gfx_label_line_iter_t;
 
 /**********************
  *  STATIC VARIABLES
  **********************/
+
+static gfx_font_glyph_cache_t *s_font_glyph_caches;
 
 /**********************
  *  STATIC PROTOTYPES
  **********************/
 
 static int gfx_utf8_to_unicode(const char **p, uint32_t *unicode);
-static int32_t gfx_calculate_snap_offset(gfx_label_t *label, gfx_font_ctx_t *font,
+static int32_t gfx_calculate_snap_offset(gfx_label_t *label, gfx_font_handle_t font,
                                          int32_t current_offset, int32_t target_width);
 static void gfx_update_scroll_state(gfx_obj_t *obj);
-static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, int total_line_height,
-                                      char ***ret_lines, int *ret_line_count, int *ret_text_width, int **ret_line_widths);
-static esp_err_t gfx_render_lines_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, char **lines, int line_count,
-                                          int line_height, int base_line, int total_line_height, int *cached_line_widths);
+static size_t gfx_get_mask_buffer_size(const gfx_obj_t *obj);
+static int gfx_get_glyph_advance_width(gfx_font_handle_t font, uint32_t unicode);
+static void gfx_glyph_cache_promote(gfx_font_glyph_cache_t *cache, gfx_label_glyph_cache_entry_t *prev,
+                                    gfx_label_glyph_cache_entry_t *entry);
+static gfx_font_glyph_cache_t *gfx_font_cache_acquire(gfx_font_handle_t font);
+static void gfx_font_cache_release(gfx_font_handle_t font);
+static void gfx_glyph_cache_clear(gfx_font_glyph_cache_t *cache);
+static void gfx_glyph_cache_trim(gfx_font_glyph_cache_t *cache, size_t incoming_alloc_size);
+static size_t gfx_glyph_cache_get_page_capacity(size_t bitmap_size);
+static uint8_t *gfx_glyph_cache_alloc_atlas(gfx_font_glyph_cache_t *cache, size_t bitmap_size,
+                                            gfx_glyph_atlas_page_t **out_page);
+static void gfx_glyph_cache_log_stats(const gfx_font_glyph_cache_t *cache, const char *reason);
+static esp_err_t gfx_get_cached_glyph(gfx_font_handle_t font, uint32_t unicode,
+                                      gfx_label_glyph_cache_entry_t **out_entry);
+static int gfx_calculate_text_width(gfx_font_handle_t font, const char *text, const char *text_end);
+static bool gfx_label_line_iter_next(gfx_obj_t *obj, gfx_font_handle_t font, gfx_label_line_iter_t *iter);
 
-void gfx_label_clear_cached_lines(gfx_label_t *label)
+static inline gfx_font_handle_t gfx_label_get_font_handle(const gfx_label_t *label)
 {
-    if (label->cache.lines) {
-        for (int i = 0; i < label->cache.line_count; i++) {
-            if (label->cache.lines[i]) {
-                free(label->cache.lines[i]);
-            }
-        }
-        free(label->cache.lines);
-        label->cache.lines = NULL;
-        label->cache.line_count = 0;
+    return (label != NULL) ? label->font.handle : NULL;
+}
+static esp_err_t gfx_render_text_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, int line_height, int total_line_height);
+
+void gfx_label_clear_glyph_cache(gfx_label_t *label)
+{
+    gfx_font_handle_t font_handle = gfx_label_get_font_handle(label);
+    if (label == NULL || font_handle == NULL) {
+        return;
     }
 
-    if (label->cache.line_widths) {
-        free(label->cache.line_widths);
-        label->cache.line_widths = NULL;
-    }
+    gfx_font_cache_release(font_handle);
 }
 
 /**
@@ -118,8 +182,8 @@ static int gfx_utf8_to_unicode(const char **p, uint32_t *unicode)
  * @param target_width Target width to display (usually obj->geometry.width)
  * @return Snap offset aligned to character/word boundary
  */
-static int32_t gfx_calculate_snap_offset(gfx_label_t *label, gfx_font_ctx_t *font,
-        int32_t current_offset, int32_t target_width)
+static int32_t gfx_calculate_snap_offset(gfx_label_t *label, gfx_font_handle_t font,
+                                         int32_t current_offset, int32_t target_width)
 {
     if (!label->text.text || !font) {
         return target_width;
@@ -138,7 +202,7 @@ static int32_t gfx_calculate_snap_offset(gfx_label_t *label, gfx_font_ctx_t *fon
             continue;
         }
 
-        int char_width = font->get_glyph_width(font, unicode);
+        int char_width = gfx_get_glyph_advance_width(font, unicode);
         accumulated_width += char_width;
     }
 
@@ -162,7 +226,7 @@ static int32_t gfx_calculate_snap_offset(gfx_label_t *label, gfx_font_ctx_t *fon
         }
 
         uint8_t c = (uint8_t) * p_before;
-        int char_width = font->get_glyph_width(font, unicode);
+        int char_width = gfx_get_glyph_advance_width(font, unicode);
 
         /* Check if adding this character would exceed target_width */
         if (section_width + char_width > target_width) {
@@ -217,7 +281,6 @@ void gfx_label_scroll_timer_callback(void *arg)
         }
     }
 
-    label->scroll.changed = true;
     gfx_obj_invalidate(obj);
 }
 
@@ -233,7 +296,7 @@ void gfx_label_snap_timer_callback(void *arg)
         return;
     }
 
-    gfx_font_ctx_t *font = (gfx_font_ctx_t *)label->font.font_ctx;
+    gfx_font_handle_t font = gfx_label_get_font_handle(label);
     if (!font) {
         return;
     }
@@ -248,7 +311,7 @@ void gfx_label_snap_timer_callback(void *arg)
 
     /* Jump to next section */
     label->snap.offset += aligned_offset;
-    ESP_LOGI(TAG, "aligned_offset: %" PRId32 ", text_width: %" PRId32 ", snap_offset: %" PRId32,
+    GFX_LOGI(TAG, "aligned_offset: %" PRId32 ", text_width: %" PRId32 ", snap_offset: %" PRId32,
              label->snap.offset - aligned_offset, label->text.text_width, label->snap.offset);
 
     /* Handle looping */
@@ -308,216 +371,458 @@ static void gfx_update_scroll_state(gfx_obj_t *obj)
  *   STATIC FUNCTIONS
  **********************/
 
-static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, int total_line_height,
-                                      char ***ret_lines, int *ret_line_count, int *ret_text_width, int **ret_line_widths)
+static size_t gfx_get_mask_buffer_size(const gfx_obj_t *obj)
 {
-    gfx_label_t *label = (gfx_label_t *)obj->src;
-    void *font_ctx = label->font.font_ctx;
+    return (size_t)obj->geometry.width * (size_t)obj->geometry.height;
+}
 
-    int total_text_width = 0;
-    const char *p_width = label->text.text;
+static void gfx_glyph_cache_promote(gfx_font_glyph_cache_t *cache, gfx_label_glyph_cache_entry_t *prev,
+                                    gfx_label_glyph_cache_entry_t *entry)
+{
+    if (cache == NULL || prev == NULL || entry == NULL || cache->glyphs == entry) {
+        return;
+    }
 
-    while (*p_width) {
-        uint32_t unicode = 0;
-        int bytes_in_char = gfx_utf8_to_unicode(&p_width, &unicode);
-        if (bytes_in_char == 0) {
-            p_width++;
-            continue;
+    prev->next = entry->next;
+    entry->next = cache->glyphs;
+    cache->glyphs = entry;
+}
+
+static gfx_font_glyph_cache_t *gfx_font_cache_acquire(gfx_font_handle_t font)
+{
+    if (font == NULL || font->font == NULL) {
+        return NULL;
+    }
+
+    if (font->glyph_cache != NULL) {
+        gfx_font_glyph_cache_t *cache = font->glyph_cache;
+        cache->ref_count++;
+        return cache;
+    }
+
+    gfx_font_glyph_cache_t *cache = s_font_glyph_caches;
+    while (cache != NULL) {
+        if (cache->font_key == font->font) {
+            cache->ref_count++;
+            font->glyph_cache = cache;
+            return cache;
+        }
+        cache = cache->next;
+    }
+
+    cache = calloc(1, sizeof(*cache));
+    if (cache == NULL) {
+        return NULL;
+    }
+
+    cache->font_key = font->font;
+    cache->ref_count = 1;
+    cache->next = s_font_glyph_caches;
+    s_font_glyph_caches = cache;
+    font->glyph_cache = cache;
+    return cache;
+}
+
+static void gfx_font_cache_release(gfx_font_handle_t font)
+{
+    if (font == NULL || font->glyph_cache == NULL) {
+        return;
+    }
+
+    gfx_font_glyph_cache_t *cache = font->glyph_cache;
+    font->glyph_cache = NULL;
+
+    if (--cache->ref_count > 0) {
+        return;
+    }
+
+    gfx_font_glyph_cache_t *prev_cache = NULL;
+    gfx_font_glyph_cache_t *iter = s_font_glyph_caches;
+    while (iter != NULL && iter != cache) {
+        prev_cache = iter;
+        iter = iter->next;
+    }
+
+    if (iter == NULL) {
+        return;
+    }
+
+    if (prev_cache != NULL) {
+        prev_cache->next = cache->next;
+    } else {
+        s_font_glyph_caches = cache->next;
+    }
+
+    gfx_glyph_cache_log_stats(cache, "release");
+    gfx_glyph_cache_clear(cache);
+    free(cache);
+}
+
+static void gfx_glyph_cache_clear(gfx_font_glyph_cache_t *cache)
+{
+    if (cache == NULL) {
+        return;
+    }
+
+    gfx_label_glyph_cache_entry_t *entry = cache->glyphs;
+    while (entry != NULL) {
+        gfx_label_glyph_cache_entry_t *next = entry->next;
+        if (!entry->alpha_in_atlas) {
+            free(entry->alpha_bitmap);
+        }
+        free(entry);
+        entry = next;
+    }
+
+    gfx_glyph_atlas_page_t *page = cache->atlas_pages;
+    while (page != NULL) {
+        gfx_glyph_atlas_page_t *next_page = page->next;
+        free(page->buf);
+        free(page);
+        page = next_page;
+    }
+
+    cache->glyphs = NULL;
+    cache->glyph_count = 0;
+    cache->glyph_bitmap_bytes = 0;
+    cache->allocated_bytes = 0;
+    cache->atlas_pages = NULL;
+}
+
+static void gfx_glyph_cache_log_stats(const gfx_font_glyph_cache_t *cache, const char *reason)
+{
+    if (cache == NULL) {
+        return;
+    }
+
+    GFX_LOGD(TAG,
+             "glyph-cache[%s] font=%p access=%lu hit=%lu miss=%lu hit_rate=%lu%% atlas_alloc=%lu fallback_alloc=%lu evict=%lu glyphs=%d bytes=%u",
+             reason ? reason : "stats",
+             cache->font_key,
+             (unsigned long)cache->access_count,
+             (unsigned long)cache->hit_count,
+             (unsigned long)cache->miss_count,
+             (unsigned long)((cache->access_count > 0) ? ((cache->hit_count * 100U) / cache->access_count) : 0U),
+             (unsigned long)cache->atlas_alloc_count,
+             (unsigned long)cache->fallback_alloc_count,
+             (unsigned long)cache->evict_count,
+             cache->glyph_count,
+             (unsigned int)cache->allocated_bytes);
+}
+
+static size_t gfx_glyph_cache_get_page_capacity(size_t bitmap_size)
+{
+    size_t page_capacity = bitmap_size;
+
+    if (page_capacity < GFX_LABEL_GLYPH_ATLAS_PAGE_BYTES) {
+        page_capacity = GFX_LABEL_GLYPH_ATLAS_PAGE_BYTES;
+    } else {
+        page_capacity = (page_capacity + 255U) & ~((size_t)255U);
+    }
+
+    return page_capacity;
+}
+
+static void gfx_glyph_cache_trim(gfx_font_glyph_cache_t *cache, size_t incoming_alloc_size)
+{
+    if (cache == NULL) {
+        return;
+    }
+
+    while (cache->glyphs != NULL &&
+           (cache->glyph_count >= GFX_LABEL_GLYPH_CACHE_MAX_ENTRIES ||
+            cache->allocated_bytes + incoming_alloc_size > GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES)) {
+        gfx_label_glyph_cache_entry_t *prev = NULL;
+        gfx_label_glyph_cache_entry_t *entry = cache->glyphs;
+
+        while (entry->next != NULL) {
+            prev = entry;
+            entry = entry->next;
         }
 
-        gfx_font_ctx_t *font = (gfx_font_ctx_t *)font_ctx;
-        int glyph_width = font->get_glyph_width(font, unicode);
-        total_text_width += glyph_width;
-
-        if (*(p_width - bytes_in_char) == '\n') {
-            break;
+        if (prev != NULL) {
+            prev->next = NULL;
+        } else {
+            cache->glyphs = NULL;
         }
-    }
 
-    *ret_text_width = total_text_width;
-
-    const char *text = label->text.text;
-    int max_lines = obj->geometry.height / total_line_height;
-    if (max_lines <= 0) {
-        max_lines = 1;
-    }
-
-    char **lines = (char **)malloc(max_lines * sizeof(char *));
-    if (!lines) {
-        return ESP_ERR_NO_MEM;
-    }
-
-    for (int i = 0; i < max_lines; i++) {
-        lines[i] = NULL;
-    }
-
-    int *line_widths = NULL;
-    if (ret_line_widths) {
-        line_widths = (int *)malloc(max_lines * sizeof(int));
-        if (!line_widths) {
-            free(lines);
-            return ESP_ERR_NO_MEM;
-        }
-        for (int i = 0; i < max_lines; i++) {
-            line_widths[i] = 0;
-        }
-    }
-
-    int line_count = 0;
-
-    if (label->text.long_mode == GFX_LABEL_LONG_WRAP) {
-        const char *line_start = text;
-        while (*line_start && line_count < max_lines) {
-            const char *line_end = line_start;
-            int line_width = 0;
-            const char *last_space = NULL;
-
-            while (*line_end) {
-                uint32_t unicode = 0;
-                uint8_t c = (uint8_t) * line_end;
-                int bytes_in_char;
-                int char_width = 0;
-
-                bytes_in_char = gfx_utf8_to_unicode(&line_end, &unicode);
-                if (bytes_in_char == 0) {
-                    break;
+        cache->glyph_bitmap_bytes -= entry->alpha_bitmap_size;
+        if (entry->alpha_in_atlas) {
+            gfx_glyph_atlas_page_t *page = entry->atlas_page;
+            if (page != NULL && --page->ref_count == 0) {
+                gfx_glyph_atlas_page_t *prev_page = NULL;
+                gfx_glyph_atlas_page_t *iter_page = cache->atlas_pages;
+                while (iter_page != NULL && iter_page != page) {
+                    prev_page = iter_page;
+                    iter_page = iter_page->next;
                 }
 
-                gfx_font_ctx_t *font = (gfx_font_ctx_t *)font_ctx;
-                char_width = font->get_glyph_width(font, unicode);
-
-                if (line_width + char_width > obj->geometry.width) {
-                    if (last_space && last_space > line_start) {
-                        line_end = last_space;
+                if (iter_page != NULL) {
+                    if (prev_page != NULL) {
+                        prev_page->next = page->next;
                     } else {
-                        line_end -= bytes_in_char;
+                        cache->atlas_pages = page->next;
                     }
-                    break;
-                }
-
-                line_width += char_width;
-
-                if (c == ' ') {
-                    last_space = line_end - bytes_in_char;
-                }
-
-                if (c == '\n') {
-                    break;
+                    cache->allocated_bytes -= page->capacity;
+                    free(page->buf);
+                    free(page);
                 }
             }
+        } else {
+            cache->allocated_bytes -= entry->alpha_bitmap_size;
+            free(entry->alpha_bitmap);
+        }
+        free(entry);
+        cache->glyph_count--;
+        cache->evict_count++;
+    }
+}
 
-            int line_len = line_end - line_start;
-            if (line_len > 0) {
-                lines[line_count] = (char *)malloc(line_len + 1);
-                if (!lines[line_count]) {
-                    for (int i = 0; i < line_count; i++) {
-                        if (lines[i]) {
-                            free(lines[i]);
-                        }
-                    }
-                    free(lines);
-                    if (line_widths) {
-                        free(line_widths);
-                    }
+static uint8_t *gfx_glyph_cache_alloc_atlas(gfx_font_glyph_cache_t *cache, size_t bitmap_size,
+                                            gfx_glyph_atlas_page_t **out_page)
+{
+    if (cache == NULL || out_page == NULL || bitmap_size == 0) {
+        return NULL;
+    }
+
+    gfx_glyph_atlas_page_t *page = cache->atlas_pages;
+    while (page != NULL) {
+        if (page->capacity - page->used >= bitmap_size) {
+            uint8_t *buf = page->buf + page->used;
+            page->used += bitmap_size;
+            page->ref_count++;
+            *out_page = page;
+            return buf;
+        }
+        page = page->next;
+    }
+
+    size_t page_capacity = gfx_glyph_cache_get_page_capacity(bitmap_size);
+    if (page_capacity > GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES) {
+        return NULL;
+    }
+
+    gfx_glyph_cache_trim(cache, page_capacity);
+    if (cache->allocated_bytes + page_capacity > GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES) {
+        return NULL;
+    }
+
+    page = calloc(1, sizeof(*page));
+    if (page == NULL) {
+        return NULL;
+    }
+
+    page->buf = malloc(page_capacity);
+    if (page->buf == NULL) {
+        free(page);
+        return NULL;
+    }
+
+    page->capacity = page_capacity;
+    page->used = bitmap_size;
+    page->ref_count = 1;
+    page->next = cache->atlas_pages;
+    cache->atlas_pages = page;
+    cache->allocated_bytes += page_capacity;
+    *out_page = page;
+
+    return page->buf;
+}
+
+static esp_err_t gfx_get_cached_glyph(gfx_font_handle_t font, uint32_t unicode,
+                                      gfx_label_glyph_cache_entry_t **out_entry)
+{
+    gfx_font_glyph_cache_t *cache = font ? font->glyph_cache : NULL;
+    if (cache == NULL) {
+        cache = gfx_font_cache_acquire(font);
+    }
+    ESP_RETURN_ON_FALSE(cache != NULL, ESP_ERR_NO_MEM, TAG, "no mem for shared glyph cache");
+
+    gfx_label_glyph_cache_entry_t *prev = NULL;
+    gfx_label_glyph_cache_entry_t *entry = cache->glyphs;
+    cache->access_count++;
+
+    while (entry != NULL) {
+        if (entry->unicode == unicode) {
+            gfx_glyph_cache_promote(cache, prev, entry);
+            cache->hit_count++;
+            if ((cache->access_count % 64U) == 0U) {
+                gfx_glyph_cache_log_stats(cache, "periodic");
+            }
+            *out_entry = (prev != NULL) ? cache->glyphs : entry;
+            return ESP_OK;
+        }
+        prev = entry;
+        entry = entry->next;
+    }
+
+    cache->miss_count++;
+
+    entry = calloc(1, sizeof(*entry));
+    ESP_RETURN_ON_FALSE(entry != NULL, ESP_ERR_NO_MEM, TAG, "no mem for glyph cache entry");
+
+    entry->unicode = unicode;
+    entry->available = font->get_glyph_dsc(font, &entry->glyph_dsc, unicode, 0);
+
+    if (entry->available) {
+        entry->advance_width = font->get_advance_width(font, &entry->glyph_dsc);
+        const uint8_t *glyph_bitmap = font->get_glyph_bitmap(font, unicode, &entry->glyph_dsc);
+        size_t bitmap_size = (size_t)entry->glyph_dsc.box_w * (size_t)entry->glyph_dsc.box_h;
+
+        if (glyph_bitmap != NULL && bitmap_size > 0) {
+            gfx_glyph_atlas_page_t *atlas_page = NULL;
+            entry->alpha_bitmap = gfx_glyph_cache_alloc_atlas(cache, bitmap_size, &atlas_page);
+            if (entry->alpha_bitmap != NULL) {
+                entry->alpha_in_atlas = true;
+                entry->atlas_page = atlas_page;
+                cache->atlas_alloc_count++;
+            } else {
+                gfx_glyph_cache_trim(cache, bitmap_size);
+                if (cache->allocated_bytes + bitmap_size > GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES) {
+                    free(entry);
                     return ESP_ERR_NO_MEM;
                 }
-                memcpy(lines[line_count], line_start, line_len);
-                lines[line_count][line_len] = '\0';
 
-                if (line_widths) {
-                    line_widths[line_count] = line_width;
+                entry->alpha_bitmap = malloc(bitmap_size);
+                if (entry->alpha_bitmap == NULL) {
+                    free(entry);
+                    return ESP_ERR_NO_MEM;
                 }
-
-                line_count++;
+                cache->allocated_bytes += bitmap_size;
+                cache->fallback_alloc_count++;
             }
 
-            line_start = line_end;
-            if (*line_start == ' ' || *line_start == '\n') {
-                line_start++;
-            }
-        }
-    } else {
-        const char *line_start = text;
-        const char *line_end = text;
-
-        while (*line_end && line_count < max_lines) {
-            if (*line_end == '\n' || *(line_end + 1) == '\0') {
-                int line_len = line_end - line_start;
-                if (*line_end != '\n') {
-                    line_len++;
+            for (uint16_t y = 0; y < entry->glyph_dsc.box_h; y++) {
+                for (uint16_t x = 0; x < entry->glyph_dsc.box_w; x++) {
+                    entry->alpha_bitmap[y * entry->glyph_dsc.box_w + x] =
+                        font->get_pixel_value(font, glyph_bitmap, x, y, entry->glyph_dsc.box_w);
                 }
-
-                if (line_len > 0) {
-                    lines[line_count] = (char *)malloc(line_len + 1);
-                    if (!lines[line_count]) {
-                        for (int i = 0; i < line_count; i++) {
-                            if (lines[i]) {
-                                free(lines[i]);
-                            }
-                        }
-                        free(lines);
-                        if (line_widths) {
-                            free(line_widths);
-                        }
-                        return ESP_ERR_NO_MEM;
-                    }
-                    memcpy(lines[line_count], line_start, line_len);
-                    lines[line_count][line_len] = '\0';
-
-                    if (line_widths) {
-                        int current_line_width = 0;
-                        const char *p_calc = lines[line_count];
-                        while (*p_calc) {
-                            uint32_t unicode = 0;
-                            int bytes_consumed = gfx_utf8_to_unicode(&p_calc, &unicode);
-                            if (bytes_consumed == 0) {
-                                p_calc++;
-                                continue;
-                            }
-
-                            gfx_font_ctx_t *font = (gfx_font_ctx_t *)font_ctx;
-                            int glyph_width = font->get_glyph_width(font, unicode);
-                            current_line_width += glyph_width;
-                        }
-                        line_widths[line_count] = current_line_width;
-                    }
-
-                    line_count++;
-                }
-
-                line_start = line_end + 1;
             }
-            line_end++;
+
+            entry->alpha_bitmap_size = bitmap_size;
+            cache->glyph_bitmap_bytes += bitmap_size;
         }
     }
 
-    *ret_lines = lines;
-    *ret_line_count = line_count;
-
-    if (ret_line_widths) {
-        *ret_line_widths = line_widths;
+    entry->next = cache->glyphs;
+    cache->glyphs = entry;
+    cache->glyph_count++;
+    if ((cache->access_count % 64U) == 0U || cache->miss_count <= 4U) {
+        gfx_glyph_cache_log_stats(cache, "insert");
     }
-
+    *out_entry = entry;
     return ESP_OK;
 }
 
-static int gfx_calculate_line_width(const char *line_text, gfx_font_ctx_t *font)
+static int gfx_get_glyph_advance_width(gfx_font_handle_t font, uint32_t unicode)
 {
-    int line_width = 0;
-    const char *p = line_text;
+    gfx_label_glyph_cache_entry_t *entry = NULL;
 
-    while (*p) {
+    if (gfx_get_cached_glyph(font, unicode, &entry) != ESP_OK || entry == NULL || !entry->available) {
+        return 0;
+    }
+
+    return entry->advance_width;
+}
+
+static int gfx_calculate_text_width(gfx_font_handle_t font, const char *text, const char *text_end)
+{
+    int text_width = 0;
+    const char *p = text;
+
+    while (*p && (text_end == NULL || p < text_end)) {
         uint32_t unicode = 0;
+        const char *char_start = p;
         int bytes_consumed = gfx_utf8_to_unicode(&p, &unicode);
         if (bytes_consumed == 0) {
             p++;
             continue;
         }
 
-        line_width += font->get_glyph_width(font, unicode);
+        if (*char_start == '\n') {
+            break;
+        }
+
+        text_width += gfx_get_glyph_advance_width(font, unicode);
     }
 
-    return line_width;
+    return text_width;
+}
+
+static bool gfx_label_line_iter_next(gfx_obj_t *obj, gfx_font_handle_t font, gfx_label_line_iter_t *iter)
+{
+    gfx_label_t *label = (gfx_label_t *)obj->src;
+    const char *start = iter->cursor;
+
+    if (start == NULL || *start == '\0') {
+        return false;
+    }
+
+    if (label->text.long_mode == GFX_LABEL_LONG_WRAP) {
+        const char *cursor = start;
+        const char *wrap_end = start;
+        const char *last_space = NULL;
+        int accumulated_width = 0;
+
+        while (*cursor) {
+            uint32_t unicode = 0;
+            const char *char_start = cursor;
+            int bytes_consumed = gfx_utf8_to_unicode(&cursor, &unicode);
+            if (bytes_consumed == 0) {
+                cursor++;
+                continue;
+            }
+
+            if (*char_start == '\n') {
+                break;
+            }
+
+            int char_width = gfx_get_glyph_advance_width(font, unicode);
+            if (accumulated_width + char_width > obj->geometry.width) {
+                if (last_space != NULL && last_space > start) {
+                    wrap_end = last_space;
+                }
+                break;
+            }
+
+            accumulated_width += char_width;
+            wrap_end = cursor;
+
+            if (*char_start == ' ') {
+                last_space = char_start;
+            }
+        }
+
+        if (wrap_end == start && *cursor != '\0' && *cursor != '\n') {
+            uint32_t unicode = 0;
+            const char *forced_end = start;
+            if (gfx_utf8_to_unicode(&forced_end, &unicode) > 0) {
+                wrap_end = forced_end;
+            }
+        }
+
+        iter->start = start;
+        iter->end = wrap_end;
+        iter->width = gfx_calculate_text_width(font, start, wrap_end);
+        iter->cursor = wrap_end;
+    } else {
+        const char *cursor = start;
+
+        while (*cursor && *cursor != '\n') {
+            cursor++;
+        }
+
+        iter->start = start;
+        iter->end = cursor;
+        iter->width = gfx_calculate_text_width(font, start, cursor);
+        iter->cursor = cursor;
+    }
+
+    while (*iter->cursor == ' ' || *iter->cursor == '\n') {
+        iter->cursor++;
+    }
+
+    return (iter->end > start);
 }
 
 static int gfx_cal_text_start_x(gfx_text_align_t align, int obj_width, int line_width)
@@ -541,7 +846,7 @@ static int gfx_cal_text_start_x(gfx_text_align_t align, int obj_width, int line_
 }
 
 static void gfx_render_glyph_to_mask(gfx_opa_t *mask, int obj_width, int obj_height,
-                                     gfx_font_ctx_t *font, uint32_t unicode,
+                                     gfx_font_handle_t font,
                                      const gfx_glyph_dsc_t *glyph_dsc,
                                      const uint8_t *glyph_bitmap, int x, int y)
 {
@@ -554,21 +859,19 @@ static void gfx_render_glyph_to_mask(gfx_opa_t *mask, int obj_width, int obj_hei
             int32_t pixel_y = iy + y + ofs_y;
 
             if (pixel_x >= 0 && pixel_x < obj_width && pixel_y >= 0 && pixel_y < obj_height) {
-                uint8_t pixel_value = font->get_pixel_value(font, glyph_bitmap, ix, iy, glyph_dsc->box_w);
+                uint8_t pixel_value = glyph_bitmap[iy * glyph_dsc->box_w + ix];
                 *(mask + pixel_y * obj_width + pixel_x) = pixel_value;
             }
         }
     }
 }
 
-static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const char *line_text,
-        int line_width, int y_pos)
+static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const gfx_label_line_iter_t *line, int y_pos)
 {
     gfx_label_t *label = (gfx_label_t *)obj->src;
-    void *font_ctx = label->font.font_ctx;
-    gfx_font_ctx_t *font = (gfx_font_ctx_t *)font_ctx;
+    gfx_font_handle_t font = gfx_label_get_font_handle(label);
 
-    int start_x = gfx_cal_text_start_x(label->style.text_align, obj->geometry.width, line_width);
+    int start_x = gfx_cal_text_start_x(label->style.text_align, obj->geometry.width, line->width);
 
     if (label->text.long_mode == GFX_LABEL_LONG_SCROLL && label->scroll.scrolling) {
         start_x -= label->render.offset;
@@ -581,11 +884,11 @@ static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const 
     const char *render_end = NULL;
     if (label->text.long_mode == GFX_LABEL_LONG_SCROLL_SNAP) {
         int scan_x = start_x;
-        const char *p_scan = line_text;
+        const char *p_scan = line->start;
         const char *last_space_ptr = NULL;
         const char *last_valid_ptr = NULL;
 
-        while (*p_scan) {
+        while (p_scan < line->end && *p_scan) {
             uint32_t unicode = 0;
             const char *p_before = p_scan;
             int bytes_consumed = gfx_utf8_to_unicode(&p_scan, &unicode);
@@ -595,9 +898,10 @@ static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const 
             }
 
             uint8_t c = (uint8_t) * p_before;
-            gfx_glyph_dsc_t glyph_dsc;
-            if (font->get_glyph_dsc(font, &glyph_dsc, unicode, 0)) {
-                int char_width = font->get_advance_width(font, &glyph_dsc);
+            gfx_label_glyph_cache_entry_t *glyph_entry = NULL;
+            if (gfx_get_cached_glyph(font, unicode, &glyph_entry) == ESP_OK &&
+                glyph_entry != NULL && glyph_entry->available) {
+                int char_width = glyph_entry->advance_width;
 
                 /* Check if this character would go beyond viewport */
                 if (scan_x + char_width > obj->geometry.width) {
@@ -623,9 +927,9 @@ static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const 
     }
 
     int x = start_x;
-    const char *p = line_text;
+    const char *p = line->start;
 
-    while (*p) {
+    while (p < line->end && *p) {
         /* In snap mode, stop at calculated end position */
         if (label->text.long_mode == GFX_LABEL_LONG_SCROLL_SNAP && render_end && p >= render_end) {
             break;
@@ -638,22 +942,21 @@ static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const 
             continue;
         }
 
-        gfx_glyph_dsc_t glyph_dsc;
-        const uint8_t *glyph_bitmap = NULL;
-
-        if (!font->get_glyph_dsc(font, &glyph_dsc, unicode, 0)) {
+        gfx_label_glyph_cache_entry_t *glyph_entry = NULL;
+        if (gfx_get_cached_glyph(font, unicode, &glyph_entry) != ESP_OK ||
+            glyph_entry == NULL || !glyph_entry->available) {
             continue;
         }
 
-        glyph_bitmap = font->get_glyph_bitmap(font, unicode, &glyph_dsc);
-        if (!glyph_bitmap) {
+        if (glyph_entry->glyph_dsc.box_w > 0 && glyph_entry->glyph_dsc.box_h > 0 &&
+            glyph_entry->alpha_bitmap == NULL) {
             continue;
         }
 
-        gfx_render_glyph_to_mask(mask, obj->geometry.width, obj->geometry.height, font, unicode,
-                                 &glyph_dsc, glyph_bitmap, x, y_pos);
+        gfx_render_glyph_to_mask(mask, obj->geometry.width, obj->geometry.height, font,
+                                 &glyph_entry->glyph_dsc, glyph_entry->alpha_bitmap, x, y_pos);
 
-        x += font->get_advance_width(font, &glyph_dsc);
+        x += glyph_entry->advance_width;
 
         if (x >= obj->geometry.width) {
             break;
@@ -663,29 +966,35 @@ static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const 
     return ESP_OK;
 }
 
-static esp_err_t gfx_render_lines_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, char **lines, int line_count,
-        int line_height, int base_line, int total_line_height, int *cached_line_widths)
+static esp_err_t gfx_render_text_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, int line_height, int total_line_height)
 {
     gfx_label_t *label = (gfx_label_t *)obj->src;
-    void *font_ctx = label->font.font_ctx;
-    gfx_font_ctx_t *font = (gfx_font_ctx_t *)font_ctx;
+    gfx_font_handle_t font = gfx_label_get_font_handle(label);
     int current_y = 0;
+    int max_lines = obj->geometry.height / total_line_height;
+    gfx_label_line_iter_t line_iter = {
+        .cursor = label->text.text,
+        .start = NULL,
+        .end = NULL,
+        .width = 0,
+    };
 
-    for (int line_idx = 0; line_idx < line_count; line_idx++) {
+    if (max_lines <= 0) {
+        max_lines = 1;
+    }
+
+    label->text.text_width = gfx_calculate_text_width(font, label->text.text, NULL);
+
+    for (int line_idx = 0; line_idx < max_lines && line_iter.cursor != NULL && *line_iter.cursor != '\0'; line_idx++) {
         if (current_y + line_height > obj->geometry.height) {
             break;
         }
 
-        const char *line_text = lines[line_idx];
-        int line_width;
-
-        if (cached_line_widths) {
-            line_width = cached_line_widths[line_idx];
-        } else {
-            line_width = gfx_calculate_line_width(line_text, font);
+        if (!gfx_label_line_iter_next(obj, font, &line_iter)) {
+            break;
         }
 
-        gfx_render_line_to_mask(obj, mask, line_text, line_width, current_y);
+        gfx_render_line_to_mask(obj, mask, &line_iter, current_y);
 
         current_y += total_line_height;
     }
@@ -693,140 +1002,38 @@ static esp_err_t gfx_render_lines_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, char 
     return ESP_OK;
 }
 
-static bool gfx_can_use_cached_data(gfx_obj_t *obj)
-{
-    gfx_label_t *label = (gfx_label_t *)obj->src;
-    return ((label->text.long_mode == GFX_LABEL_LONG_SCROLL) &&
-            (label->cache.lines != NULL) &&
-            (label->cache.line_widths != NULL) &&
-            (label->cache.line_count > 0) &&
-            (label->scroll.changed == true));
-}
-
 static gfx_opa_t *gfx_allocate_mask_buffer(gfx_obj_t *obj)
 {
     gfx_label_t *label = (gfx_label_t *)obj->src;
-    if (label->render.mask) {
-        free(label->render.mask);
-        label->render.mask = NULL;
-    }
+    size_t required_size = gfx_get_mask_buffer_size(obj);
 
-    gfx_opa_t *mask_buf = (gfx_opa_t *)malloc(obj->geometry.width * obj->geometry.height);
-    if (!mask_buf) {
-        ESP_LOGE(TAG, "Failed to allocate mask buffer");
+    if (required_size == 0) {
         return NULL;
     }
 
-    memset(mask_buf, 0x00, obj->geometry.height * obj->geometry.width);
-    return mask_buf;
-}
-
-static esp_err_t gfx_cache_line_data(gfx_label_t *label, char **lines,
-                                     int line_count, int *line_widths)
-{
-    if (label->text.long_mode != GFX_LABEL_LONG_SCROLL || line_count <= 0) {
-        return ESP_OK;
-    }
-
-    gfx_label_clear_cached_lines(label);
-
-    label->cache.lines = (char **)malloc(line_count * sizeof(char *));
-    label->cache.line_widths = (int *)malloc(line_count * sizeof(int));
-
-    if (!label->cache.lines || !label->cache.line_widths) {
-        ESP_LOGE(TAG, "Failed to allocate cache memory");
-        return ESP_ERR_NO_MEM;
-    }
-
-    label->cache.line_count = line_count;
-    for (int i = 0; i < line_count; i++) {
-        if (lines[i]) {
-            size_t len = strlen(lines[i]) + 1;
-            label->cache.lines[i] = (char *)malloc(len);
-            if (label->cache.lines[i]) {
-                strcpy(label->cache.lines[i], lines[i]);
-            }
-        } else {
-            label->cache.lines[i] = NULL;
+    if (label->render.mask == NULL || label->render.mask_capacity < required_size) {
+        gfx_opa_t *new_mask = (gfx_opa_t *)realloc(label->render.mask, required_size);
+        if (new_mask == NULL) {
+            GFX_LOGE(TAG, "Failed to allocate mask buffer");
+            return NULL;
         }
-        label->cache.line_widths[i] = line_widths[i];
+
+        label->render.mask = new_mask;
+        label->render.mask_capacity = required_size;
     }
 
-    ESP_LOGD(TAG, "Cached %d lines with widths for scroll optimization", line_count);
-    return ESP_OK;
-}
-
-static void gfx_cleanup_line_data(char **lines, int line_count, int *line_widths)
-{
-    if (lines) {
-        for (int i = 0; i < line_count; i++) {
-            if (lines[i]) {
-                free(lines[i]);
-            }
-        }
-        free(lines);
-    }
-
-    if (line_widths) {
-        free(line_widths);
-    }
-}
-
-
-static esp_err_t gfx_render_cached(gfx_obj_t *obj, gfx_opa_t *mask)
-{
-    gfx_label_t *label = (gfx_label_t *)obj->src;
-    void *font_ctx = label->font.font_ctx;
-    gfx_font_ctx_t *font = (gfx_font_ctx_t *)font_ctx;
-    int line_height = font->get_line_height(font);
-    int base_line = font->get_base_line(font);
-    int total_line_height = line_height + label->text.line_spacing;
-
-    ESP_LOGD(TAG, "Reusing %d cached lines for scroll", label->cache.line_count);
-    return gfx_render_lines_to_mask(obj, mask, label->cache.lines,
-                                    label->cache.line_count,
-                                    line_height, base_line, total_line_height,
-                                    label->cache.line_widths);
+    memset(label->render.mask, 0x00, required_size);
+    return label->render.mask;
 }
 
 static esp_err_t gfx_render_parse(gfx_obj_t *obj, gfx_opa_t *mask)
 {
     gfx_label_t *label = (gfx_label_t *)obj->src;
-    void *font_ctx = label->font.font_ctx;
-    gfx_font_ctx_t *font = (gfx_font_ctx_t *)font_ctx;
+    gfx_font_handle_t font = gfx_label_get_font_handle(label);
     int line_height = font->get_line_height(font);
-    int base_line = font->get_base_line(font);
     int total_line_height = line_height + label->text.line_spacing;
 
-    char **lines = NULL;
-    int line_count = 0;
-    int *line_widths = NULL;
-    int total_text_width = 0;
-
-    esp_err_t parse_ret = gfx_parse_text_lines(obj, total_line_height,
-                          &lines, &line_count, &total_text_width, &line_widths);
-    if (parse_ret != ESP_OK) {
-        free(mask);
-        return parse_ret;
-    }
-
-    label->text.text_width = total_text_width;
-
-    esp_err_t cache_ret = gfx_cache_line_data(label, lines, line_count, line_widths);
-    if (cache_ret != ESP_OK) {
-        ESP_LOGW(TAG, "Failed to cache line data, continuing without cache");
-    }
-
-    esp_err_t render_ret = gfx_render_lines_to_mask(obj, mask, lines, line_count,
-                           line_height, base_line, total_line_height, line_widths);
-    if (render_ret != ESP_OK) {
-        gfx_cleanup_line_data(lines, line_count, line_widths);
-        free(mask);
-        return render_ret;
-    }
-
-    gfx_cleanup_line_data(lines, line_count, line_widths);
-    return ESP_OK;
+    return gfx_render_text_to_mask(obj, mask, line_height, total_line_height);
 }
 
 esp_err_t gfx_get_glphy_dsc(gfx_obj_t *obj)
@@ -838,9 +1045,9 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t *obj)
     }
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
-    void *font_ctx = label->font.font_ctx;
-    if (font_ctx == NULL) {
-        ESP_LOGD(TAG, "font context is NULL");
+    gfx_font_handle_t font = gfx_label_get_font_handle(label);
+    if (font == NULL) {
+        GFX_LOGD(TAG, "font adapter is NULL");
         return ESP_OK;
     }
 
@@ -848,19 +1055,13 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t *obj)
     ESP_RETURN_ON_FALSE(mask_buf, ESP_ERR_NO_MEM, TAG, "no mem for mask_buf");
 
     esp_err_t render_ret;
-    if (gfx_can_use_cached_data(obj)) {
-        render_ret = gfx_render_cached(obj, mask_buf);
-    } else {
-        render_ret = gfx_render_parse(obj, mask_buf);
-    }
+    render_ret = gfx_render_parse(obj, mask_buf);
 
     if (render_ret != ESP_OK) {
-        free(mask_buf);
         return render_ret;
     }
 
     label->render.mask = mask_buf;
-    label->scroll.changed = false;
     obj->state.dirty = false;
 
     gfx_update_scroll_state(obj);
@@ -881,13 +1082,13 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t *obj)
 esp_err_t gfx_draw_label(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 {
     if (!obj || !ctx) {
-        ESP_LOGE(TAG, "invalid handle");
+        GFX_LOGE(TAG, "invalid handle");
         return ESP_ERR_INVALID_ARG;
     }
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
     if (label->text.text == NULL) {
-        ESP_LOGD(TAG, "text is NULL");
+        GFX_LOGD(TAG, "text is NULL");
         return ESP_OK;
     }
 

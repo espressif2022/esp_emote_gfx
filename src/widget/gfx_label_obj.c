@@ -11,6 +11,8 @@
 #include <string.h>
 #include "esp_log.h"
 #include "esp_check.h"
+#define GFX_LOG_MODULE GFX_LOG_MODULE_LABEL_OBJ
+#include "common/gfx_log.h"
 #include "common/gfx_comm.h"
 #include "core/gfx_refr_priv.h"
 #include "core/gfx_obj_priv.h"
@@ -43,6 +45,7 @@ static void gfx_label_init_default_state(gfx_label_t *label)
 {
     label->style.opa = 0xFF;
     label->render.mask = NULL;
+    label->render.mask_capacity = 0;
     label->style.bg_color = (gfx_color_t) {
         .full = 0x0000
     };
@@ -57,7 +60,6 @@ static void gfx_label_init_default_state(gfx_label_t *label)
     label->scroll.speed = 50;
     label->scroll.loop = true;
     label->scroll.scrolling = false;
-    label->scroll.changed = false;
     label->scroll.timer = NULL;
 
     label->snap.interval = 2000;
@@ -65,9 +67,6 @@ static void gfx_label_init_default_state(gfx_label_t *label)
     label->snap.loop = true;
     label->snap.timer = NULL;
 
-    label->cache.lines = NULL;
-    label->cache.line_count = 0;
-    label->cache.line_widths = NULL;
 }
 
 /**********************
@@ -77,19 +76,19 @@ static void gfx_label_init_default_state(gfx_label_t *label)
 gfx_obj_t *gfx_label_create(gfx_disp_t *disp)
 {
     if (disp == NULL) {
-        ESP_LOGE(TAG, "disp must be from gfx_emote_add_disp");
+        GFX_LOGE(TAG, "disp must be from gfx_emote_add_disp");
         return NULL;
     }
 
     gfx_obj_t *obj = calloc(1, sizeof(gfx_obj_t));
     if (obj == NULL) {
-        ESP_LOGE(TAG, "No mem for label object");
+        GFX_LOGE(TAG, "No mem for label object");
         return NULL;
     }
 
     gfx_label_t *label = calloc(1, sizeof(gfx_label_t));
     if (label == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate memory for label object");
+        GFX_LOGE(TAG, "Failed to allocate memory for label object");
         free(obj);
         return NULL;
     }
@@ -111,7 +110,7 @@ gfx_obj_t *gfx_label_create(gfx_disp_t *disp)
         return NULL;
     }
 
-    ESP_LOGD(TAG, "Created label object with default font config");
+    GFX_LOGD(TAG, "Created label object with default font config");
     return obj;
 }
 
@@ -134,11 +133,12 @@ esp_err_t gfx_label_delete_impl(gfx_obj_t *obj)
         label->snap.timer = NULL;
     }
 
-    gfx_label_clear_cached_lines(label);
+    gfx_label_clear_glyph_cache(label);
 
     free(label->text.text);
-    free(label->font.font_ctx);
+    free(label->font.handle);
     free(label->render.mask);
+    label->render.mask_capacity = 0;
     free(label);
 
     return ESP_OK;

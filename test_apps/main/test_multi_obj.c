@@ -11,11 +11,11 @@
 
 static const char *TAG = "test_multi";
 
-static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
+static void test_multi_obj_run(mmap_assets_handle_t assets_handle)
 {
-    ESP_LOGI(TAG, "=== Testing Multiple Objects Interaction ===");
+    test_app_log_case(TAG, "Multi-Widget Demo");
 
-    gfx_emote_lock(emote_handle);
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
 
     TEST_ASSERT_NOT_NULL(disp_default);
     gfx_obj_t *anim_obj = gfx_anim_create(disp_default);
@@ -61,14 +61,14 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
 
     gfx_image_dsc_t img_dsc;
     load_image(assets_handle, MMAP_TEST_ASSETS_ICON_RGB565_BIN, &img_dsc);
-    gfx_img_set_src(img_obj, (void *)&img_dsc); // Use BIN format image
+    gfx_img_set_src(img_obj, (void *)&img_dsc);
     gfx_obj_align(img_obj, GFX_ALIGN_TOP_MID, 0, 0);
 
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
 
-    vTaskDelay(pdMS_TO_TICKS(10 * 1000));
+    test_app_wait_ms(10000);
 
-    gfx_emote_lock(emote_handle);
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_timer_delete(emote_handle, timer);
     gfx_obj_delete(anim_obj);
     gfx_obj_delete(label_obj);
@@ -76,16 +76,16 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
     gfx_label_delete_font(font_DejaVuSans);
 #endif
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
 }
 
-TEST_CASE("test function obj multi", "")
+TEST_CASE("gfx demo: multi widget scene", "[demo][multi]")
 {
-    mmap_assets_handle_t assets_handle = NULL;
-    esp_err_t ret = display_and_graphics_init("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
+    test_app_runtime_t runtime;
+    esp_err_t ret = test_app_runtime_open(&runtime);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
 
-    test_multiple_objects_function(assets_handle);
+    test_multi_obj_run(runtime.assets_handle);
 
-    display_and_graphics_clean(assets_handle);
+    test_app_runtime_close(&runtime);
 }

@@ -12,6 +12,8 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
+#define GFX_LOG_MODULE GFX_LOG_MODULE_IMG_DEC
+#include "common/gfx_log.h"
 
 #include "decoder/gfx_img_dec_priv.h"
 
@@ -93,14 +95,14 @@ esp_err_t gfx_image_decoder_register(gfx_image_decoder_t *decoder)
     }
 
     if (s_decoder_count >= MAX_DECODERS) {
-        ESP_LOGE(TAG, "Too many decoders registered");
+        GFX_LOGE(TAG, "Too many decoders registered");
         return ESP_ERR_NO_MEM;
     }
 
     s_registered_decoders[s_decoder_count] = decoder;
     s_decoder_count++;
 
-    ESP_LOGD(TAG, "Registered decoder: %s", decoder->name);
+    GFX_LOGD(TAG, "Registered decoder: %s", decoder->name);
     return ESP_OK;
 }
 
@@ -115,13 +117,13 @@ esp_err_t gfx_image_decoder_info(gfx_image_decoder_dsc_t *dsc, gfx_image_header_
         if (decoder && decoder->info_cb) {
             esp_err_t ret = decoder->info_cb(decoder, dsc, header);
             if (ret == ESP_OK) {
-                ESP_LOGD(TAG, "Decoder %s found format", decoder->name);
+                GFX_LOGD(TAG, "Decoder %s found format", decoder->name);
                 return ESP_OK;
             }
         }
     }
 
-    ESP_LOGW(TAG, "No decoder found for image format");
+    GFX_LOGW(TAG, "No decoder found for image format");
     return ESP_ERR_INVALID_ARG;
 }
 
@@ -136,13 +138,13 @@ esp_err_t gfx_image_decoder_open(gfx_image_decoder_dsc_t *dsc)
         if (decoder && decoder->open_cb) {
             esp_err_t ret = decoder->open_cb(decoder, dsc);
             if (ret == ESP_OK) {
-                ESP_LOGD(TAG, "Decoder %s opened image", decoder->name);
+                GFX_LOGD(TAG, "Decoder %s opened image", decoder->name);
                 return ESP_OK;
             }
         }
     }
 
-    ESP_LOGW(TAG, "No decoder could open image");
+    GFX_LOGW(TAG, "No decoder could open image");
     return ESP_ERR_INVALID_ARG;
 }
 
@@ -259,7 +261,7 @@ esp_err_t gfx_image_decoder_init(void)
         return ret;
     }
 
-    ESP_LOGD(TAG, "Image decoder system initialized with %d decoders", s_decoder_count);
+    GFX_LOGD(TAG, "Image decoder system initialized with %d decoders", s_decoder_count);
     return ESP_OK;
 }
 
@@ -271,6 +273,6 @@ esp_err_t gfx_image_decoder_deinit(void)
 
     s_decoder_count = 0;
 
-    ESP_LOGD(TAG, "Image decoder system deinitialized");
+    GFX_LOGD(TAG, "Image decoder system deinitialized");
     return ESP_OK;
 }

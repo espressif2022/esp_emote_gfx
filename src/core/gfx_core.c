@@ -16,6 +16,8 @@
 #include "esp_timer.h"
 #include "esp_log.h"
 #include "esp_check.h"
+#define GFX_LOG_MODULE GFX_LOG_MODULE_CORE
+#include "common/gfx_log.h"
 
 #include "core/gfx_obj.h"
 #include "core/gfx_obj_priv.h"
@@ -220,7 +222,7 @@ void gfx_emote_deinit(gfx_handle_t handle)
 {
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
     if (ctx == NULL) {
-        ESP_LOGE(TAG, "Invalid graphics context");
+        GFX_LOGE(TAG, "Invalid graphics context");
         return;
     }
 
@@ -270,19 +272,19 @@ esp_err_t gfx_refr_now(gfx_handle_t handle)
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
     SemaphoreHandle_t mutex = ctx ? ctx->sync.render_mutex : NULL;
     if (ctx == NULL || mutex == NULL) {
-        ESP_LOGE(TAG, "Invalid graphics context or mutex");
+        GFX_LOGE(TAG, "Invalid graphics context or mutex");
         return ESP_ERR_INVALID_ARG;
     }
 
     if (xSemaphoreTakeRecursive(mutex, portMAX_DELAY) != pdTRUE) {
-        ESP_LOGE(TAG, "Failed to acquire graphics lock");
+        GFX_LOGE(TAG, "Failed to acquire graphics lock");
         return ESP_ERR_TIMEOUT;
     }
 
     gfx_do_refr_now_impl(ctx);
 
     if (xSemaphoreGiveRecursive(mutex) != pdTRUE) {
-        ESP_LOGE(TAG, "Failed to release graphics lock");
+        GFX_LOGE(TAG, "Failed to release graphics lock");
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -294,12 +296,12 @@ esp_err_t gfx_emote_lock(gfx_handle_t handle)
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
     SemaphoreHandle_t mutex = ctx ? ctx->sync.render_mutex : NULL;
     if (ctx == NULL || mutex == NULL) {
-        ESP_LOGE(TAG, "Invalid graphics context or mutex");
+        GFX_LOGE(TAG, "Invalid graphics context or mutex");
         return ESP_ERR_INVALID_ARG;
     }
 
     if (xSemaphoreTakeRecursive(mutex, portMAX_DELAY) != pdTRUE) {
-        ESP_LOGE(TAG, "Failed to acquire graphics lock");
+        GFX_LOGE(TAG, "Failed to acquire graphics lock");
         return ESP_ERR_TIMEOUT;
     }
 
@@ -311,12 +313,12 @@ esp_err_t gfx_emote_unlock(gfx_handle_t handle)
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
     SemaphoreHandle_t mutex = ctx ? ctx->sync.render_mutex : NULL;
     if (ctx == NULL || mutex == NULL) {
-        ESP_LOGE(TAG, "Invalid graphics context or mutex");
+        GFX_LOGE(TAG, "Invalid graphics context or mutex");
         return ESP_ERR_INVALID_ARG;
     }
 
     if (xSemaphoreGiveRecursive(mutex) != pdTRUE) {
-        ESP_LOGE(TAG, "Failed to release graphics lock");
+        GFX_LOGE(TAG, "Failed to release graphics lock");
         return ESP_ERR_INVALID_STATE;
     }
 

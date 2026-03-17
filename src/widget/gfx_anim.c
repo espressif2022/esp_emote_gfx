@@ -13,6 +13,8 @@
 #include "esp_err.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#define GFX_LOG_MODULE GFX_LOG_MODULE_ANIM
+#include "common/gfx_log.h"
 #include "common/gfx_comm.h"
 #include "core/gfx_obj_priv.h"
 #include "core/gfx_refr_priv.h"
@@ -323,7 +325,7 @@ static esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj)
 
     gfx_anim_update_geometry(obj, anim);
 
-    ESP_LOGD(TAG, "Frame %" PRIu32 " prepared by decoder %s", current_frame,
+    GFX_LOGD(TAG, "Frame %" PRIu32 " prepared by decoder %s", current_frame,
              decoder->name ? decoder->name : "unknown");
     return ret;
 
@@ -539,11 +541,11 @@ static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t d
 static esp_err_t gfx_draw_animation(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 {
     if (obj == NULL || obj->src == NULL || ctx == NULL) {
-        ESP_LOGE(TAG, "Invalid object or source");
+        GFX_LOGE(TAG, "Invalid object or source");
         return ESP_ERR_INVALID_ARG;
     }
     if (obj->type != GFX_OBJ_TYPE_ANIMATION) {
-        ESP_LOGE(TAG, "Object is not an animation type");
+        GFX_LOGE(TAG, "Object is not an animation type");
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -556,7 +558,7 @@ static esp_err_t gfx_draw_animation(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
         return ESP_ERR_INVALID_STATE;
     }
     if (anim->frame.desc.width <= 0) {
-        ESP_LOGE(TAG, "Invalid header for frame %" PRIu32, anim->current_frame);
+        GFX_LOGE(TAG, "Invalid header for frame %" PRIu32, anim->current_frame);
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -567,7 +569,7 @@ static esp_err_t gfx_draw_animation(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     int *last_block_idx = &anim->frame.last_block;
 
     if (block_offsets == NULL || pixel_buffer == NULL) {
-        ESP_LOGE(TAG, "Parsing resources not ready for frame %" PRIu32, anim->current_frame);
+        GFX_LOGE(TAG, "Parsing resources not ready for frame %" PRIu32, anim->current_frame);
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -637,7 +639,7 @@ static esp_err_t gfx_draw_animation(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
         } else if (frame_desc->bit_depth == GFX_ANIM_DEPTH_8BIT) {
             src_pixels = GFX_BUFFER_OFFSET_8BPP(pixel_buffer, src_offset_y, src_stride, src_offset_x);
         } else {
-            ESP_LOGE(TAG, "Unsupported bit depth: %d", frame_desc->bit_depth);
+            GFX_LOGE(TAG, "Unsupported bit depth: %d", frame_desc->bit_depth);
             return ESP_ERR_INVALID_ARG;
         }
 
@@ -697,7 +699,7 @@ static void gfx_anim_timer_callback(void *arg)
 
     if (anim->current_frame >= anim->end_frame) {
         if (anim->repeat) {
-            ESP_LOGD(TAG, "Repeat");
+            GFX_LOGD(TAG, "Repeat");
             anim->current_frame = anim->start_frame;
             if (gfx_anim_prepare_frame(obj) != ESP_OK) {
                 return;
@@ -706,7 +708,7 @@ static void gfx_anim_timer_callback(void *arg)
                 obj->disp->cb.update_cb(obj->disp, GFX_DISP_EVENT_ALL_FRAME_DONE, obj);
             }
         } else {
-            ESP_LOGD(TAG, "Done");
+            GFX_LOGD(TAG, "Done");
             anim->is_playing = false;
             if (obj->disp && obj->disp->cb.update_cb) {
                 obj->disp->cb.update_cb(obj->disp, GFX_DISP_EVENT_ALL_FRAME_DONE, obj);
@@ -721,7 +723,7 @@ static void gfx_anim_timer_callback(void *arg)
         if (obj->disp && obj->disp->cb.update_cb) {
             obj->disp->cb.update_cb(obj->disp, GFX_DISP_EVENT_ONE_FRAME_DONE, obj);
         }
-        ESP_LOGD(TAG, "Frame %" PRIu32 "/%" PRIu32, anim->current_frame, anim->end_frame);
+        GFX_LOGD(TAG, "Frame %" PRIu32 "/%" PRIu32, anim->current_frame, anim->end_frame);
     }
 
     gfx_obj_invalidate(obj);
@@ -734,13 +736,13 @@ static void gfx_anim_timer_callback(void *arg)
 gfx_obj_t *gfx_anim_create(gfx_disp_t *disp)
 {
     if (disp == NULL) {
-        ESP_LOGE(TAG, "disp must be from gfx_emote_add_disp");
+        GFX_LOGE(TAG, "disp must be from gfx_emote_add_disp");
         return NULL;
     }
 
     gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
     if (obj == NULL) {
-        ESP_LOGE(TAG, "No mem for animation object");
+        GFX_LOGE(TAG, "No mem for animation object");
         return NULL;
     }
 
@@ -754,7 +756,7 @@ gfx_obj_t *gfx_anim_create(gfx_disp_t *disp)
 
     gfx_anim_t *anim = (gfx_anim_t *)malloc(sizeof(gfx_anim_t));
     if (anim == NULL) {
-        ESP_LOGE(TAG, "No mem for animation property");
+        GFX_LOGE(TAG, "No mem for animation property");
         free(obj);
         return NULL;
     }
@@ -767,7 +769,7 @@ gfx_obj_t *gfx_anim_create(gfx_disp_t *disp)
     uint32_t period_ms = 1000 / anim->fps;
     anim->timer = gfx_timer_create((void *)disp->ctx, gfx_anim_timer_callback, period_ms, obj);
     if (anim->timer == NULL) {
-        ESP_LOGE(TAG, "Failed to create animation timer");
+        GFX_LOGE(TAG, "Failed to create animation timer");
         free(anim);
         free(obj);
         return NULL;
@@ -837,7 +839,7 @@ static esp_err_t gfx_anim_set_src_desc_with_decoder_internal(gfx_obj_t *obj, con
     ESP_GOTO_ON_ERROR(gfx_anim_prepare_frame(obj), err, TAG, "Failed to prepare first frame");
 
     gfx_obj_invalidate(obj);
-    ESP_LOGD(TAG, "Set src with decoder %s [%" PRIu32 "-%" PRIu32 "]",
+    GFX_LOGD(TAG, "Set src with decoder %s [%" PRIu32 "-%" PRIu32 "]",
              decoder->name ? decoder->name : "unknown", anim->start_frame, anim->end_frame);
     return ESP_OK;
 
@@ -870,14 +872,14 @@ esp_err_t gfx_anim_set_segment(gfx_obj_t *obj, uint32_t start, uint32_t end, uin
         if (anim->timer != NULL) {
             uint32_t new_period_ms = 1000 / fps;
             gfx_timer_set_period(anim->timer, new_period_ms);
-            ESP_LOGD(TAG, "FPS updated to %" PRIu32, fps);
+            GFX_LOGD(TAG, "FPS updated to %" PRIu32, fps);
         }
     }
 
     anim->repeat = repeat;
     ESP_RETURN_ON_ERROR(gfx_anim_prepare_frame(obj), TAG, "Failed to prepare segment start frame");
     gfx_obj_invalidate(obj);
-    ESP_LOGD(TAG, "Segment [%" PRIu32 "-%" PRIu32 "] fps:%" PRIu32 " repeat:%d",
+    GFX_LOGD(TAG, "Segment [%" PRIu32 "-%" PRIu32 "] fps:%" PRIu32 " repeat:%d",
              anim->start_frame, anim->end_frame, fps, repeat);
     return ESP_OK;
 }
@@ -899,7 +901,7 @@ esp_err_t gfx_anim_start(gfx_obj_t *obj)
     anim->is_playing = true;
     gfx_obj_invalidate(obj);
 
-    ESP_LOGD(TAG, "Start");
+    GFX_LOGD(TAG, "Start");
     return ESP_OK;
 }
 
@@ -915,7 +917,7 @@ esp_err_t gfx_anim_stop(gfx_obj_t *obj)
     }
 
     anim->is_playing = false;
-    ESP_LOGD(TAG, "Stop");
+    GFX_LOGD(TAG, "Stop");
     return ESP_OK;
 }
 
@@ -929,7 +931,7 @@ esp_err_t gfx_anim_set_mirror(gfx_obj_t *obj, bool enabled, int16_t offset)
     anim->mirror_mode = enabled ? GFX_MIRROR_MANUAL : GFX_MIRROR_DISABLED;
     anim->mirror_offset = offset;
 
-    ESP_LOGD(TAG, "Mirror %s offset:%d", enabled ? "on" : "off", offset);
+    GFX_LOGD(TAG, "Mirror %s offset:%d", enabled ? "on" : "off", offset);
     return ESP_OK;
 }
 
@@ -942,6 +944,6 @@ esp_err_t gfx_anim_set_auto_mirror(gfx_obj_t *obj, bool enabled)
 
     anim->mirror_mode = enabled ? GFX_MIRROR_AUTO : GFX_MIRROR_DISABLED;
 
-    ESP_LOGD(TAG, "Auto mirror %s", enabled ? "on" : "off");
+    GFX_LOGD(TAG, "Auto mirror %s", enabled ? "on" : "off");
     return ESP_OK;
 }

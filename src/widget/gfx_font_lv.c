@@ -16,6 +16,8 @@
 #include <stdint.h>
 #include "esp_log.h"
 #include "esp_check.h"
+#define GFX_LOG_MODULE GFX_LOG_MODULE_FONT_LV
+#include "common/gfx_log.h"
 #include "widget/gfx_font_lvgl.h"
 #include "widget/gfx_font_priv.h"
 
@@ -54,7 +56,7 @@ static void *malloc_cpy(void *src, size_t sz)
 {
     void *p = malloc(sz);
     if (!p) {
-        ESP_LOGE(TAG, "Failed to allocate memory");
+        GFX_LOGE(TAG, "Failed to allocate memory");
         return NULL;
     }
     memcpy(p, src, sz);
@@ -285,7 +287,7 @@ static int gfx_font_lv_adjust_baseline_offset(gfx_font_ctx_t *font, void *glyph_
 {
     const lv_font_t *lvgl_font = (const lv_font_t *)font->font;
     if (!lvgl_font) {
-        ESP_LOGE(TAG, "lvgl_font is NULL");
+        GFX_LOGE(TAG, "lvgl_font is NULL");
         return 0;
     }
 
@@ -362,7 +364,7 @@ void gfx_font_lv_init_context(gfx_font_ctx_t *font_ctx, const void *font)
 lv_font_t *gfx_font_lv_load_from_binary(uint8_t *bin_addr)
 {
     if (!bin_addr) {
-        ESP_LOGE(TAG, "bin_addr is NULL");
+        GFX_LOGE(TAG, "bin_addr is NULL");
         return NULL;
     }
 
@@ -389,7 +391,7 @@ lv_font_t *gfx_font_lv_load_from_binary(uint8_t *bin_addr)
         uint8_t *cmaps_addr = bin_addr + (uintptr_t)dsc->cmaps;
         dsc->cmaps = (lv_font_fmt_txt_cmap_t *)malloc(sizeof(lv_font_fmt_txt_cmap_t) * dsc->cmap_num);
         if (!dsc->cmaps) {
-            ESP_LOGE(TAG, "Failed to allocate memory for cmaps");
+            GFX_LOGE(TAG, "Failed to allocate memory for cmaps");
             free(dsc);
             free(font);
             return NULL;
