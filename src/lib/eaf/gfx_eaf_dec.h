@@ -4,54 +4,29 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/**
- * @file gfx_eaf_dec.h
- * @brief EAF (Emote Animation Format) Decoder
- *
- * This module provides functionality for decoding EAF format files, including:
- * - File format parsing and validation
- * - Frame data extraction and management
- * - Multiple encoding format support (RLE, Huffman, JPEG)
- * - Color palette handling
- */
-
 #pragma once
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+
+#include "sdkconfig.h"
 #include "esp_err.h"
 #include "core/gfx_types.h"
-#include "sdkconfig.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /**********************
- *  FILE FORMAT DEFINITIONS
+ *      DEFINES
  **********************/
 
-/*
- * EAF File Format Structure:
- *
- * Offset  Size    Description
- * 0       1       Magic number (0x89)
- * 1       3       Format string ("EAF")
- * 4       4       Total number of frames
- * 8       4       Checksum of table + data
- * 12      4       Length of table + data
-* 16      N       Frame table (N = total_frames * 8)
-* 16+N    M       Frame data (M = sum of all frame sizes)
- */
-
-/* Magic numbers and identifiers */
 #define EAF_MAGIC_HEAD          0x5A5A
 #define EAF_MAGIC_LEN           2
 #define EAF_FORMAT_MAGIC        0x89
 #define EAF_FORMAT_STR          "EAF"
 #define AAF_FORMAT_STR          "AAF"
 
-/* File structure offsets */
 #define EAF_FORMAT_OFFSET       0
 #define EAF_STR_OFFSET          1
 #define EAF_NUM_OFFSET          4
@@ -60,12 +35,9 @@ extern "C" {
 #define EAF_TABLE_OFFSET        16
 
 /**********************
- *  INTERNAL STRUCTURES
+ *      TYPEDEFS
  **********************/
 
-/**
- * @brief Frame table entry structure
- */
 #pragma pack(1)
 typedef struct {
     uint32_t frame_size;          /*!< Size of the frame */
@@ -73,29 +45,16 @@ typedef struct {
 } eaf_frame_table_entry_t;
 #pragma pack()
 
-/**
- * @brief Frame entry with memory and table information
- */
 typedef struct {
     const char *frame_mem;
     const eaf_frame_table_entry_t *table;
 } eaf_frame_entry_t;
 
-/**
- * @brief EAF format context structure
- */
 typedef struct {
     eaf_frame_entry_t *entries;
     int total_frames;
 } eaf_format_ctx_t;
 
-/**********************
- *  PUBLIC TYPES
- **********************/
-
-/**
- * @brief EAF format type enumeration
- */
 typedef enum {
     EAF_FORMAT_VALID = 0,      /*!< Valid EAF format with split BMP data */
     EAF_FORMAT_REDIRECT = 1,    /*!< Redirect format pointing to another file */
@@ -103,9 +62,6 @@ typedef enum {
     EAF_FORMAT_FLAG = 3         /*!< Invalid format */
 } eaf_format_type_t;
 
-/**
- * @brief EAF encoding type enumeration
- */
 typedef enum {
     EAF_ENCODING_RLE = 0,           /*!< Run-Length Encoding */
     EAF_ENCODING_HUFFMAN = 1,       /*!< Huffman encoding with RLE */
@@ -116,9 +72,6 @@ typedef enum {
     EAF_ENCODING_MAX                /*!< Maximum number of encoding types */
 } eaf_encoding_type_t;
 
-/**
- * @brief EAF image header structure
- */
 typedef struct {
     char format[3];        /*!< Format identifier (e.g., "_S") */
     char version[6];       /*!< Version string */
@@ -133,9 +86,6 @@ typedef struct {
     int num_colors;        /*!< Number of colors in palette */
 } eaf_header_t;
 
-/**
- * @brief Huffman tree node structure
- */
 typedef struct eaf_huffman_node {
     uint8_t is_leaf;              /*!< Whether this node is a leaf node */
     uint8_t symbol;               /*!< Symbol value for leaf nodes */
@@ -149,7 +99,7 @@ typedef struct eaf_huffman_node {
 typedef void *eaf_format_handle_t;
 
 /**********************
- *  HEADER OPERATIONS
+ *   PUBLIC API
  **********************/
 
 /**
@@ -200,15 +150,6 @@ bool eaf_palette_get_color(const eaf_header_t *header, uint8_t color_index, bool
  *  COMPRESSION OPERATIONS
  **********************/
 
-/**
- * @brief Function pointer type for block decoders
- * @param input_data Input compressed data
- * @param input_size Size of input data
- * @param output_buffer Output buffer for decompressed data
- * @param out_size Size of output buffer
- * @param swap_color Whether to swap color bytes (only used by JPEG decoder)
- * @return ESP_OK on success, ESP_FAIL on failure
- */
 typedef esp_err_t (*eaf_block_decoder_cb_t)(const uint8_t *input_data, size_t input_size,
         uint8_t *output_buffer, size_t *out_size,
         bool swap_color);

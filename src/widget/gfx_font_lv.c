@@ -8,6 +8,9 @@
  * Used for Unicode glyph index search and font format decoding
  */
 
+/*********************
+ *      INCLUDES
+ *********************/
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -16,18 +19,20 @@
 #include "widget/gfx_font_lvgl.h"
 #include "widget/gfx_font_priv.h"
 
+/**********************
+ *  STATIC VARIABLES
+ **********************/
+
 static const char *TAG = "gfx_lv";
 
 /**********************
  *   STATIC PROTOTYPES
  **********************/
 
-// Utility functions
 static int unicode_list_compare(const void *ref, const void *element);
 static void *lv_use_utils_bsearch(const void *key, const void *base, uint32_t n, uint32_t size,
                                   int (*cmp)(const void *pRef, const void *pElement));
 
-// Internal LVGL font interface functions
 static uint32_t gfx_font_lv_get_glyph_index(const lv_font_t *font, uint32_t unicode);
 static bool gfx_font_lv_get_glyph_dsc(gfx_font_ctx_t *font, void *glyph_dsc, uint32_t unicode, uint32_t unicode_next);
 static const uint8_t *gfx_font_lv_get_glyph_bitmap(gfx_font_ctx_t *font, uint32_t unicode, void *glyph_dsc);
@@ -38,12 +43,11 @@ static uint8_t gfx_font_lv_get_pixel_value(gfx_font_ctx_t *font, const uint8_t *
 static int gfx_font_lv_adjust_baseline_offset(gfx_font_ctx_t *font, void *glyph_dsc);
 static int gfx_font_lv_get_advance_width(gfx_font_ctx_t *font, void *glyph_dsc);
 
-// Binary font creation utility functions
 static void *malloc_cpy(void *src, size_t sz);
 static void addr_add(void **addr, uintptr_t add);
 
 /**********************
- *   UTILITY FUNCTIONS
+ *   STATIC FUNCTIONS
  **********************/
 
 static void *malloc_cpy(void *src, size_t sz)
@@ -216,7 +220,6 @@ static int gfx_font_lv_get_glyph_width(gfx_font_ctx_t *font, uint32_t unicode)
         return -1;
     }
 
-    // LVGL font format: adv_w is stored in 28.4 format (real_value * 16)
     int advance_pixels = (glyph_dsc.adv_w >> 4);
     int actual_width = glyph_dsc.box_w + glyph_dsc.ofs_x;
     return (advance_pixels > actual_width) ? advance_pixels : actual_width;
@@ -302,14 +305,13 @@ static int gfx_font_lv_get_advance_width(gfx_font_ctx_t *font, void *glyph_dsc)
     }
 
     gfx_glyph_dsc_t *dsc = (gfx_glyph_dsc_t *)glyph_dsc;
-    // LVGL font format: adv_w is stored in 28.4 format (real_value * 16)
     int advance_pixels = (dsc->adv_w >> 4);
     int actual_width = dsc->box_w + dsc->ofs_x;
     return (advance_pixels > actual_width) ? advance_pixels : actual_width;
 }
 
 /**********************
- *   PUBLIC INTERFACE FUNCTIONS
+ *   PUBLIC FUNCTIONS
  **********************/
 
 bool gfx_is_lvgl_font(const void *font)

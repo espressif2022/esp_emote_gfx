@@ -11,11 +11,12 @@
 
 static const char *TAG = "test_label";
 
-static void test_label_map_function(mmap_assets_handle_t assets_handle)
+static void test_label_map_run(mmap_assets_handle_t assets_handle)
 {
-    ESP_LOGI(TAG, "=== Testing Label Map Function ===");
+    (void)assets_handle;
+    test_app_log_case(TAG, "Label Demo: Built-in Bitmap Font");
 
-    gfx_emote_lock(emote_handle);
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
 
     TEST_ASSERT_NOT_NULL(disp_default);
     gfx_obj_t *label_obj = gfx_label_create(disp_default);
@@ -31,27 +32,26 @@ static void test_label_map_function(mmap_assets_handle_t assets_handle)
     gfx_label_set_bg_enable(label_obj, true);
     gfx_obj_align(label_obj, GFX_ALIGN_TOP_MID, 0, 100);
 
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
+    test_app_wait_ms(3000);
 
-    vTaskDelay(pdMS_TO_TICKS(3000));
-
-    gfx_emote_lock(emote_handle);
+    test_app_log_step(TAG, "Update label color");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_label_set_color(label_obj, GFX_COLOR_HEX(0x00FF00));
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
 
-    ESP_LOGI(TAG, "--- Re-render label end ---");
-    vTaskDelay(pdMS_TO_TICKS(3000));
+    test_app_wait_ms(3000);
 
-    gfx_emote_lock(emote_handle);
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_obj_delete(label_obj);
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
 }
 
-static void test_label_freetype_function(mmap_assets_handle_t assets_handle)
+static void test_label_freetype_run(mmap_assets_handle_t assets_handle)
 {
-    ESP_LOGI(TAG, "=== Testing Label Function ===");
+    test_app_log_case(TAG, "Label Demo: FreeType Font");
 
-    gfx_emote_lock(emote_handle);
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
 
     TEST_ASSERT_NOT_NULL(disp_default);
     gfx_obj_t *label_obj = gfx_label_create(disp_default);
@@ -80,49 +80,50 @@ static void test_label_freetype_function(mmap_assets_handle_t assets_handle)
     gfx_obj_align(label_obj, GFX_ALIGN_TOP_MID, 0, 100);
     gfx_obj_set_size(label_obj, 200, 100);
 
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
+    test_app_wait_ms(3000);
 
-    vTaskDelay(pdMS_TO_TICKS(1000 * 3));
-
-    gfx_emote_lock(emote_handle);
+    test_app_log_step(TAG, "Switch to formatted scroll text");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_label_set_text_fmt(label_obj, "Count: %d, Float: %.2f", 42, 3.14);
     gfx_label_set_long_mode(label_obj, GFX_LABEL_LONG_SCROLL);
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
 
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
+    test_app_wait_ms(2000);
 
-    gfx_emote_lock(emote_handle);
+    test_app_log_step(TAG, "Update label color");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_label_set_color(label_obj, GFX_COLOR_HEX(0x0000FF));
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
 
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
+    test_app_wait_ms(2000);
 
-    gfx_emote_lock(emote_handle);
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_obj_delete(label_obj);
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
     gfx_label_delete_font(font_DejaVuSans);
 #endif
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
 }
 
-TEST_CASE("test function obj label", "[freetype]")
+TEST_CASE("gfx demo: label widget with freetype", "[demo][label][freetype]")
 {
-    mmap_assets_handle_t assets_handle = NULL;
-    esp_err_t ret = display_and_graphics_init("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
+    test_app_runtime_t runtime;
+    esp_err_t ret = test_app_runtime_open(&runtime);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
 
-    test_label_freetype_function(assets_handle);
+    test_label_freetype_run(runtime.assets_handle);
 
-    display_and_graphics_clean(assets_handle);
+    test_app_runtime_close(&runtime);
 }
 
-TEST_CASE("test function obj label", "[map]")
+TEST_CASE("gfx demo: label widget with bitmap font", "[demo][label][bitmap]")
 {
-    mmap_assets_handle_t assets_handle = NULL;
-    esp_err_t ret = display_and_graphics_init("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
+    test_app_runtime_t runtime;
+    esp_err_t ret = test_app_runtime_open(&runtime);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
 
-    test_label_map_function(assets_handle);
+    test_label_map_run(runtime.assets_handle);
 
-    display_and_graphics_clean(assets_handle);
+    test_app_runtime_close(&runtime);
 }

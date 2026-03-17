@@ -12,16 +12,14 @@
 
 static const char *TAG = "test_anim";
 
-static void test_animation_function(mmap_assets_handle_t assets_handle)
+static void test_anim_run(mmap_assets_handle_t assets_handle)
 {
-    ESP_LOGI(TAG, "=== Testing Animation Function ===");
+    test_app_log_case(TAG, "Animation Widget Demo");
 
-    // Define test cases for different bit depths and animation files
     struct {
         int asset_id;
         const char *name;
     } test_cases[] = {
-        // AAF format animations
         {MMAP_TEST_ASSETS_MI_1_EYE_24BIT_AAF,  "MI_1_EYE 24-bit AAF"},
         {MMAP_TEST_ASSETS_MI_1_EYE_4BIT_AAF,   "MI_1_EYE 4-bit AAF"},
         {MMAP_TEST_ASSETS_MI_1_EYE_8BIT_HUFF_AAF, "MI_1_EYE 8-bit Huffman AAF"},
@@ -29,7 +27,6 @@ static void test_animation_function(mmap_assets_handle_t assets_handle)
         {MMAP_TEST_ASSETS_MI_2_EYE_4BIT_AAF,   "MI_2_EYE 4-bit AAF"},
         {MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF,   "MI_2_EYE 8-bit AAF"},
         {MMAP_TEST_ASSETS_MI_2_EYE_8BIT_HUFF_AAF, "MI_2_EYE 8-bit Huffman AAF"},
-        // EAF format animations
         {MMAP_TEST_ASSETS_MI_1_EYE_8BIT_EAF,   "MI_1_EYE 8-bit EAF"},
         {MMAP_TEST_ASSETS_MI_1_EYE_8BIT_HUFF_EAF, "MI_1_EYE 8-bit Huffman EAF"},
         {MMAP_TEST_ASSETS_MI_2_EYE_8BIT_HUFF_EAF, "MI_2_EYE 8-bit Huffman EAF"},
@@ -37,14 +34,14 @@ static void test_animation_function(mmap_assets_handle_t assets_handle)
         {MMAP_TEST_ASSETS_ONLY_HEATSHRINK_4BIT_EAF, "Only Heatshrink 4-bit EAF"},
     };
 
-    gfx_emote_lock(emote_handle);
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_disp_set_bg_color(disp_default, GFX_COLOR_HEX(0xFF0000));
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
 
     for (int i = 0; i < sizeof(test_cases) / sizeof(test_cases[0]); i++) {
-        ESP_LOGI(TAG, "--- Testing %s ---", test_cases[i].name);
+        test_app_log_step(TAG, test_cases[i].name);
 
-        gfx_emote_lock(emote_handle);
+        TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
 
         TEST_ASSERT_NOT_NULL(disp_default);
         gfx_obj_t *anim_obj = gfx_anim_create(disp_default);
@@ -68,33 +65,30 @@ static void test_animation_function(mmap_assets_handle_t assets_handle)
         ret = gfx_anim_start(anim_obj);
         TEST_ASSERT_EQUAL(ESP_OK, ret);
 
-        gfx_emote_unlock(emote_handle);
+        test_app_unlock();
+        test_app_wait_ms(5000);
 
-        vTaskDelay(pdMS_TO_TICKS(5000));  // 5 seconds per animation
-
-        gfx_emote_lock(emote_handle);
+        TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
         gfx_anim_stop(anim_obj);
-        gfx_emote_unlock(emote_handle);
+        test_app_unlock();
 
-        vTaskDelay(pdMS_TO_TICKS(2 * 1000));
+        test_app_wait_ms(2000);
 
-        gfx_emote_lock(emote_handle);
+        TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
         gfx_obj_delete(anim_obj);
-        gfx_emote_unlock(emote_handle);
+        test_app_unlock();
 
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        test_app_wait_ms(1000);
     }
-
-    ESP_LOGI(TAG, "=== Animation Function Testing Completed ===");
 }
 
-TEST_CASE("test function obj anim", "")
+TEST_CASE("gfx demo: animation widget", "[demo][anim]")
 {
-    mmap_assets_handle_t assets_handle = NULL;
-    esp_err_t ret = display_and_graphics_init("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
+    test_app_runtime_t runtime;
+    esp_err_t ret = test_app_runtime_open(&runtime);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
 
-    test_animation_function(assets_handle);
+    test_anim_run(runtime.assets_handle);
 
-    display_and_graphics_clean(assets_handle);
+    test_app_runtime_close(&runtime);
 }

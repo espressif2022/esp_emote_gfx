@@ -22,15 +22,15 @@ extern "C" {
 #endif
 
 /**********************
+ *      DEFINES
+ **********************/
+
+/**********************
  *      TYPEDEFS
  **********************/
 
-/* Forward declaration */
 typedef struct _gfx_font_ctx_t gfx_font_ctx_t;
 
-/**
- * Universal glyph descriptor structure
- */
 typedef struct {
     uint32_t bitmap_index;      /**< Start index of the bitmap */
     uint32_t adv_w;             /**< Advance width in 1/256 pixels */
@@ -40,9 +40,6 @@ typedef struct {
     int16_t ofs_y;              /**< Y offset of the bounding box */
 } gfx_glyph_dsc_t;
 
-/**
- * Font context structure with function pointers
- */
 typedef struct _gfx_font_ctx_t {
     void *font;
 
@@ -84,21 +81,15 @@ typedef struct {
 #endif
 
 /**********************
- * GLOBAL PROTOTYPES
+ *   INTERNAL API
  **********************/
 
-// Font type detection
 bool gfx_is_lvgl_font(const void *font);
-
-// LVGL font interface
 void gfx_font_lv_init_context(gfx_font_ctx_t *font_ctx, const void *font);
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
-// FreeType library management
 esp_err_t gfx_ft_lib_create(void);
 esp_err_t gfx_ft_lib_cleanup(void);
-
-// FreeType font interface
 void gfx_font_ft_init_context(gfx_font_ctx_t *font_ctx, const void *font);
 #endif
 

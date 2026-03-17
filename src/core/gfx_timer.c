@@ -3,14 +3,43 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+
+/*********************
+ *      INCLUDES
+ *********************/
 #include "esp_timer.h"
 #include "esp_err.h"
 #include "esp_log.h"
+
 #include "core/gfx_core_priv.h"
+
+/*********************
+ *      DEFINES
+ *********************/
+
+#define GFX_NO_TIMER_READY 0xFFFFFFFF
+
+/**********************
+ *      TYPEDEFS
+ **********************/
+
+/**********************
+ *  STATIC VARIABLES
+ **********************/
 
 static const char *TAG = "gfx_timer";
 
-#define GFX_NO_TIMER_READY 0xFFFFFFFF
+/**********************
+ *  STATIC PROTOTYPES
+ **********************/
+
+/**********************
+ *   STATIC FUNCTIONS
+ **********************/
+
+/**********************
+ *   PUBLIC FUNCTIONS
+ **********************/
 
 uint32_t gfx_timer_tick_get(void)
 {
@@ -65,9 +94,7 @@ bool gfx_timer_exec(gfx_timer_t *timer)
 
 uint32_t gfx_timer_handler(gfx_timer_mgr_t *timer_mgr, bool *out_should_render)
 {
-    // ============================================================================
-    // Step 1: Execute all timers and find the minimum remaining time
-    // ============================================================================
+    /* Step 1: execute timers and find the minimum remaining time */
     uint32_t min_timer_remaining_ms = GFX_NO_TIMER_READY;
     gfx_timer_t *timer_node = timer_mgr->timer_list;
     gfx_timer_t *next_timer = NULL;
@@ -75,10 +102,8 @@ uint32_t gfx_timer_handler(gfx_timer_mgr_t *timer_mgr, bool *out_should_render)
     while (timer_node != NULL) {
         next_timer = timer_node->next;
 
-        // Execute timer if its period has elapsed
         gfx_timer_exec(timer_node);
 
-        // Calculate remaining time until next execution for active timers
         if (!timer_node->paused && timer_node->repeat_count != 0) {
             uint32_t timer_elapsed_ms = gfx_timer_tick_elaps(timer_node->last_run);
             uint32_t timer_remaining_ms = (timer_elapsed_ms >= timer_node->period)
@@ -93,9 +118,7 @@ uint32_t gfx_timer_handler(gfx_timer_mgr_t *timer_mgr, bool *out_should_render)
         timer_node = next_timer;
     }
 
-    // ============================================================================
-    // Step 2: FPS period and render-due (output via out_should_render, no struct field)
-    // ============================================================================
+    /* Step 2: update FPS period and render due state */
     uint32_t fps_period_ms = (timer_mgr->fps > 0) ? (1000 / timer_mgr->fps) : 30;
     uint32_t fps_elapsed_ms;
     uint32_t fps_remaining_ms;
@@ -114,9 +137,7 @@ uint32_t gfx_timer_handler(gfx_timer_mgr_t *timer_mgr, bool *out_should_render)
         }
     }
 
-    // ============================================================================
-    // Step 3: Calculate final task delay
-    // ============================================================================
+    /* Step 3: calculate the next task delay */
     uint32_t task_delay_ms;
     if (min_timer_remaining_ms == GFX_NO_TIMER_READY) {
         task_delay_ms = (fps_remaining_ms > 0) ? fps_remaining_ms : 1;
@@ -134,6 +155,7 @@ uint32_t gfx_timer_handler(gfx_timer_mgr_t *timer_mgr, bool *out_should_render)
     if (out_should_render != NULL) {
         *out_should_render = render_due;
     }
+
     return task_delay_ms;
 }
 
@@ -155,16 +177,14 @@ gfx_timer_handle_t gfx_timer_create(void *handle, gfx_timer_cb_t timer_cb, uint3
     new_timer->period = period;
     new_timer->timer_cb = timer_cb;
     new_timer->user_data = user_data;
-    new_timer->repeat_count = -1; // Infinite repeat
+    new_timer->repeat_count = -1;
     new_timer->paused = false;
     new_timer->last_run = gfx_timer_tick_get();
     new_timer->next = NULL;
 
-    // Add to timer list
     if (timer_mgr->timer_list == NULL) {
         timer_mgr->timer_list = new_timer;
     } else {
-        // Add to end of list
         gfx_timer_t *current_timer = timer_mgr->timer_list;
         while (current_timer->next != NULL) {
             current_timer = current_timer->next;
@@ -185,7 +205,6 @@ void gfx_timer_delete(void *handle, gfx_timer_handle_t timer_handle)
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
     gfx_timer_mgr_t *timer_mgr = &ctx->timer_mgr;
 
-    // Remove from timer list
     gfx_timer_t *current_timer = timer_mgr->timer_list;
     gfx_timer_t *prev_timer = NULL;
 
@@ -221,7 +240,6 @@ void gfx_timer_resume(gfx_timer_handle_t timer_handle)
         timer->paused = false;
         timer->last_run = gfx_timer_tick_get();
 
-        // If timer was completed (repeat_count = 0), restore infinite repeat
         if (timer->repeat_count == 0) {
             timer->repeat_count = -1;
         }
@@ -266,7 +284,7 @@ void gfx_timer_mgr_init(gfx_timer_mgr_t *timer_mgr, uint32_t fps)
     if (timer_mgr != NULL) {
         timer_mgr->timer_list = NULL;
         timer_mgr->time_until_next = GFX_NO_TIMER_READY;
-        timer_mgr->last_tick = 0;  /* 0 = first run, handler will set and set render_due */
+        timer_mgr->last_tick = 0;
         timer_mgr->fps = fps;
         timer_mgr->actual_fps = 0;
         ESP_LOGI(TAG, "Timer manager initialized with FPS: %"PRIu32" (period: %"PRIu32" ms)", fps, (fps > 0) ? (1000 / fps) : 30);
@@ -279,7 +297,6 @@ void gfx_timer_mgr_deinit(gfx_timer_mgr_t *timer_mgr)
         return;
     }
 
-    // Free all timers
     gfx_timer_t *timer_node = timer_mgr->timer_list;
     while (timer_node != NULL) {
         gfx_timer_t *next_timer = timer_node->next;

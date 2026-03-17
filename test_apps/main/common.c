@@ -28,7 +28,7 @@ gfx_touch_t *touch_default = NULL;
 esp_lcd_panel_io_handle_t io_handle = NULL;
 esp_lcd_panel_handle_t panel_handle = NULL;
 
-static esp_lcd_touch_handle_t touch_handle = NULL;   // LCD touch handle
+static esp_lcd_touch_handle_t touch_handle = NULL;
 
 #if CONFIG_IDF_TARGET_ESP32S3
 static bool flush_io_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
@@ -71,6 +71,49 @@ static void touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t *event, v
     }
 }
 
+esp_err_t test_app_runtime_open(test_app_runtime_t *runtime)
+{
+    ESP_RETURN_ON_FALSE(runtime != NULL, ESP_ERR_INVALID_ARG, TAG, "runtime is NULL");
+
+    runtime->assets_handle = NULL;
+    return display_and_graphics_init("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &runtime->assets_handle);
+}
+
+void test_app_runtime_close(test_app_runtime_t *runtime)
+{
+    if (runtime == NULL) {
+        return;
+    }
+
+    display_and_graphics_clean(runtime->assets_handle);
+    runtime->assets_handle = NULL;
+}
+
+esp_err_t test_app_lock(void)
+{
+    return gfx_emote_lock(emote_handle);
+}
+
+void test_app_unlock(void)
+{
+    gfx_emote_unlock(emote_handle);
+}
+
+void test_app_wait_ms(uint32_t delay_ms)
+{
+    vTaskDelay(pdMS_TO_TICKS(delay_ms));
+}
+
+void test_app_log_case(const char *tag, const char *case_name)
+{
+    ESP_LOGI(tag, "=== %s ===", case_name);
+}
+
+void test_app_log_step(const char *tag, const char *step_name)
+{
+    ESP_LOGI(tag, "--- %s ---", step_name);
+}
+
 void clock_tm_callback(void *user_data)
 {
     gfx_obj_t *label_obj = (gfx_obj_t *)user_data;
@@ -96,10 +139,7 @@ esp_err_t load_image(mmap_assets_handle_t assets_handle, int asset_id, gfx_image
         return ESP_FAIL;
     }
 
-    // Copy header from the beginning of the data
     memcpy(&img_dsc->header, img_data, sizeof(gfx_image_header_t));
-
-    // Set data pointer after the header
     img_dsc->data = (const uint8_t *)img_data + sizeof(gfx_image_header_t);
     img_dsc->data_size = img_size - sizeof(gfx_image_header_t);
 

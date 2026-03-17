@@ -17,7 +17,7 @@ extern "C" {
 #endif
 
 /*********************
- *   FORWARD DECL
+ *      TYPEDEFS
  *********************/
 struct gfx_core_context;
 struct gfx_obj;

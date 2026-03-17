@@ -17,12 +17,12 @@ extern "C" {
  *********************/
 
 /**********************
- * GLOBAL PROTOTYPES
+ *      TYPEDEFS
  **********************/
 
-/*=====================
- * Animation object creation
- *====================*/
+/**********************
+ *   PUBLIC API
+ **********************/
 
 /**
  * @brief Create an animation object on a display
@@ -31,9 +31,7 @@ extern "C" {
  */
 gfx_obj_t *gfx_anim_create(gfx_disp_t *disp);
 
-/*=====================
- * Animation setter functions
- *====================*/
+/* Animation setters */
 
 /**
  * @brief Set the source data for an animation object

@@ -21,7 +21,6 @@
 /*********************
  *      DEFINES
  *********************/
-/* Use generic type checking macro from gfx_obj_priv.h */
 #define CHECK_OBJ_TYPE_IMAGE(obj) CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_IMAGE, TAG)
 
 /**********************
@@ -36,17 +35,14 @@ static const char *TAG = "gfx_img";
 /**********************
  *  STATIC PROTOTYPES
  **********************/
-static esp_err_t gfx_draw_img(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx);
-static esp_err_t gfx_img_delete(gfx_obj_t *obj);
+static esp_err_t gfx_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx);
+static esp_err_t gfx_img_delete_impl(gfx_obj_t *obj);
 
 /**********************
  *   STATIC FUNCTIONS
  **********************/
 
-/**
- * @brief Virtual draw function for image widget
- */
-static esp_err_t gfx_draw_img(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
+static esp_err_t gfx_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 {
     if (obj == NULL || obj->src == NULL || ctx == NULL) {
         ESP_LOGD(TAG, "Invalid object or source");
@@ -58,7 +54,6 @@ static esp_err_t gfx_draw_img(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
         return ESP_ERR_INVALID_ARG;
     }
 
-    /* Use unified decoder to get image information */
     gfx_image_header_t header;
     gfx_image_decoder_dsc_t dsc = {
         .src = obj->src,
@@ -73,13 +68,11 @@ static esp_err_t gfx_draw_img(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     uint16_t image_height = header.h;
     uint8_t color_format = header.cf;
 
-    /* Check color format - support RGB565 and RGB565A8 formats */
     if (color_format != GFX_COLOR_FORMAT_RGB565 && color_format != GFX_COLOR_FORMAT_RGB565A8) {
         ESP_LOGW(TAG, "Unsupported color format");
         return ESP_ERR_NOT_SUPPORTED;
     }
 
-    /* Get image data using unified decoder */
     gfx_image_decoder_dsc_t decoder_dsc = {
         .src = obj->src,
         .header = header,
@@ -101,10 +94,8 @@ static esp_err_t gfx_draw_img(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
         return ESP_ERR_INVALID_STATE;
     }
 
-    /* Get parent dimensions and calculate aligned position */
     gfx_obj_calc_pos_in_parent(obj);
 
-    /* Intersect object with clip_area (widget computes clip and dest from ctx) */
     gfx_area_t render_area = ctx->clip_area;
     gfx_area_t obj_area = {obj->geometry.x, obj->geometry.y, obj->geometry.x + image_width, obj->geometry.y + image_height};
     gfx_area_t clip_area;
@@ -116,14 +107,12 @@ static esp_err_t gfx_draw_img(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 
     gfx_coord_t src_stride = image_width;
 
-    /* Dest pointer from ctx (buf_area + stride) */
     gfx_color_t *dest_pixels = GFX_DRAW_CTX_DEST_PTR(ctx, clip_area.x1, clip_area.y1);
     gfx_color_t *src_pixels = (gfx_color_t *)GFX_BUFFER_OFFSET_16BPP(image_data,
                               clip_area.y1 - obj->geometry.y,
                               src_stride,
                               clip_area.x1 - obj->geometry.x);
 
-    /* Alpha mask is only present in RGB565A8 format */
     gfx_opa_t *alpha_mask = NULL;
     if (color_format == GFX_COLOR_FORMAT_RGB565A8) {
         const uint8_t *alpha_base = image_data + src_stride * image_height * GFX_PIXEL_SIZE_16BPP;
@@ -148,14 +137,10 @@ static esp_err_t gfx_draw_img(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     return ESP_OK;
 }
 
-/**
- * @brief Virtual delete function for image widget
- */
-static esp_err_t gfx_img_delete(gfx_obj_t *obj)
+static esp_err_t gfx_img_delete_impl(gfx_obj_t *obj)
 {
     CHECK_OBJ_TYPE_IMAGE(obj);
 
-    /* No dynamic resources to free for basic image */
     return ESP_OK;
 }
 
@@ -163,9 +148,6 @@ static esp_err_t gfx_img_delete(gfx_obj_t *obj)
  *   PUBLIC FUNCTIONS
  **********************/
 
-/**
- * @brief Create an image object on a display
- */
 gfx_obj_t *gfx_img_create(gfx_disp_t *disp)
 {
     if (disp == NULL) {
@@ -183,8 +165,8 @@ gfx_obj_t *gfx_img_create(gfx_disp_t *disp)
     obj->type = GFX_OBJ_TYPE_IMAGE;
     obj->disp = disp;
     obj->state.is_visible = true;
-    obj->vfunc.draw = gfx_draw_img;
-    obj->vfunc.delete = gfx_img_delete;
+    obj->vfunc.draw = gfx_img_draw;
+    obj->vfunc.delete = gfx_img_delete_impl;
     gfx_obj_invalidate(obj);
 
     if (gfx_disp_add_child(disp, obj) != ESP_OK) {
@@ -196,9 +178,6 @@ gfx_obj_t *gfx_img_create(gfx_disp_t *disp)
     return obj;
 }
 
-/**
- * @brief Set image source
- */
 esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src)
 {
     CHECK_OBJ_TYPE_IMAGE(obj);
@@ -208,12 +187,10 @@ esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src)
         return ESP_ERR_INVALID_ARG;
     }
 
-    /* Invalidate the old image */
     gfx_obj_invalidate(obj);
 
     obj->src = src;
 
-    /* Get image dimensions */
     gfx_image_header_t header;
     gfx_image_decoder_dsc_t dsc = {
         .src = src,

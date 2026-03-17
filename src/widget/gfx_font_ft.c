@@ -8,6 +8,9 @@
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
 
+/*********************
+ *      INCLUDES
+ *********************/
 #include <string.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -21,20 +24,31 @@
 #include "widget/gfx_font_lvgl.h"
 #include "widget/gfx_font_priv.h"
 
-static const char *TAG = "gfx_ft";
+/*********************
+ *      DEFINES
+ *********************/
+
+/**********************
+ *      TYPEDEFS
+ **********************/
 
 /**********************
  *   STATIC VARIABLES
  **********************/
 
-static FT_Library library = NULL;
-static gfx_ft_lib_handle_t font_lib = NULL;
+static const char *TAG = "gfx_ft";
+static FT_Library s_library = NULL;
+static gfx_ft_lib_handle_t s_font_lib = NULL;
 
 /**********************
  *   STATIC PROTOTYPES
  **********************/
 
-// Internal FreeType font interface functions
+static esp_err_t gfx_font_ft_lib_create_internal(void);
+static esp_err_t gfx_font_ft_lib_cleanup_internal(void);
+static esp_err_t gfx_font_ft_new_internal(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font);
+static esp_err_t gfx_font_ft_delete_internal(gfx_font_t font);
+
 static bool gfx_font_ft_get_glyph_dsc(gfx_font_ctx_t *font, void *glyph_dsc, uint32_t unicode, uint32_t unicode_next);
 static const uint8_t *gfx_font_ft_get_glyph_bitmap(gfx_font_ctx_t *font, uint32_t unicode, void *glyph_dsc);
 static int gfx_font_ft_get_glyph_width(gfx_font_ctx_t *font, uint32_t unicode);
@@ -45,10 +59,10 @@ static int gfx_font_ft_adjust_baseline_offset(gfx_font_ctx_t *font, void *glyph_
 static int gfx_font_ft_get_advance_width(gfx_font_ctx_t *font, void *glyph_dsc);
 
 /**********************
- *   LIBRARY MANAGEMENT FUNCTIONS
+ *   STATIC FUNCTIONS
  **********************/
 
-esp_err_t gfx_ft_lib_create(void)
+static esp_err_t gfx_font_ft_lib_create_internal(void)
 {
     FT_Error error;
 
@@ -57,22 +71,22 @@ esp_err_t gfx_ft_lib_create(void)
 
     lib->ft_face_head = NULL;
 
-    error = FT_Init_FreeType(&library);
+    error = FT_Init_FreeType(&s_library);
     if (error) {
         ESP_LOGE(TAG, "error initializing FT library: %d", error);
         free(lib);
         return ESP_ERR_INVALID_STATE;
     }
 
-    lib->ft_library = library;
+    lib->ft_library = s_library;
     lib->ft_face_head = NULL;
-    font_lib = lib;
+    s_font_lib = lib;
     return ESP_OK;
 }
 
-esp_err_t gfx_ft_lib_cleanup(void)
+static esp_err_t gfx_font_ft_lib_cleanup_internal(void)
 {
-    gfx_ft_lib_t *lib = (gfx_ft_lib_t *)font_lib;
+    gfx_ft_lib_t *lib = (gfx_ft_lib_t *)s_font_lib;
     if (!lib) {
         return ESP_OK;
     }
@@ -87,29 +101,25 @@ esp_err_t gfx_ft_lib_cleanup(void)
         entry = next;
     }
 
-    if (library) {
-        FT_Done_FreeType(library);
-        library = NULL;
+    if (s_library) {
+        FT_Done_FreeType(s_library);
+        s_library = NULL;
     }
 
     free(lib);
-    font_lib = NULL;
+    s_font_lib = NULL;
 
     return ESP_OK;
 }
 
-/**********************
- *   FONT MANAGEMENT FUNCTIONS
- **********************/
-
-esp_err_t gfx_label_new_font(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
+static esp_err_t gfx_font_ft_new_internal(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
 {
     ESP_RETURN_ON_FALSE(cfg->mem && cfg->mem_size, ESP_ERR_INVALID_ARG, TAG, "invalid memory input");
 
     FT_Face face = NULL;
     FT_Error error;
 
-    gfx_ft_lib_t *lib = font_lib;
+    gfx_ft_lib_t *lib = s_font_lib;
     ESP_RETURN_ON_FALSE(lib, ESP_ERR_INVALID_STATE, TAG, "font library is NULL");
 
     gfx_ft_face_entry_t *entry = lib->ft_face_head;
@@ -160,7 +170,7 @@ esp_err_t gfx_label_new_font(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
     return ESP_OK;
 }
 
-esp_err_t gfx_label_delete_font(gfx_font_t font)
+static esp_err_t gfx_font_ft_delete_internal(gfx_font_t font)
 {
     ESP_RETURN_ON_FALSE(font, ESP_ERR_INVALID_ARG, TAG, "font is NULL");
 
@@ -173,10 +183,6 @@ esp_err_t gfx_label_delete_font(gfx_font_t font)
 
     return ESP_OK;
 }
-
-/**********************
- *   INTERNAL FONT INTERFACE FUNCTIONS
- **********************/
 
 static bool gfx_font_ft_get_glyph_dsc(gfx_font_ctx_t *font, void *glyph_dsc, uint32_t unicode, uint32_t unicode_next)
 {
@@ -316,8 +322,28 @@ static int gfx_font_ft_get_advance_width(gfx_font_ctx_t *font, void *glyph_dsc)
 }
 
 /**********************
- *   PUBLIC INTERFACE FUNCTIONS
+ *   PUBLIC FUNCTIONS
  **********************/
+
+esp_err_t gfx_ft_lib_create(void)
+{
+    return gfx_font_ft_lib_create_internal();
+}
+
+esp_err_t gfx_ft_lib_cleanup(void)
+{
+    return gfx_font_ft_lib_cleanup_internal();
+}
+
+esp_err_t gfx_label_new_font(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
+{
+    return gfx_font_ft_new_internal(cfg, ret_font);
+}
+
+esp_err_t gfx_label_delete_font(gfx_font_t font)
+{
+    return gfx_font_ft_delete_internal(font);
+}
 
 void gfx_font_ft_init_context(gfx_font_ctx_t *font_ctx, const void *font)
 {

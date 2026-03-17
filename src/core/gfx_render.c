@@ -4,20 +4,81 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*********************
+ *      INCLUDES
+ *********************/
 #include <string.h>
 #include <inttypes.h>
+
 #include "esp_log.h"
+
 #include "core/gfx_render_priv.h"
 #include "core/gfx_refr_priv.h"
 #include "core/gfx_timer_priv.h"
 #include "core/gfx_blend_priv.h"
 
+/*********************
+ *      DEFINES
+ *********************/
+
+/**********************
+ *      TYPEDEFS
+ **********************/
+
+/**********************
+ *  STATIC VARIABLES
+ **********************/
+
 static const char *TAG = "gfx_render";
 
-/**
- * @brief Draw child objects in the specified clip region
- * @param ctx Draw context (buf, buf_area, clip_area, stride, swap); widgets compute dest from ctx
- */
+/**********************
+ *  STATIC PROTOTYPES
+ **********************/
+
+static void gfx_render_sync_dirty_areas(gfx_disp_t *disp);
+
+/**********************
+ *   STATIC FUNCTIONS
+ **********************/
+
+static void gfx_render_sync_dirty_areas(gfx_disp_t *disp)
+{
+    if (!disp->flags.full_frame || disp->buf.buf2 == NULL || disp->sync_pending.count == 0) {
+        return;
+    }
+
+    uint16_t *dst_screen_buf = disp->buf.buf_act;
+    uint16_t *src_screen_buf = (disp->buf.buf_act == disp->buf.buf1) ? disp->buf.buf2 : disp->buf.buf1;
+    uint32_t stride = disp->res.h_res;
+    const size_t px_size = sizeof(uint16_t);
+
+    for (uint8_t i = 0; i < disp->sync_pending.count; i++) {
+        const gfx_area_t *a = &disp->sync_pending.areas[i];
+        bool covered = false;
+        for (uint8_t j = 0; j < disp->dirty.count && !covered; j++) {
+            if (disp->dirty.merged[j]) {
+                continue;
+            }
+            if (gfx_area_is_in(a, &disp->dirty.areas[j])) {
+                covered = true;
+            }
+        }
+        if (covered) {
+            continue;
+        }
+        uint32_t w = (uint32_t)(a->x2 - a->x1 + 1);
+        uint32_t h = (uint32_t)(a->y2 - a->y1 + 1);
+        for (uint32_t y = 0; y < h; y++) {
+            size_t offset = (size_t)(a->y1 + (gfx_coord_t)y) * stride + (size_t)a->x1;
+            memcpy(dst_screen_buf + offset, src_screen_buf + offset, w * px_size);
+        }
+    }
+}
+
+/**********************
+ *   PUBLIC FUNCTIONS
+ **********************/
+
 void gfx_render_draw_child_objects(gfx_disp_t *disp, const gfx_draw_ctx_t *ctx)
 {
     if (disp == NULL || disp->child_list == NULL || ctx == NULL) {
@@ -67,11 +128,6 @@ void gfx_render_update_child_objects(gfx_disp_t *disp)
     }
 }
 
-/**
- * @brief Print summary of dirty areas
- * @param disp Display
- * @return Total dirty pixels
- */
 uint32_t gfx_render_area_summary(gfx_disp_t *disp)
 {
     uint32_t total_dirty_pixels = 0;
@@ -95,13 +151,6 @@ uint32_t gfx_render_area_summary(gfx_disp_t *disp)
     return total_dirty_pixels;
 }
 
-/**
- * @brief Render a single dirty area with dynamic height-based blocking
- * @param disp Display (non-NULL)
- * @param area Dirty area in screen coordinates (non-NULL, must have x2 >= x1, y2 >= y1)
- * @param area_idx Index of this area in the dirty list (for logging)
- * @param is_last_area true if this is the last dirty area (flushing_last = last chunk of area AND is_last_area)
- */
 void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, bool is_last_area)
 {
     if (disp == NULL || area == NULL) {
@@ -199,44 +248,6 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
         }
 
         cur_y = chunk_y2;
-    }
-}
-
-/**
- * @brief Copy from on-screen buffer to buf_act only for pending areas NOT covered by current dirty.
- * Called at start of render: if next frame redraws full screen (e.g. 480x480), skip sync entirely.
- */
-static void gfx_render_sync_dirty_areas(gfx_disp_t *disp)
-{
-    if (!disp->flags.full_frame || disp->buf.buf2 == NULL || disp->sync_pending.count == 0) {
-        return;
-    }
-
-    uint16_t *dst_screen_buf = disp->buf.buf_act;
-    uint16_t *src_screen_buf = (disp->buf.buf_act == disp->buf.buf1) ? disp->buf.buf2 : disp->buf.buf1;
-    uint32_t stride = disp->res.h_res;
-    const size_t px_size = sizeof(uint16_t);
-
-    for (uint8_t i = 0; i < disp->sync_pending.count; i++) {
-        const gfx_area_t *a = &disp->sync_pending.areas[i];
-        bool covered = false;
-        for (uint8_t j = 0; j < disp->dirty.count && !covered; j++) {
-            if (disp->dirty.merged[j]) {
-                continue;
-            }
-            if (gfx_area_is_in(a, &disp->dirty.areas[j])) {
-                covered = true;
-            }
-        }
-        if (covered) {
-            continue;
-        }
-        uint32_t w = (uint32_t)(a->x2 - a->x1 + 1);
-        uint32_t h = (uint32_t)(a->y2 - a->y1 + 1);
-        for (uint32_t y = 0; y < h; y++) {
-            size_t offset = (size_t)(a->y1 + (gfx_coord_t)y) * stride + (size_t)a->x1;
-            memcpy(dst_screen_buf + offset, src_screen_buf + offset, w * px_size);
-        }
     }
 }
 

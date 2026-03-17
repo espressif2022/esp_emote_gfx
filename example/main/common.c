@@ -71,24 +71,19 @@ static bool flush_dpi_panel_ready_callback(esp_lcd_panel_handle_t panel_io,
 }
 #endif
 
-extern bool gfx_disp_is_flushing_last(gfx_disp_t *disp);
-
 static void disp_flush_callback(gfx_disp_t *disp, int x1, int y1, int x2, int y2, const void *data)
 {
     esp_lcd_panel_handle_t panel = (esp_lcd_panel_handle_t)gfx_disp_get_user_data(disp);
 
-    ESP_LOGI(TAG, "flush callback: %p(last:%d)",
-             data, gfx_disp_is_flushing_last(disp) ? 1 : 0);
-    if (1) {
-        // if (gfx_disp_is_flushing_last(disp)) {
-        esp_lcd_panel_draw_bitmap(panel, x1, y1, x2, y2, data);
+    // ESP_LOGI(TAG, "flush callback: %p(%d, %d, %d, %d)(last:%d)",
+    //          data, x1, y1, x2, y2, gfx_disp_is_flushing_last(disp) ? 1 : 0);
+    if (gfx_disp_is_flushing_last(disp)) {
+        esp_lcd_panel_draw_bitmap(panel, 0, 0, gfx_disp_get_hor_res(disp), gfx_disp_get_ver_res(disp), data);
 
         xSemaphoreTake(trans_sem, 0);
         xSemaphoreTake(trans_sem, portMAX_DELAY);
-        gfx_disp_flush_ready(disp, true);
-    } else {
-        gfx_disp_flush_ready(disp, false);
     }
+    gfx_disp_flush_ready(disp, true);
 }
 
 static void touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t *event, void *user_data)
@@ -198,12 +193,14 @@ esp_err_t display_and_graphics_init(const char *partition_label, uint32_t max_fi
     ESP_LOGI(TAG, "get frame buffer: buf0: %p, buf1: %p", buf1, buf2);
     disp_cfg.buffers.buf1 = buf1;
     disp_cfg.buffers.buf2 = buf2;
+    disp_cfg.flags.full_frame = true;
     disp_cfg.buffers.buf_pixels = BSP_LCD_H_RES * BSP_LCD_V_RES;
+
+    trans_sem = xSemaphoreCreateCounting(1, 0);
 
     disp_default = gfx_disp_add(emote_handle, &disp_cfg);
     ESP_GOTO_ON_FALSE(disp_default != NULL, ESP_FAIL, err_gfx, TAG, "Failed to add display");
 
-    trans_sem = xSemaphoreCreateCounting(1, 0);
 
 #if CONFIG_IDF_TARGET_ESP32S3
     // const esp_lcd_panel_io_callbacks_t cbs = {

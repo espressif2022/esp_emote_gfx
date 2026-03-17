@@ -1,0 +1,358 @@
+/*
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <stdlib.h>
+#include <string.h>
+#include "esp_check.h"
+#include "esp_err.h"
+#include "lib/eaf/gfx_eaf_dec.h"
+#include "widget/gfx_anim_decoder_priv.h"
+
+/**********************
+ *      TYPEDEFS
+ **********************/
+
+typedef struct {
+    eaf_format_handle_t eaf_handle;
+    uint8_t *owned_data;
+} gfx_anim_eaf_handle_t;
+
+/**********************
+ *  STATIC PROTOTYPES
+ **********************/
+
+static bool gfx_anim_src_has_bytes(const gfx_anim_src_desc_t *src_desc)
+{
+    if (src_desc == NULL) {
+        return false;
+    }
+
+    if (src_desc->data != NULL && src_desc->data_len > 0) {
+        return true;
+    }
+
+    if (src_desc->get_size != NULL) {
+        return src_desc->get_size(src_desc->ctx) > 0;
+    }
+
+    return src_desc->data_len > 0;
+}
+
+static esp_err_t gfx_anim_src_get_size(const gfx_anim_src_desc_t *src_desc, size_t *out_size)
+{
+    if (src_desc == NULL || out_size == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (src_desc->data != NULL) {
+        *out_size = src_desc->data_len;
+        return ESP_OK;
+    }
+
+    if (src_desc->get_size != NULL) {
+        *out_size = src_desc->get_size(src_desc->ctx);
+        return ESP_OK;
+    }
+
+    if (src_desc->data_len > 0) {
+        *out_size = src_desc->data_len;
+        return ESP_OK;
+    }
+
+    return ESP_ERR_INVALID_SIZE;
+}
+
+static esp_err_t gfx_anim_src_peek(const gfx_anim_src_desc_t *src_desc, size_t offset, size_t len,
+                                   uint8_t *scratch, const uint8_t **out_data)
+{
+    size_t total_size = 0;
+
+    if (src_desc == NULL || out_data == NULL || len == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (gfx_anim_src_get_size(src_desc, &total_size) != ESP_OK || (offset + len) > total_size) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    if (src_desc->data != NULL) {
+        *out_data = (const uint8_t *)src_desc->data + offset;
+        return ESP_OK;
+    }
+
+    if (src_desc->map != NULL) {
+        const void *mapped = NULL;
+        esp_err_t ret = src_desc->map(src_desc->ctx, offset, len, &mapped);
+        if (ret == ESP_OK && mapped != NULL) {
+            *out_data = (const uint8_t *)mapped;
+            return ESP_OK;
+        }
+    }
+
+    if (src_desc->read != NULL && scratch != NULL) {
+        esp_err_t ret = src_desc->read(src_desc->ctx, offset, scratch, len);
+        if (ret == ESP_OK) {
+            *out_data = scratch;
+            return ESP_OK;
+        }
+        return ret;
+    }
+
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+static esp_err_t gfx_anim_src_resolve_contiguous(const gfx_anim_src_desc_t *src_desc,
+                                                 const uint8_t **out_data, uint8_t **out_owned_data, size_t *out_len)
+{
+    size_t total_size = 0;
+
+    if (src_desc == NULL || out_data == NULL || out_owned_data == NULL || out_len == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    *out_data = NULL;
+    *out_owned_data = NULL;
+    *out_len = 0;
+
+    ESP_RETURN_ON_ERROR(gfx_anim_src_get_size(src_desc, &total_size), "gfx_anim_eaf", "invalid source size");
+    ESP_RETURN_ON_FALSE(total_size > 0, ESP_ERR_INVALID_SIZE, "gfx_anim_eaf", "source is empty");
+
+    if (src_desc->data != NULL) {
+        *out_data = (const uint8_t *)src_desc->data;
+        *out_len = total_size;
+        return ESP_OK;
+    }
+
+    if (src_desc->map != NULL) {
+        const void *mapped = NULL;
+        esp_err_t ret = src_desc->map(src_desc->ctx, 0, total_size, &mapped);
+        if (ret == ESP_OK && mapped != NULL) {
+            *out_data = (const uint8_t *)mapped;
+            *out_len = total_size;
+            return ESP_OK;
+        }
+    }
+
+    if (src_desc->read != NULL) {
+        uint8_t *owned = malloc(total_size);
+        ESP_RETURN_ON_FALSE(owned != NULL, ESP_ERR_NO_MEM, "gfx_anim_eaf", "no mem for EAF staging buffer");
+
+        esp_err_t ret = src_desc->read(src_desc->ctx, 0, owned, total_size);
+        if (ret != ESP_OK) {
+            free(owned);
+            return ret;
+        }
+
+        *out_data = owned;
+        *out_owned_data = owned;
+        *out_len = total_size;
+        return ESP_OK;
+    }
+
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+static bool gfx_anim_eaf_can_open(const gfx_anim_src_desc_t *src_desc)
+{
+    uint8_t scratch[EAF_TABLE_OFFSET];
+    const uint8_t *data = NULL;
+
+    if (!gfx_anim_src_has_bytes(src_desc)) {
+        return false;
+    }
+
+    if (gfx_anim_src_peek(src_desc, 0, sizeof(scratch), scratch, &data) != ESP_OK) {
+        return false;
+    }
+
+    if (data[EAF_FORMAT_OFFSET] != EAF_FORMAT_MAGIC) {
+        return false;
+    }
+
+    return (memcmp(data + EAF_STR_OFFSET, EAF_FORMAT_STR, 3) == 0) ||
+           (memcmp(data + EAF_STR_OFFSET, AAF_FORMAT_STR, 3) == 0);
+}
+
+static esp_err_t gfx_anim_eaf_open(const gfx_anim_src_desc_t *src_desc, void **out_handle)
+{
+    gfx_anim_eaf_handle_t *handle = NULL;
+    const uint8_t *data = NULL;
+    uint8_t *owned_data = NULL;
+    size_t data_len = 0;
+    esp_err_t ret;
+
+    if (src_desc == NULL || out_handle == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    handle = calloc(1, sizeof(*handle));
+    if (handle == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    ret = gfx_anim_src_resolve_contiguous(src_desc, &data, &owned_data, &data_len);
+    if (ret != ESP_OK) {
+        free(handle);
+        return ret;
+    }
+
+    ret = eaf_init(data, data_len, &handle->eaf_handle);
+    if (ret != ESP_OK) {
+        free(owned_data);
+        free(handle);
+        return ret;
+    }
+
+    handle->owned_data = owned_data;
+    *out_handle = handle;
+    return ESP_OK;
+}
+
+static void gfx_anim_eaf_close(void *handle)
+{
+    gfx_anim_eaf_handle_t *eaf_handle = (gfx_anim_eaf_handle_t *)handle;
+
+    if (eaf_handle == NULL) {
+        return;
+    }
+
+    if (eaf_handle->eaf_handle != NULL) {
+        eaf_deinit(eaf_handle->eaf_handle);
+    }
+
+    free(eaf_handle->owned_data);
+    free(eaf_handle);
+}
+
+static int gfx_anim_eaf_get_total_frames(void *handle)
+{
+    gfx_anim_eaf_handle_t *eaf_handle = (gfx_anim_eaf_handle_t *)handle;
+    return eaf_handle != NULL ? eaf_get_total_frames(eaf_handle->eaf_handle) : -1;
+}
+
+static void gfx_anim_eaf_desc_from_header(gfx_anim_frame_desc_t *frame_desc, eaf_header_t *header)
+{
+    memset(frame_desc, 0, sizeof(*frame_desc));
+    frame_desc->bit_depth = header->bit_depth;
+    frame_desc->width = header->width;
+    frame_desc->height = header->height;
+    frame_desc->blocks = header->blocks;
+    frame_desc->block_height = header->block_height;
+    frame_desc->block_len = header->block_len;
+    frame_desc->data_offset = header->data_offset;
+    frame_desc->palette = header->palette;
+    frame_desc->num_colors = header->num_colors;
+
+    header->block_len = NULL;
+    header->palette = NULL;
+}
+
+static void gfx_anim_eaf_header_from_desc(const gfx_anim_frame_desc_t *frame_desc, eaf_header_t *header)
+{
+    memset(header, 0, sizeof(*header));
+    header->bit_depth = frame_desc->bit_depth;
+    header->width = frame_desc->width;
+    header->height = frame_desc->height;
+    header->blocks = frame_desc->blocks;
+    header->block_height = frame_desc->block_height;
+    header->block_len = frame_desc->block_len;
+    header->data_offset = frame_desc->data_offset;
+    header->palette = frame_desc->palette;
+    header->num_colors = frame_desc->num_colors;
+}
+
+static esp_err_t gfx_anim_eaf_get_frame_info(void *handle, int frame_index, gfx_anim_frame_desc_t *frame_desc)
+{
+    gfx_anim_eaf_handle_t *eaf_handle = (gfx_anim_eaf_handle_t *)handle;
+    eaf_header_t header;
+    eaf_format_type_t format;
+
+    if (eaf_handle == NULL || frame_desc == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    memset(&header, 0, sizeof(header));
+    format = eaf_get_frame_info(eaf_handle->eaf_handle, frame_index, &header);
+    if (format != EAF_FORMAT_VALID) {
+        eaf_free_header(&header);
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+
+    gfx_anim_eaf_desc_from_header(frame_desc, &header);
+    return ESP_OK;
+}
+
+static void gfx_anim_eaf_free_frame_info(gfx_anim_frame_desc_t *frame_desc)
+{
+    if (frame_desc == NULL) {
+        return;
+    }
+
+    free(frame_desc->block_len);
+    free(frame_desc->palette);
+    memset(frame_desc, 0, sizeof(*frame_desc));
+}
+
+static const uint8_t *gfx_anim_eaf_get_frame_data(void *handle, int frame_index)
+{
+    gfx_anim_eaf_handle_t *eaf_handle = (gfx_anim_eaf_handle_t *)handle;
+    return eaf_handle != NULL ? eaf_get_frame_data(eaf_handle->eaf_handle, frame_index) : NULL;
+}
+
+static int gfx_anim_eaf_get_frame_size(void *handle, int frame_index)
+{
+    gfx_anim_eaf_handle_t *eaf_handle = (gfx_anim_eaf_handle_t *)handle;
+    return eaf_handle != NULL ? eaf_get_frame_size(eaf_handle->eaf_handle, frame_index) : -1;
+}
+
+static esp_err_t gfx_anim_eaf_decode_block(const gfx_anim_frame_desc_t *frame_desc, const uint8_t *block_data,
+                                           int block_len, uint8_t *decode_buffer, bool swap_color)
+{
+    eaf_header_t header;
+
+    if (frame_desc == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    gfx_anim_eaf_header_from_desc(frame_desc, &header);
+    return eaf_decode_block(&header, block_data, block_len, decode_buffer, swap_color);
+}
+
+static bool gfx_anim_eaf_get_palette_color(const gfx_anim_frame_desc_t *frame_desc, uint8_t color_index,
+                                           bool swap_bytes, gfx_color_t *result)
+{
+    eaf_header_t header;
+
+    if (frame_desc == NULL || result == NULL) {
+        return true;
+    }
+
+    gfx_anim_eaf_header_from_desc(frame_desc, &header);
+    return eaf_palette_get_color(&header, color_index, swap_bytes, result);
+}
+
+/**********************
+ *   PUBLIC FUNCTIONS
+ **********************/
+
+const gfx_anim_decoder_ops_t *gfx_anim_decoder_get_eaf(void)
+{
+    static const gfx_anim_decoder_ops_t s_eaf_decoder = {
+        .name = "eaf",
+        .can_open = gfx_anim_eaf_can_open,
+        .open = gfx_anim_eaf_open,
+        .close = gfx_anim_eaf_close,
+        .get_total_frames = gfx_anim_eaf_get_total_frames,
+        .get_frame_info = gfx_anim_eaf_get_frame_info,
+        .free_frame_info = gfx_anim_eaf_free_frame_info,
+        .get_frame_data = gfx_anim_eaf_get_frame_data,
+        .get_frame_size = gfx_anim_eaf_get_frame_size,
+        .decode_block = gfx_anim_eaf_decode_block,
+        .get_palette_color = gfx_anim_eaf_get_palette_color,
+    };
+
+    return &s_eaf_decoder;
+}

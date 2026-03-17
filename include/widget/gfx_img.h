@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include "core/gfx_core.h"
 #include "core/gfx_obj.h"
 
 #ifdef __cplusplus
@@ -50,12 +49,8 @@ typedef struct {
 } gfx_image_dsc_t;
 
 /**********************
- * GLOBAL PROTOTYPES
+ *   PUBLIC API
  **********************/
-
-/*=====================
- * Image object creation
- *====================*/
 
 /**
  * @brief Create an image object on a display
@@ -64,9 +59,7 @@ typedef struct {
  */
 gfx_obj_t *gfx_img_create(gfx_disp_t *disp);
 
-/*=====================
- * Image setter functions
- *====================*/
+/* Image setters */
 
 /**
  * @brief Set the source data for an image object

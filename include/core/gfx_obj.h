@@ -8,9 +8,7 @@
 
 #include "esp_err.h"
 #include "gfx_types.h"
-#include "gfx_core.h"
 #include "core/gfx_disp.h"
-#include "core/gfx_touch.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -57,6 +55,7 @@ extern "C" {
 
 /* Opaque object type - actual definition in gfx_obj_priv.h */
 typedef struct gfx_obj gfx_obj_t;
+typedef struct gfx_touch_event gfx_touch_event_t;
 
 /**
  * @brief Application-level touch callback (register with gfx_obj_set_touch_cb)
@@ -67,12 +66,8 @@ typedef struct gfx_obj gfx_obj_t;
 typedef void (*gfx_obj_touch_cb_t)(gfx_obj_t *obj, const gfx_touch_event_t *event, void *user_data);
 
 /**********************
- * GLOBAL PROTOTYPES
+ *   PUBLIC API
  **********************/
-
-/*=====================
- * Object setter functions
- *====================*/
 
 /**
  * @brief Set the position of an object
@@ -121,9 +116,7 @@ bool gfx_obj_get_visible(gfx_obj_t *obj);
  */
 void gfx_obj_update_layout(gfx_obj_t *obj);
 
-/*=====================
- * Object getter functions
- *====================*/
+/* Object getters */
 
 /**
  * @brief Get the position of an object
@@ -141,9 +134,7 @@ esp_err_t gfx_obj_get_pos(gfx_obj_t *obj, gfx_coord_t *x, gfx_coord_t *y);
  */
 esp_err_t gfx_obj_get_size(gfx_obj_t *obj, uint16_t *w, uint16_t *h);
 
-/*=====================
- * Object management functions
- *====================*/
+/* Object management */
 
 /**
  * @brief Delete an object

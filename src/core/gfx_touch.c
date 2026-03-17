@@ -4,6 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*********************
+ *      INCLUDES
+ *********************/
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -18,9 +21,21 @@
 #include "core/gfx_touch_priv.h"
 #include "core/gfx_obj_priv.h"
 
+/*********************
+ *      DEFINES
+ *********************/
+
+/**********************
+ *  STATIC VARIABLES
+ **********************/
+
 static const char *TAG = "gfx_touch";
 static const uint32_t DEFAULT_POLL_MS = 15;
 static const uint32_t DEFAULT_IRQ_POLL_MS = 5;
+
+/**********************
+ *      TYPEDEFS
+ **********************/
 
 typedef struct {
     gfx_touch_t *touch;
@@ -28,7 +43,15 @@ typedef struct {
     volatile bool unregistering;
 } gfx_touch_isr_ctx_t;
 
+/**********************
+ *  STATIC PROTOTYPES
+ **********************/
+
 static void gfx_touch_poll_cb(void *user_data);
+
+/**********************
+ *   STATIC FUNCTIONS
+ **********************/
 
 /** Return topmost visible object on disp that contains (x, y), or NULL (same order as render = last in list = front) */
 static gfx_obj_t *gfx_touch_hit_test(gfx_disp_t *disp, uint16_t x, uint16_t y)
@@ -182,6 +205,64 @@ static void gfx_touch_disable_interrupt(gfx_touch_t *touch)
     touch->irq_pending = false;
 }
 
+static void gfx_touch_poll_cb(void *user_data)
+{
+    gfx_touch_t *touch = (gfx_touch_t *)user_data;
+    if (!touch || !touch->handle) {
+        return;
+    }
+
+    if (touch->irq_enabled) {
+        if (!touch->irq_pending) {
+            return;
+        }
+        touch->irq_pending = false;
+    }
+
+    esp_err_t ret = esp_lcd_touch_read_data(touch->handle);
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "Touch read failed: %d", ret);
+        return;
+    }
+
+    esp_lcd_touch_point_data_t points[1] = {0};
+    uint8_t count = 0;
+
+    ret = esp_lcd_touch_get_data(touch->handle, points, &count, 1);
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "Touch get data failed: %d", ret);
+        return;
+    }
+
+    bool pressed_now = (count > 0);
+
+    if (pressed_now) {
+        uint16_t new_x = points[0].x;
+        uint16_t new_y = points[0].y;
+
+        if (pressed_now && !touch->pressed) {
+            gfx_touch_dispatch(touch, GFX_TOUCH_EVENT_PRESS, &points[0]);
+        } else if (touch->pressed && (new_x != touch->last_x || new_y != touch->last_y)) {
+            gfx_touch_dispatch(touch, GFX_TOUCH_EVENT_MOVE, &points[0]);
+        }
+
+        touch->last_x = new_x;
+        touch->last_y = new_y;
+        touch->last_strength = points[0].strength;
+        touch->last_id = points[0].track_id;
+    } else {
+        if (touch->pressed) {
+            gfx_touch_dispatch(touch, GFX_TOUCH_EVENT_RELEASE, NULL);
+        }
+    }
+
+    touch->pressed = pressed_now;
+}
+
+/**********************
+ *   PUBLIC FUNCTIONS
+ **********************/
+
 esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *cfg)
 {
     if (!touch || !touch->ctx || !cfg) {
@@ -249,60 +330,6 @@ esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *cfg)
 
     ESP_LOGD(TAG, "Touch polling started (%"PRIu32" ms)", touch->poll_ms);
     return ESP_OK;
-}
-
-static void gfx_touch_poll_cb(void *user_data)
-{
-    gfx_touch_t *touch = (gfx_touch_t *)user_data;
-    if (!touch || !touch->handle) {
-        return;
-    }
-
-    if (touch->irq_enabled) {
-        if (!touch->irq_pending) {
-            return;
-        }
-        touch->irq_pending = false;
-    }
-
-    esp_err_t ret = esp_lcd_touch_read_data(touch->handle);
-    if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "Touch read failed: %d", ret);
-        return;
-    }
-
-    esp_lcd_touch_point_data_t points[1] = {0};
-    uint8_t count = 0;
-
-    ret = esp_lcd_touch_get_data(touch->handle, points, &count, 1);
-    if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "Touch get data failed: %d", ret);
-        return;
-    }
-
-    bool pressed_now = (count > 0);
-
-    if (pressed_now) {
-        uint16_t new_x = points[0].x;
-        uint16_t new_y = points[0].y;
-
-        if (pressed_now && !touch->pressed) {
-            gfx_touch_dispatch(touch, GFX_TOUCH_EVENT_PRESS, &points[0]);
-        } else if (touch->pressed && (new_x != touch->last_x || new_y != touch->last_y)) {
-            gfx_touch_dispatch(touch, GFX_TOUCH_EVENT_MOVE, &points[0]);
-        }
-
-        touch->last_x = new_x;
-        touch->last_y = new_y;
-        touch->last_strength = points[0].strength;
-        touch->last_id = points[0].track_id;
-    } else {
-        if (touch->pressed) {
-            gfx_touch_dispatch(touch, GFX_TOUCH_EVENT_RELEASE, NULL);
-        }
-    }
-
-    touch->pressed = pressed_now;
 }
 
 void gfx_touch_del(gfx_touch_t *touch)

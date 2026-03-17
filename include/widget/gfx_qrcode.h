@@ -31,12 +31,8 @@ typedef enum {
 } gfx_qrcode_ecc_t;
 
 /**********************
- * GLOBAL PROTOTYPES
+ *   PUBLIC API
  **********************/
-
-/*=====================
- * QR Code object creation
- *====================*/
 
 /**
  * @brief Create a QR Code object on a display
@@ -45,9 +41,7 @@ typedef enum {
  */
 gfx_obj_t *gfx_qrcode_create(gfx_disp_t *disp);
 
-/*=====================
- * QR Code setter functions
- *====================*/
+/* QR code setters */
 
 /**
  * @brief Set the data/text for a QR Code object

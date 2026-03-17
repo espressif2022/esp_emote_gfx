@@ -4,13 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*********************
+ *      INCLUDES
+ *********************/
 #include <string.h>
+
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
-#include "decoder/gfx_img_dec_priv.h"
 
-static const char *TAG = "gfx_img_decoder";
+#include "decoder/gfx_img_dec_priv.h"
 
 /*********************
  *      DEFINES
@@ -38,18 +41,18 @@ static void aaf_format_close_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_
  *  STATIC VARIABLES
  **********************/
 
-static gfx_image_decoder_t *registered_decoders[MAX_DECODERS] = {NULL};
-static uint8_t decoder_count = 0;
+static const char *TAG = "gfx_img_decoder";
+static gfx_image_decoder_t *s_registered_decoders[MAX_DECODERS] = {NULL};
+static uint8_t s_decoder_count = 0;
 
-// Built-in decoders
-static gfx_image_decoder_t image_decoder = {
+static gfx_image_decoder_t s_image_decoder = {
     .name = "IMAGE",
     .info_cb = image_format_info_cb,
     .open_cb = image_format_open_cb,
     .close_cb = image_format_close_cb,
 };
 
-static gfx_image_decoder_t aaf_decoder = {
+static gfx_image_decoder_t s_aaf_decoder = {
     .name = "AAF",
     .info_cb = aaf_format_info_cb,
     .open_cb = aaf_format_open_cb,
@@ -57,12 +60,12 @@ static gfx_image_decoder_t aaf_decoder = {
 };
 
 /**********************
- *   GLOBAL FUNCTIONS
+ *   STATIC FUNCTIONS
  **********************/
 
-/*=====================
- * Image format detection
- *====================*/
+/**********************
+ *   PUBLIC FUNCTIONS
+ **********************/
 
 gfx_image_format_t gfx_image_detect_format(const void *src)
 {
@@ -83,23 +86,19 @@ gfx_image_format_t gfx_image_detect_format(const void *src)
     return GFX_IMAGE_FORMAT_UNKNOWN;
 }
 
-/*=====================
- * Image decoder functions
- *====================*/
-
 esp_err_t gfx_image_decoder_register(gfx_image_decoder_t *decoder)
 {
     if (decoder == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    if (decoder_count >= MAX_DECODERS) {
+    if (s_decoder_count >= MAX_DECODERS) {
         ESP_LOGE(TAG, "Too many decoders registered");
         return ESP_ERR_NO_MEM;
     }
 
-    registered_decoders[decoder_count] = decoder;
-    decoder_count++;
+    s_registered_decoders[s_decoder_count] = decoder;
+    s_decoder_count++;
 
     ESP_LOGD(TAG, "Registered decoder: %s", decoder->name);
     return ESP_OK;
@@ -111,9 +110,8 @@ esp_err_t gfx_image_decoder_info(gfx_image_decoder_dsc_t *dsc, gfx_image_header_
         return ESP_ERR_INVALID_ARG;
     }
 
-    // Try each registered decoder
-    for (int i = 0; i < decoder_count; i++) {
-        gfx_image_decoder_t *decoder = registered_decoders[i];
+    for (int i = 0; i < s_decoder_count; i++) {
+        gfx_image_decoder_t *decoder = s_registered_decoders[i];
         if (decoder && decoder->info_cb) {
             esp_err_t ret = decoder->info_cb(decoder, dsc, header);
             if (ret == ESP_OK) {
@@ -133,9 +131,8 @@ esp_err_t gfx_image_decoder_open(gfx_image_decoder_dsc_t *dsc)
         return ESP_ERR_INVALID_ARG;
     }
 
-    // Try each registered decoder
-    for (int i = 0; i < decoder_count; i++) {
-        gfx_image_decoder_t *decoder = registered_decoders[i];
+    for (int i = 0; i < s_decoder_count; i++) {
+        gfx_image_decoder_t *decoder = s_registered_decoders[i];
         if (decoder && decoder->open_cb) {
             esp_err_t ret = decoder->open_cb(decoder, dsc);
             if (ret == ESP_OK) {
@@ -155,22 +152,18 @@ void gfx_image_decoder_close(gfx_image_decoder_dsc_t *dsc)
         return;
     }
 
-    // Try each registered decoder
-    for (int i = 0; i < decoder_count; i++) {
-        gfx_image_decoder_t *decoder = registered_decoders[i];
+    for (int i = 0; i < s_decoder_count; i++) {
+        gfx_image_decoder_t *decoder = s_registered_decoders[i];
         if (decoder && decoder->close_cb) {
             decoder->close_cb(decoder, dsc);
         }
     }
 }
 
-/*=====================
- * Built-in decoder implementations
- *====================*/
-
-// C_ARRAY format decoder
 static esp_err_t image_format_info_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc, gfx_image_header_t *header)
 {
+    (void)decoder;
+
     if (dsc->src == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -188,6 +181,8 @@ static esp_err_t image_format_info_cb(gfx_image_decoder_t *decoder, gfx_image_de
 
 static esp_err_t image_format_open_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc)
 {
+    (void)decoder;
+
     if (dsc->src == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -206,12 +201,15 @@ static esp_err_t image_format_open_cb(gfx_image_decoder_t *decoder, gfx_image_de
 
 static void image_format_close_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc)
 {
-    // Nothing to do for C_ARRAY format
+    (void)decoder;
+    (void)dsc;
 }
 
-// AAF format decoder
 static esp_err_t aaf_format_info_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc, gfx_image_header_t *header)
 {
+    (void)decoder;
+    (void)header;
+
     if (dsc->src == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -226,6 +224,8 @@ static esp_err_t aaf_format_info_cb(gfx_image_decoder_t *decoder, gfx_image_deco
 
 static esp_err_t aaf_format_open_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc)
 {
+    (void)decoder;
+
     if (dsc->src == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -243,37 +243,33 @@ static esp_err_t aaf_format_open_cb(gfx_image_decoder_t *decoder, gfx_image_deco
 
 static void aaf_format_close_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc)
 {
-    // Nothing to do for AAF format
+    (void)decoder;
+    (void)dsc;
 }
-
-/*=====================
- * Initialization
- *====================*/
 
 esp_err_t gfx_image_decoder_init(void)
 {
-    // Register built-in decoders
-    esp_err_t ret = gfx_image_decoder_register(&image_decoder);
+    esp_err_t ret = gfx_image_decoder_register(&s_image_decoder);
     if (ret != ESP_OK) {
         return ret;
     }
 
-    ret = gfx_image_decoder_register(&aaf_decoder);
+    ret = gfx_image_decoder_register(&s_aaf_decoder);
     if (ret != ESP_OK) {
         return ret;
     }
 
-    ESP_LOGD(TAG, "Image decoder system initialized with %d decoders", decoder_count);
+    ESP_LOGD(TAG, "Image decoder system initialized with %d decoders", s_decoder_count);
     return ESP_OK;
 }
 
 esp_err_t gfx_image_decoder_deinit(void)
 {
-    for (int i = 0; i < decoder_count; i++) {
-        registered_decoders[i] = NULL;
+    for (int i = 0; i < s_decoder_count; i++) {
+        s_registered_decoders[i] = NULL;
     }
 
-    decoder_count = 0;
+    s_decoder_count = 0;
 
     ESP_LOGD(TAG, "Image decoder system deinitialized");
     return ESP_OK;

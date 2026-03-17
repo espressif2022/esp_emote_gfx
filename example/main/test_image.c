@@ -116,9 +116,8 @@ void decode_jpeg_rgb565_from_memory(const unsigned char *jpeg_data, size_t jpeg_
 
     gfx_img_set_src(image, &img_dec);
 
-
     start_time = esp_timer_get_time();
-    // gfx_refr_now(emote_handle);
+    gfx_refr_now(emote_handle);
     ESP_LOGW("####", "[2]refr end: %" PRIu64 " ms", (esp_timer_get_time() - start_time) / 1000);
 
     gfx_emote_unlock(emote_handle); //
@@ -140,33 +139,85 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
 
     gfx_emote_lock(emote_handle);
 
-    TEST_ASSERT_NOT_NULL(disp_default);
-
     gfx_obj_t *img_obj_bin = gfx_img_create(disp_default);
     gfx_obj_align(img_obj_bin, GFX_ALIGN_CENTER, 0, 0);
-    TEST_ASSERT_NOT_NULL(img_obj_bin);
+    gfx_disp_set_bg_enable(disp_default, false);
+
+    // gfx_obj_t *label_obj_1 = gfx_label_create(disp_default);
+
+    // gfx_obj_set_size(label_obj_1, 150, 60);
+    // gfx_label_set_font(label_obj_1, (gfx_font_t)&font_puhui_16_4);
+
+    // gfx_label_set_text(label_obj_1, "AAAAAAAAAAAA");
+    // gfx_label_set_color(label_obj_1, GFX_COLOR_HEX(0x0000FF));
+    // gfx_label_set_long_mode(label_obj_1, GFX_LABEL_LONG_SCROLL);
+    // gfx_label_set_bg_color(label_obj_1, GFX_COLOR_HEX(0xFF0000));
+    // gfx_label_set_bg_enable(label_obj_1, true);
+    // gfx_obj_align(label_obj_1, GFX_ALIGN_TOP_MID, 0, 100);
 
     gfx_emote_unlock(emote_handle);
 
 RETRY:
     int total_files = mmap_assets_get_stored_files(assets_handle);
     for (int i = 0; i < total_files; i++) {
+        // for (int i = 0; i < 1; i++) {
         const void *img_data = mmap_assets_get_mem(assets_handle, i);
-        if (!img_data) {
-            ESP_LOGE(TAG, "Failed to get image data: %d", i);
-            continue;
-        }
+        // if (!img_data) {
+        //     ESP_LOGE(TAG, "Failed to get image data: %d", i);
+        //     continue;
+        // }
         size_t img_size = mmap_assets_get_size(assets_handle, i);
-        if (img_size < sizeof(gfx_image_header_t)) {
-            ESP_LOGE(TAG, "Failed to get image size: %d", i);
-            continue;
-        }
+        // if (img_size < sizeof(gfx_image_header_t)) {
+        //     ESP_LOGE(TAG, "Failed to get image size: %d", i);
+        //     continue;
+        // }
 
         decode_jpeg_rgb565_from_memory(
             (const unsigned char *)img_data, img_size, img_obj_bin);
         // vTaskDelay(pdMS_TO_TICKS(1000));
     }
     goto RETRY;
+
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+    gfx_emote_lock(emote_handle);
+
+    // gfx_obj_set_pos(img_obj_bin, 0, 0);
+
+    gfx_obj_t *label_obj = gfx_label_create(disp_default);
+    TEST_ASSERT_NOT_NULL(label_obj);
+
+    gfx_obj_set_size(label_obj, 150, 100);
+    gfx_label_set_font(label_obj, (gfx_font_t)&font_puhui_16_4);
+
+    gfx_label_set_text(label_obj, "AAAAAAAAAAAA");
+    gfx_label_set_color(label_obj, GFX_COLOR_HEX(0x0000FF));
+    gfx_label_set_long_mode(label_obj, GFX_LABEL_LONG_SCROLL);
+    gfx_label_set_bg_color(label_obj, GFX_COLOR_HEX(0xFF0000));
+    gfx_label_set_bg_enable(label_obj, true);
+    gfx_obj_align(label_obj, GFX_ALIGN_TOP_MID, 0, 100);
+
+    gfx_emote_unlock(emote_handle);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+RERTY2:
+
+    gfx_emote_lock(emote_handle);
+
+    gfx_label_set_text(label_obj, "BBBBBBBBBBBB");
+    gfx_obj_align(label_obj, GFX_ALIGN_TOP_MID, 0, 300);
+
+    gfx_emote_unlock(emote_handle);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+    gfx_emote_lock(emote_handle);
+
+    gfx_label_set_text(label_obj, "CCCCCCCCCCCC");
+    gfx_obj_align(label_obj, GFX_ALIGN_TOP_MID, 0, 100);
+
+    gfx_emote_unlock(emote_handle);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    goto RERTY2;
 }
 
 // TEST_CASE("test function obj image", "")

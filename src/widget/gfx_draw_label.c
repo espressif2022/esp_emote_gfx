@@ -4,6 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*********************
+ *      INCLUDES
+ *********************/
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -21,19 +24,30 @@
 #include "widget/gfx_font_priv.h"
 #include "widget/gfx_draw_label_priv.h"
 
+/*********************
+ *      DEFINES
+ *********************/
+
 static const char *TAG = "draw_label";
 
-/* Use generic type checking macro from gfx_obj_priv.h */
 #define CHECK_OBJ_TYPE_LABEL(obj) CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_LABEL, TAG)
+
+/**********************
+ *  STATIC VARIABLES
+ **********************/
 
 /**********************
  *  STATIC PROTOTYPES
  **********************/
 
+static int gfx_utf8_to_unicode(const char **p, uint32_t *unicode);
+static int32_t gfx_calculate_snap_offset(gfx_label_t *label, gfx_font_ctx_t *font,
+                                         int32_t current_offset, int32_t target_width);
+static void gfx_update_scroll_state(gfx_obj_t *obj);
 static esp_err_t gfx_parse_text_lines(gfx_obj_t *obj, int total_line_height,
                                       char ***ret_lines, int *ret_line_count, int *ret_text_width, int **ret_line_widths);
 static esp_err_t gfx_render_lines_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, char **lines, int line_count,
-        int line_height, int base_line, int total_line_height, int *cached_line_widths);
+                                          int line_height, int base_line, int total_line_height, int *cached_line_widths);
 
 void gfx_label_clear_cached_lines(gfx_label_t *label)
 {
@@ -60,7 +74,7 @@ void gfx_label_clear_cached_lines(gfx_label_t *label)
  * @param unicode Pointer to store the Unicode code point
  * @return Number of bytes consumed from the string, or 0 on error
  */
-int gfx_utf8_to_unicode(const char **p, uint32_t *unicode)
+static int gfx_utf8_to_unicode(const char **p, uint32_t *unicode)
 {
     const char *ptr = *p;
     uint8_t c = (uint8_t) * ptr;
@@ -256,7 +270,7 @@ void gfx_label_snap_timer_callback(void *arg)
     gfx_obj_invalidate(obj);
 }
 
-void gfx_update_scroll_state(gfx_obj_t *obj)
+static void gfx_update_scroll_state(gfx_obj_t *obj)
 {
     gfx_label_t *label = (gfx_label_t *)obj->src;
 

@@ -3,6 +3,10 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+
+/*********************
+ *      INCLUDES
+ *********************/
 #include <string.h>
 #include "esp_log.h"
 #include "esp_heap_caps.h"
@@ -14,11 +18,42 @@
 #include "core/gfx_core_priv.h"
 #include "core/gfx_refr_priv.h"
 
+/*********************
+ *      DEFINES
+ *********************/
+
+/**********************
+ *      TYPEDEFS
+ **********************/
+
+/**********************
+ *  STATIC VARIABLES
+ **********************/
+
 static const char *TAG = "gfx_disp";
 
-/* ============================================================================
- * Buffer helpers (internal)
- * ============================================================================ */
+/**********************
+ *  STATIC PROTOTYPES
+ **********************/
+
+static void gfx_disp_init_default_state(gfx_disp_t *disp);
+
+/**********************
+ *   STATIC FUNCTIONS
+ **********************/
+
+static void gfx_disp_init_default_state(gfx_disp_t *disp)
+{
+    disp->child_list = NULL;
+    disp->next = NULL;
+    disp->buf.buf_act = disp->buf.buf1;
+    disp->style.bg_color.full = 0x0000;
+    disp->style.bg_enable = true;
+}
+
+/**********************
+ *   PUBLIC FUNCTIONS
+ **********************/
 
 esp_err_t gfx_disp_buf_free(gfx_disp_t *disp)
 {
@@ -98,10 +133,6 @@ esp_err_t gfx_disp_buf_init(gfx_disp_t *disp, const gfx_disp_config_t *cfg)
     return ESP_OK;
 }
 
-/* ============================================================================
- * Display add / del / child
- * ============================================================================ */
-
 void gfx_disp_del(gfx_disp_t *disp)
 {
     if (!disp) {
@@ -164,9 +195,7 @@ gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg)
     new_disp->cb.flush_cb = cfg->flush_cb;
     new_disp->cb.update_cb = cfg->update_cb;
     new_disp->cb.user_data = cfg->user_data;
-    new_disp->child_list = NULL;
-    new_disp->next = NULL;
-    new_disp->style.bg_enable = true;  /* default: show background */
+    gfx_disp_init_default_state(new_disp);
 
     if (cfg->flags.full_frame && cfg->buffers.buf_pixels > 0) {
         uint32_t screen_px = new_disp->res.h_res * new_disp->res.v_res;
@@ -191,7 +220,6 @@ gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg)
         new_disp->buf.buf_pixels = cfg->buffers.buf_pixels > 0 ? cfg->buffers.buf_pixels : new_disp->res.h_res * new_disp->res.v_res;
         new_disp->buf.ext_bufs = true;
         new_disp->buf.buf_act = new_disp->buf.buf1;
-        new_disp->style.bg_color.full = 0x0000;
     } else {
         ret = gfx_disp_buf_init(new_disp, cfg);
         if (ret != ESP_OK) {
@@ -210,7 +238,7 @@ gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg)
         }
         tail->next = new_disp;
     }
-    // gfx_disp_refresh_all(new_disp);
+    gfx_disp_refresh_all(new_disp);
     return new_disp;
 }
 
@@ -273,9 +301,33 @@ esp_err_t gfx_disp_remove_child(gfx_disp_t *disp, void *src)
     return ESP_ERR_NOT_FOUND;
 }
 
-/* ============================================================================
- * Refresh and flush
- * ============================================================================ */
+esp_err_t gfx_disp_delete_children(gfx_disp_t *disp)
+{
+    if (disp == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    while (disp->child_list != NULL) {
+        gfx_obj_t *obj = (gfx_obj_t *)disp->child_list->src;
+        if (obj == NULL) {
+            gfx_obj_child_t *node = disp->child_list;
+            disp->child_list = node->next;
+            free(node);
+            continue;
+        }
+
+        esp_err_t ret = gfx_obj_delete(obj);
+        if (ret != ESP_OK) {
+            return ret;
+        }
+    }
+
+    return ESP_OK;
+}
+
+/**********************
+ *   REFRESH AND FLUSH
+ **********************/
 
 void gfx_disp_refresh_all(gfx_disp_t *disp)
 {
@@ -308,9 +360,9 @@ bool gfx_disp_flush_ready(gfx_disp_t *disp, bool swap_act_buf)
     return xEventGroupSetBits(disp->sync.event_group, WAIT_FLUSH_DONE);
 }
 
-/* ============================================================================
- * Config and status
- * ============================================================================ */
+/**********************
+ *   CONFIG AND STATUS
+ **********************/
 
 void *gfx_disp_get_user_data(gfx_disp_t *disp)
 {

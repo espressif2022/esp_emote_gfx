@@ -16,23 +16,15 @@ extern "C" {
 #endif
 
 /*********************
- *   OPAQUE TYPES
+ *      TYPEDEFS
  *********************/
 /** Display handle: one per screen; from gfx_disp_add(), use with all gfx_disp_* APIs */
 typedef struct gfx_disp gfx_disp_t;
-
-/*********************
- *   ENUMS
- *********************/
 typedef enum {
     GFX_DISP_EVENT_IDLE = 0,
     GFX_DISP_EVENT_ONE_FRAME_DONE,
     GFX_DISP_EVENT_ALL_FRAME_DONE,
 } gfx_disp_event_t;
-
-/*********************
- *   CALLBACK TYPES
- *********************/
 typedef void (*gfx_disp_flush_cb_t)(gfx_disp_t *disp, int x1, int y1, int x2, int y2, const void *data);
 typedef void (*gfx_disp_update_cb_t)(gfx_disp_t *disp, gfx_disp_event_t event, const void *obj);
 

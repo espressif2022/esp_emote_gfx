@@ -4,6 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*********************
+ *      INCLUDES
+ *********************/
 #include <stdlib.h>
 #include "esp_log.h"
 #include "common/gfx_comm.h"
@@ -11,9 +14,7 @@
 #include "core/gfx_core_priv.h"
 #include "core/gfx_refr_priv.h"
 
-static const char *TAG = "gfx_obj";
-
-/*********************
+/**********************
  *      DEFINES
  *********************/
 
@@ -22,16 +23,24 @@ static const char *TAG = "gfx_obj";
  **********************/
 
 /**********************
+ *  STATIC VARIABLES
+ **********************/
+
+static const char *TAG = "gfx_obj";
+
+/**********************
  *  STATIC PROTOTYPES
  **********************/
 
 /**********************
- *   GLOBAL FUNCTIONS
+ *   STATIC FUNCTIONS
  **********************/
 
-/*=====================
- * Generic object setter functions
- *====================*/
+/**********************
+ *   PUBLIC FUNCTIONS
+ **********************/
+
+/* Generic object setters */
 
 esp_err_t gfx_obj_set_pos(gfx_obj_t *obj, gfx_coord_t x, gfx_coord_t y)
 {
@@ -123,9 +132,7 @@ void gfx_obj_update_layout(gfx_obj_t *obj)
     }
 }
 
-/*=====================
- * Static helper functions
- *====================*/
+/* Internal alignment helpers */
 
 void gfx_obj_cal_aligned_pos(gfx_obj_t *obj, uint32_t parent_width, uint32_t parent_height, gfx_coord_t *x, gfx_coord_t *y)
 {
@@ -249,9 +256,7 @@ void gfx_obj_calc_pos_in_parent(gfx_obj_t *obj)
     gfx_obj_cal_aligned_pos(obj, parent_w, parent_h, &obj->geometry.x, &obj->geometry.y);
 }
 
-/*=====================
- * Getter functions
- *====================*/
+/* Generic getters */
 
 esp_err_t gfx_obj_get_pos(gfx_obj_t *obj, gfx_coord_t *x, gfx_coord_t *y)
 {

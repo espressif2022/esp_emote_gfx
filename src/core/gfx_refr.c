@@ -4,17 +4,46 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*********************
+ *      INCLUDES
+ *********************/
 #include <string.h>
 #include <inttypes.h>
+
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
+
 #include "core/gfx_refr_priv.h"
 #include "core/gfx_core_priv.h"
 
+/*********************
+ *      DEFINES
+ *********************/
+
+/**********************
+ *      TYPEDEFS
+ **********************/
+
+/**********************
+ *  STATIC VARIABLES
+ **********************/
+
 static const char *TAG = "gfx_refr";
 
-/* Area utility functions (merged from gfx_area.c) */
+/**********************
+ *  STATIC PROTOTYPES
+ **********************/
+
+/**********************
+ *   STATIC FUNCTIONS
+ **********************/
+
+/**********************
+ *   PUBLIC FUNCTIONS
+ **********************/
+
+/* Area helpers */
 void gfx_area_copy(gfx_area_t *dest, const gfx_area_t *src)
 {
     dest->x1 = src->x1;
@@ -165,7 +194,7 @@ void gfx_invalidate_area_disp(gfx_disp_t *disp, const gfx_area_t *area_p)
         ESP_LOGW(TAG, "Dirty area buffer full, marking entire screen as dirty");
     }
 
-    /* Wake render task so it refrs without waiting for next timer */
+    /* Wake render task so it refreshes without waiting for the next timer tick */
     gfx_core_context_t *ctx = (gfx_core_context_t *)disp->ctx;
     if (ctx != NULL && ctx->sync.render_events != NULL) {
         xEventGroupSetBits(ctx->sync.render_events, GFX_EVENT_INVALIDATE);

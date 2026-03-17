@@ -4,11 +4,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*********************
+ *      INCLUDES
+ *********************/
 #include <string.h>
 #include "esp_log.h"
 #include "esp_err.h"
 
 #include "core/gfx_obj.h"
+
+/*********************
+ *      DEFINES
+ *********************/
 
 #define OPA_MAX      253  /*Opacities above this will fully cover*/
 #define OPA_TRANSP   0
@@ -19,6 +26,26 @@
     else *dest_buf = gfx_blend_color_mix(color, *dest_buf, *mask, swap);     \
     mask++;                                                     \
     dest_buf++;
+
+/**********************
+ *      TYPEDEFS
+ **********************/
+
+/**********************
+ *  STATIC VARIABLES
+ **********************/
+
+/**********************
+ *  STATIC PROTOTYPES
+ **********************/
+
+/**********************
+ *   STATIC FUNCTIONS
+ **********************/
+
+/**********************
+ *   PUBLIC FUNCTIONS
+ **********************/
 
 gfx_color_t gfx_blend_color_mix(gfx_color_t c1, gfx_color_t c2, uint8_t mix, bool swap)
 {
@@ -42,12 +69,6 @@ gfx_color_t gfx_blend_color_mix(gfx_color_t c1, gfx_color_t c2, uint8_t mix, boo
     return ret;
 }
 
-/**
- * @brief Fast fill buffer with background color
- * @param buf Pointer to uint16_t buffer
- * @param color 16-bit color value
- * @param pixels Number of pixels to fill
- */
 void gfx_sw_blend_fill(uint16_t *buf, uint16_t color, size_t pixels)
 {
     if ((color & 0xFF) == (color >> 8)) {
@@ -67,9 +88,6 @@ void gfx_sw_blend_fill(uint16_t *buf, uint16_t color, size_t pixels)
     }
 }
 
-/**
- * @brief Fill a rectangle in dest buffer (dest_buf + stride + area; area x2,y2 exclusive)
- */
 void gfx_sw_blend_fill_area(uint16_t *dest_buf, gfx_coord_t dest_stride,
                             const gfx_area_t *area, uint16_t color)
 {
@@ -181,12 +199,10 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
 
     int32_t x, y;
 
-    // Fast path: no mask, opaque rendering (RGB565 format)
     if (mask == NULL) {
+        size_t row_bytes = (size_t)w * sizeof(gfx_color_t);
         for (y = 0; y < h; y++) {
-            for (x = 0; x < w; x++) {
-                dest_buf[x] = src_buf[x];
-            }
+            memcpy(dest_buf, src_buf, row_bytes);
             dest_buf += dest_stride;
             src_buf += src_stride;
         }

@@ -7,7 +7,6 @@
 #pragma once
 
 #include <stdint.h>
-#include "core/gfx_core.h"
 #include "core/gfx_obj.h"
 
 #ifdef __cplusplus
@@ -17,47 +16,36 @@ extern "C" {
 /*********************
  *      DEFINES
  *********************/
-
-// Default screen dimensions for alignment calculation
 #define DEFAULT_SCREEN_WIDTH  320
 #define DEFAULT_SCREEN_HEIGHT 240
 
-/** Helper: dest pixel pointer at screen (x,y) from draw context (widget uses buf_area + stride) */
 #define GFX_DRAW_CTX_DEST_PTR(ctx, x, y) \
     ((gfx_color_t *)((uint8_t *)(ctx)->buf + \
         ((y) - (ctx)->buf_area.y1) * (ctx)->stride * GFX_PIXEL_SIZE_16BPP + \
         ((x) - (ctx)->buf_area.x1) * GFX_PIXEL_SIZE_16BPP))
+
 /**********************
  *      TYPEDEFS
  **********************/
 
-/** Draw context: buf origin + buf_area (screen rect of buf) + clip_area (area to draw) + stride. Like LVGL draw_ctx buf/buf_area/clip_area. */
 typedef struct gfx_draw_ctx {
-    void *buf;              /**< Buffer start (chunk start or offset into full-frame) */
-    gfx_area_t buf_area;     /**< Screen rect: buf[0] is at (buf_area.x1, buf_area.y1), inclusive */
-    gfx_area_t clip_area;    /**< Screen rect to draw this part, inclusive */
-    int stride;              /**< Row stride in pixels (chunk width or h_res) */
-    bool swap;               /**< Color byte swap */
+    void *buf;                  /**< Buffer start (chunk start or offset into full-frame) */
+    gfx_area_t buf_area;        /**< Screen rect: buf[0] is at (buf_area.x1, buf_area.y1) */
+    gfx_area_t clip_area;       /**< Screen rect to draw this part */
+    int stride;                 /**< Row stride in pixels (chunk width or h_res) */
+    bool swap;                  /**< Color byte swap */
 } gfx_draw_ctx_t;
 
-/** Object draw vfunc (internal). Uses buf_area + clip_area; widget computes dest offset from ctx. */
 typedef esp_err_t (*gfx_obj_draw_fn_t)(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx);
-
-/** Object delete vfunc (internal) */
 typedef esp_err_t (*gfx_obj_delete_fn_t)(gfx_obj_t *obj);
-/** Object update vfunc (internal) */
 typedef esp_err_t (*gfx_obj_update_fn_t)(gfx_obj_t *obj);
-/** Object touch event vfunc (internal; event is const gfx_touch_event_t *) */
 typedef void (*gfx_obj_touch_fn_t)(gfx_obj_t *obj, const void *event);
 
-/* Graphics object structure - internal definition */
 struct gfx_obj {
-    /* Basic properties */
     void *src;                  /**< Source data (image, label, etc.) */
     int type;                   /**< Object type */
     gfx_disp_t *disp;           /**< Display this object belongs to (from gfx_emote_add_disp) */
 
-    /* Geometry */
     struct {
         gfx_coord_t x;          /**< X position */
         gfx_coord_t y;          /**< Y position */
@@ -65,7 +53,6 @@ struct gfx_obj {
         uint16_t height;        /**< Object height */
     } geometry;
 
-    /* Alignment */
     struct {
         uint8_t type;           /**< Alignment type (see GFX_ALIGN_* constants) */
         gfx_coord_t x_ofs;      /**< X offset for alignment */
@@ -73,14 +60,12 @@ struct gfx_obj {
         bool enabled;           /**< Whether to use alignment instead of absolute position */
     } align;
 
-    /* Rendering state */
     struct {
         bool is_visible: 1;       /**< Object visibility */
         bool layout_dirty: 1;     /**< Whether layout needs to be recalculated before rendering */
         bool dirty: 1;            /**< Whether the object is dirty */
     } state;
 
-    /* Virtual function table */
     struct {
         gfx_obj_draw_fn_t draw;       /**< Draw function pointer */
         gfx_obj_delete_fn_t delete;   /**< Delete function pointer */
@@ -99,32 +84,10 @@ typedef struct gfx_obj_child_t {
 } gfx_obj_child_t;
 
 /**********************
- * GLOBAL PROTOTYPES
+ *   INTERNAL API
  **********************/
 
-/*=====================
- * Internal alignment functions
- *====================*/
-
-/**
- * @brief Calculate aligned position for an object (internal use)
- * @param obj Pointer to the object
- * @param parent_width Parent container width in pixels
- * @param parent_height Parent container height in pixels
- * @param x Pointer to store calculated X coordinate
- * @param y Pointer to store calculated Y coordinate
- */
 void gfx_obj_cal_aligned_pos(gfx_obj_t *obj, uint32_t parent_width, uint32_t parent_height, gfx_coord_t *x, gfx_coord_t *y);
-
-/**
- * @brief Get parent dimensions and calculate aligned object position
- *
- * This is a convenience function that combines getting parent screen size
- * and calculating the aligned position of the object. It modifies obj->geometry.x
- * and obj->geometry.y in place based on the alignment settings.
- *
- * @param obj Pointer to the object
- */
 void gfx_obj_calc_pos_in_parent(gfx_obj_t *obj);
 
 #ifdef __cplusplus

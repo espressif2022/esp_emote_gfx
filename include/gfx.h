@@ -6,20 +6,9 @@
 
 #pragma once
 
-/**
- * @file gfx.h
- * @brief Graphics Framework (GFX) - Main header file
- *
- * This header file includes all the public APIs for the GFX framework.
- * The framework provides:
- * - Object system for images and labels
- * - Drawing functions for rendering to buffers
- * - Color utilities and type definitions
- * - Software blending capabilities
- */
-
 #include "core/gfx_types.h"
 #include "core/gfx_core.h"
+#include "core/gfx_disp.h"
 #include "core/gfx_timer.h"
 #include "core/gfx_touch.h"
 #include "core/gfx_obj.h"
@@ -40,14 +29,6 @@ extern "C" {
 /**********************
  *      TYPEDEFS
  **********************/
-
-/**********************
- * GLOBAL PROTOTYPES
- **********************/
-
-/*=====================
- * Main API
- *====================*/
 
 #ifdef __cplusplus
 }

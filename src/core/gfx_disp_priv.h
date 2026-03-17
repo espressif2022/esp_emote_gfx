@@ -15,7 +15,7 @@ extern "C" {
 #endif
 
 /*********************
- *   FORWARD DECL
+ *      TYPEDEFS
  *********************/
 struct gfx_core_context;
 
@@ -94,9 +94,11 @@ struct gfx_disp {
     } sync_pending;
 };
 
-/* ============================================================================
- * Internal buffer helpers (used by gfx_disp.c and gfx_core.c deinit)
- * ============================================================================ */
+/*********************
+ *   INTERNAL API
+ *********************/
+
+/* Buffer helpers (used by gfx_disp.c and gfx_core.c deinit) */
 
 /**
  * @brief Free display frame buffers
@@ -115,9 +117,7 @@ esp_err_t gfx_disp_buf_free(gfx_disp_t *disp);
  */
 esp_err_t gfx_disp_buf_init(gfx_disp_t *disp, const gfx_disp_config_t *cfg);
 
-/* ============================================================================
- * Internal API (obj/widget/render only, not in public gfx_disp.h)
- * ============================================================================ */
+/* Object/render helpers (obj/widget/render only, not in public gfx_disp.h) */
 
 /**
  * @brief Add a child object to a display
@@ -137,6 +137,14 @@ esp_err_t gfx_disp_add_child(gfx_disp_t *disp, void *src);
  * @internal Used by gfx_obj_delete.
  */
 esp_err_t gfx_disp_remove_child(gfx_disp_t *disp, void *src);
+
+/**
+ * @brief Delete and detach every child object owned by a display.
+ * @param disp Display that owns the child list
+ * @return ESP_OK on success
+ * @internal Used during display/core teardown to ensure widget destructors run.
+ */
+esp_err_t gfx_disp_delete_children(gfx_disp_t *disp);
 
 #ifdef __cplusplus
 }

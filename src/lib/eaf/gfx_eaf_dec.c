@@ -4,10 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*********************
+ *      INCLUDES
+ *********************/
 #include <string.h>
+
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
+
 #include "gfx_eaf_dec.h"
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 #include "esp_jpeg_dec.h"
@@ -17,9 +22,35 @@
 #include "heatshrink_decoder.h"
 #endif // CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
 
-static const char *TAG = "eaf";
+/*********************
+ *      DEFINES
+ *********************/
 
-static eaf_block_decoder_cb_t g_eaf_decoders[EAF_ENCODING_MAX] = {0};
+/**********************
+ *      TYPEDEFS
+ **********************/
+
+/**********************
+ *  STATIC VARIABLES
+ **********************/
+
+static const char *TAG = "eaf";
+static eaf_block_decoder_cb_t s_eaf_decoders[EAF_ENCODING_MAX] = {0};
+
+/**********************
+ *  STATIC PROTOTYPES
+ **********************/
+
+static uint32_t eaf_calculate_checksum(const uint8_t *data, uint32_t length);
+static eaf_huffman_node_t *eaf_huffman_node_create(void);
+static void eaf_huffman_tree_free(eaf_huffman_node_t *node);
+static esp_err_t eaf_huffman_decode_data(const uint8_t *encoded_data, size_t encoded_len,
+        const uint8_t *dict_data, size_t dict_len,
+        uint8_t *decoded_data, size_t *decoded_len);
+
+/**********************
+ *   STATIC FUNCTIONS
+ **********************/
 
 static uint32_t eaf_calculate_checksum(const uint8_t *data, uint32_t length)
 {
@@ -55,11 +86,9 @@ static esp_err_t eaf_huffman_decode_data(const uint8_t *encoded_data, size_t enc
         return ESP_OK;
     }
 
-    // Get padding bits from dictionary
     uint8_t padding_bits = dict_data[0];
     size_t dict_pos = 1;
 
-    // Reconstruct Huffman Tree
     eaf_huffman_node_t *root = eaf_huffman_node_create();
     eaf_huffman_node_t *current_node = NULL;
 
@@ -73,7 +102,6 @@ static esp_err_t eaf_huffman_decode_data(const uint8_t *encoded_data, size_t enc
             code = (code << 8) | dict_data[dict_pos++];
         }
 
-        // Insert symbol into tree
         current_node = root;
         for (int bit_pos = code_len - 1; bit_pos >= 0; --bit_pos) {
             int bit_val = (code >> bit_pos) & 1;
@@ -93,7 +121,6 @@ static esp_err_t eaf_huffman_decode_data(const uint8_t *encoded_data, size_t enc
         current_node->symbol = symbol;
     }
 
-    // Calculate total bits to decode
     size_t total_bits = encoded_len * 8;
     if (padding_bits > 0) {
         total_bits -= padding_bits;
@@ -102,10 +129,9 @@ static esp_err_t eaf_huffman_decode_data(const uint8_t *encoded_data, size_t enc
     current_node = root;
     size_t decoded_pos = 0;
 
-    // Process each bit in the encoded data
     for (size_t bit_index = 0; bit_index < total_bits; bit_index++) {
         size_t byte_idx = bit_index / 8;
-        int bit_offset = 7 - (bit_index % 8);  // Most significant bit first
+        int bit_offset = 7 - (bit_index % 8);
         int bit_val = (encoded_data[byte_idx] >> bit_offset) & 1;
 
         if (bit_val == 0) {
@@ -286,16 +312,10 @@ bool eaf_palette_get_color(const eaf_header_t *header, uint8_t color_index, bool
 {
     const uint8_t *color_data = &header->palette[color_index * 4];
 
-    // Check if color is fully transparent (00 00 00 00)
     if (color_data[0] == 0 && color_data[1] == 0 && color_data[2] == 0 && color_data[3] == 0) {
         return true;
     }
 
-    // RGB888: R=color[2], G=color[1], B=color[0]
-    // RGB565:
-    // - R: (color[2] & 0xF8) << 8
-    // - G: (color[1] & 0xFC) << 3
-    // - B: (color[0] & 0xF8) >> 3
     uint16_t rgb565_value = swap_bytes ? __builtin_bswap16(((color_data[2] & 0xF8) << 8) | ((color_data[1] & 0xFC) << 3) | ((color_data[0] & 0xF8) >> 3)) : \
                             ((color_data[2] & 0xF8) << 8) | ((color_data[1] & 0xFC) << 3) | ((color_data[0] & 0xF8) >> 3);
     result->full = rgb565_value;
@@ -315,7 +335,6 @@ static esp_err_t eaf_decode_huffman_rle(const uint8_t *input_data, size_t input_
         return ESP_FAIL;
     }
 
-    // Worst case, RLE stream can be 2x of the decompressed size.
     size_t huffman_cap = *out_size * 2;
     uint8_t *huffman_buffer = malloc(huffman_cap);
     if (huffman_buffer == NULL) {
@@ -340,11 +359,11 @@ static esp_err_t eaf_register_decoder(eaf_encoding_type_t type, eaf_block_decode
         return ESP_ERR_INVALID_ARG;
     }
 
-    if (g_eaf_decoders[type] != NULL) {
+    if (s_eaf_decoders[type] != NULL) {
         ESP_LOGW(TAG, "Decoder already registered for type: %d", type);
     }
 
-    g_eaf_decoders[type] = decoder;
+    s_eaf_decoders[type] = decoder;
     return ESP_OK;
 }
 
@@ -375,12 +394,12 @@ esp_err_t eaf_decode_block(const eaf_header_t *header, const uint8_t *block_data
 
     esp_err_t decode_result = ESP_FAIL;
 
-    if (encoding_type >= sizeof(g_eaf_decoders) / sizeof(g_eaf_decoders[0])) {
+    if (encoding_type >= sizeof(s_eaf_decoders) / sizeof(s_eaf_decoders[0])) {
         ESP_LOGE(TAG, "Unknown encoding type: %02X", encoding_type);
         return ESP_FAIL;
     }
 
-    eaf_block_decoder_cb_t decoder = g_eaf_decoders[encoding_type];
+    eaf_block_decoder_cb_t decoder = s_eaf_decoders[encoding_type];
     if (!decoder) {
         ESP_LOGE(TAG, "No decoder for encoding type: %02X", encoding_type);
         return ESP_FAIL;
@@ -389,7 +408,7 @@ esp_err_t eaf_decode_block(const eaf_header_t *header, const uint8_t *block_data
     size_t out_size;
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
     if (encoding_type == EAF_ENCODING_JPEG) {
-        out_size = width * block_height * 2; // RGB565 = 2 bytes per pixel
+        out_size = width * block_height * 2;
     } else {
         out_size = width * block_height;
     }
@@ -410,7 +429,7 @@ esp_err_t eaf_decode_rle(const uint8_t *input_data, size_t input_size,
                          uint8_t *output_buffer, size_t *out_size,
                          bool swap_color)
 {
-    (void)swap_color; // Unused parameter
+    (void)swap_color;
 
     size_t in_pos = 0;
     size_t out_pos = 0;
@@ -426,7 +445,6 @@ esp_err_t eaf_decode_rle(const uint8_t *input_data, size_t input_size,
 
         uint32_t value_4bytes = repeat_value | (repeat_value << 8) | (repeat_value << 16) | (repeat_value << 24);
         while (repeat_count >= 4) {
-            // ESP_LOGI(TAG, "4 bit align:%s", ((uintptr_t)(output_buffer + out_pos) & 0x03) ? "no" : "yes");
             *((uint32_t *)(output_buffer + out_pos)) = value_4bytes;
             out_pos += 4;
             repeat_count -= 4;
@@ -602,7 +620,7 @@ esp_err_t eaf_decode_jpeg(const uint8_t *jpeg_data, size_t jpeg_size,
     w = out_info->width;
     h = out_info->height;
 
-    size_t required_size = w * h * 2; // RGB565 = 2 bytes per pixel
+    size_t required_size = w * h * 2;
     ESP_GOTO_ON_FALSE(*out_size >= required_size, ESP_ERR_INVALID_SIZE, err, TAG,
                       "Buffer too small: need %zu, got %zu", required_size, *out_size);
 
@@ -635,7 +653,7 @@ esp_err_t eaf_decode_huffman(const uint8_t *input_data, size_t input_size,
                              uint8_t *output_buffer, size_t *out_size,
                              bool swap_color)
 {
-    (void)swap_color; // Unused parameter
+    (void)swap_color;
     size_t decoded_size = *out_size;
 
     if (!input_data || input_size < 3 || !output_buffer) {

@@ -11,13 +11,13 @@
 
 static const char *TAG = "test_image";
 
-static void test_image_function(mmap_assets_handle_t assets_handle)
+static void test_image_run(mmap_assets_handle_t assets_handle)
 {
     gfx_image_dsc_t img_dsc;
 
-    ESP_LOGI(TAG, "=== Testing Image Function ===");
+    test_app_log_case(TAG, "Image Widget Demo");
 
-    gfx_emote_lock(emote_handle);
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
 
     TEST_ASSERT_NOT_NULL(disp_default);
     gfx_obj_t *img_obj_c_array = gfx_img_create(disp_default);
@@ -26,23 +26,22 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
     gfx_img_set_src(img_obj_c_array, (void *)&icon_rgb565);
     gfx_obj_set_pos(img_obj_c_array, 100, 100);
 
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
+    test_app_unlock();
+    test_app_wait_ms(2000);
 
-    //test different pos
-    ESP_LOGI(TAG, "--- Test different pos with set_pos ---");
-    gfx_emote_lock(emote_handle);
+    test_app_log_step(TAG, "Move image with set_pos");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_obj_set_pos(img_obj_c_array, 200, 100);
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
+    test_app_unlock();
+    test_app_wait_ms(2000);
 
-    ESP_LOGI(TAG, "--- Test different pos with align ---");
-    gfx_emote_lock(emote_handle);
+    test_app_log_step(TAG, "Reposition image with align");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_obj_align(img_obj_c_array, GFX_ALIGN_CENTER, 0, 0);
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
+    test_app_unlock();
+    test_app_wait_ms(2000);
 
-    gfx_emote_lock(emote_handle);
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_obj_delete(img_obj_c_array);
 
     gfx_obj_t *img_obj_bin = gfx_img_create(disp_default);
@@ -52,51 +51,50 @@ static void test_image_function(mmap_assets_handle_t assets_handle)
     TEST_ASSERT_EQUAL(ESP_OK, ret);
     gfx_img_set_src(img_obj_bin, (void *)&img_dsc);
     gfx_obj_set_pos(img_obj_bin, 100, 180);
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
+    test_app_unlock();
+    test_app_wait_ms(2000);
 
-    ESP_LOGI(TAG, "--- Test from big to small image ---");
-    gfx_emote_lock(emote_handle);
+    test_app_log_step(TAG, "Reload mmap-backed image");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     load_image(assets_handle, MMAP_TEST_ASSETS_ICON_RGB565A8_BIN, &img_dsc);
     gfx_img_set_src(img_obj_bin, (void *)&img_dsc);
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(6 * 1000));
+    test_app_unlock();
+    test_app_wait_ms(6000);
 
-    gfx_emote_lock(emote_handle);
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_obj_delete(img_obj_bin);
 
-    ESP_LOGI(TAG, "--- Testing multiple images with different formats ---");
+    test_app_log_step(TAG, "Show multiple image formats");
     gfx_obj_t *img_obj1 = gfx_img_create(disp_default);
     gfx_obj_t *img_obj2 = gfx_img_create(disp_default);
     TEST_ASSERT_NOT_NULL(img_obj1);
     TEST_ASSERT_NOT_NULL(img_obj2);
 
-    gfx_img_set_src(img_obj1, (void *)&icon_rgb565A8); // C_ARRAY format
+    gfx_img_set_src(img_obj1, (void *)&icon_rgb565A8);
 
     ret = load_image(assets_handle, MMAP_TEST_ASSETS_ICON_RGB565_BIN, &img_dsc);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
-    gfx_img_set_src(img_obj2, (void *)&img_dsc); // BIN format
+    gfx_img_set_src(img_obj2, (void *)&img_dsc);
 
     gfx_obj_set_pos(img_obj1, 150, 100);
     gfx_obj_set_pos(img_obj2, 150, 180);
 
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
+    test_app_wait_ms(3000);
 
-    vTaskDelay(pdMS_TO_TICKS(3 * 1000));
-
-    gfx_emote_lock(emote_handle);
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_obj_delete(img_obj1);
     gfx_obj_delete(img_obj2);
-    gfx_emote_unlock(emote_handle);
+    test_app_unlock();
 }
 
-TEST_CASE("test function obj image", "")
+TEST_CASE("gfx demo: image widget", "[demo][image]")
 {
-    mmap_assets_handle_t assets_handle = NULL;
-    esp_err_t ret = display_and_graphics_init("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
+    test_app_runtime_t runtime;
+    esp_err_t ret = test_app_runtime_open(&runtime);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
 
-    test_image_function(assets_handle);
+    test_image_run(runtime.assets_handle);
 
-    display_and_graphics_clean(assets_handle);
+    test_app_runtime_close(&runtime);
 }

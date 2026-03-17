@@ -22,14 +22,12 @@
 /*********************
  *      DEFINES
  *********************/
-/* Use generic type checking macro from gfx_obj_priv.h */
 #define CHECK_OBJ_TYPE_QRCODE(obj) CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_QRCODE, TAG)
 
 /**********************
  *      TYPEDEFS
  **********************/
 
-/* QR Code context structure */
 typedef struct {
     char *text;                 /**< QR Code text/data */
     size_t text_len;            /**< Length of text */
@@ -43,7 +41,6 @@ typedef struct {
     bool needs_update;          /**< Flag to indicate QR code needs regeneration */
 } gfx_qrcode_t;
 
-/* Draw callback data */
 typedef struct {
     gfx_obj_t *obj;
     bool swap;
@@ -58,24 +55,31 @@ static const char *TAG = "gfx_qrcode";
  *  STATIC PROTOTYPES
  **********************/
 
-/* Virtual functions */
-static esp_err_t gfx_draw_qrcode(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx);
-static esp_err_t gfx_qrcode_delete(gfx_obj_t *obj);
-
-/* Helper functions */
+static esp_err_t gfx_qrcode_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx);
+static esp_err_t gfx_qrcode_delete_impl(gfx_obj_t *obj);
 static void gfx_qrcode_generate_callback(qrcode_wrapper_handle_t qrcode, void *user_data);
 static esp_err_t gfx_qrcode_generate(gfx_obj_t *obj, bool swap);
-static void gfx_qrcode_blend_to_dest(gfx_obj_t *obj, gfx_qrcode_t *qrcode,
-                                     const gfx_draw_ctx_t *ctx);
+static void gfx_qrcode_blend(gfx_obj_t *obj, gfx_qrcode_t *qrcode, const gfx_draw_ctx_t *ctx);
+static void gfx_qrcode_init_default_state(gfx_qrcode_t *qrcode);
 
 /**********************
  *   STATIC FUNCTIONS
  **********************/
 
-/**
- * @brief Callback function for qrcode_wrapper_generate
- * Generates scaled QR code image buffer (RGB565 format)
- */
+static void gfx_qrcode_init_default_state(gfx_qrcode_t *qrcode)
+{
+    memset(qrcode, 0, sizeof(*qrcode));
+    qrcode->display_size = 100;
+    qrcode->ecc = GFX_QRCODE_ECC_LOW;
+    qrcode->color = (gfx_color_t) {
+        .full = 0xFFFF
+    };
+    qrcode->bg_color = (gfx_color_t) {
+        .full = 0x0000
+    };
+    qrcode->needs_update = true;
+}
+
 static void gfx_qrcode_generate_callback(qrcode_wrapper_handle_t qrcode, void *user_data)
 {
     gfx_qrcode_draw_data_t *draw_data = (gfx_qrcode_draw_data_t *)user_data;
@@ -93,20 +97,17 @@ static void gfx_qrcode_generate_callback(qrcode_wrapper_handle_t qrcode, void *u
     int scaled_size = qr_size * scale;
     int display_size = qrcode_obj->display_size;
 
-    /* Calculate centering offset when scaled_size < display_size */
     int offset_x = (display_size - scaled_size) / 2;
     int offset_y = (display_size - scaled_size) / 2;
 
     ESP_LOGD(TAG, "Generating QR: qr_size=%d, display_size=%d, scale=%d, scaled_size=%d, offset=(%d,%d)",
              qr_size, display_size, scale, scaled_size, offset_x, offset_y);
 
-    /* Free old buffer if exists */
     if (qrcode_obj->qr_modules) {
         free(qrcode_obj->qr_modules);
         qrcode_obj->qr_modules = NULL;
     }
 
-    /* Allocate buffer for display size (RGB565: 2 bytes per pixel) */
     size_t buffer_size = display_size * display_size * sizeof(uint16_t);
     qrcode_obj->qr_modules = (uint8_t *)heap_caps_malloc(buffer_size, MALLOC_CAP_SPIRAM);
     if (!qrcode_obj->qr_modules) {
@@ -116,27 +117,20 @@ static void gfx_qrcode_generate_callback(qrcode_wrapper_handle_t qrcode, void *u
 
     uint16_t *pixel_buf = (uint16_t *)qrcode_obj->qr_modules;
 
-    /* Convert gfx_color_t to uint16_t */
     uint16_t fg_color = swap ? __builtin_bswap16(qrcode_obj->color.full) : qrcode_obj->color.full;
     uint16_t bg_color = swap ? __builtin_bswap16(qrcode_obj->bg_color.full) : qrcode_obj->bg_color.full;
 
-    /* Fill entire buffer with background color */
     for (int y = 0; y < display_size; y++) {
         for (int x = 0; x < display_size; x++) {
             pixel_buf[y * display_size + x] = bg_color;
         }
     }
 
-    /* Generate scaled QR code image and place it centered
-     * Scale it horizontally, then duplicate vertically */
     for (int qr_y = 0; qr_y < qr_size; qr_y++) {
-        /* Process one QR module row */
         for (int qr_x = 0; qr_x < qr_size; qr_x++) {
-            /* Get QR module value (true = black/foreground) */
             bool is_black = qrcode_wrapper_get_module(qrcode, qr_x, qr_y);
             uint16_t color = is_black ? fg_color : bg_color;
 
-            /* Scale horizontally with centering offset */
             for (int sx = 0; sx < scale; sx++) {
                 int px = offset_x + qr_x * scale + sx;
                 int py = offset_y + qr_y * scale;
@@ -146,7 +140,6 @@ static void gfx_qrcode_generate_callback(qrcode_wrapper_handle_t qrcode, void *u
             }
         }
 
-        /* Duplicate row vertically for scaling with centering offset */
         for (int sy = 1; sy < scale; sy++) {
             int src_y = offset_y + qr_y * scale;
             int dst_y = offset_y + qr_y * scale + sy;
@@ -158,16 +151,12 @@ static void gfx_qrcode_generate_callback(qrcode_wrapper_handle_t qrcode, void *u
         }
     }
 
-    /* Save QR code info - use display_size as the actual buffer size */
     qrcode_obj->qr_size = qr_size;
     qrcode_obj->scaled_size = display_size;
 
     ESP_LOGD(TAG, "QR code buffer generated successfully");
 }
 
-/**
- * @brief Generate QR Code from text
- */
 static esp_err_t gfx_qrcode_generate(gfx_obj_t *obj, bool swap)
 {
     gfx_qrcode_t *qrcode = (gfx_qrcode_t *)obj->src;
@@ -176,7 +165,6 @@ static esp_err_t gfx_qrcode_generate(gfx_obj_t *obj, bool swap)
         return ESP_ERR_INVALID_ARG;
     }
 
-    /* Map ECC level */
     int ecc_level = QRCODE_WRAPPER_ECC_LOW;
     switch (qrcode->ecc) {
     case GFX_QRCODE_ECC_LOW:
@@ -198,7 +186,6 @@ static esp_err_t gfx_qrcode_generate(gfx_obj_t *obj, bool swap)
         .swap = swap
     };
 
-    /* Generate QR Code */
     qrcode_wrapper_config_t cfg = {
         .display_func = gfx_qrcode_generate_callback,
         .max_qrcode_version = 5,
@@ -211,11 +198,7 @@ static esp_err_t gfx_qrcode_generate(gfx_obj_t *obj, bool swap)
     return ESP_OK;
 }
 
-/**
- * @brief Blend QR code image to destination buffer
- */
-static void gfx_qrcode_blend_to_dest(gfx_obj_t *obj, gfx_qrcode_t *qrcode,
-                                     const gfx_draw_ctx_t *ctx)
+static void gfx_qrcode_blend(gfx_obj_t *obj, gfx_qrcode_t *qrcode, const gfx_draw_ctx_t *ctx)
 {
     gfx_obj_calc_pos_in_parent(obj);
 
@@ -249,10 +232,7 @@ static void gfx_qrcode_blend_to_dest(gfx_obj_t *obj, gfx_qrcode_t *qrcode,
     );
 }
 
-/**
- * @brief Virtual draw function for QR code widget
- */
-static esp_err_t gfx_draw_qrcode(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
+static esp_err_t gfx_qrcode_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 {
     if (obj == NULL || obj->src == NULL || ctx == NULL) {
         ESP_LOGD(TAG, "Invalid object or source");
@@ -279,14 +259,11 @@ static esp_err_t gfx_draw_qrcode(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
         return ESP_ERR_INVALID_STATE;
     }
 
-    gfx_qrcode_blend_to_dest(obj, qrcode, ctx);
+    gfx_qrcode_blend(obj, qrcode, ctx);
     return ESP_OK;
 }
 
-/**
- * @brief Virtual delete function for QR code widget
- */
-static esp_err_t gfx_qrcode_delete(gfx_obj_t *obj)
+static esp_err_t gfx_qrcode_delete_impl(gfx_obj_t *obj)
 {
     CHECK_OBJ_TYPE_QRCODE(obj);
 
@@ -308,9 +285,6 @@ static esp_err_t gfx_qrcode_delete(gfx_obj_t *obj)
  *   PUBLIC FUNCTIONS
  **********************/
 
-/**
- * @brief Create a QR code object on a display
- */
 gfx_obj_t *gfx_qrcode_create(gfx_disp_t *disp)
 {
     if (disp == NULL) {
@@ -328,8 +302,8 @@ gfx_obj_t *gfx_qrcode_create(gfx_disp_t *disp)
     obj->type = GFX_OBJ_TYPE_QRCODE;
     obj->disp = disp;
     obj->state.is_visible = true;
-    obj->vfunc.draw = gfx_draw_qrcode;
-    obj->vfunc.delete = gfx_qrcode_delete;
+    obj->vfunc.draw = gfx_qrcode_draw;
+    obj->vfunc.delete = gfx_qrcode_delete_impl;
 
     gfx_qrcode_t *qrcode = (gfx_qrcode_t *)malloc(sizeof(gfx_qrcode_t));
     if (qrcode == NULL) {
@@ -337,18 +311,7 @@ gfx_obj_t *gfx_qrcode_create(gfx_disp_t *disp)
         free(obj);
         return NULL;
     }
-    memset(qrcode, 0, sizeof(gfx_qrcode_t));
-
-    /* Set default values */
-    qrcode->display_size = 100;  /* Default 100x100 pixels */
-    qrcode->ecc = GFX_QRCODE_ECC_LOW;
-    qrcode->color = (gfx_color_t) {
-        .full = 0xFFFF
-    };     /* White */
-    qrcode->bg_color = (gfx_color_t) {
-        .full = 0x0000
-    };  /* Black */
-    qrcode->needs_update = true;
+    gfx_qrcode_init_default_state(qrcode);
 
     obj->src = qrcode;
     obj->geometry.width = qrcode->display_size;
@@ -361,9 +324,6 @@ gfx_obj_t *gfx_qrcode_create(gfx_disp_t *disp)
     return obj;
 }
 
-/**
- * @brief Set QR code data/text
- */
 esp_err_t gfx_qrcode_set_data(gfx_obj_t *obj, const char *text)
 {
     CHECK_OBJ_TYPE_QRCODE(obj);
@@ -373,7 +333,6 @@ esp_err_t gfx_qrcode_set_data(gfx_obj_t *obj, const char *text)
         return ESP_ERR_INVALID_ARG;
     }
 
-    /* Calculate text length automatically */
     size_t text_len = strlen(text);
     if (text_len == 0) {
         ESP_LOGE(TAG, "Empty text");
@@ -382,12 +341,10 @@ esp_err_t gfx_qrcode_set_data(gfx_obj_t *obj, const char *text)
 
     gfx_qrcode_t *qrcode = (gfx_qrcode_t *)obj->src;
 
-    /* Free old text */
     if (qrcode->text) {
         free(qrcode->text);
     }
 
-    /* Allocate and copy new text */
     qrcode->text = (char *)malloc(text_len + 1);
     if (!qrcode->text) {
         ESP_LOGE(TAG, "Failed to allocate text buffer");
@@ -405,9 +362,6 @@ esp_err_t gfx_qrcode_set_data(gfx_obj_t *obj, const char *text)
     return ESP_OK;
 }
 
-/**
- * @brief Set QR code display size
- */
 esp_err_t gfx_qrcode_set_size(gfx_obj_t *obj, uint16_t size)
 {
     CHECK_OBJ_TYPE_QRCODE(obj);
@@ -419,7 +373,7 @@ esp_err_t gfx_qrcode_set_size(gfx_obj_t *obj, uint16_t size)
 
     gfx_qrcode_t *qrcode = (gfx_qrcode_t *)obj->src;
     qrcode->display_size = size;
-    qrcode->needs_update = true;  /* Size change requires buffer regeneration */
+    qrcode->needs_update = true;
 
     obj->geometry.width = size;
     obj->geometry.height = size;
@@ -431,9 +385,6 @@ esp_err_t gfx_qrcode_set_size(gfx_obj_t *obj, uint16_t size)
     return ESP_OK;
 }
 
-/**
- * @brief Set QR code error correction level
- */
 esp_err_t gfx_qrcode_set_ecc(gfx_obj_t *obj, gfx_qrcode_ecc_t ecc)
 {
     CHECK_OBJ_TYPE_QRCODE(obj);
@@ -448,16 +399,13 @@ esp_err_t gfx_qrcode_set_ecc(gfx_obj_t *obj, gfx_qrcode_ecc_t ecc)
     return ESP_OK;
 }
 
-/**
- * @brief Set QR code foreground color
- */
 esp_err_t gfx_qrcode_set_color(gfx_obj_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_QRCODE(obj);
 
     gfx_qrcode_t *qrcode = (gfx_qrcode_t *)obj->src;
     qrcode->color = color;
-    qrcode->needs_update = true;  /* Color is encoded in buffer */
+    qrcode->needs_update = true;
 
     gfx_obj_invalidate(obj);
 
@@ -465,16 +413,13 @@ esp_err_t gfx_qrcode_set_color(gfx_obj_t *obj, gfx_color_t color)
     return ESP_OK;
 }
 
-/**
- * @brief Set QR code background color
- */
 esp_err_t gfx_qrcode_set_bg_color(gfx_obj_t *obj, gfx_color_t bg_color)
 {
     CHECK_OBJ_TYPE_QRCODE(obj);
 
     gfx_qrcode_t *qrcode = (gfx_qrcode_t *)obj->src;
     qrcode->bg_color = bg_color;
-    qrcode->needs_update = true;  /* Color is encoded in buffer */
+    qrcode->needs_update = true;
 
     gfx_obj_invalidate(obj);
 

@@ -5,8 +5,8 @@
  */
 
 /*********************
-*      INCLUDES
-*********************/
+ *      INCLUDES
+ *********************/
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -19,9 +19,7 @@
 #include "core/gfx_refr_priv.h"
 
 #include "widget/gfx_label.h"
-#include "widget/gfx_font_priv.h"
-#include "widget/gfx_draw_label_priv.h"
-
+#include "widget/gfx_label_priv.h"
 
 /*********************
  *      DEFINES
@@ -35,16 +33,8 @@
 static const char *TAG = "gfx_label";
 
 /**********************
- *  STATIC PROTOTYPES
+ *   PUBLIC FUNCTIONS
  **********************/
-
-/* Forward declarations for virtual functions */
-static esp_err_t gfx_label_delete(gfx_obj_t *obj);
-static esp_err_t gfx_label_update(gfx_obj_t *obj);
-
-/*=====================
- * Label setter functions
- *====================*/
 
 esp_err_t gfx_label_set_font(gfx_obj_t *obj, gfx_font_t font)
 {
@@ -86,31 +76,22 @@ esp_err_t gfx_label_set_text(gfx_obj_t *obj, const char *text)
     CHECK_OBJ_TYPE_LABEL(obj);
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
+    const char *new_text = text;
 
-    if (text == NULL) {
-        text = label->text.text;
+    if (new_text == NULL) {
+        new_text = label->text.text ? label->text.text : "";
     }
 
-    if (label->text.text == text) {
-        label->text.text = realloc(label->text.text, strlen(label->text.text) + 1);
-        assert(label->text.text);
-        if (label->text.text == NULL) {
-            return ESP_FAIL;
+    if (label->text.text != new_text) {
+        size_t len = strlen(new_text) + 1;
+        char *dup_text = malloc(len);
+        if (dup_text == NULL) {
+            return ESP_ERR_NO_MEM;
         }
-    } else {
-        if (label->text.text != NULL) {
-            free(label->text.text);
-            label->text.text = NULL;
-        }
+        memcpy(dup_text, new_text, len);
 
-        size_t len = strlen(text) + 1;
-
-        label->text.text = malloc(len);
-        assert(label->text.text);
-        if (label->text.text == NULL) {
-            return ESP_FAIL;
-        }
-        strcpy(label->text.text, text);
+        free(label->text.text);
+        label->text.text = dup_text;
     }
 
 
@@ -382,141 +363,6 @@ esp_err_t gfx_label_set_snap_loop(gfx_obj_t *obj, bool loop)
 
     label->snap.loop = loop;
     ESP_LOGD(TAG, "set snap loop: %s", loop ? "enabled" : "disabled");
-
-    return ESP_OK;
-}
-
-/*=====================
-* Label object creation
-*====================*/
-
-gfx_obj_t *gfx_label_create(gfx_disp_t *disp)
-{
-    if (disp == NULL) {
-        ESP_LOGE(TAG, "disp must be from gfx_emote_add_disp");
-        return NULL;
-    }
-
-    gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
-    if (obj == NULL) {
-        ESP_LOGE(TAG, "No mem for label object");
-        return NULL;
-    }
-
-    memset(obj, 0, sizeof(gfx_obj_t));
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    obj->disp = disp;
-    obj->state.is_visible = true;
-    obj->vfunc.draw = gfx_draw_label;
-    obj->vfunc.delete = gfx_label_delete;
-    obj->vfunc.update = gfx_label_update;
-    gfx_obj_invalidate(obj);
-
-    gfx_label_t *label = (gfx_label_t *)malloc(sizeof(gfx_label_t));
-    if (label == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate memory for label object");
-        free(obj);
-        return NULL;
-    }
-    memset(label, 0, sizeof(gfx_label_t));
-
-    label->style.opa = 0xFF;
-    label->render.mask = NULL;
-    label->style.bg_color = (gfx_color_t) {
-        .full = 0x0000
-    };
-    label->style.bg_enable = false;
-    label->style.text_align = GFX_TEXT_ALIGN_LEFT;
-    label->text.long_mode = GFX_LABEL_LONG_CLIP;
-    label->text.line_spacing = 2;
-    label->text.text_width = 0;
-
-    label->scroll.offset = 0;
-    label->scroll.step = 1;
-    label->scroll.speed = 50;
-    label->scroll.loop = true;
-    label->scroll.scrolling = false;
-    label->scroll.changed = false;
-    label->scroll.timer = NULL;
-
-    label->snap.interval = 2000;  /* Default 2000ms per section */
-    label->snap.offset = 0;       /* Will be auto-calculated as obj->geometry.width */
-    label->snap.loop = true;
-    label->snap.timer = NULL;
-
-    label->cache.lines = NULL;
-    label->cache.line_count = 0;
-    label->cache.line_widths = NULL;
-
-    obj->src = label;
-
-    gfx_disp_add_child(disp, obj);
-    ESP_LOGD(TAG, "Created label object with default font config");
-    return obj;
-}
-
-static esp_err_t gfx_label_delete(gfx_obj_t *obj)
-{
-    CHECK_OBJ_TYPE_LABEL(obj);
-
-    gfx_label_t *label = (gfx_label_t *)obj->src;
-    if (label) {
-        if (label->scroll.timer) {
-            gfx_timer_delete(obj->disp->ctx, label->scroll.timer);
-            label->scroll.timer = NULL;
-        }
-
-        if (label->snap.timer) {
-            gfx_timer_delete(obj->disp->ctx, label->snap.timer);
-            label->snap.timer = NULL;
-        }
-
-        gfx_label_clear_cached_lines(label);
-
-        if (label->text.text) {
-            free(label->text.text);
-        }
-        if (label->font.font_ctx) {
-            free(label->font.font_ctx);
-        }
-        if (label->render.mask) {
-            free(label->render.mask);
-        }
-        free(label);
-    }
-
-    return ESP_OK;
-}
-
-static esp_err_t gfx_label_update(gfx_obj_t *obj)
-{
-    CHECK_OBJ_TYPE_LABEL(obj);
-
-    gfx_label_t *label = (gfx_label_t *)obj->src;
-    ESP_RETURN_ON_FALSE(label, ESP_ERR_INVALID_STATE, TAG, "label is NULL");
-
-    if (label->text.text == NULL) {
-        return ESP_OK;
-    }
-
-    /* Sync render offset based on long mode */
-    switch (label->text.long_mode) {
-    case GFX_LABEL_LONG_SCROLL:
-        label->render.offset = label->scroll.offset;
-        break;
-    case GFX_LABEL_LONG_SCROLL_SNAP:
-        label->render.offset = label->snap.offset;
-        break;
-    default:
-        label->render.offset = 0;
-        break;
-    }
-
-    /* Generate glyph mask */
-    esp_err_t ret = gfx_get_glphy_dsc(obj);
-    if (ret != ESP_OK || !label->render.mask) {
-        return ESP_FAIL;
-    }
 
     return ESP_OK;
 }

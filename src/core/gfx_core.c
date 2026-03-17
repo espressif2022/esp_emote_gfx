@@ -3,11 +3,16 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+
+/*********************
+ *      INCLUDES
+ *********************/
+#include <stdbool.h>
+#include <string.h>
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include <stdbool.h>
-#include <string.h>
 #include "esp_timer.h"
 #include "esp_log.h"
 #include "esp_check.h"
@@ -22,11 +27,33 @@
 #include "widget/gfx_font_priv.h"
 #include "decoder/gfx_img_dec_priv.h"
 
+/*********************
+ *      DEFINES
+ *********************/
+
+/**********************
+ *      TYPEDEFS
+ **********************/
+
+/**********************
+ *  STATIC VARIABLES
+ **********************/
+
 static const char *TAG = "gfx_core";
+
+/**********************
+ *  STATIC PROTOTYPES
+ **********************/
 
 static void gfx_render_loop_task(void *arg);
 static uint32_t gfx_cal_task_delay(uint32_t timer_delay);
 static void gfx_do_refr_now_impl(gfx_core_context_t *ctx);
+static inline TickType_t gfx_block_ticks(uint32_t ms);
+static void gfx_wait_for_work(gfx_core_context_t *ctx, uint32_t next_sleep_ms, EventBits_t *out_triggered);
+
+/**********************
+ *   STATIC FUNCTIONS
+ **********************/
 
 /** Convert ms to block time in ticks; minimum 1 tick. */
 static inline TickType_t gfx_block_ticks(uint32_t ms)
@@ -58,150 +85,6 @@ static void gfx_wait_for_work(gfx_core_context_t *ctx, uint32_t next_sleep_ms, E
         *out_triggered = 0;
     }
 }
-
-/* ============================================================================
- * Initialization and Cleanup Functions
- * ============================================================================ */
-
-gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
-{
-    esp_err_t ret = ESP_OK;
-    gfx_core_context_t *disp_ctx = NULL;
-    bool lifecycle_events_created = false;
-    bool mutex_created = false;
-    bool decoder_inited = false;
-#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
-    bool font_lib_created = false;
-#endif
-
-    ESP_GOTO_ON_FALSE(cfg, ESP_ERR_INVALID_ARG, err, TAG, "Invalid configuration");
-
-    disp_ctx = malloc(sizeof(gfx_core_context_t));
-    ESP_GOTO_ON_FALSE(disp_ctx, ESP_ERR_NO_MEM, err, TAG, "Failed to allocate player context");
-
-    // Initialize all fields to zero/NULL
-    memset(disp_ctx, 0, sizeof(gfx_core_context_t));
-
-    disp_ctx->sync.lifecycle_events = xEventGroupCreate();
-    ESP_GOTO_ON_FALSE(disp_ctx->sync.lifecycle_events, ESP_ERR_NO_MEM, err, TAG, "Failed to create event group");
-    lifecycle_events_created = true;
-
-    disp_ctx->sync.render_events = xEventGroupCreate();
-    ESP_GOTO_ON_FALSE(disp_ctx->sync.render_events, ESP_ERR_NO_MEM, err, TAG, "Failed to create render event group");
-
-    // Create recursive render mutex for protecting rendering operations
-    disp_ctx->sync.render_mutex = xSemaphoreCreateRecursiveMutex();
-    ESP_GOTO_ON_FALSE(disp_ctx->sync.render_mutex, ESP_ERR_NO_MEM, err, TAG, "Failed to create recursive render mutex");
-    mutex_created = true;
-
-#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
-    ret = gfx_ft_lib_create();
-    ESP_GOTO_ON_ERROR(ret, err, TAG, "Failed to create font library");
-    font_lib_created = true;
-#endif
-
-    // Initialize timer manager
-    gfx_timer_mgr_init(&disp_ctx->timer_mgr, cfg->fps);
-
-    // Initialize image decoder system
-    ret = gfx_image_decoder_init();
-    ESP_GOTO_ON_ERROR(ret, err, TAG, "Failed to initialize image decoder");
-    decoder_inited = true;
-
-    // Create render task
-    const uint32_t stack_caps = cfg->task.task_stack_caps ? cfg->task.task_stack_caps : (MALLOC_CAP_INTERNAL | MALLOC_CAP_DEFAULT);
-    if (cfg->task.task_affinity < 0) {
-        xTaskCreateWithCaps(gfx_render_loop_task, "gfx_render", cfg->task.task_stack,
-                            disp_ctx, cfg->task.task_priority, NULL, stack_caps);
-    } else {
-        xTaskCreatePinnedToCoreWithCaps(gfx_render_loop_task, "gfx_render", cfg->task.task_stack,
-                                        disp_ctx, cfg->task.task_priority, NULL, cfg->task.task_affinity, stack_caps);
-    }
-
-    return (gfx_handle_t)disp_ctx;
-
-err:
-    if (decoder_inited) {
-        gfx_image_decoder_deinit();
-    }
-#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
-    if (font_lib_created) {
-        gfx_ft_lib_cleanup();
-    }
-#endif
-    if (mutex_created) {
-        vSemaphoreDelete(disp_ctx->sync.render_mutex);
-    }
-    if (disp_ctx->sync.render_events) {
-        vEventGroupDelete(disp_ctx->sync.render_events);
-        disp_ctx->sync.render_events = NULL;
-    }
-    if (lifecycle_events_created) {
-        vEventGroupDelete(disp_ctx->sync.lifecycle_events);
-    }
-    free(disp_ctx);
-    return NULL;
-}
-
-void gfx_emote_deinit(gfx_handle_t handle)
-{
-    gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
-    if (ctx == NULL) {
-        ESP_LOGE(TAG, "Invalid graphics context");
-        return;
-    }
-
-    xEventGroupSetBits(ctx->sync.lifecycle_events, NEED_DELETE);
-    xEventGroupWaitBits(ctx->sync.lifecycle_events, DELETE_DONE, pdTRUE, pdFALSE, portMAX_DELAY);
-
-    // Free all displays and their child nodes
-    while (ctx->disp != NULL) {
-        gfx_disp_t *d = ctx->disp;
-        gfx_disp_del(d);
-        free(d);
-    }
-
-    // Free all touch nodes
-    while (ctx->touch != NULL) {
-        gfx_touch_t *t = ctx->touch;
-        gfx_touch_del(t);
-        free(t);
-    }
-
-    gfx_timer_mgr_deinit(&ctx->timer_mgr);
-
-    // Delete font library
-#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
-    gfx_ft_lib_cleanup();
-#endif
-
-    // Delete mutex
-    if (ctx->sync.render_mutex) {
-        vSemaphoreDelete(ctx->sync.render_mutex);
-        ctx->sync.render_mutex = NULL;
-    }
-
-    // Delete event group
-    if (ctx->sync.lifecycle_events) {
-        vEventGroupDelete(ctx->sync.lifecycle_events);
-        ctx->sync.lifecycle_events = NULL;
-    }
-
-    if (ctx->sync.render_events) {
-        vEventGroupDelete(ctx->sync.render_events);
-        ctx->sync.render_events = NULL;
-    }
-
-    // Deinitialize image decoder system
-    gfx_image_decoder_deinit();
-
-    // Free context
-    free(ctx);
-}
-
-/* ============================================================================
- * Task and Event Handling Functions
- * ============================================================================ */
 
 static uint32_t gfx_cal_task_delay(uint32_t timer_delay)
 {
@@ -252,9 +135,135 @@ static void gfx_do_refr_now_impl(gfx_core_context_t *ctx)
     }
 }
 
-/* ============================================================================
- * Synchronization and Locking Functions
- * ============================================================================ */
+/**********************
+ *   PUBLIC FUNCTIONS
+ **********************/
+
+gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
+{
+    esp_err_t ret = ESP_OK;
+    gfx_core_context_t *disp_ctx = NULL;
+    BaseType_t task_ret = pdFAIL;
+    bool lifecycle_events_created = false;
+    bool mutex_created = false;
+    bool decoder_inited = false;
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
+    bool font_lib_created = false;
+#endif
+
+    ESP_GOTO_ON_FALSE(cfg, ESP_ERR_INVALID_ARG, err, TAG, "Invalid configuration");
+
+    disp_ctx = malloc(sizeof(gfx_core_context_t));
+    ESP_GOTO_ON_FALSE(disp_ctx, ESP_ERR_NO_MEM, err, TAG, "Failed to allocate player context");
+
+    memset(disp_ctx, 0, sizeof(gfx_core_context_t));
+
+    disp_ctx->sync.lifecycle_events = xEventGroupCreate();
+    ESP_GOTO_ON_FALSE(disp_ctx->sync.lifecycle_events, ESP_ERR_NO_MEM, err, TAG, "Failed to create event group");
+    lifecycle_events_created = true;
+
+    disp_ctx->sync.render_events = xEventGroupCreate();
+    ESP_GOTO_ON_FALSE(disp_ctx->sync.render_events, ESP_ERR_NO_MEM, err, TAG, "Failed to create render event group");
+
+    disp_ctx->sync.render_mutex = xSemaphoreCreateRecursiveMutex();
+    ESP_GOTO_ON_FALSE(disp_ctx->sync.render_mutex, ESP_ERR_NO_MEM, err, TAG, "Failed to create recursive render mutex");
+    mutex_created = true;
+
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
+    ret = gfx_ft_lib_create();
+    ESP_GOTO_ON_ERROR(ret, err, TAG, "Failed to create font library");
+    font_lib_created = true;
+#endif
+
+    gfx_timer_mgr_init(&disp_ctx->timer_mgr, cfg->fps);
+
+    ret = gfx_image_decoder_init();
+    ESP_GOTO_ON_ERROR(ret, err, TAG, "Failed to initialize image decoder");
+    decoder_inited = true;
+
+    const uint32_t stack_caps = cfg->task.task_stack_caps ? cfg->task.task_stack_caps : (MALLOC_CAP_INTERNAL | MALLOC_CAP_DEFAULT);
+    if (cfg->task.task_affinity < 0) {
+        task_ret = xTaskCreateWithCaps(gfx_render_loop_task, "gfx_render", cfg->task.task_stack,
+                                       disp_ctx, cfg->task.task_priority, NULL, stack_caps);
+    } else {
+        task_ret = xTaskCreatePinnedToCoreWithCaps(gfx_render_loop_task, "gfx_render", cfg->task.task_stack,
+                                                   disp_ctx, cfg->task.task_priority, NULL, cfg->task.task_affinity, stack_caps);
+    }
+    ESP_GOTO_ON_FALSE(task_ret == pdPASS, ESP_ERR_NO_MEM, err, TAG, "Failed to create render task");
+
+    return (gfx_handle_t)disp_ctx;
+
+err:
+    if (decoder_inited) {
+        gfx_image_decoder_deinit();
+    }
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
+    if (font_lib_created) {
+        gfx_ft_lib_cleanup();
+    }
+#endif
+    if (mutex_created) {
+        vSemaphoreDelete(disp_ctx->sync.render_mutex);
+    }
+    if (disp_ctx->sync.render_events) {
+        vEventGroupDelete(disp_ctx->sync.render_events);
+        disp_ctx->sync.render_events = NULL;
+    }
+    if (lifecycle_events_created) {
+        vEventGroupDelete(disp_ctx->sync.lifecycle_events);
+    }
+    free(disp_ctx);
+    return NULL;
+}
+
+void gfx_emote_deinit(gfx_handle_t handle)
+{
+    gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
+    if (ctx == NULL) {
+        ESP_LOGE(TAG, "Invalid graphics context");
+        return;
+    }
+
+    xEventGroupSetBits(ctx->sync.lifecycle_events, NEED_DELETE);
+    xEventGroupWaitBits(ctx->sync.lifecycle_events, DELETE_DONE, pdTRUE, pdFALSE, portMAX_DELAY);
+
+    while (ctx->disp != NULL) {
+        gfx_disp_t *d = ctx->disp;
+        gfx_disp_delete_children(d);
+        gfx_disp_del(d);
+        free(d);
+    }
+
+    while (ctx->touch != NULL) {
+        gfx_touch_t *t = ctx->touch;
+        gfx_touch_del(t);
+        free(t);
+    }
+
+    gfx_timer_mgr_deinit(&ctx->timer_mgr);
+
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
+    gfx_ft_lib_cleanup();
+#endif
+
+    if (ctx->sync.render_mutex) {
+        vSemaphoreDelete(ctx->sync.render_mutex);
+        ctx->sync.render_mutex = NULL;
+    }
+
+    if (ctx->sync.lifecycle_events) {
+        vEventGroupDelete(ctx->sync.lifecycle_events);
+        ctx->sync.lifecycle_events = NULL;
+    }
+
+    if (ctx->sync.render_events) {
+        vEventGroupDelete(ctx->sync.render_events);
+        ctx->sync.render_events = NULL;
+    }
+
+    gfx_image_decoder_deinit();
+    free(ctx);
+}
 
 esp_err_t gfx_refr_now(gfx_handle_t handle)
 {
