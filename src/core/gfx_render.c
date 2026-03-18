@@ -32,7 +32,7 @@
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "gfx_render";
+static const char *TAG = "render";
 
 /**********************
  *  STATIC PROTOTYPES

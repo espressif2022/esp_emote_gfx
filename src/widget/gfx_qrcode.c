@@ -51,7 +51,7 @@ typedef struct {
 /**********************
  *  STATIC VARIABLES
  **********************/
-static const char *TAG = "gfx_qrcode";
+static const char *TAG = "qrcode";
 
 /**********************
  *  STATIC PROTOTYPES

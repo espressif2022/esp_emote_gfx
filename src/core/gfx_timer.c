@@ -29,7 +29,7 @@
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "gfx_timer";
+static const char *TAG = "timer";
 
 /**********************
  *  STATIC PROTOTYPES

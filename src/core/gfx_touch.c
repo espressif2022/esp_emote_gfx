@@ -31,7 +31,7 @@
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "gfx_touch";
+static const char *TAG = "touch";
 static const uint32_t DEFAULT_POLL_MS = 15;
 static const uint32_t DEFAULT_IRQ_POLL_MS = 5;
 

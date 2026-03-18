@@ -59,7 +59,7 @@ typedef struct {
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "gfx_button";
+static const char *TAG = "button";
 
 /**********************
  *  STATIC PROTOTYPES

@@ -131,7 +131,7 @@ static void gfx_anim_timer_callback(void *arg);
 /**********************
  *  STATIC VARIABLES
  **********************/
-static const char *TAG = "gfx_anim";
+static const char *TAG = "anim";
 static const gfx_anim_pixel_renderer_cb_t s_anim_renderers[GFX_ANIM_DEPTH_MAX] = {
     gfx_anim_render_4bit_pixels,
     gfx_anim_render_8bit_pixels,

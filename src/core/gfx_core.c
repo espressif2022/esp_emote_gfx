@@ -41,7 +41,7 @@
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "gfx_core";
+static const char *TAG = "core";
 
 /**********************
  *  STATIC PROTOTYPES

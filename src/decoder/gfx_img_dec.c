@@ -43,7 +43,7 @@ static void aaf_format_close_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "gfx_img_decoder";
+static const char *TAG = "img_dec";
 static gfx_image_decoder_t *s_registered_decoders[MAX_DECODERS] = {NULL};
 static uint8_t s_decoder_count = 0;
 

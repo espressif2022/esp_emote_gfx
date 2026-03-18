@@ -14,7 +14,7 @@
 #include "qrcodegen.h"
 #include "qrcode_wrapper.h"
 
-static const char *TAG = "QRCODE_WRAPPER";
+static const char *TAG = "qrcode_lib";
 
 static const char *lt[] = {
     /* 0 */ "  ",

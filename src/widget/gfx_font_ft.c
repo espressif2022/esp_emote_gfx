@@ -38,7 +38,7 @@
  *   STATIC VARIABLES
  **********************/
 
-static const char *TAG = "gfx_ft";
+static const char *TAG = "font_ft";
 static FT_Library s_library = NULL;
 static gfx_ft_lib_handle_t s_font_lib = NULL;
 
