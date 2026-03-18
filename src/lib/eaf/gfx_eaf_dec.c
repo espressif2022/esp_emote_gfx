@@ -13,7 +13,7 @@
 #include "esp_log.h"
 #include "esp_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_EAF_DEC
-#include "common/gfx_log.h"
+#include "common/gfx_log_priv.h"
 
 #include "gfx_eaf_dec.h"
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT

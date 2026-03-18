@@ -10,7 +10,7 @@
 #include <esp_err.h>
 #include <esp_log.h>
 #define GFX_LOG_MODULE GFX_LOG_MODULE_QRCODE_LIB
-#include "common/gfx_log.h"
+#include "common/gfx_log_priv.h"
 #include "qrcodegen.h"
 #include "qrcode_wrapper.h"
 
