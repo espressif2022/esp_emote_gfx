@@ -123,7 +123,7 @@ static void test_multi_obj_run(mmap_assets_handle_t assets_handle)
     test_app_unlock();
 }
 
-TEST_CASE("gfx verify: multi widget scene", "[verify][multi]")
+TEST_CASE("multi widget scene", "[widget][multi]")
 {
     test_app_runtime_t runtime;
 

@@ -236,7 +236,7 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
         if (flush_cb != NULL) {
             xEventGroupClearBits(disp->sync.event_group, WAIT_FLUSH_DONE);
 
-            uint32_t chunk_px = area_w * (uint32_t)(chunk_y2 - chunk_y1);
+            // uint32_t chunk_px = area_w * (uint32_t)(chunk_y2 - chunk_y1);
 
             bool is_last_chunk = (chunk_y2 >= area->y2 + 1);
             disp->render.flushing_last = is_last_chunk && is_last_area;
@@ -365,7 +365,7 @@ bool gfx_render_handler(gfx_core_context_t *ctx)
             uint32_t screen_px = disp->res.h_res * disp->res.v_res;
             float dirty_pct = (dirty_px * 100.0f) / (float)screen_px;
             GFX_LOGD(TAG,
-                     "%.1f%% (%" PRIu64 "ms) (%" PRIu64 "ms | %" PRIu64 "ms)",
+                     "%.1f%% (%" PRIu64 "ms) (%" PRIu64 "|%" PRIu64 ")",
                      dirty_pct,
                      frame_time_us /1000,
                      disp->render.render_time_us /1000,

@@ -90,7 +90,7 @@ static void test_anim_run(mmap_assets_handle_t assets_handle)
     }
 }
 
-TEST_CASE("gfx verify: animation decoder matrix", "[verify][anim]")
+TEST_CASE("widget animation decoder matrix", "[widget][anim][matrix]")
 {
     test_app_runtime_t runtime;
 

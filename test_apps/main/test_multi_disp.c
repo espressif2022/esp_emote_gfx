@@ -147,7 +147,7 @@ static void test_multi_disp_run(mmap_assets_handle_t assets_handle)
     test_app_unlock();
 }
 
-TEST_CASE("gfx verify: multi display routing", "[verify][display][multi]")
+TEST_CASE("multi display routing", "[display][multi_disp]")
 {
     test_app_runtime_t runtime;
 

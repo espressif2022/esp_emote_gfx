@@ -35,6 +35,7 @@ static const char *s_module_names[GFX_LOG_MODULE_COUNT] = {
     [GFX_LOG_MODULE_FONT_FT] = "font_ft",
     [GFX_LOG_MODULE_IMG] = "img",
     [GFX_LOG_MODULE_QRCODE] = "qrcode",
+    [GFX_LOG_MODULE_BUTTON] = "button",
     [GFX_LOG_MODULE_ANIM] = "anim",
     [GFX_LOG_MODULE_ANIM_DEC] = "anim_dec",
     [GFX_LOG_MODULE_EAF_DEC] = "eaf_dec",

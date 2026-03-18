@@ -99,7 +99,7 @@ static void test_image_run(mmap_assets_handle_t assets_handle)
     test_app_unlock();
 }
 
-TEST_CASE("gfx verify: image widget sources", "[verify][image]")
+TEST_CASE("widget image sources", "[widget][image]")
 {
     test_app_runtime_t runtime;
 
