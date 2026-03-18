@@ -254,24 +254,27 @@ void gfx_refr_update_layout_dirty(gfx_disp_t *disp)
         return;
     }
 
-    uint32_t parent_w = disp->res.h_res;
-    uint32_t parent_h = disp->res.v_res;
-
     gfx_obj_child_t *child_node = disp->child_list;
 
     while (child_node != NULL) {
         gfx_obj_t *obj = (gfx_obj_t *)child_node->src;
 
         if (obj != NULL && obj->state.layout_dirty && obj->align.enabled) {
-            gfx_obj_invalidate(obj);
-
-            gfx_coord_t new_x = obj->geometry.x;
-            gfx_coord_t new_y = obj->geometry.y;
-            gfx_obj_cal_aligned_pos(obj, parent_w, parent_h, &new_x, &new_y);
-            obj->geometry.x = new_x;
-            obj->geometry.y = new_y;
+            gfx_coord_t old_x = obj->geometry.x;
+            gfx_coord_t old_y = obj->geometry.y;
 
             gfx_obj_invalidate(obj);
+            gfx_obj_calc_pos_in_parent(obj);
+
+            gfx_obj_invalidate(obj);
+
+            GFX_LOGD(TAG,
+                     "layout update: obj=%p (%d,%d) -> (%d,%d)",
+                     obj,
+                     old_x,
+                     old_y,
+                     obj->geometry.x,
+                     obj->geometry.y);
 
             obj->state.layout_dirty = false;
         }

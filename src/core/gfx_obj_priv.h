@@ -57,6 +57,7 @@ struct gfx_obj {
         uint8_t type;           /**< Alignment type (see GFX_ALIGN_* constants) */
         gfx_coord_t x_ofs;      /**< X offset for alignment */
         gfx_coord_t y_ofs;      /**< Y offset for alignment */
+        gfx_obj_t *target;      /**< Reference object for align_to; NULL means align to display */
         bool enabled;           /**< Whether to use alignment instead of absolute position */
     } align;
 

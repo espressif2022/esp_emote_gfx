@@ -96,6 +96,17 @@ esp_err_t gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h);
 esp_err_t gfx_obj_align(gfx_obj_t *obj, uint8_t align, gfx_coord_t x_ofs, gfx_coord_t y_ofs);
 
 /**
+ * @brief Align an object relative to another object
+ * @param obj Pointer to the object to align
+ * @param base Reference object; NULL means align to the display
+ * @param align Alignment type (see GFX_ALIGN_* constants)
+ * @param x_ofs X offset from the alignment position
+ * @param y_ofs Y offset from the alignment position
+ * @return ESP_OK on success
+ */
+esp_err_t gfx_obj_align_to(gfx_obj_t *obj, gfx_obj_t *base, uint8_t align, gfx_coord_t x_ofs, gfx_coord_t y_ofs);
+
+/**
  * @brief Set object visibility
  * @param obj Object to set visibility for
  * @param visible True to make object visible, false to hide

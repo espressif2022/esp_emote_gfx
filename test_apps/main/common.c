@@ -36,14 +36,14 @@ static void test_app_configure_gfx_log_levels(void)
     gfx_log_set_level_all(GFX_LOG_LEVEL_INFO);
 
     /* Keep high-signal modules independently adjustable during validation. */
-    gfx_log_set_level(GFX_LOG_MODULE_DRAW_LABEL, GFX_LOG_LEVEL_DEBUG);
-    gfx_log_set_level(GFX_LOG_MODULE_LABEL, GFX_LOG_LEVEL_DEBUG);
-    gfx_log_set_level(GFX_LOG_MODULE_LABEL_OBJ, GFX_LOG_LEVEL_DEBUG);
-    gfx_log_set_level(GFX_LOG_MODULE_FONT_FT, GFX_LOG_LEVEL_DEBUG);
+    gfx_log_set_level(GFX_LOG_MODULE_DRAW_LABEL, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_LABEL, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_LABEL_OBJ, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_FONT_FT, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_FONT_LV, GFX_LOG_LEVEL_WARN);
-    gfx_log_set_level(GFX_LOG_MODULE_ANIM, GFX_LOG_LEVEL_DEBUG);
-    gfx_log_set_level(GFX_LOG_MODULE_IMG, GFX_LOG_LEVEL_DEBUG);
-    gfx_log_set_level(GFX_LOG_MODULE_QRCODE, GFX_LOG_LEVEL_DEBUG);
+    gfx_log_set_level(GFX_LOG_MODULE_ANIM, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_IMG, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_QRCODE, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_BUTTON, GFX_LOG_LEVEL_DEBUG);
     gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_DEBUG);
 }

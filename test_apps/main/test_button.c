@@ -56,7 +56,7 @@ static void test_button_run(void)
 {
     test_button_scene_t scene = {0};
 
-    test_app_log_case(TAG, "Button widget validation");
+    test_app_log_case(TAG, "Button widget validation (align_to)");
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     TEST_ASSERT_NOT_NULL(disp_default);
@@ -77,13 +77,14 @@ static void test_button_run(void)
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_touch_cb(scene.button_obj, test_button_touch_cb, scene.status_label));
 
     gfx_obj_set_size(scene.status_label, 220, 32);
-    gfx_obj_align(scene.status_label, GFX_ALIGN_CENTER, 0, 36);
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align_to(scene.status_label, scene.button_obj, GFX_ALIGN_OUT_BOTTOM_MID, 0, 12));
     gfx_label_set_font(scene.status_label, (gfx_font_t)&font_puhui_16_4);
     gfx_label_set_text_align(scene.status_label, GFX_TEXT_ALIGN_CENTER);
+    gfx_label_set_color(scene.status_label, GFX_COLOR_HEX(0xFFFFFF));
     gfx_label_set_text(scene.status_label, "button state: idle");
     test_app_unlock();
 
-    test_app_wait_for_observe(6000);
+    test_app_wait_for_observe(5700);
 
     test_app_log_step(TAG, "Update button visual style");
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
@@ -93,15 +94,22 @@ static void test_button_run(void)
     TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_border_color(scene.button_obj, GFX_COLOR_HEX(0xD7F7E8)));
     test_app_unlock();
 
-    // test_app_wait_for_observe(4000);
-    test_app_wait_for_observe(4000 * 10000);
+    test_app_wait_for_observe(4000);
+
+    test_app_log_step(TAG, "Move button and verify align_to follower");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
+    gfx_obj_align(scene.button_obj, GFX_ALIGN_TOP_MID, 0, 36);
+    gfx_label_set_text(scene.status_label, "automatically follows");
+    test_app_unlock();
+
+    test_app_wait_for_observe(4000);
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     test_button_scene_cleanup(&scene);
     test_app_unlock();
 }
 
-TEST_CASE("widget button interaction", "[widget][button]")
+TEST_CASE("widget button interaction with align_to", "[widget][button][align_to]")
 {
     test_app_runtime_t runtime;
 

@@ -34,9 +34,90 @@ static const char *TAG = "gfx_obj";
  *  STATIC PROTOTYPES
  **********************/
 
+static void gfx_obj_notify_aligned_dependents(gfx_obj_t *obj, uint8_t depth);
+static void gfx_obj_detach_aligned_dependents(gfx_obj_t *obj);
+static void gfx_obj_calc_pos_in_parent_internal(gfx_obj_t *obj, uint8_t depth);
+
 /**********************
  *   STATIC FUNCTIONS
  **********************/
+
+static void gfx_obj_notify_aligned_dependents(gfx_obj_t *obj, uint8_t depth)
+{
+    if (obj == NULL || obj->disp == NULL || depth > 8) {
+        return;
+    }
+
+    for (gfx_obj_child_t *child = obj->disp->child_list; child != NULL; child = child->next) {
+        gfx_obj_t *child_obj = (gfx_obj_t *)child->src;
+
+        if (child_obj == NULL || child_obj == obj) {
+            continue;
+        }
+
+        if (child_obj->align.enabled && child_obj->align.target == obj) {
+            child_obj->state.layout_dirty = true;
+            gfx_obj_invalidate(child_obj);
+            gfx_obj_notify_aligned_dependents(child_obj, depth + 1);
+        }
+    }
+}
+
+static void gfx_obj_detach_aligned_dependents(gfx_obj_t *obj)
+{
+    if (obj == NULL || obj->disp == NULL) {
+        return;
+    }
+
+    for (gfx_obj_child_t *child = obj->disp->child_list; child != NULL; child = child->next) {
+        gfx_obj_t *child_obj = (gfx_obj_t *)child->src;
+
+        if (child_obj == NULL || child_obj == obj) {
+            continue;
+        }
+
+        if (child_obj->align.target == obj) {
+            child_obj->align.target = NULL;
+            child_obj->state.layout_dirty = true;
+            gfx_obj_invalidate(child_obj);
+            gfx_obj_notify_aligned_dependents(child_obj, 1);
+        }
+    }
+}
+
+static void gfx_obj_calc_pos_in_parent_internal(gfx_obj_t *obj, uint8_t depth)
+{
+    gfx_coord_t origin_x = 0;
+    gfx_coord_t origin_y = 0;
+    uint32_t parent_w;
+    uint32_t parent_h;
+
+    GFX_RETURN_IF_NULL_VOID(obj);
+
+    if (depth > 8) {
+        GFX_LOGW(TAG, "align depth too large, stop resolving");
+        return;
+    }
+
+    parent_w = gfx_disp_get_hor_res(obj->disp);
+    parent_h = gfx_disp_get_ver_res(obj->disp);
+
+    if (obj->align.target != NULL && obj->align.target != obj) {
+        gfx_obj_t *target = obj->align.target;
+
+        if (target->disp == obj->disp) {
+            gfx_obj_calc_pos_in_parent_internal(target, depth + 1);
+            origin_x = target->geometry.x;
+            origin_y = target->geometry.y;
+            parent_w = target->geometry.width;
+            parent_h = target->geometry.height;
+        }
+    }
+
+    gfx_obj_cal_aligned_pos(obj, parent_w, parent_h, &obj->geometry.x, &obj->geometry.y);
+    obj->geometry.x += origin_x;
+    obj->geometry.y += origin_y;
+}
 
 /**********************
  *   PUBLIC FUNCTIONS
@@ -54,8 +135,10 @@ esp_err_t gfx_obj_set_pos(gfx_obj_t *obj, gfx_coord_t x, gfx_coord_t y)
     obj->geometry.x = x;
     obj->geometry.y = y;
     obj->align.enabled = false;
+    obj->align.target = NULL;
     //invalidate the new position
     gfx_obj_invalidate(obj);
+    gfx_obj_notify_aligned_dependents(obj, 0);
     GFX_LOGD(TAG, "Set object position: (%d, %d)", x, y);
     return ESP_OK;
 }
@@ -77,6 +160,7 @@ esp_err_t gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h)
 
         gfx_obj_update_layout(obj);
         gfx_obj_invalidate(obj);
+        gfx_obj_notify_aligned_dependents(obj, 0);
     }
 
     GFX_LOGD(TAG, "Set object size: %dx%d", w, h);
@@ -99,11 +183,46 @@ esp_err_t gfx_obj_align(gfx_obj_t *obj, uint8_t align, gfx_coord_t x_ofs, gfx_co
     obj->align.type = align;
     obj->align.x_ofs = x_ofs;
     obj->align.y_ofs = y_ofs;
+    obj->align.target = NULL;
     obj->align.enabled = true;
 
     gfx_obj_update_layout(obj);
 
     GFX_LOGD(TAG, "Set object alignment: type=%d, offset=(%d, %d)", align, x_ofs, y_ofs);
+    return ESP_OK;
+}
+
+esp_err_t gfx_obj_align_to(gfx_obj_t *obj, gfx_obj_t *base, uint8_t align, gfx_coord_t x_ofs, gfx_coord_t y_ofs)
+{
+    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(obj->disp, ESP_ERR_INVALID_STATE);
+
+    if (align > GFX_ALIGN_OUT_BOTTOM_RIGHT) {
+        GFX_LOGW(TAG, "Unknown alignment type: %d", align);
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (base != NULL && base->disp != obj->disp) {
+        GFX_LOGW(TAG, "align_to base must be on same display");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (base == obj) {
+        GFX_LOGW(TAG, "align_to base cannot be self");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    gfx_obj_invalidate(obj);
+    obj->align.type = align;
+    obj->align.x_ofs = x_ofs;
+    obj->align.y_ofs = y_ofs;
+    obj->align.target = base;
+    obj->align.enabled = true;
+
+    gfx_obj_update_layout(obj);
+    gfx_obj_invalidate(obj);
+
+    GFX_LOGD(TAG, "Set object align_to: base=%p, type=%d, offset=(%d, %d)", base, align, x_ofs, y_ofs);
     return ESP_OK;
 }
 
@@ -248,14 +367,7 @@ void gfx_obj_cal_aligned_pos(gfx_obj_t *obj, uint32_t parent_width, uint32_t par
 
 void gfx_obj_calc_pos_in_parent(gfx_obj_t *obj)
 {
-    GFX_RETURN_IF_NULL_VOID(obj);
-
-    /* Get parent container dimensions */
-    uint32_t parent_w = gfx_disp_get_hor_res(obj->disp);
-    uint32_t parent_h = gfx_disp_get_ver_res(obj->disp);
-
-    /* Calculate aligned position (modifies obj->geometry.x and obj->geometry.y in place) */
-    gfx_obj_cal_aligned_pos(obj, parent_w, parent_h, &obj->geometry.x, &obj->geometry.y);
+    gfx_obj_calc_pos_in_parent_internal(obj, 0);
 }
 
 /* Generic getters */
@@ -306,7 +418,9 @@ esp_err_t gfx_obj_delete(gfx_obj_t *obj)
         gfx_disp_remove_child(obj->disp, obj);
     }
 
+    gfx_obj_detach_aligned_dependents(obj);
     gfx_obj_invalidate(obj);
+    gfx_obj_notify_aligned_dependents(obj, 0);
 
     /* Call object's delete function if available */
     if (obj->vfunc.delete) {
