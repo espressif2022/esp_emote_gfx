@@ -21,6 +21,8 @@ typedef struct {
     mmap_assets_handle_t assets_handle;
 } test_app_runtime_t;
 
+#define TEST_APP_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
+
 /**********************
  *  EXTERNAL SYMBOLS
  **********************/
@@ -49,6 +51,7 @@ void test_app_runtime_close(test_app_runtime_t *runtime);
 esp_err_t test_app_lock(void);
 void test_app_unlock(void);
 void test_app_wait_ms(uint32_t delay_ms);
+void test_app_wait_for_observe(uint32_t delay_ms);
 void test_app_log_case(const char *tag, const char *case_name);
 void test_app_log_step(const char *tag, const char *step_name);
 

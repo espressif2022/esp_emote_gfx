@@ -3,12 +3,14 @@
  *
  * SPDX-License-Identifier: CC0-1.0
  */
+#include <inttypes.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_check.h"
 #include "esp_err.h"
-#include "esp_log.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "bsp/display.h"
@@ -20,6 +22,11 @@
 
 static const char *TAG = "common";
 
+#define TEST_APP_LOG_COLOR_CASE "\033[1;36m"
+#define TEST_APP_LOG_COLOR_STEP "\033[0;33m"
+#define TEST_APP_LOG_COLOR_INFO "\033[0;37m"
+#define TEST_APP_LOG_COLOR_RESET "\033[0m"
+
 /* Shared globals (declared in common.h) */
 gfx_handle_t emote_handle = NULL;
 gfx_disp_t *disp_default = NULL;
@@ -29,6 +36,24 @@ esp_lcd_panel_io_handle_t io_handle = NULL;
 esp_lcd_panel_handle_t panel_handle = NULL;
 
 static esp_lcd_touch_handle_t touch_handle = NULL;
+
+static void test_app_vlog(const char *color, const char *tag, const char *prefix, const char *format, va_list args)
+{
+    printf("%s[test][%s]%s ", color ? color : "", tag ? tag : "app", TEST_APP_LOG_COLOR_RESET);
+    if (prefix != NULL && prefix[0] != '\0') {
+        printf("%s ", prefix);
+    }
+    vprintf(format, args);
+    printf("\n");
+}
+
+static void test_app_log_info(const char *tag, const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    test_app_vlog(TEST_APP_LOG_COLOR_INFO, tag, NULL, format, args);
+    va_end(args);
+}
 
 static void test_app_configure_gfx_log_levels(void)
 {
@@ -43,6 +68,7 @@ static void test_app_configure_gfx_log_levels(void)
     gfx_log_set_level(GFX_LOG_MODULE_ANIM, GFX_LOG_LEVEL_DEBUG);
     gfx_log_set_level(GFX_LOG_MODULE_IMG, GFX_LOG_LEVEL_DEBUG);
     gfx_log_set_level(GFX_LOG_MODULE_QRCODE, GFX_LOG_LEVEL_DEBUG);
+    gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_DEBUG);
 }
 
 #if CONFIG_IDF_TARGET_ESP32S3
@@ -74,12 +100,14 @@ static void disp_flush_callback(gfx_disp_t *disp, int x1, int y1, int x2, int y2
 
 static void touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t *event, void *user_data)
 {
+    (void)user_data;
+
     switch (event->type) {
     case GFX_TOUCH_EVENT_PRESS:
-        ESP_LOGI(TAG, "touch press  : %p, (%d, %d)", touch, event->x, event->y);
+        test_app_log_info(TAG, "touch press: %p (%d, %d)", touch, event->x, event->y);
         break;
     case GFX_TOUCH_EVENT_RELEASE:
-        ESP_LOGI(TAG, "touch release: %p, (%d, %d)", touch, event->x, event->y);
+        test_app_log_info(TAG, "touch release: %p (%d, %d)", touch, event->x, event->y);
         break;
     default:
         break;
@@ -120,20 +148,35 @@ void test_app_wait_ms(uint32_t delay_ms)
     vTaskDelay(pdMS_TO_TICKS(delay_ms));
 }
 
+void test_app_wait_for_observe(uint32_t delay_ms)
+{
+    if (delay_ms > 0) {
+        test_app_wait_ms(delay_ms);
+    }
+}
+
 void test_app_log_case(const char *tag, const char *case_name)
 {
-    ESP_LOGI(tag, "=== %s ===", case_name);
+    printf("%s[test][%s]%s === %s ===\n",
+           TEST_APP_LOG_COLOR_CASE,
+           tag ? tag : "app",
+           TEST_APP_LOG_COLOR_RESET,
+           case_name ? case_name : "case");
 }
 
 void test_app_log_step(const char *tag, const char *step_name)
 {
-    ESP_LOGI(tag, "--- %s ---", step_name);
+    printf("%s[test][%s]%s --- %s ---\n",
+           TEST_APP_LOG_COLOR_STEP,
+           tag ? tag : "app",
+           TEST_APP_LOG_COLOR_RESET,
+           step_name ? step_name : "step");
 }
 
 void clock_tm_callback(void *user_data)
 {
     gfx_obj_t *label_obj = (gfx_obj_t *)user_data;
-    ESP_LOGI(TAG, "FPS: %d*%d: %" PRIu32, BSP_LCD_H_RES, BSP_LCD_V_RES, gfx_timer_get_actual_fps(emote_handle));
+    test_app_log_info(TAG, "fps: %dx%d %" PRIu32, BSP_LCD_H_RES, BSP_LCD_V_RES, gfx_timer_get_actual_fps(emote_handle));
     if (label_obj) {
         gfx_label_set_text_fmt(label_obj, "%d*%d: %d", BSP_LCD_H_RES, BSP_LCD_V_RES, gfx_timer_get_actual_fps(emote_handle));
     }

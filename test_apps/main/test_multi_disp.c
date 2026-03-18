@@ -5,116 +5,153 @@
  */
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
-#include "esp_log.h"
 #include "unity.h"
 #include "bsp/esp-bsp.h"
 #include "common.h"
 
 static const char *TAG = "test_multi_disp";
 
+typedef struct {
+    gfx_disp_t *disp_left;
+    gfx_disp_t *disp_right;
+    gfx_obj_t *anim_left;
+    gfx_obj_t *anim_right;
+} test_multi_disp_scene_t;
 
-static gfx_disp_t *disp_1 = NULL;
-static gfx_disp_t *disp_2 = NULL;
+static int32_t s_drag_offset_x = 0;
+static int32_t s_drag_offset_y = 0;
+static bool s_drag_active = false;
 
-static void disp_flush_callback(gfx_disp_t *disp, int x1, int y1, int x2, int y2, const void *data)
+static void test_multi_disp_flush_cb(gfx_disp_t *disp, int x1, int y1, int x2, int y2, const void *data)
 {
     esp_lcd_panel_handle_t panel = (esp_lcd_panel_handle_t)gfx_disp_get_user_data(disp);
+
     esp_lcd_panel_draw_bitmap(panel, x1, y1, x2, y2, data);
     gfx_disp_flush_ready(disp, true);
     vTaskDelay(pdMS_TO_TICKS(5));
 }
 
-static int32_t s_grab_off_x = 0;
-static int32_t s_grab_off_y = 0;
-static bool s_grab_active = false;
-
-static void touch_obj_event_cb(gfx_obj_t *obj, const gfx_touch_event_t *event, void *user_data)
+static void test_multi_disp_touch_cb(gfx_obj_t *obj, const gfx_touch_event_t *event, void *user_data)
 {
-    gfx_coord_t obj_x, obj_y;
+    gfx_coord_t obj_x = 0;
+    gfx_coord_t obj_y = 0;
+
+    (void)user_data;
+
     gfx_obj_get_pos(obj, &obj_x, &obj_y);
     if (event->type == GFX_TOUCH_EVENT_PRESS) {
-        s_grab_off_x = (int32_t)event->x - obj_x;
-        s_grab_off_y = (int32_t)event->y - obj_y;
-        s_grab_active = true;
+        s_drag_offset_x = (int32_t)event->x - obj_x;
+        s_drag_offset_y = (int32_t)event->y - obj_y;
+        s_drag_active = true;
     }
-    if (s_grab_active) {
-        gfx_obj_set_pos(obj, (int32_t)event->x - s_grab_off_x, (int32_t)event->y - s_grab_off_y);
+    if (s_drag_active) {
+        gfx_obj_set_pos(obj, (int32_t)event->x - s_drag_offset_x, (int32_t)event->y - s_drag_offset_y);
     }
     if (event->type == GFX_TOUCH_EVENT_RELEASE) {
-        s_grab_active = false;
+        s_drag_active = false;
+    }
+}
+
+static gfx_disp_t *test_multi_disp_add(void)
+{
+    gfx_disp_config_t disp_cfg = {
+        .h_res = BSP_LCD_H_RES,
+        .v_res = BSP_LCD_V_RES,
+        .flush_cb = test_multi_disp_flush_cb,
+        .update_cb = NULL,
+        .user_data = (void *)panel_handle,
+        .flags = {.swap = true},
+        .buffers = {.buf1 = NULL, .buf2 = NULL, .buf_pixels = BSP_LCD_H_RES * 16},
+    };
+
+    return gfx_disp_add(emote_handle, &disp_cfg);
+}
+
+static void test_multi_disp_scene_cleanup(test_multi_disp_scene_t *scene)
+{
+    if (scene == NULL) {
+        return;
+    }
+
+    if (touch_default != NULL) {
+        gfx_touch_set_disp(touch_default, disp_default);
+    }
+    if (scene->anim_left != NULL) {
+        gfx_obj_delete(scene->anim_left);
+        scene->anim_left = NULL;
+    }
+    if (scene->anim_right != NULL) {
+        gfx_obj_delete(scene->anim_right);
+        scene->anim_right = NULL;
+    }
+    if (scene->disp_left != NULL) {
+        gfx_disp_del(scene->disp_left);
+        scene->disp_left = NULL;
+    }
+    if (scene->disp_right != NULL) {
+        gfx_disp_del(scene->disp_right);
+        scene->disp_right = NULL;
     }
 }
 
 static void test_multi_disp_run(mmap_assets_handle_t assets_handle)
 {
-    ESP_LOGI(TAG, "=== Testing multi-display ===");
+    test_multi_disp_scene_t scene = {0};
+    const void *anim_data = NULL;
+    size_t anim_size = 0;
 
-    gfx_emote_lock(emote_handle);
+    test_app_log_case(TAG, "Multi-display validation");
 
-    gfx_disp_config_t disp_cfg_1 = {
-        .h_res = BSP_LCD_H_RES,
-        .v_res = BSP_LCD_V_RES,
-        .flush_cb = disp_flush_callback,
-        .update_cb = NULL,
-        .user_data = (void *)panel_handle,
-        .flags = { .swap = true },
-        .buffers = { .buf1 = NULL, .buf2 = NULL, .buf_pixels = BSP_LCD_H_RES * 16 },
-    };
-    disp_1 = gfx_disp_add(emote_handle, &disp_cfg_1);
-    TEST_ASSERT_NOT_NULL(disp_1);
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
+    scene.disp_left = test_multi_disp_add();
+    scene.disp_right = test_multi_disp_add();
+    TEST_ASSERT_NOT_NULL(scene.disp_left);
+    TEST_ASSERT_NOT_NULL(scene.disp_right);
 
-    gfx_disp_config_t disp_cfg_2 = {
-        .h_res = BSP_LCD_H_RES,
-        .v_res = BSP_LCD_V_RES,
-        .flush_cb = disp_flush_callback,
-        .update_cb = NULL,
-        .user_data = (void *)panel_handle,
-        .flags = { .swap = true },
-        .buffers = { .buf1 = NULL, .buf2 = NULL, .buf_pixels = BSP_LCD_H_RES * 16 },
-    };
-    disp_2 = gfx_disp_add(emote_handle, &disp_cfg_2);
-    TEST_ASSERT_NOT_NULL(disp_2);
+    scene.anim_left = gfx_anim_create(scene.disp_left);
+    scene.anim_right = gfx_anim_create(scene.disp_right);
+    TEST_ASSERT_NOT_NULL(scene.anim_left);
+    TEST_ASSERT_NOT_NULL(scene.anim_right);
 
-    gfx_obj_t *anim_obj_1 = gfx_anim_create(disp_1);
-    TEST_ASSERT_NOT_NULL(anim_obj_1);
-    const void *anim_data_1 = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF);
-    size_t anim_size_1 = mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF);
-    gfx_anim_set_src(anim_obj_1, anim_data_1, anim_size_1);
-    gfx_obj_align(anim_obj_1, GFX_ALIGN_CENTER, 0, 0);
-    gfx_anim_set_segment(anim_obj_1, 0, 0xFFFF, 15, true);
-    gfx_anim_start(anim_obj_1);
+    anim_data = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF);
+    anim_size = mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF);
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src(scene.anim_left, anim_data, anim_size));
+    gfx_obj_align(scene.anim_left, GFX_ALIGN_CENTER, 0, 0);
+    gfx_anim_set_segment(scene.anim_left, 0, 0xFFFF, 15, true);
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_start(scene.anim_left));
 
-    gfx_obj_t *anim_obj_2 = gfx_anim_create(disp_2);
-    TEST_ASSERT_NOT_NULL(anim_obj_2);
-    const void *anim_data_2 = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_TRANSPARENT_EAF);
-    size_t anim_size_2 = mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_TRANSPARENT_EAF);
-    gfx_anim_set_src(anim_obj_2, anim_data_2, anim_size_2);
-    gfx_obj_align(anim_obj_2, GFX_ALIGN_CENTER, 0, 0);
-    gfx_anim_set_segment(anim_obj_2, 0, 0xFFFF, 15, true);
-    gfx_anim_start(anim_obj_2);
+    anim_data = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_TRANSPARENT_EAF);
+    anim_size = mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_TRANSPARENT_EAF);
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src(scene.anim_right, anim_data, anim_size));
+    gfx_obj_align(scene.anim_right, GFX_ALIGN_CENTER, 0, 0);
+    gfx_anim_set_segment(scene.anim_right, 0, 0xFFFF, 15, true);
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_start(scene.anim_right));
 
-    gfx_touch_set_disp(touch_default, disp_2);
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_touch_set_disp(touch_default, scene.disp_right));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_touch_cb(scene.anim_left, test_multi_disp_touch_cb, NULL));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_touch_cb(scene.anim_right, test_multi_disp_touch_cb, NULL));
+    test_app_unlock();
 
-    gfx_obj_set_touch_cb(anim_obj_1, touch_obj_event_cb, NULL);
-    gfx_obj_set_touch_cb(anim_obj_2, touch_obj_event_cb, NULL);
+    test_app_wait_for_observe(5000);
 
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(1000 * 10));
+    test_app_log_step(TAG, "Switch touch back to default display");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_touch_set_disp(touch_default, disp_default));
+    test_app_unlock();
 
-    ESP_LOGI(TAG, "=== test multi disp completed ===");
-    gfx_emote_lock(emote_handle);
-    gfx_obj_delete(anim_obj_1);
-    gfx_obj_delete(anim_obj_2);
-    gfx_emote_unlock(emote_handle);
+    test_app_wait_for_observe(1200);
+
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
+    test_multi_disp_scene_cleanup(&scene);
+    test_app_unlock();
 }
 
-TEST_CASE("test function disp multi", "")
+TEST_CASE("gfx verify: multi display routing", "[verify][display][multi]")
 {
-    mmap_assets_handle_t assets_handle = NULL;
-    esp_err_t ret = display_and_graphics_init("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
-    TEST_ASSERT_EQUAL(ESP_OK, ret);
-    test_multi_disp_run(assets_handle);
-    display_and_graphics_clean(assets_handle);
+    test_app_runtime_t runtime;
+
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime));
+    test_multi_disp_run(runtime.assets_handle);
+    test_app_runtime_close(&runtime);
 }

@@ -4,9 +4,6 @@
  * SPDX-License-Identifier: CC0-1.0
  */
 #include <string.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_log.h"
 #include "unity.h"
 #include "common.h"
 
@@ -149,14 +146,14 @@ static esp_err_t test_label_create_scene(mmap_assets_handle_t assets_handle, boo
 
 static void test_label_validation_run(mmap_assets_handle_t assets_handle, bool use_freetype)
 {
-    test_label_scene_t scene;
+    test_label_scene_t scene = {0};
 
     test_app_log_case(TAG, use_freetype ? "Label Validation: FreeType" : "Label Validation: Bitmap");
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     TEST_ASSERT_EQUAL(ESP_OK, test_label_create_scene(assets_handle, use_freetype, &scene));
     test_app_unlock();
 
-    test_app_wait_ms(2500);
+    test_app_wait_for_observe(2500);
 
     test_app_log_step(TAG, "Update repeated-text content to trigger glyph-cache reuse");
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
@@ -168,7 +165,7 @@ static void test_label_validation_run(mmap_assets_handle_t assets_handle, bool u
                        "Step 2: repeated glyphs updated.\nCheck whether redraw remains stable.");
     test_app_unlock();
 
-    test_app_wait_ms(2500);
+    test_app_wait_for_observe(2500);
 
     test_app_log_step(TAG, "Switch colors and snap content");
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
@@ -180,7 +177,7 @@ static void test_label_validation_run(mmap_assets_handle_t assets_handle, bool u
                        "Step 3: snap content changed.\nWatch word-boundary paging.");
     test_app_unlock();
 
-    test_app_wait_ms(3000);
+    test_app_wait_for_observe(3000);
 
     test_app_log_step(TAG, "Cleanup label validation scene");
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
@@ -194,7 +191,7 @@ static void test_label_validation_run(mmap_assets_handle_t assets_handle, bool u
     test_app_unlock();
 }
 
-TEST_CASE("gfx verify: label widget validation with bitmap font", "[verify][label][bitmap]")
+TEST_CASE("gfx verify: label widget with bitmap font", "[verify][label][bitmap]")
 {
     test_app_runtime_t runtime;
     TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime));
@@ -204,7 +201,7 @@ TEST_CASE("gfx verify: label widget validation with bitmap font", "[verify][labe
     test_app_runtime_close(&runtime);
 }
 
-TEST_CASE("gfx verify: label widget validation with freetype", "[verify][label][freetype]")
+TEST_CASE("gfx verify: label widget with freetype", "[verify][label][freetype]")
 {
     test_app_runtime_t runtime;
     TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime));
