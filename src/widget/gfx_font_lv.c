@@ -36,14 +36,14 @@ static void *lv_use_utils_bsearch(const void *key, const void *base, uint32_t n,
                                   int (*cmp)(const void *pRef, const void *pElement));
 
 static uint32_t gfx_font_lv_get_glyph_index(const lv_font_t *font, uint32_t unicode);
-static bool gfx_font_lv_get_glyph_dsc(gfx_font_ctx_t *font, void *glyph_dsc, uint32_t unicode, uint32_t unicode_next);
-static const uint8_t *gfx_font_lv_get_glyph_bitmap(gfx_font_ctx_t *font, uint32_t unicode, void *glyph_dsc);
-static int gfx_font_lv_get_glyph_width(gfx_font_ctx_t *font, uint32_t unicode);
-static int gfx_font_lv_get_line_height(gfx_font_ctx_t *font);
-static int gfx_font_lv_get_base_line(gfx_font_ctx_t *font);
-static uint8_t gfx_font_lv_get_pixel_value(gfx_font_ctx_t *font, const uint8_t *bitmap, int32_t x, int32_t y, int32_t box_w);
-static int gfx_font_lv_adjust_baseline_offset(gfx_font_ctx_t *font, void *glyph_dsc);
-static int gfx_font_lv_get_advance_width(gfx_font_ctx_t *font, void *glyph_dsc);
+static bool gfx_font_lv_get_glyph_dsc(gfx_font_handle_t font_adapter, void *glyph_dsc, uint32_t unicode, uint32_t unicode_next);
+static const uint8_t *gfx_font_lv_get_glyph_bitmap(gfx_font_handle_t font_adapter, uint32_t unicode, void *glyph_dsc);
+static int gfx_font_lv_get_glyph_width(gfx_font_handle_t font_adapter, uint32_t unicode);
+static int gfx_font_lv_get_line_height(gfx_font_handle_t font_adapter);
+static int gfx_font_lv_get_base_line(gfx_font_handle_t font_adapter);
+static uint8_t gfx_font_lv_get_pixel_value(gfx_font_handle_t font_adapter, const uint8_t *bitmap, int32_t x, int32_t y, int32_t box_w);
+static int gfx_font_lv_adjust_baseline_offset(gfx_font_handle_t font_adapter, void *glyph_dsc);
+static int gfx_font_lv_get_advance_width(gfx_font_handle_t font_adapter, void *glyph_dsc);
 
 static void *malloc_cpy(void *src, size_t sz);
 static void addr_add(void **addr, uintptr_t add);
@@ -159,13 +159,13 @@ static uint32_t gfx_font_lv_get_glyph_index(const lv_font_t *font, uint32_t unic
     return 0;
 }
 
-static bool gfx_font_lv_get_glyph_dsc(gfx_font_ctx_t *font, void *glyph_dsc, uint32_t unicode, uint32_t unicode_next)
+static bool gfx_font_lv_get_glyph_dsc(gfx_font_handle_t font_adapter, void *glyph_dsc, uint32_t unicode, uint32_t unicode_next)
 {
-    if (!font || !glyph_dsc) {
+    if (!font_adapter || !glyph_dsc) {
         return false;
     }
 
-    const lv_font_t *lvgl_font = (const lv_font_t *)font->font;
+    const lv_font_t *lvgl_font = (const lv_font_t *)font_adapter->font;
     if (!lvgl_font || !lvgl_font->dsc) {
         return false;
     }
@@ -193,13 +193,13 @@ static bool gfx_font_lv_get_glyph_dsc(gfx_font_ctx_t *font, void *glyph_dsc, uin
     return true;
 }
 
-static const uint8_t *gfx_font_lv_get_glyph_bitmap(gfx_font_ctx_t *font, uint32_t unicode, void *glyph_dsc)
+static const uint8_t *gfx_font_lv_get_glyph_bitmap(gfx_font_handle_t font_adapter, uint32_t unicode, void *glyph_dsc)
 {
-    if (!font || !font->font) {
+    if (!font_adapter || !font_adapter->font) {
         return NULL;
     }
 
-    lv_font_t *lvgl_font = (lv_font_t *)font->font;
+    lv_font_t *lvgl_font = (lv_font_t *)font_adapter->font;
     gfx_glyph_dsc_t *glyph = (gfx_glyph_dsc_t *)glyph_dsc;
 
     lv_font_fmt_txt_dsc_t *dsc = (lv_font_fmt_txt_dsc_t *)lvgl_font->dsc;
@@ -210,15 +210,15 @@ static const uint8_t *gfx_font_lv_get_glyph_bitmap(gfx_font_ctx_t *font, uint32_
     return &dsc->glyph_bitmap[glyph->bitmap_index];
 }
 
-static int gfx_font_lv_get_glyph_width(gfx_font_ctx_t *font, uint32_t unicode)
+static int gfx_font_lv_get_glyph_width(gfx_font_handle_t font_adapter, uint32_t unicode)
 {
-    if (!font || !font->font) {
+    if (!font_adapter || !font_adapter->font) {
         return -1;
     }
 
     gfx_glyph_dsc_t glyph_dsc;
 
-    if (!gfx_font_lv_get_glyph_dsc(font, &glyph_dsc, unicode, 0)) {
+    if (!gfx_font_lv_get_glyph_dsc(font_adapter, &glyph_dsc, unicode, 0)) {
         return -1;
     }
 
@@ -227,21 +227,21 @@ static int gfx_font_lv_get_glyph_width(gfx_font_ctx_t *font, uint32_t unicode)
     return (advance_pixels > actual_width) ? advance_pixels : actual_width;
 }
 
-static int gfx_font_lv_get_line_height(gfx_font_ctx_t *font)
+static int gfx_font_lv_get_line_height(gfx_font_handle_t font_adapter)
 {
-    const lv_font_t *lvgl_font = (const lv_font_t *)font->font;
+    const lv_font_t *lvgl_font = (const lv_font_t *)font_adapter->font;
     return lvgl_font->line_height;
 }
 
-static int gfx_font_lv_get_base_line(gfx_font_ctx_t *font)
+static int gfx_font_lv_get_base_line(gfx_font_handle_t font_adapter)
 {
-    const lv_font_t *lvgl_font = (const lv_font_t *)font->font;
+    const lv_font_t *lvgl_font = (const lv_font_t *)font_adapter->font;
     return lvgl_font->base_line;
 }
 
-static uint8_t gfx_font_lv_get_pixel_value(gfx_font_ctx_t *font, const uint8_t *bitmap, int32_t x, int32_t y, int32_t box_w)
+static uint8_t gfx_font_lv_get_pixel_value(gfx_font_handle_t font_adapter, const uint8_t *bitmap, int32_t x, int32_t y, int32_t box_w)
 {
-    const lv_font_t *lvgl_font = (const lv_font_t *)font->font;
+    const lv_font_t *lvgl_font = (const lv_font_t *)font_adapter->font;
     if (!bitmap || x < 0 || y < 0 || x >= box_w) {
         return 0;
     }
@@ -283,9 +283,9 @@ static uint8_t gfx_font_lv_get_pixel_value(gfx_font_ctx_t *font, const uint8_t *
     return pixel_value;
 }
 
-static int gfx_font_lv_adjust_baseline_offset(gfx_font_ctx_t *font, void *glyph_dsc)
+static int gfx_font_lv_adjust_baseline_offset(gfx_font_handle_t font_adapter, void *glyph_dsc)
 {
-    const lv_font_t *lvgl_font = (const lv_font_t *)font->font;
+    const lv_font_t *lvgl_font = (const lv_font_t *)font_adapter->font;
     if (!lvgl_font) {
         GFX_LOGE(TAG, "lvgl_font is NULL");
         return 0;
@@ -293,16 +293,16 @@ static int gfx_font_lv_adjust_baseline_offset(gfx_font_ctx_t *font, void *glyph_
 
     gfx_glyph_dsc_t *dsc = (gfx_glyph_dsc_t *)glyph_dsc;
 
-    int line_height = gfx_font_lv_get_line_height(font);
-    int base_line = gfx_font_lv_get_base_line(font);
+    int line_height = gfx_font_lv_get_line_height(font_adapter);
+    int base_line = gfx_font_lv_get_base_line(font_adapter);
     int adjusted_ofs_y = line_height - base_line - dsc->box_h - dsc->ofs_y;
 
     return adjusted_ofs_y;
 }
 
-static int gfx_font_lv_get_advance_width(gfx_font_ctx_t *font, void *glyph_dsc)
+static int gfx_font_lv_get_advance_width(gfx_font_handle_t font_adapter, void *glyph_dsc)
 {
-    if (!font || !glyph_dsc) {
+    if (!font_adapter || !glyph_dsc) {
         return 0;
     }
 
@@ -338,17 +338,17 @@ bool gfx_is_lvgl_font(const void *font)
     return false;
 }
 
-void gfx_font_lv_init_context(gfx_font_ctx_t *font_ctx, const void *font)
+void gfx_font_lv_init_adapter(gfx_font_handle_t font_adapter, const void *font)
 {
-    font_ctx->font = (void *)font;
-    font_ctx->get_glyph_dsc = gfx_font_lv_get_glyph_dsc;
-    font_ctx->get_glyph_bitmap = gfx_font_lv_get_glyph_bitmap;
-    font_ctx->get_glyph_width = gfx_font_lv_get_glyph_width;
-    font_ctx->get_line_height = gfx_font_lv_get_line_height;
-    font_ctx->get_base_line = gfx_font_lv_get_base_line;
-    font_ctx->get_pixel_value = gfx_font_lv_get_pixel_value;
-    font_ctx->adjust_baseline_offset = gfx_font_lv_adjust_baseline_offset;
-    font_ctx->get_advance_width = gfx_font_lv_get_advance_width;
+    font_adapter->font = (void *)font;
+    font_adapter->get_glyph_dsc = gfx_font_lv_get_glyph_dsc;
+    font_adapter->get_glyph_bitmap = gfx_font_lv_get_glyph_bitmap;
+    font_adapter->get_glyph_width = gfx_font_lv_get_glyph_width;
+    font_adapter->get_line_height = gfx_font_lv_get_line_height;
+    font_adapter->get_base_line = gfx_font_lv_get_base_line;
+    font_adapter->get_pixel_value = gfx_font_lv_get_pixel_value;
+    font_adapter->adjust_baseline_offset = gfx_font_lv_adjust_baseline_offset;
+    font_adapter->get_advance_width = gfx_font_lv_get_advance_width;
 }
 
 /**********************

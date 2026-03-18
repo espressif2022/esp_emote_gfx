@@ -7,6 +7,8 @@
 /*********************
  *      INCLUDES
  *********************/
+#include "sdkconfig.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -30,59 +32,77 @@
  *      DEFINES
  *********************/
 
+#ifndef CONFIG_GFX_LABEL_GLYPH_CACHE_MAX_ENTRIES
+#define CONFIG_GFX_LABEL_GLYPH_CACHE_MAX_ENTRIES 64
+#endif
+
+#ifndef CONFIG_GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES
+#define CONFIG_GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES (12 * 1024)
+#endif
+
+#ifndef CONFIG_GFX_LABEL_GLYPH_ATLAS_PAGE_BYTES
+#define CONFIG_GFX_LABEL_GLYPH_ATLAS_PAGE_BYTES 1024
+#endif
+
 static const char *TAG = "draw_label";
 
 #define CHECK_OBJ_TYPE_LABEL(obj) CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_LABEL, TAG)
-#define GFX_LABEL_GLYPH_CACHE_MAX_ENTRIES 64
-#define GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES (12 * 1024)
-#define GFX_LABEL_GLYPH_ATLAS_PAGE_BYTES 1024
+#define GFX_LABEL_GLYPH_CACHE_MAX_ENTRIES CONFIG_GFX_LABEL_GLYPH_CACHE_MAX_ENTRIES
+#define GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES CONFIG_GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES
+#define GFX_LABEL_GLYPH_ATLAS_PAGE_BYTES CONFIG_GFX_LABEL_GLYPH_ATLAS_PAGE_BYTES
 
 /**********************
  *      TYPEDEFS
  **********************/
 
 typedef struct gfx_glyph_atlas_page {
-    uint8_t *buf;
-    size_t capacity;
-    size_t used;
-    int ref_count;
-    struct gfx_glyph_atlas_page *next;
+    uint8_t *buf;                       /* Backing storage for packed glyph alpha data. */
+    size_t capacity;                    /* Total bytes available in this atlas page. */
+    size_t used;                        /* Bytes already consumed by cached glyph bitmaps. */
+    int ref_count;                      /* Number of glyph entries still pointing into this page. */
+    struct gfx_glyph_atlas_page *next;  /* Next atlas page owned by the same font cache. */
 } gfx_glyph_atlas_page_t;
 
+/* Cached glyph record for a single Unicode code point. Bitmap data can live
+ * either in a shared atlas page or in a dedicated fallback allocation. */
 typedef struct gfx_label_glyph_cache_entry {
-    uint32_t unicode;
-    gfx_glyph_dsc_t glyph_dsc;
-    int advance_width;
-    uint8_t *alpha_bitmap;
-    size_t alpha_bitmap_size;
-    bool alpha_in_atlas;
-    gfx_glyph_atlas_page_t *atlas_page;
-    bool available;
-    struct gfx_label_glyph_cache_entry *next;
+    uint32_t unicode;                           /* Unicode code point used as the cache key. */
+    gfx_glyph_dsc_t glyph_dsc;                 /* Cached glyph metrics returned by the font adapter. */
+    int advance_width;                          /* Precomputed advance width in pixels for layout reuse. */
+    uint8_t *alpha_bitmap;                      /* Pointer to cached 8-bit alpha bitmap data. */
+    size_t alpha_bitmap_size;                   /* Bitmap size in bytes for memory accounting. */
+    bool alpha_in_atlas;                        /* True when alpha_bitmap points into a shared atlas page. */
+    gfx_glyph_atlas_page_t *atlas_page;         /* Owning atlas page when alpha_in_atlas is true. */
+    bool available;                             /* False when the glyph lookup failed and only a miss is cached. */
+    struct gfx_label_glyph_cache_entry *next;   /* Next glyph entry in the per-font LRU-style list. */
 } gfx_label_glyph_cache_entry_t;
 
+/* Shared per-font cache. It owns the glyph entry list, atlas pages, memory
+ * accounting, and lightweight hit/miss statistics for tuning. */
 typedef struct gfx_font_glyph_cache {
-    void *font_key;
-    int ref_count;
-    gfx_label_glyph_cache_entry_t *glyphs;
-    int glyph_count;
-    size_t glyph_bitmap_bytes;
-    size_t allocated_bytes;
-    gfx_glyph_atlas_page_t *atlas_pages;
-    uint32_t access_count;
-    uint32_t hit_count;
-    uint32_t miss_count;
-    uint32_t atlas_alloc_count;
-    uint32_t fallback_alloc_count;
-    uint32_t evict_count;
-    struct gfx_font_glyph_cache *next;
+    void *font_key;                             /* Stable identity of the font adapter backing this cache. */
+    int ref_count;                              /* Number of labels currently sharing this font cache. */
+    gfx_label_glyph_cache_entry_t *glyphs;      /* Head of the cached glyph entry list. */
+    int glyph_count;                            /* Number of glyph entries currently retained. */
+    size_t glyph_bitmap_bytes;                  /* Total bytes occupied by glyph alpha data only. */
+    size_t allocated_bytes;                     /* Full memory tracked for atlas pages and fallback buffers. */
+    gfx_glyph_atlas_page_t *atlas_pages;        /* Linked list of atlas pages owned by this cache. */
+    uint32_t access_count;                      /* Total glyph lookup attempts. */
+    uint32_t hit_count;                         /* Cache hits served without rebuilding glyph data. */
+    uint32_t miss_count;                        /* Cache misses that required a font backend lookup. */
+    uint32_t atlas_alloc_count;                 /* Number of atlas-backed bitmap placements. */
+    uint32_t fallback_alloc_count;              /* Number of standalone bitmap allocations. */
+    uint32_t evict_count;                       /* Number of glyph entries evicted for budget control. */
+    struct gfx_font_glyph_cache *next;          /* Next shared font cache in the global cache list. */
 } gfx_font_glyph_cache_t;
 
+/* Streaming line iterator used during label layout/render so long text can be
+ * processed incrementally without building a persistent line cache. */
 typedef struct {
-    const char *cursor;
-    const char *start;
-    const char *end;
-    int width;
+    const char *cursor;  /* Current scan position in the original UTF-8 text. */
+    const char *start;   /* Start of the current logical line segment. */
+    const char *end;     /* End of the current logical line segment. */
+    int width;           /* Measured pixel width of the current line segment. */
 } gfx_label_line_iter_t;
 
 /**********************
@@ -311,7 +331,7 @@ void gfx_label_snap_timer_callback(void *arg)
 
     /* Jump to next section */
     label->snap.offset += aligned_offset;
-    GFX_LOGI(TAG, "aligned_offset: %" PRId32 ", text_width: %" PRId32 ", snap_offset: %" PRId32,
+    GFX_LOGD(TAG, "aligned_offset: %" PRId32 ", text_width: %" PRId32 ", snap_offset: %" PRId32,
              label->snap.offset - aligned_offset, label->text.text_width, label->snap.offset);
 
     /* Handle looping */

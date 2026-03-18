@@ -54,8 +54,6 @@ typedef struct _gfx_font_adapter_t {
     int (*get_advance_width)(struct _gfx_font_adapter_t *font, void *glyph_dsc);
 } gfx_font_adapter_t;
 
-typedef gfx_font_adapter_t gfx_font_ctx_t;
-
 typedef gfx_font_adapter_t *gfx_font_handle_t;
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
@@ -88,12 +86,12 @@ typedef struct {
  **********************/
 
 bool gfx_is_lvgl_font(const void *font);
-void gfx_font_lv_init_context(gfx_font_ctx_t *font_ctx, const void *font);
+void gfx_font_lv_init_adapter(gfx_font_handle_t font_adapter, const void *font);
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
 esp_err_t gfx_ft_lib_create(void);
 esp_err_t gfx_ft_lib_cleanup(void);
-void gfx_font_ft_init_context(gfx_font_ctx_t *font_ctx, const void *font);
+void gfx_font_ft_init_adapter(gfx_font_handle_t font_adapter, const void *font);
 #endif
 
 #ifdef __cplusplus

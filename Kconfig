@@ -29,6 +29,34 @@ menu "ESP Emote Graphics Framework"
 
             Note: Only supports 8-bit window and 4-bit lookahead if dynamic allocation is disabled.
 
+    menu "Label Glyph Cache"
+
+        config GFX_LABEL_GLYPH_CACHE_MAX_ENTRIES
+            int "Maximum cached glyph entries per font"
+            range 8 512
+            default 64
+            help
+                Maximum number of glyph records retained in the shared glyph cache
+                for a single font adapter.
+
+        config GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES
+            int "Maximum glyph cache bitmap bytes per font"
+            range 1024 131072
+            default 12288
+            help
+                Upper memory budget, in bytes, for cached glyph alpha bitmaps and
+                atlas pages owned by a single font adapter cache.
+
+        config GFX_LABEL_GLYPH_ATLAS_PAGE_BYTES
+            int "Glyph atlas page size"
+            range 256 8192
+            default 1024
+            help
+                Minimum allocation unit, in bytes, for glyph atlas pages. Larger
+                values reduce allocation frequency but increase retained memory.
+
+    endmenu
+
     comment "Heatshrink support is unavailable due to static bit mismatch"
         depends on !HEATSHRINK_DYNAMIC_ALLOC && (HEATSHRINK_STATIC_WINDOW_BITS != 8 || HEATSHRINK_STATIC_LOOKAHEAD_BITS != 4)
 endmenu

@@ -30,6 +30,21 @@ esp_lcd_panel_handle_t panel_handle = NULL;
 
 static esp_lcd_touch_handle_t touch_handle = NULL;
 
+static void test_app_configure_gfx_log_levels(void)
+{
+    gfx_log_set_level_all(GFX_LOG_LEVEL_INFO);
+
+    /* Keep high-signal modules independently adjustable during validation. */
+    gfx_log_set_level(GFX_LOG_MODULE_DRAW_LABEL, GFX_LOG_LEVEL_DEBUG);
+    gfx_log_set_level(GFX_LOG_MODULE_LABEL, GFX_LOG_LEVEL_DEBUG);
+    gfx_log_set_level(GFX_LOG_MODULE_LABEL_OBJ, GFX_LOG_LEVEL_DEBUG);
+    gfx_log_set_level(GFX_LOG_MODULE_FONT_FT, GFX_LOG_LEVEL_DEBUG);
+    gfx_log_set_level(GFX_LOG_MODULE_FONT_LV, GFX_LOG_LEVEL_WARN);
+    gfx_log_set_level(GFX_LOG_MODULE_ANIM, GFX_LOG_LEVEL_DEBUG);
+    gfx_log_set_level(GFX_LOG_MODULE_IMG, GFX_LOG_LEVEL_DEBUG);
+    gfx_log_set_level(GFX_LOG_MODULE_QRCODE, GFX_LOG_LEVEL_DEBUG);
+}
+
 #if CONFIG_IDF_TARGET_ESP32S3
 static bool flush_io_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {
@@ -76,6 +91,7 @@ esp_err_t test_app_runtime_open(test_app_runtime_t *runtime)
     ESP_RETURN_ON_FALSE(runtime != NULL, ESP_ERR_INVALID_ARG, TAG, "runtime is NULL");
 
     runtime->assets_handle = NULL;
+    test_app_configure_gfx_log_levels();
     return display_and_graphics_init("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &runtime->assets_handle);
 }
 

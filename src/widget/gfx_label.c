@@ -52,13 +52,13 @@ esp_err_t gfx_label_set_font(gfx_obj_t *obj, gfx_font_t font)
     label->text.text_width = 0;
 
     if (font) {
-        gfx_font_handle_t font_handle = (gfx_font_handle_t)calloc(1, sizeof(gfx_font_ctx_t));
+        gfx_font_handle_t font_handle = (gfx_font_handle_t)calloc(1, sizeof(gfx_font_adapter_t));
         if (font_handle != NULL) {
             if (gfx_is_lvgl_font(font)) {
-                gfx_font_lv_init_context(font_handle, font);
+                gfx_font_lv_init_adapter(font_handle, font);
             } else {
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
-                gfx_font_ft_init_context(font_handle, font);
+                gfx_font_ft_init_adapter(font_handle, font);
 #else
                 GFX_LOGW(TAG, "FreeType font detected but support is not enabled");
                 free(font_handle);
