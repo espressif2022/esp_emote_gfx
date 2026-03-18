@@ -206,10 +206,6 @@ static gfx_anim_src_desc_t gfx_anim_make_memory_src_desc(const void *src_data, s
     gfx_anim_src_desc_t src_desc = {
         .data = src_data,
         .data_len = src_len,
-        .ctx = NULL,
-        .read = NULL,
-        .map = NULL,
-        .get_size = NULL,
     };
 
     return src_desc;

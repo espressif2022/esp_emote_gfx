@@ -29,17 +29,9 @@ typedef struct {
     int num_colors;
 } gfx_anim_frame_desc_t;
 
-typedef esp_err_t (*gfx_anim_src_read_cb_t)(void *ctx, size_t offset, void *buf, size_t len);
-typedef esp_err_t (*gfx_anim_src_map_cb_t)(void *ctx, size_t offset, size_t len, const void **out_ptr);
-typedef size_t (*gfx_anim_src_size_cb_t)(void *ctx);
-
 typedef struct {
     const void *data;
     size_t data_len;
-    void *ctx;
-    gfx_anim_src_read_cb_t read;
-    gfx_anim_src_map_cb_t map;
-    gfx_anim_src_size_cb_t get_size;
 } gfx_anim_src_desc_t;
 
 typedef struct gfx_anim_decoder_ops {
