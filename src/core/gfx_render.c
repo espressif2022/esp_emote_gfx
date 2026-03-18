@@ -10,6 +10,7 @@
 #include <string.h>
 #include <inttypes.h>
 
+#include "esp_timer.h"
 #include "esp_log.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_RENDER
 #include "common/gfx_log.h"
@@ -145,9 +146,9 @@ uint32_t gfx_render_area_summary(gfx_disp_t *disp)
         gfx_area_t *area = &disp->dirty.areas[i];
         uint32_t area_size = gfx_area_get_size(area);
         total_dirty_pixels += area_size;
-        GFX_LOGD(TAG, "Draw area [%d]: (%d,%d)->(%d,%d) %dx%d",
-                 i, area->x1, area->y1, area->x2, area->y2,
-                 area->x2 - area->x1 + 1, area->y2 - area->y1 + 1);
+        // GFX_LOGD(TAG, "Draw area [%d]: (%d,%d)->(%d,%d) %dx%d",
+        //          i, area->x1, area->y1, area->x2, area->y2,
+        //          area->x2 - area->x1 + 1, area->y2 - area->y1 + 1);
     }
 
     return total_dirty_pixels;
@@ -182,6 +183,8 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
     gfx_coord_t cur_y = area->y1;
 
     while (cur_y <= area->y2) {
+        int64_t render_start_us;
+        int64_t flush_start_us;
 
         gfx_coord_t chunk_x1 = area->x1;
         gfx_coord_t chunk_y1 = cur_y;
@@ -216,6 +219,7 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
             .swap = disp->flags.swap,
         };
 
+        render_start_us = esp_timer_get_time();
         if (disp->style.bg_enable) {
             uint16_t bg = disp->flags.swap ? (uint16_t)__builtin_bswap16(disp->style.bg_color.full) : (uint16_t)disp->style.bg_color.full;
             if (disp->flags.full_frame) {
@@ -227,6 +231,7 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
             }
         }
         gfx_render_draw_child_objects(disp, &draw_ctx);
+        disp->render.render_time_us += (uint64_t)(esp_timer_get_time() - render_start_us);
 
         if (flush_cb != NULL) {
             xEventGroupClearBits(disp->sync.event_group, WAIT_FLUSH_DONE);
@@ -236,13 +241,16 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
             bool is_last_chunk = (chunk_y2 >= area->y2 + 1);
             disp->render.flushing_last = is_last_chunk && is_last_area;
 
-            GFX_LOGD(TAG, "Flush: (%d,%d)-(%d,%d) %" PRIu32 " px%s",
-                     chunk_x1, chunk_y1, chunk_x2 - 1, chunk_y2 - 1, chunk_px,
-                     disp->render.flushing_last ? " (last)" : "");
+            // GFX_LOGD(TAG, "Flush: (%d,%d)-(%d,%d) %" PRIu32 " px%s",
+            //          chunk_x1, chunk_y1, chunk_x2 - 1, chunk_y2 - 1, chunk_px,
+            //          disp->render.flushing_last ? " (last)" : "");
 
+            flush_start_us = esp_timer_get_time();
             flush_cb(disp, chunk_x1, chunk_y1, chunk_x2, chunk_y2, buf);
 
             xEventGroupWaitBits(disp->sync.event_group, WAIT_FLUSH_DONE, pdTRUE, pdFALSE, portMAX_DELAY);
+            disp->render.flush_time_us += (uint64_t)(esp_timer_get_time() - flush_start_us);
+            disp->render.flush_count++;
 
             if (disp->buf.buf2 != NULL && (!disp->flags.full_frame || disp->render.flushing_last)) {
                 disp->buf.buf_act = (disp->buf.buf_act == disp->buf.buf1) ? disp->buf.buf2 : disp->buf.buf1;
@@ -262,6 +270,10 @@ void gfx_render_dirty_areas(gfx_disp_t *disp)
     if (disp == NULL) {
         return;
     }
+
+    disp->render.render_time_us = 0;
+    disp->render.flush_time_us = 0;
+    disp->render.flush_count = 0;
 
     gfx_render_sync_dirty_areas(disp);
 
@@ -333,6 +345,7 @@ bool gfx_render_handler(gfx_core_context_t *ctx)
     bool did_render = false;
 
     for (gfx_disp_t *disp = ctx->disp; disp != NULL; disp = disp->next) {
+        int64_t frame_start_us = esp_timer_get_time();
         gfx_refr_update_layout_dirty(disp);
 
         if (disp->dirty.count > 1) {
@@ -345,12 +358,18 @@ bool gfx_render_handler(gfx_core_context_t *ctx)
 
         uint32_t dirty_px = gfx_render_area_summary(disp);
         gfx_render_dirty_areas(disp);
+        uint64_t frame_time_us = (uint64_t)(esp_timer_get_time() - frame_start_us);
 
         if (dirty_px > 0) {
             did_render = true;
             uint32_t screen_px = disp->res.h_res * disp->res.v_res;
             float dirty_pct = (dirty_px * 100.0f) / (float)screen_px;
-            GFX_LOGD(TAG, "Rendered %" PRIu32 " px (%.1f%%)", dirty_px, dirty_pct);
+            GFX_LOGD(TAG,
+                     "%.1f%% (%" PRIu64 "ms) (%" PRIu64 "ms | %" PRIu64 "ms)",
+                     dirty_pct,
+                     frame_time_us /1000,
+                     disp->render.render_time_us /1000,
+                     disp->render.flush_time_us /1000);
         }
 
         gfx_render_cleanup(disp);

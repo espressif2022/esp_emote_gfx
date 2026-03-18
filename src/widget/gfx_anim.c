@@ -325,7 +325,7 @@ static esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj)
 
     gfx_anim_update_geometry(obj, anim);
 
-    GFX_LOGD(TAG, "Frame %" PRIu32 " prepared by decoder %s", current_frame,
+    GFX_LOGD(TAG, "frame %" PRIu32 " ready (%s)", current_frame,
              decoder->name ? decoder->name : "unknown");
     return ret;
 

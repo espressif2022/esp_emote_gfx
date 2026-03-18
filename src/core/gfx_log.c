@@ -48,6 +48,13 @@ static bool s_log_levels_initialized;
  *   STATIC FUNCTIONS
  **********************/
 
+#define GFX_LOG_COLOR_RED      "\033[0;31m"
+#define GFX_LOG_COLOR_YELLOW   "\033[0;33m"
+#define GFX_LOG_COLOR_GREEN    "\033[0;32m"
+#define GFX_LOG_COLOR_CYAN     "\033[0;36m"
+#define GFX_LOG_COLOR_WHITE    "\033[0;37m"
+#define GFX_LOG_COLOR_RESET    "\033[0m"
+
 static char gfx_log_level_to_char(gfx_log_level_t level)
 {
     switch (level) {
@@ -64,6 +71,25 @@ static char gfx_log_level_to_char(gfx_log_level_t level)
     case GFX_LOG_LEVEL_NONE:
     default:
         return 'N';
+    }
+}
+
+static const char *gfx_log_level_to_color(gfx_log_level_t level)
+{
+    switch (level) {
+    case GFX_LOG_LEVEL_ERROR:
+        return GFX_LOG_COLOR_RED;
+    case GFX_LOG_LEVEL_WARN:
+        return GFX_LOG_COLOR_YELLOW;
+    case GFX_LOG_LEVEL_INFO:
+        return GFX_LOG_COLOR_GREEN;
+    case GFX_LOG_LEVEL_DEBUG:
+        return GFX_LOG_COLOR_CYAN;
+    case GFX_LOG_LEVEL_VERBOSE:
+        return GFX_LOG_COLOR_WHITE;
+    case GFX_LOG_LEVEL_NONE:
+    default:
+        return GFX_LOG_COLOR_RESET;
     }
 }
 
@@ -142,6 +168,7 @@ const char *gfx_log_module_name(gfx_log_module_t module)
 void gfx_log_writev(gfx_log_module_t module, gfx_log_level_t level, const char *tag, const char *format, va_list args)
 {
     const char *module_name;
+    const char *color;
     int64_t ts_us;
 
     if (!gfx_log_should_output(module, level)) {
@@ -149,16 +176,17 @@ void gfx_log_writev(gfx_log_module_t module, gfx_log_level_t level, const char *
     }
 
     module_name = gfx_log_module_name(module);
+    color = gfx_log_level_to_color(level);
     ts_us = esp_timer_get_time();
 
     if (tag != NULL && tag[0] != '\0' && strcmp(tag, module_name) != 0) {
-        printf("%c (%" PRIi64 ") %s/%s: ", gfx_log_level_to_char(level), ts_us / 1000, module_name, tag);
+        printf("%s%c (%" PRIi64 ") %s/%s: ", color, gfx_log_level_to_char(level), ts_us / 1000, module_name, tag);
     } else {
-        printf("%c (%" PRIi64 ") %s: ", gfx_log_level_to_char(level), ts_us / 1000, module_name);
+        printf("%s%c (%" PRIi64 ") %s: ", color, gfx_log_level_to_char(level), ts_us / 1000, module_name);
     }
 
     vprintf(format, args);
-    printf("\n");
+    printf("%s\n", GFX_LOG_COLOR_RESET);
 }
 
 void gfx_log_write(gfx_log_module_t module, gfx_log_level_t level, const char *tag, const char *format, ...)

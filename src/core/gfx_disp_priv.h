@@ -78,6 +78,9 @@ struct gfx_disp {
     struct {
         bool flushing_last;
         bool swap_act_buf;
+        uint64_t render_time_us;
+        uint64_t flush_time_us;
+        uint32_t flush_count;
     } render;
 
     /** Dirty / invalidation state */
