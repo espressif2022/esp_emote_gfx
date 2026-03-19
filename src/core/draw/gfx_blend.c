@@ -7,11 +7,13 @@
 /*********************
  *      INCLUDES
  *********************/
+#include <math.h>
 #include <string.h>
 #include "esp_log.h"
 #include "esp_err.h"
 
-#include "core/gfx_obj.h"
+#include "common/gfx_comm.h"
+#include "core/draw/gfx_blend_priv.h"
 
 /*********************
  *      DEFINES
@@ -34,6 +36,26 @@
 /**********************
  *  STATIC VARIABLES
  **********************/
+
+/**********************
+ *   STATIC FUNCTIONS
+ **********************/
+
+static inline float gfx_sw_blend_edge_func(float ax, float ay, float bx, float by, float px, float py)
+{
+    return (px - ax) * (by - ay) - (py - ay) * (bx - ax);
+}
+
+static inline int32_t gfx_sw_blend_clamp_coord(int32_t value, int32_t min_value, int32_t max_value)
+{
+    if (value < min_value) {
+        return min_value;
+    }
+    if (value > max_value) {
+        return max_value;
+    }
+    return value;
+}
 
 /**********************
  *   PUBLIC FUNCTIONS
@@ -235,6 +257,92 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
         src_buf += src_stride;
         if (mask) {
             mask += (mask_stride - w);
+        }
+    }
+}
+
+void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
+                                    const gfx_area_t *buf_area, const gfx_area_t *clip_area,
+                                    const gfx_color_t *src_buf, gfx_coord_t src_stride, gfx_coord_t src_height,
+                                    const gfx_opa_t *mask, gfx_coord_t mask_stride,
+                                    const gfx_sw_blend_img_vertex_t *v0,
+                                    const gfx_sw_blend_img_vertex_t *v1,
+                                    const gfx_sw_blend_img_vertex_t *v2,
+                                    bool swap)
+{
+    float area;
+    int32_t min_x;
+    int32_t min_y;
+    int32_t max_x;
+    int32_t max_y;
+
+    if (dest_buf == NULL || buf_area == NULL || clip_area == NULL ||
+            src_buf == NULL || v0 == NULL || v1 == NULL || v2 == NULL ||
+            src_stride <= 0 || src_height <= 0) {
+        return;
+    }
+
+    area = gfx_sw_blend_edge_func((float)v0->x, (float)v0->y,
+                                  (float)v1->x, (float)v1->y,
+                                  (float)v2->x, (float)v2->y);
+    if (fabsf(area) < 0.0001f) {
+        return;
+    }
+
+    min_x = MIN(v0->x, MIN(v1->x, v2->x));
+    min_y = MIN(v0->y, MIN(v1->y, v2->y));
+    max_x = MAX(v0->x, MAX(v1->x, v2->x));
+    max_y = MAX(v0->y, MAX(v1->y, v2->y));
+
+    min_x = MAX(min_x, MAX(buf_area->x1, clip_area->x1));
+    min_y = MAX(min_y, MAX(buf_area->y1, clip_area->y1));
+    max_x = MIN(max_x, MIN(buf_area->x2 - 1, clip_area->x2 - 1));
+    max_y = MIN(max_y, MIN(buf_area->y2 - 1, clip_area->y2 - 1));
+
+    if (min_x > max_x || min_y > max_y) {
+        return;
+    }
+
+    for (int32_t y = min_y; y <= max_y; y++) {
+        for (int32_t x = min_x; x <= max_x; x++) {
+            float px = (float)x + 0.5f;
+            float py = (float)y + 0.5f;
+            float w0 = gfx_sw_blend_edge_func((float)v1->x, (float)v1->y,
+                                              (float)v2->x, (float)v2->y,
+                                              px, py) / area;
+            float w1 = gfx_sw_blend_edge_func((float)v2->x, (float)v2->y,
+                                              (float)v0->x, (float)v0->y,
+                                              px, py) / area;
+            float w2 = 1.0f - w0 - w1;
+
+            if (w0 < 0.0f || w1 < 0.0f || w2 < 0.0f) {
+                continue;
+            }
+
+            int32_t src_x = (int32_t)lroundf(w0 * (float)v0->u + w1 * (float)v1->u + w2 * (float)v2->u);
+            int32_t src_y = (int32_t)lroundf(w0 * (float)v0->v + w1 * (float)v1->v + w2 * (float)v2->v);
+            gfx_color_t *dst_pixel;
+            gfx_color_t src_color;
+
+            src_x = gfx_sw_blend_clamp_coord(src_x, 0, src_stride - 1);
+            src_y = gfx_sw_blend_clamp_coord(src_y, 0, src_height - 1);
+
+            dst_pixel = dest_buf + (size_t)(y - buf_area->y1) * dest_stride + (size_t)(x - buf_area->x1);
+            src_color = src_buf[(size_t)src_y * src_stride + (size_t)src_x];
+
+            if (mask != NULL) {
+                gfx_opa_t src_opa = mask[(size_t)src_y * mask_stride + (size_t)src_x];
+                if (src_opa == 0U) {
+                    continue;
+                }
+                if (src_opa >= OPA_COVER) {
+                    *dst_pixel = src_color;
+                } else {
+                    *dst_pixel = gfx_blend_color_mix(src_color, *dst_pixel, src_opa, swap);
+                }
+            } else {
+                *dst_pixel = src_color;
+            }
         }
     }
 }

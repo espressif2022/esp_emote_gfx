@@ -22,6 +22,13 @@ extern "C" {
  *      TYPEDEFS
  **********************/
 
+typedef struct {
+    gfx_coord_t x;
+    gfx_coord_t y;
+    gfx_coord_t u;
+    gfx_coord_t v;
+} gfx_sw_blend_img_vertex_t;
+
 /**********************
  *      PRIVATE FUNCTIONS
  **********************/
@@ -92,6 +99,15 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                            const gfx_color_t *src_buf, gfx_coord_t src_stride,
                            const gfx_opa_t *mask, gfx_coord_t mask_stride,
                            gfx_area_t *clip_area, bool swap);
+
+void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
+                                    const gfx_area_t *buf_area, const gfx_area_t *clip_area,
+                                    const gfx_color_t *src_buf, gfx_coord_t src_stride, gfx_coord_t src_height,
+                                    const gfx_opa_t *mask, gfx_coord_t mask_stride,
+                                    const gfx_sw_blend_img_vertex_t *v0,
+                                    const gfx_sw_blend_img_vertex_t *v1,
+                                    const gfx_sw_blend_img_vertex_t *v2,
+                                    bool swap);
 
 #ifdef __cplusplus
 }
