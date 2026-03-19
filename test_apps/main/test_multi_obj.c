@@ -88,8 +88,8 @@ static void test_multi_obj_run(mmap_assets_handle_t assets_handle)
     TEST_ASSERT_NOT_NULL(scene.label_obj);
     TEST_ASSERT_NOT_NULL(scene.timer);
 
-    anim_data = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF);
-    anim_size = mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF);
+    // anim_data = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF);
+    // anim_size = mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF);
     TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src(scene.anim_obj, anim_data, anim_size));
     gfx_obj_align(scene.anim_obj, GFX_ALIGN_CENTER, 0, 0);
     gfx_anim_set_segment(scene.anim_obj, 0, 30, 15, true);

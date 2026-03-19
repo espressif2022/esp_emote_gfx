@@ -40,12 +40,15 @@ static void test_app_configure_gfx_log_levels(void)
     gfx_log_set_level(GFX_LOG_MODULE_LABEL, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_LABEL_OBJ, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_FONT_FT, GFX_LOG_LEVEL_INFO);
-    gfx_log_set_level(GFX_LOG_MODULE_FONT_LV, GFX_LOG_LEVEL_WARN);
-    gfx_log_set_level(GFX_LOG_MODULE_ANIM, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_FONT_LV, GFX_LOG_LEVEL_INFO);
+    // gfx_log_set_level(GFX_LOG_MODULE_ANIM, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_ANIM, GFX_LOG_LEVEL_DEBUG);
     gfx_log_set_level(GFX_LOG_MODULE_IMG, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_QRCODE, GFX_LOG_LEVEL_INFO);
-    gfx_log_set_level(GFX_LOG_MODULE_BUTTON, GFX_LOG_LEVEL_DEBUG);
-    gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_DEBUG);
+    gfx_log_set_level(GFX_LOG_MODULE_BUTTON, GFX_LOG_LEVEL_INFO);
+
+    // gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_DEBUG);
+    gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_INFO);
 }
 
 #if CONFIG_IDF_TARGET_ESP32S3
@@ -53,7 +56,7 @@ static bool flush_io_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_
 {
     gfx_disp_t *disp = (gfx_disp_t *)user_ctx;
     if (disp) {
-        gfx_disp_flush_ready(disp, true);
+        // gfx_disp_flush_ready(disp, true);
     }
     return true;
 }
@@ -73,6 +76,7 @@ static void disp_flush_callback(gfx_disp_t *disp, int x1, int y1, int x2, int y2
 {
     esp_lcd_panel_handle_t panel = (esp_lcd_panel_handle_t)gfx_disp_get_user_data(disp);
     esp_lcd_panel_draw_bitmap(panel, x1, y1, x2, y2, data);
+    gfx_disp_flush_ready(disp, true);
 }
 
 static void touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t *event, void *user_data)
@@ -81,10 +85,13 @@ static void touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t *event, v
 
     switch (event->type) {
     case GFX_TOUCH_EVENT_PRESS:
-        ESP_LOGI(TAG, "touch press: %p (%d, %d)", touch, event->x, event->y);
+        ESP_LOGI("", "%-7s: (%d, %d)", "press", event->x, event->y);
         break;
     case GFX_TOUCH_EVENT_RELEASE:
-        ESP_LOGI(TAG, "touch release: %p (%d, %d)", touch, event->x, event->y);
+        ESP_LOGI("", "%-7s: (%d, %d)", "release", event->x, event->y);
+        break;
+    case GFX_TOUCH_EVENT_MOVE:
+        ESP_LOGI("", "%-7s: (%d, %d)", "move", event->x, event->y);
         break;
     default:
         break;

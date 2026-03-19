@@ -13,23 +13,16 @@
 
 #include "esp_mmap_assets.h"
 
-#define MMAP_TEST_ASSETS_FILES           15
-#define MMAP_TEST_ASSETS_CHECKSUM        0x49C8
+#define MMAP_TEST_ASSETS_FILES           8
+#define MMAP_TEST_ASSETS_CHECKSUM        0x628B
 
 enum MMAP_TEST_ASSETS_LISTS {
-    MMAP_TEST_ASSETS_MI_1_EYE_24BIT_AAF = 0,        /*!< mi_1_eye_24bit.aaf */
-    MMAP_TEST_ASSETS_MI_1_EYE_4BIT_AAF = 1,        /*!< mi_1_eye_4bit.aaf */
-    MMAP_TEST_ASSETS_MI_1_EYE_8BIT_HUFF_AAF = 2,        /*!< mi_1_eye_8bit_huff.aaf */
-    MMAP_TEST_ASSETS_MI_2_EYE_24BIT_AAF = 3,        /*!< mi_2_eye_24bit.aaf */
-    MMAP_TEST_ASSETS_MI_2_EYE_4BIT_AAF = 4,        /*!< mi_2_eye_4bit.aaf */
-    MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF = 5,        /*!< mi_2_eye_8bit.aaf */
-    MMAP_TEST_ASSETS_MI_2_EYE_8BIT_HUFF_AAF = 6,        /*!< mi_2_eye_8bit_huff.aaf */
-    MMAP_TEST_ASSETS_ICON_RGB565_BIN = 7,        /*!< icon_rgb565.bin */
-    MMAP_TEST_ASSETS_ICON_RGB565A8_BIN = 8,        /*!< icon_rgb565A8.bin */
-    MMAP_TEST_ASSETS_MI_1_EYE_8BIT_EAF = 9,        /*!< mi_1_eye_8bit.eaf */
-    MMAP_TEST_ASSETS_MI_1_EYE_8BIT_HUFF_EAF = 10,        /*!< mi_1_eye_8bit_huff.eaf */
-    MMAP_TEST_ASSETS_MI_2_EYE_8BIT_HUFF_EAF = 11,        /*!< mi_2_eye_8bit_huff.eaf */
-    MMAP_TEST_ASSETS_ONLY_HEATSHRINK_4BIT_EAF = 12,        /*!< only_heatshrink_4bit.eaf */
-    MMAP_TEST_ASSETS_TRANSPARENT_EAF = 13,        /*!< transparent.eaf */
-    MMAP_TEST_ASSETS_DEJAVUSANS_TTF = 14,        /*!< DejaVuSans.ttf */
+    MMAP_TEST_ASSETS_ICON_RGB565_BIN = 0,        /*!< icon_rgb565.bin */
+    MMAP_TEST_ASSETS_ICON_RGB565A8_BIN = 1,        /*!< icon_rgb565A8.bin */
+    MMAP_TEST_ASSETS_A1_017_041_075_EAF = 2,        /*!< a1_017_041_075.eaf */
+    MMAP_TEST_ASSETS_A2_018_039_063_EAF = 3,        /*!< a2_018_039_063.eaf */
+    MMAP_TEST_ASSETS_A3_019_048_075_EAF = 4,        /*!< a3_019_048_075.eaf */
+    MMAP_TEST_ASSETS_A4_019_083_100_EAF = 5,        /*!< a4_019_083_100.eaf */
+    MMAP_TEST_ASSETS_A5_022_053_100_EAF = 6,        /*!< a5_022_053_100.eaf */
+    MMAP_TEST_ASSETS_DEJAVUSANS_TTF = 7,        /*!< DejaVuSans.ttf */
 };

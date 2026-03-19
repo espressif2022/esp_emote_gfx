@@ -9,7 +9,8 @@ dependencies:
   esp_mmap_assets:
     version: 1.*
 
-  espressif/esp-box:
+  # espressif/esp-box:
+  espressif/esp_vocat:
     version: "*"
     rules:
     - if: "${IDF_TARGET} == esp32s3"

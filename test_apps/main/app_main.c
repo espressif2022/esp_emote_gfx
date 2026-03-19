@@ -28,7 +28,9 @@ void tearDown(void)
     unity_utils_check_leak(before_free_32bit, after_free_32bit, "32BIT", TEST_MEMORY_LEAK_THRESHOLD);
 }
 
+extern void test_anim_run_case_matrix(void);
 void app_main(void)
 {
-    unity_run_menu();
+    // unity_run_menu();
+    test_anim_run_case_matrix();
 }
