@@ -120,7 +120,14 @@ static void gfx_anim_eaf_close(void *handle)
 static int gfx_anim_eaf_get_total_frames(void *handle)
 {
     gfx_anim_eaf_handle_t *eaf_handle = (gfx_anim_eaf_handle_t *)handle;
-    return eaf_handle != NULL ? eaf_get_total_frames(eaf_handle->eaf_handle) : -1;
+    int total_frames;
+
+    if (eaf_handle == NULL) {
+        return -1;
+    }
+
+    total_frames = eaf_get_total_frames(eaf_handle->eaf_handle);
+    return total_frames > 0 ? (total_frames - 1) : 0;
 }
 
 static void gfx_anim_eaf_desc_from_header(gfx_anim_frame_desc_t *frame_desc, eaf_header_t *header)
