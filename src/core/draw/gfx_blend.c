@@ -7,7 +7,7 @@
 /*********************
  *      INCLUDES
  *********************/
-#include <math.h>
+
 #include <string.h>
 #include "esp_log.h"
 #include "esp_err.h"
@@ -41,10 +41,7 @@
  *   STATIC FUNCTIONS
  **********************/
 
-static inline float gfx_sw_blend_edge_func(float ax, float ay, float bx, float by, float px, float py)
-{
-    return (px - ax) * (by - ay) - (py - ay) * (bx - ax);
-}
+
 
 static inline int32_t gfx_sw_blend_clamp_coord(int32_t value, int32_t min_value, int32_t max_value)
 {
@@ -270,11 +267,27 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                                     const gfx_sw_blend_img_vertex_t *v2,
                                     bool swap)
 {
-    float area;
-    int32_t min_x;
-    int32_t min_y;
-    int32_t max_x;
-    int32_t max_y;
+    /*
+     * Fixed-point incremental edge-walking rasterizer.
+     *
+     * Instead of computing 3 edge functions + 2 float divides per pixel,
+     * we pre-compute linear step constants and walk the edge values with
+     * pure integer adds in the inner loop.
+     *
+     * Fractional precision: 16 bits (sufficient for sub-1024px coordinates).
+     */
+#define FRAC_BITS  16
+#define FRAC_ONE   (1 << FRAC_BITS)
+#define FRAC_HALF  (1 << (FRAC_BITS - 1))
+
+    int32_t area_2x;
+    int32_t min_x, min_y, max_x, max_y;
+
+    /* Edge function step constants (integer, not shifted yet) */
+    int32_t e0_a, e0_b, e1_a, e1_b;
+
+    /* UV interpolation gradients (fixed-point) */
+    int32_t du_dx, dv_dx, du_dy, dv_dy;
 
     if (dest_buf == NULL || buf_area == NULL || clip_area == NULL ||
             src_buf == NULL || v0 == NULL || v1 == NULL || v2 == NULL ||
@@ -282,18 +295,25 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
         return;
     }
 
-    area = gfx_sw_blend_edge_func((float)v0->x, (float)v0->y,
-                                  (float)v1->x, (float)v1->y,
-                                  (float)v2->x, (float)v2->y);
-    if (fabsf(area) < 0.0001f) {
-        return;
+    /*
+     * Compute 2× signed area of the triangle (integer).
+     * Must match the edge function convention: E0 + E1 + E2 = area_2x.
+     * area_2x = edge_func(v0, v1, v2) = (v2-v0) × (v1-v0) z-component
+     */
+    area_2x = (int32_t)(v2->x - v0->x) * (int32_t)(v1->y - v0->y)
+            - (int32_t)(v2->y - v0->y) * (int32_t)(v1->x - v0->x);
+
+    if (area_2x == 0) {
+        return; /* Degenerate triangle */
     }
 
+    /* Bounding box */
     min_x = MIN(v0->x, MIN(v1->x, v2->x));
     min_y = MIN(v0->y, MIN(v1->y, v2->y));
     max_x = MAX(v0->x, MAX(v1->x, v2->x));
     max_y = MAX(v0->y, MAX(v1->y, v2->y));
 
+    /* Clip to buffer and clip area */
     min_x = MAX(min_x, MAX(buf_area->x1, clip_area->x1));
     min_y = MAX(min_y, MAX(buf_area->y1, clip_area->y1));
     max_x = MIN(max_x, MIN(buf_area->x2 - 1, clip_area->x2 - 1));
@@ -303,46 +323,120 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
         return;
     }
 
-    for (int32_t y = min_y; y <= max_y; y++) {
-        for (int32_t x = min_x; x <= max_x; x++) {
-            float px = (float)x + 0.5f;
-            float py = (float)y + 0.5f;
-            float w0 = gfx_sw_blend_edge_func((float)v1->x, (float)v1->y,
-                                              (float)v2->x, (float)v2->y,
-                                              px, py) / area;
-            float w1 = gfx_sw_blend_edge_func((float)v2->x, (float)v2->y,
-                                              (float)v0->x, (float)v0->y,
-                                              px, py) / area;
-            float w2 = 1.0f - w0 - w1;
+    /*
+     * Edge function for w0 (weight of v0):
+     *   E0(x,y) = (x - v1x)*(v2y - v1y) - (y - v1y)*(v2x - v1x)
+     *   dE0/dx = (v2y - v1y) = e0_a
+     *   dE0/dy = (v1x - v2x) = e0_b  (note: negated x-diff)
+     *
+     * Edge function for w1 (weight of v1):
+     *   E1(x,y) = (x - v2x)*(v0y - v2y) - (y - v2y)*(v0x - v2x)
+     *   dE1/dx = (v0y - v2y) = e1_a
+     *   dE1/dy = (v2x - v0x) = e1_b
+     */
+    e0_a = (int32_t)(v2->y - v1->y);
+    e0_b = (int32_t)(v1->x - v2->x);
+    e1_a = (int32_t)(v0->y - v2->y);
+    e1_b = (int32_t)(v2->x - v0->x);
 
-            if (w0 < 0.0f || w1 < 0.0f || w2 < 0.0f) {
-                continue;
+    /*
+     * UV gradient computation (fixed-point).
+     *
+     * u(x,y) = w0*u0 + w1*u1 + w2*u2  where w_i = E_i / area_2x
+     *
+     * du/dx = (e0_a * u0 + e1_a * u1 + (-e0_a - e1_a) * u2) / area_2x
+     *       = (e0_a * (u0 - u2) + e1_a * (u1 - u2)) / area_2x
+     *
+     * We compute in fixed-point by shifting numerator up by FRAC_BITS.
+     */
+    {
+        int64_t num;
+
+        num = (int64_t)e0_a * (v0->u - v2->u) + (int64_t)e1_a * (v1->u - v2->u);
+        du_dx = (int32_t)((num << FRAC_BITS) / area_2x);
+
+        num = (int64_t)e0_a * (v0->v - v2->v) + (int64_t)e1_a * (v1->v - v2->v);
+        dv_dx = (int32_t)((num << FRAC_BITS) / area_2x);
+
+        num = (int64_t)e0_b * (v0->u - v2->u) + (int64_t)e1_b * (v1->u - v2->u);
+        du_dy = (int32_t)((num << FRAC_BITS) / area_2x);
+
+        num = (int64_t)e0_b * (v0->v - v2->v) + (int64_t)e1_b * (v1->v - v2->v);
+        dv_dy = (int32_t)((num << FRAC_BITS) / area_2x);
+    }
+
+    /*
+     * Compute edge function values at the starting point (min_x, min_y).
+     */
+    {
+        int32_t w0_row = (int32_t)(min_x - v1->x) * e0_a + (int32_t)(min_y - v1->y) * e0_b;
+        int32_t w1_row = (int32_t)(min_x - v2->x) * e1_a + (int32_t)(min_y - v2->y) * e1_b;
+
+        /* UV at starting point (fixed-point) */
+        int64_t u_start_num = (int64_t)w0_row * v0->u + (int64_t)w1_row * v1->u
+                            + (int64_t)(area_2x - w0_row - w1_row) * v2->u;
+        int64_t v_start_num = (int64_t)w0_row * v0->v + (int64_t)w1_row * v1->v
+                            + (int64_t)(area_2x - w0_row - w1_row) * v2->v;
+        int32_t u_row = (int32_t)((u_start_num << FRAC_BITS) / area_2x);
+        int32_t v_row = (int32_t)((v_start_num << FRAC_BITS) / area_2x);
+
+        for (int32_t y = min_y; y <= max_y; y++) {
+            int32_t w0 = w0_row;
+            int32_t w1 = w1_row;
+            int32_t u_cur = u_row;
+            int32_t v_cur = v_row;
+            gfx_color_t *dst_row = dest_buf + (size_t)(y - buf_area->y1) * dest_stride
+                                 + (size_t)(min_x - buf_area->x1);
+
+            for (int32_t x = min_x; x <= max_x; x++) {
+                int32_t w2 = area_2x - w0 - w1;
+
+                /*
+                 * Inside-triangle test: all three weights must have the same
+                 * sign as area_2x.  For positive area (CCW), all >= 0.
+                 * For negative area (CW), all <= 0.
+                 */
+                if (area_2x > 0 ? (w0 >= 0 && w1 >= 0 && w2 >= 0)
+                                : (w0 <= 0 && w1 <= 0 && w2 <= 0)) {
+                    int32_t src_x = (u_cur + FRAC_HALF) >> FRAC_BITS;
+                    int32_t src_y = (v_cur + FRAC_HALF) >> FRAC_BITS;
+
+                    src_x = gfx_sw_blend_clamp_coord(src_x, 0, src_stride - 1);
+                    src_y = gfx_sw_blend_clamp_coord(src_y, 0, src_height - 1);
+
+                    gfx_color_t src_color = src_buf[(size_t)src_y * src_stride + (size_t)src_x];
+
+                    if (mask != NULL) {
+                        gfx_opa_t src_opa = mask[(size_t)src_y * mask_stride + (size_t)src_x];
+                        if (src_opa == 0U) {
+                            goto next_pixel;
+                        }
+                        if (src_opa >= OPA_COVER) {
+                            *dst_row = src_color;
+                        } else {
+                            *dst_row = gfx_blend_color_mix(src_color, *dst_row, src_opa, swap);
+                        }
+                    } else {
+                        *dst_row = src_color;
+                    }
+                }
+
+next_pixel:
+                w0 += e0_a;
+                w1 += e1_a;
+                u_cur += du_dx;
+                v_cur += dv_dx;
+                dst_row++;
             }
 
-            int32_t src_x = (int32_t)lroundf(w0 * (float)v0->u + w1 * (float)v1->u + w2 * (float)v2->u);
-            int32_t src_y = (int32_t)lroundf(w0 * (float)v0->v + w1 * (float)v1->v + w2 * (float)v2->v);
-            gfx_color_t *dst_pixel;
-            gfx_color_t src_color;
-
-            src_x = gfx_sw_blend_clamp_coord(src_x, 0, src_stride - 1);
-            src_y = gfx_sw_blend_clamp_coord(src_y, 0, src_height - 1);
-
-            dst_pixel = dest_buf + (size_t)(y - buf_area->y1) * dest_stride + (size_t)(x - buf_area->x1);
-            src_color = src_buf[(size_t)src_y * src_stride + (size_t)src_x];
-
-            if (mask != NULL) {
-                gfx_opa_t src_opa = mask[(size_t)src_y * mask_stride + (size_t)src_x];
-                if (src_opa == 0U) {
-                    continue;
-                }
-                if (src_opa >= OPA_COVER) {
-                    *dst_pixel = src_color;
-                } else {
-                    *dst_pixel = gfx_blend_color_mix(src_color, *dst_pixel, src_opa, swap);
-                }
-            } else {
-                *dst_pixel = src_color;
-            }
+            w0_row += e0_b;
+            w1_row += e1_b;
+            u_row += du_dy;
+            v_row += dv_dy;
         }
     }
+
+#undef FRAC_BITS
+#undef FRAC_ONE
+#undef FRAC_HALF
 }

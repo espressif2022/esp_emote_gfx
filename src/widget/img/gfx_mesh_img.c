@@ -327,34 +327,59 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
             size_t idx10 = idx00 + 1U;
             size_t idx01 = idx00 + mesh->grid_cols + 1U;
             size_t idx11 = idx01 + 1U;
+
+            /* Early clip-out: skip cells entirely outside clip area */
+            {
+                gfx_coord_t p0x = mesh->points[idx00].x, p1x = mesh->points[idx10].x;
+                gfx_coord_t p2x = mesh->points[idx01].x, p3x = mesh->points[idx11].x;
+                gfx_coord_t p0y = mesh->points[idx00].y, p1y = mesh->points[idx10].y;
+                gfx_coord_t p2y = mesh->points[idx01].y, p3y = mesh->points[idx11].y;
+                gfx_coord_t cmin_x = MIN(MIN(p0x, p1x), MIN(p2x, p3x)) + origin_x;
+                gfx_coord_t cmax_x = MAX(MAX(p0x, p1x), MAX(p2x, p3x)) + origin_x;
+                gfx_coord_t cmin_y = MIN(MIN(p0y, p1y), MIN(p2y, p3y)) + origin_y;
+                gfx_coord_t cmax_y = MAX(MAX(p0y, p1y), MAX(p2y, p3y)) + origin_y;
+                if (cmax_x < clip_area.x1 || cmin_x >= clip_area.x2 ||
+                    cmax_y < clip_area.y1 || cmin_y >= clip_area.y2) {
+                    continue;
+                }
+            }
+
             gfx_sw_blend_img_vertex_t tri1[3];
             gfx_sw_blend_img_vertex_t tri2[3];
 
+            /* --------- Triangle 1 --------- */
+            /* Point 1: Top-Left (0, 0) */
             tri1[0].x = origin_x + mesh->points[idx00].x;
             tri1[0].y = origin_y + mesh->points[idx00].y;
             tri1[0].u = mesh->rest_points[idx00].x;
             tri1[0].v = mesh->rest_points[idx00].y;
 
+            /* Point 2: Top-Right (1, 0) */
             tri1[1].x = origin_x + mesh->points[idx10].x;
             tri1[1].y = origin_y + mesh->points[idx10].y;
             tri1[1].u = mesh->rest_points[idx10].x;
             tri1[1].v = mesh->rest_points[idx10].y;
 
+            /* Point 3: Bottom-Right (1, 1) */
             tri1[2].x = origin_x + mesh->points[idx11].x;
             tri1[2].y = origin_y + mesh->points[idx11].y;
             tri1[2].u = mesh->rest_points[idx11].x;
             tri1[2].v = mesh->rest_points[idx11].y;
 
+            /* --------- Triangle 2 --------- */
+            /* Point 1: Top-Left (0, 0) */
             tri2[0].x = origin_x + mesh->points[idx00].x;
             tri2[0].y = origin_y + mesh->points[idx00].y;
             tri2[0].u = mesh->rest_points[idx00].x;
             tri2[0].v = mesh->rest_points[idx00].y;
 
+            /* Point 2: Bottom-Right (1, 1) */
             tri2[1].x = origin_x + mesh->points[idx11].x;
             tri2[1].y = origin_y + mesh->points[idx11].y;
             tri2[1].u = mesh->rest_points[idx11].x;
             tri2[1].v = mesh->rest_points[idx11].y;
 
+            /* Point 3: Bottom-Left (0, 1) */
             tri2[2].x = origin_x + mesh->points[idx01].x;
             tri2[2].y = origin_y + mesh->points[idx01].y;
             tri2[2].u = mesh->rest_points[idx01].x;
