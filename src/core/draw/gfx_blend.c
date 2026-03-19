@@ -43,6 +43,21 @@
 
 
 
+static int32_t gfx_sw_blend_isqrt(int32_t n)
+{
+    int32_t x, y;
+    if (n <= 1) {
+        return n;
+    }
+    x = n;
+    y = (x + 1) >> 1;
+    while (y < x) {
+        x = y;
+        y = (x + n / x) >> 1;
+    }
+    return x;
+}
+
 static inline int32_t gfx_sw_blend_clamp_coord(int32_t value, int32_t min_value, int32_t max_value)
 {
     if (value < min_value) {
@@ -286,6 +301,9 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
     /* Edge function step constants (integer, not shifted yet) */
     int32_t e0_a, e0_b, e1_a, e1_b;
 
+    /* Edge anti-aliasing: inverse edge lengths (Q6 scaled by 256) */
+    int32_t e0_inv, e1_inv, e2_inv;
+
     /* UV interpolation gradients (fixed-point) */
     int32_t du_dx, dv_dx, du_dy, dv_dy;
 
@@ -307,11 +325,11 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
         return; /* Degenerate triangle */
     }
 
-    /* Bounding box */
-    min_x = MIN(v0->x, MIN(v1->x, v2->x));
-    min_y = MIN(v0->y, MIN(v1->y, v2->y));
-    max_x = MAX(v0->x, MAX(v1->x, v2->x));
-    max_y = MAX(v0->y, MAX(v1->y, v2->y));
+    /* Bounding box (expanded by 1 pixel for edge anti-aliasing) */
+    min_x = MIN(v0->x, MIN(v1->x, v2->x)) - 1;
+    min_y = MIN(v0->y, MIN(v1->y, v2->y)) - 1;
+    max_x = MAX(v0->x, MAX(v1->x, v2->x)) + 1;
+    max_y = MAX(v0->y, MAX(v1->y, v2->y)) + 1;
 
     /* Clip to buffer and clip area */
     min_x = MAX(min_x, MAX(buf_area->x1, clip_area->x1));
@@ -338,6 +356,20 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
     e0_b = (int32_t)(v1->x - v2->x);
     e1_a = (int32_t)(v0->y - v2->y);
     e1_b = (int32_t)(v2->x - v0->x);
+
+    {
+        int32_t e2_a = -(e0_a + e1_a);
+        int32_t e2_b = -(e0_b + e1_b);
+        int32_t e0_len = gfx_sw_blend_isqrt(e0_a * e0_a + e0_b * e0_b);
+        int32_t e1_len = gfx_sw_blend_isqrt(e1_a * e1_a + e1_b * e1_b);
+        int32_t e2_len = gfx_sw_blend_isqrt(e2_a * e2_a + e2_b * e2_b);
+        if (e0_len < 1) { e0_len = 1; }
+        if (e1_len < 1) { e1_len = 1; }
+        if (e2_len < 1) { e2_len = 1; }
+        e0_inv = (256 * 64 + e0_len / 2) / e0_len;
+        e1_inv = (256 * 64 + e1_len / 2) / e1_len;
+        e2_inv = (256 * 64 + e2_len / 2) / e2_len;
+    }
 
     /*
      * UV gradient computation (fixed-point).
@@ -391,13 +423,9 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
             for (int32_t x = min_x; x <= max_x; x++) {
                 int32_t w2 = area_2x - w0 - w1;
 
-                /*
-                 * Inside-triangle test: all three weights must have the same
-                 * sign as area_2x.  For positive area (CCW), all >= 0.
-                 * For negative area (CW), all <= 0.
-                 */
                 if (area_2x > 0 ? (w0 >= 0 && w1 >= 0 && w2 >= 0)
                                 : (w0 <= 0 && w1 <= 0 && w2 <= 0)) {
+                    /* Inside triangle — full coverage */
                     int32_t src_x = (u_cur + FRAC_HALF) >> FRAC_BITS;
                     int32_t src_y = (v_cur + FRAC_HALF) >> FRAC_BITS;
 
@@ -418,6 +446,34 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                         }
                     } else {
                         *dst_row = src_color;
+                    }
+                } else {
+                    /* Outside triangle — edge AA: blend if within 1 px */
+                    int32_t max_od = 0;
+                    if (area_2x > 0) {
+                        if (w0 < 0) { int32_t d = ((-w0) * e0_inv + 32) >> 6; if (d > max_od) { max_od = d; } }
+                        if (w1 < 0) { int32_t d = ((-w1) * e1_inv + 32) >> 6; if (d > max_od) { max_od = d; } }
+                        if (w2 < 0) { int32_t d = ((-w2) * e2_inv + 32) >> 6; if (d > max_od) { max_od = d; } }
+                    } else {
+                        if (w0 > 0) { int32_t d = (w0 * e0_inv + 32) >> 6; if (d > max_od) { max_od = d; } }
+                        if (w1 > 0) { int32_t d = (w1 * e1_inv + 32) >> 6; if (d > max_od) { max_od = d; } }
+                        if (w2 > 0) { int32_t d = (w2 * e2_inv + 32) >> 6; if (d > max_od) { max_od = d; } }
+                    }
+
+                    if (max_od > 0 && max_od < 256) {
+                        gfx_opa_t aa_opa = (gfx_opa_t)(256 - max_od);
+                        int32_t src_x = (u_cur + FRAC_HALF) >> FRAC_BITS;
+                        int32_t src_y = (v_cur + FRAC_HALF) >> FRAC_BITS;
+                        src_x = gfx_sw_blend_clamp_coord(src_x, 0, src_stride - 1);
+                        src_y = gfx_sw_blend_clamp_coord(src_y, 0, src_height - 1);
+                        gfx_color_t src_color = src_buf[(size_t)src_y * src_stride + (size_t)src_x];
+                        if (mask != NULL) {
+                            gfx_opa_t src_opa = mask[(size_t)src_y * mask_stride + (size_t)src_x];
+                            aa_opa = (gfx_opa_t)(((uint32_t)aa_opa * src_opa + 128) >> 8);
+                        }
+                        if (aa_opa > 0) {
+                            *dst_row = gfx_blend_color_mix(src_color, *dst_row, aa_opa, swap);
+                        }
                     }
                 }
 

@@ -17,8 +17,10 @@ static const char *TAG = "test_mesh_img_2";
 #define TEST_MESH2_GRID_ROWS       4U
 #define TEST_MESH2_POINT_COUNT     ((TEST_MESH2_GRID_COLS + 1U) * (TEST_MESH2_GRID_ROWS + 1U))
 #define TEST_MESH2_TIMER_PERIOD_MS 33U
-#define TEST_MESH2_DRAG_LIMIT_X    60
-#define TEST_MESH2_DRAG_LIMIT_Y    50
+// #define TEST_MESH2_DRAG_LIMIT_X    60
+// #define TEST_MESH2_DRAG_LIMIT_Y    50
+#define TEST_MESH2_DRAG_LIMIT_X    100
+#define TEST_MESH2_DRAG_LIMIT_Y    100
 #define TEST_MESH2_CENTER_POINT_IDX (((TEST_MESH2_GRID_ROWS / 2U) * (TEST_MESH2_GRID_COLS + 1U)) + (TEST_MESH2_GRID_COLS / 2U))
 
 typedef struct {
@@ -248,8 +250,8 @@ static void test_mesh_img_2_run(void)
     TEST_ASSERT_NOT_NULL(scene.mesh_obj);
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.mesh_obj, (void *)&face_ui_simple));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(scene.mesh_obj, TEST_MESH2_GRID_COLS, TEST_MESH2_GRID_ROWS));
-    // TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(scene.mesh_obj, true));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(scene.mesh_obj, false));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(scene.mesh_obj, true));
+    // TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(scene.mesh_obj, false));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_touch_cb(scene.mesh_obj, test_mesh_img_2_touch_cb, &scene));
 
     test_mesh_img_2_capture_base_points(&scene);

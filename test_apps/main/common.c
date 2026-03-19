@@ -47,8 +47,8 @@ static void test_app_configure_gfx_log_levels(void)
     gfx_log_set_level(GFX_LOG_MODULE_QRCODE, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_BUTTON, GFX_LOG_LEVEL_INFO);
 
-    // gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_DEBUG);
-    gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_DEBUG);
+    // gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_INFO);
 }
 
 #if CONFIG_IDF_TARGET_ESP32S3
@@ -91,7 +91,7 @@ static void touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t *event, v
         ESP_LOGI("", "%-7s: (%d, %d)", "release", event->x, event->y);
         break;
     case GFX_TOUCH_EVENT_MOVE:
-        ESP_LOGI("", "%-7s: (%d, %d)", "move", event->x, event->y);
+        // ESP_LOGI("", "%-7s: (%d, %d)", "move", event->x, event->y);
         break;
     default:
         break;
@@ -241,7 +241,7 @@ esp_err_t display_and_graphics_init(const char *partition_label, uint32_t max_fi
 #elif CONFIG_IDF_TARGET_ESP32P4
         .flags = { .swap = false, .buff_dma = true, .buff_spiram = false, .double_buffer = true },
 #endif
-        .buffers = { .buf1 = NULL, .buf2 = NULL, .buf_pixels = BSP_LCD_H_RES * 16 },
+        .buffers = { .buf1 = NULL, .buf2 = NULL, .buf_pixels = BSP_LCD_H_RES * 64 },
     };
     disp_default = gfx_disp_add(emote_handle, &disp_cfg);
     ESP_GOTO_ON_FALSE(disp_default != NULL, ESP_FAIL, err_gfx, TAG, "Failed to add display");
