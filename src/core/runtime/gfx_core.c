@@ -26,7 +26,7 @@
 #include "core/runtime/gfx_timer_priv.h"
 #include "core/runtime/gfx_touch_priv.h"
 
-#include "decoder/image/gfx_img_dec_priv.h"
+#include "widget/img/gfx_img_dec_priv.h"
 #include "widget/font/gfx_font_priv.h"
 
 /*********************

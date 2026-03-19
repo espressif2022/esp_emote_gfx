@@ -18,7 +18,7 @@
 #include "core/draw/gfx_blend_priv.h"
 #include "core/object/gfx_obj_priv.h"
 #include "widget/gfx_img.h"
-#include "decoder/image/gfx_img_dec_priv.h"
+#include "widget/img/gfx_img_dec_priv.h"
 
 /*********************
  *      DEFINES
