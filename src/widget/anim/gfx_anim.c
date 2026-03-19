@@ -271,16 +271,16 @@ static esp_err_t gfx_anim_apply_segment(gfx_obj_t *obj, gfx_anim_t *anim, const 
 {
     int total_frames;
 
-    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "Animation property is NULL");
-    ESP_RETURN_ON_FALSE(segment != NULL, ESP_ERR_INVALID_ARG, TAG, "segment is NULL");
-    ESP_RETURN_ON_FALSE(gfx_anim_has_source(anim), ESP_ERR_INVALID_STATE, TAG, "Animation source not set");
-    ESP_RETURN_ON_FALSE(segment->fps > 0U, ESP_ERR_INVALID_ARG, TAG, "fps must be > 0");
-    ESP_RETURN_ON_FALSE(segment->end_action <= GFX_ANIM_SEGMENT_ACTION_PAUSE, ESP_ERR_INVALID_ARG, TAG, "invalid end action");
+    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "apply segment: animation context is NULL");
+    ESP_RETURN_ON_FALSE(segment != NULL, ESP_ERR_INVALID_ARG, TAG, "apply segment: segment is NULL");
+    ESP_RETURN_ON_FALSE(gfx_anim_has_source(anim), ESP_ERR_INVALID_STATE, TAG, "apply segment: source is not set");
+    ESP_RETURN_ON_FALSE(segment->fps > 0U, ESP_ERR_INVALID_ARG, TAG, "apply segment: fps must be greater than 0");
+    ESP_RETURN_ON_FALSE(segment->end_action <= GFX_ANIM_SEGMENT_ACTION_PAUSE, ESP_ERR_INVALID_ARG, TAG, "apply segment: end action is invalid");
 
     total_frames = gfx_anim_get_total_frames(anim);
-    ESP_RETURN_ON_FALSE(total_frames > 0, ESP_ERR_INVALID_STATE, TAG, "Animation source has no frames");
-    ESP_RETURN_ON_FALSE(segment->start < (uint32_t)total_frames, ESP_ERR_INVALID_ARG, TAG, "start frame out of range");
-    ESP_RETURN_ON_FALSE(segment->end >= segment->start, ESP_ERR_INVALID_ARG, TAG, "end frame must be >= start frame");
+    ESP_RETURN_ON_FALSE(total_frames > 0, ESP_ERR_INVALID_STATE, TAG, "apply segment: source contains no frames");
+    ESP_RETURN_ON_FALSE(segment->start < (uint32_t)total_frames, ESP_ERR_INVALID_ARG, TAG, "apply segment: start frame is out of range");
+    ESP_RETURN_ON_FALSE(segment->end >= segment->start, ESP_ERR_INVALID_ARG, TAG, "apply segment: end frame must be >= start frame");
 
     anim->start_frame = segment->start;
     anim->end_frame = (segment->end > (uint32_t)(total_frames - 1)) ? (uint32_t)(total_frames - 1) : segment->end;
@@ -300,17 +300,17 @@ static esp_err_t gfx_anim_apply_segment(gfx_obj_t *obj, gfx_anim_t *anim, const 
         xEventGroupClearBits(anim->event_group, GFX_ANIM_EVENT_PLAN_DONE | GFX_ANIM_EVENT_SEGMENT_PAUSED);
     }
 
-    ESP_RETURN_ON_ERROR(gfx_anim_prepare_frame(obj), TAG, "Failed to prepare segment start frame");
+    ESP_RETURN_ON_ERROR(gfx_anim_prepare_frame(obj), TAG, "apply segment: failed to prepare the start frame");
     gfx_obj_invalidate(obj);
-    GFX_LOGD(TAG, "segment[%u] [%" PRIu32 "-%" PRIu32 "] fps:%" PRIu32 " play:%" PRIu32,
+    GFX_LOGD(TAG, "applied segment[%u]: range:[%" PRIu32 "-%" PRIu32 "], fps:%" PRIu32 ", repeat:%" PRIu32,
              (unsigned int)segment_index, anim->start_frame, anim->end_frame, segment->fps, segment->play_count);
     return ESP_OK;
 }
 
 static esp_err_t gfx_anim_advance_segment(gfx_obj_t *obj, gfx_anim_t *anim)
 {
-    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "Animation property is NULL");
-    ESP_RETURN_ON_FALSE(anim->segments != NULL, ESP_ERR_NOT_FOUND, TAG, "segment plan not set");
+    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "advance segment: animation context is NULL");
+    ESP_RETURN_ON_FALSE(anim->segments != NULL, ESP_ERR_NOT_FOUND, TAG, "advance segment: segment plan is not set");
     if ((anim->segment_index + 1U) >= anim->segment_count) {
         return ESP_ERR_NOT_FOUND;
     }
@@ -368,10 +368,10 @@ static esp_err_t gfx_anim_init_palette_cache(gfx_obj_t *obj, gfx_anim_t *anim)
     }
 
     ESP_RETURN_ON_FALSE(decoder != NULL && decoder->get_palette_color != NULL,
-                        ESP_ERR_INVALID_STATE, TAG, "decoder palette callback missing");
+                        ESP_ERR_INVALID_STATE, TAG, "init palette cache: decoder palette callback is missing");
 
     anim->frame.color_palette = heap_caps_malloc(palette_size * sizeof(uint32_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    ESP_RETURN_ON_FALSE(anim->frame.color_palette != NULL, ESP_ERR_NO_MEM, TAG, "No mem for color palette");
+    ESP_RETURN_ON_FALSE(anim->frame.color_palette != NULL, ESP_ERR_NO_MEM, TAG, "init palette cache: failed to allocate color palette");
 
     bool swap = obj->disp ? obj->disp->flags.swap : false;
 
@@ -413,39 +413,39 @@ static esp_err_t gfx_anim_prepare_frame(gfx_obj_t *obj)
     const gfx_anim_decoder_ops_t *decoder = anim->decoder;
     uint32_t current_frame = anim->current_frame;
 
-    ESP_RETURN_ON_FALSE(gfx_anim_has_source(anim), ESP_ERR_INVALID_STATE, TAG, "decoder not ready");
+    ESP_RETURN_ON_FALSE(gfx_anim_has_source(anim), ESP_ERR_INVALID_STATE, TAG, "prepare frame: decoder is not ready");
 
     gfx_anim_reset_frame(anim);
 
     anim->frame.frame_data = decoder->get_frame_data(anim->decoder_handle, current_frame);
     anim->frame.frame_size = decoder->get_frame_size(anim->decoder_handle, current_frame);
-    ESP_RETURN_ON_FALSE(anim->frame.frame_data != NULL, ESP_FAIL, TAG, "Frame %" PRIu32 " data unavailable", current_frame);
-    ESP_RETURN_ON_FALSE(anim->frame.frame_size > 0, ESP_FAIL, TAG, "Frame %" PRIu32 " size invalid", current_frame);
+    ESP_RETURN_ON_FALSE(anim->frame.frame_data != NULL, ESP_FAIL, TAG, "prepare frame[%" PRIu32 "]: frame data is unavailable", current_frame);
+    ESP_RETURN_ON_FALSE(anim->frame.frame_size > 0, ESP_FAIL, TAG, "prepare frame[%" PRIu32 "]: frame size is invalid", current_frame);
 
     ESP_GOTO_ON_ERROR(decoder->get_frame_info(anim->decoder_handle, current_frame, &anim->frame.desc), err, TAG,
-                      "Failed to get frame %" PRIu32 " info", current_frame);
+                      "prepare frame[%" PRIu32 "]: failed to get frame info", current_frame);
 
     size_t pixel_buffer_size = gfx_anim_get_pixel_buffer_size(&anim->frame.desc);
     ESP_GOTO_ON_FALSE(pixel_buffer_size > 0, ESP_ERR_INVALID_ARG, err, TAG,
-                      "Unsupported bit depth: %u", anim->frame.desc.bit_depth);
+                      "prepare frame: unsupported bit depth %u", anim->frame.desc.bit_depth);
 
     anim->frame.block_offsets = malloc(anim->frame.desc.blocks * sizeof(uint32_t));
-    ESP_GOTO_ON_FALSE(anim->frame.block_offsets != NULL, ESP_ERR_NO_MEM, err, TAG, "No mem for block offsets");
+    ESP_GOTO_ON_FALSE(anim->frame.block_offsets != NULL, ESP_ERR_NO_MEM, err, TAG, "prepare frame: failed to allocate block offsets");
 
     if (anim->frame.desc.bit_depth == GFX_ANIM_DEPTH_24BIT) {
         anim->frame.pixel_buffer = heap_caps_aligned_alloc(16, pixel_buffer_size, MALLOC_CAP_DEFAULT);
     } else {
         anim->frame.pixel_buffer = malloc(pixel_buffer_size);
     }
-    ESP_GOTO_ON_FALSE(anim->frame.pixel_buffer != NULL, ESP_ERR_NO_MEM, err, TAG, "No mem for pixel buffer");
+    ESP_GOTO_ON_FALSE(anim->frame.pixel_buffer != NULL, ESP_ERR_NO_MEM, err, TAG, "prepare frame: failed to allocate pixel buffer");
 
-    ESP_GOTO_ON_ERROR(gfx_anim_init_palette_cache(obj, anim), err, TAG, "Failed to init palette cache");
+    ESP_GOTO_ON_ERROR(gfx_anim_init_palette_cache(obj, anim), err, TAG, "prepare frame: failed to initialize palette cache");
 
     gfx_anim_calculate_offsets(&anim->frame.desc, anim->frame.block_offsets);
 
     gfx_anim_update_geometry(obj, anim);
 
-    // GFX_LOGD(TAG, "frame %" PRIu32 " ready (%s)", current_frame,
+    // GFX_LOGD(TAG, "prepared frame[%" PRIu32 "] with decoder %s", current_frame,
     //          decoder->name ? decoder->name : "unknown");
     return ret;
 
@@ -474,7 +474,7 @@ static esp_err_t gfx_anim_render_pixels(uint8_t bit_depth,
         renderer_idx = 2;
         break;
     default:
-        ESP_RETURN_ON_FALSE(false, ESP_ERR_INVALID_ARG, TAG, "Unsupported bit depth: %d", bit_depth);
+        ESP_RETURN_ON_FALSE(false, ESP_ERR_INVALID_ARG, TAG, "render pixels: unsupported bit depth %d", bit_depth);
     }
 
     s_anim_renderers[renderer_idx](dest_pixels, dest_stride, src_pixels, src_stride,
@@ -661,11 +661,11 @@ static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t d
 static esp_err_t gfx_draw_animation(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 {
     if (obj == NULL || obj->src == NULL || ctx == NULL) {
-        GFX_LOGE(TAG, "Invalid object or source");
+        GFX_LOGE(TAG, "draw animation: object, source, or draw context is NULL");
         return ESP_ERR_INVALID_ARG;
     }
     if (obj->type != GFX_OBJ_TYPE_ANIMATION) {
-        GFX_LOGE(TAG, "Object is not an animation type");
+        GFX_LOGE(TAG, "draw animation: object type is not animation");
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -678,7 +678,7 @@ static esp_err_t gfx_draw_animation(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
         return ESP_ERR_INVALID_STATE;
     }
     if (anim->frame.desc.width <= 0) {
-        GFX_LOGE(TAG, "Invalid header for frame %" PRIu32, anim->current_frame);
+        GFX_LOGE(TAG, "draw animation: frame[%" PRIu32 "] header is invalid", anim->current_frame);
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -689,7 +689,7 @@ static esp_err_t gfx_draw_animation(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     int *last_block_idx = &anim->frame.last_block;
 
     if (block_offsets == NULL || pixel_buffer == NULL) {
-        GFX_LOGE(TAG, "Parsing resources not ready for frame %" PRIu32, anim->current_frame);
+        GFX_LOGE(TAG, "draw animation: frame[%" PRIu32 "] decode resources are not ready", anim->current_frame);
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -759,7 +759,7 @@ static esp_err_t gfx_draw_animation(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
         } else if (frame_desc->bit_depth == GFX_ANIM_DEPTH_8BIT) {
             src_pixels = GFX_BUFFER_OFFSET_8BPP(pixel_buffer, src_offset_y, src_stride, src_offset_x);
         } else {
-            GFX_LOGE(TAG, "Unsupported bit depth: %d", frame_desc->bit_depth);
+            GFX_LOGE(TAG, "draw animation: unsupported bit depth %d", frame_desc->bit_depth);
             return ESP_ERR_INVALID_ARG;
         }
 
@@ -848,7 +848,7 @@ static void gfx_anim_timer_callback(void *arg)
                 anim->segment_play_remaining--;
             }
 
-            GFX_LOGD(TAG, "Repeat segment[%u]", (unsigned int)anim->segment_index);
+            GFX_LOGD(TAG, "timer: repeating segment[%u]", (unsigned int)anim->segment_index);
             anim->current_frame = anim->start_frame;
             if (gfx_anim_prepare_frame(obj) != ESP_OK) {
                 return;
@@ -860,7 +860,7 @@ static void gfx_anim_timer_callback(void *arg)
             anim->is_playing = false;
             anim->segment_paused = true;
             anim->pending_segment_index = anim->segment_index + 1U;
-            GFX_LOGD(TAG, "Pause after segment[%u]", (unsigned int)anim->segment_index);
+            GFX_LOGD(TAG, "timer: pausing after segment[%u]", (unsigned int)anim->segment_index);
             gfx_anim_signal_event(anim, GFX_ANIM_EVENT_SEGMENT_PAUSED);
             if (obj->disp && obj->disp->cb.update_cb) {
                 obj->disp->cb.update_cb(obj->disp, GFX_DISP_EVENT_ALL_FRAME_DONE, obj);
@@ -871,7 +871,7 @@ static void gfx_anim_timer_callback(void *arg)
                 obj->disp->cb.update_cb(obj->disp, GFX_DISP_EVENT_ALL_FRAME_DONE, obj);
             }
         } else {
-            GFX_LOGD(TAG, "Done");
+            GFX_LOGD(TAG, "timer: segment plan completed");
             gfx_anim_finish_plan(obj, anim);
             return;
         }
@@ -886,7 +886,7 @@ static void gfx_anim_timer_callback(void *arg)
         if (obj->disp && obj->disp->cb.update_cb) {
             obj->disp->cb.update_cb(obj->disp, GFX_DISP_EVENT_ONE_FRAME_DONE, obj);
         }
-        // GFX_LOGD(TAG, "Frame %" PRIu32 "/%" PRIu32, anim->current_frame, anim->end_frame);
+        // GFX_LOGD(TAG, "timer: frame %" PRIu32 "/%" PRIu32, anim->current_frame, anim->end_frame);
     }
 
     gfx_obj_invalidate(obj);
@@ -899,13 +899,13 @@ static void gfx_anim_timer_callback(void *arg)
 gfx_obj_t *gfx_anim_create(gfx_disp_t *disp)
 {
     if (disp == NULL) {
-        GFX_LOGE(TAG, "disp must be from gfx_emote_add_disp");
+        GFX_LOGE(TAG, "create animation: display must come from gfx_emote_add_disp");
         return NULL;
     }
 
     gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
     if (obj == NULL) {
-        GFX_LOGE(TAG, "No mem for animation object");
+        GFX_LOGE(TAG, "create animation: failed to allocate animation object");
         return NULL;
     }
 
@@ -919,7 +919,7 @@ gfx_obj_t *gfx_anim_create(gfx_disp_t *disp)
 
     gfx_anim_t *anim = (gfx_anim_t *)malloc(sizeof(gfx_anim_t));
     if (anim == NULL) {
-        GFX_LOGE(TAG, "No mem for animation property");
+        GFX_LOGE(TAG, "create animation: failed to allocate animation state");
         free(obj);
         return NULL;
     }
@@ -930,7 +930,7 @@ gfx_obj_t *gfx_anim_create(gfx_disp_t *disp)
     anim->frame.last_block = -1;
     anim->event_group = xEventGroupCreate();
     if (anim->event_group == NULL) {
-        GFX_LOGE(TAG, "Failed to create animation event group");
+        GFX_LOGE(TAG, "create animation: failed to create event group");
         free(anim);
         free(obj);
         return NULL;
@@ -939,7 +939,7 @@ gfx_obj_t *gfx_anim_create(gfx_disp_t *disp)
     uint32_t period_ms = 1000 / anim->fps;
     anim->timer = gfx_timer_create((void *)disp->ctx, gfx_anim_timer_callback, period_ms, obj);
     if (anim->timer == NULL) {
-        GFX_LOGE(TAG, "Failed to create animation timer");
+        GFX_LOGE(TAG, "create animation: failed to create timer");
         vEventGroupDelete(anim->event_group);
         free(anim);
         free(obj);
@@ -963,10 +963,10 @@ static esp_err_t gfx_anim_set_src_desc_internal(gfx_obj_t *obj, const gfx_anim_s
     const gfx_anim_decoder_ops_t *decoder;
 
     CHECK_OBJ_TYPE_ANIMATION(obj);
-    ESP_RETURN_ON_FALSE(src_desc != NULL, ESP_ERR_INVALID_ARG, TAG, "source descriptor is NULL");
+    ESP_RETURN_ON_FALSE(src_desc != NULL, ESP_ERR_INVALID_ARG, TAG, "set source: source descriptor is NULL");
 
     decoder = gfx_anim_decoder_find_for_source(src_desc);
-    ESP_RETURN_ON_FALSE(decoder != NULL, ESP_ERR_NOT_FOUND, TAG, "No decoder can open source");
+    ESP_RETURN_ON_FALSE(decoder != NULL, ESP_ERR_NOT_FOUND, TAG, "set source: no decoder can open this source");
     return gfx_anim_set_src_desc_with_decoder_internal(obj, decoder, src_desc);
 }
 
@@ -979,18 +979,18 @@ static esp_err_t gfx_anim_set_src_desc_with_decoder_internal(gfx_obj_t *obj, con
     gfx_anim_t *anim;
 
     CHECK_OBJ_TYPE_ANIMATION(obj);
-    ESP_RETURN_ON_FALSE(decoder != NULL, ESP_ERR_INVALID_ARG, TAG, "decoder is NULL");
-    ESP_RETURN_ON_FALSE(src_desc != NULL, ESP_ERR_INVALID_ARG, TAG, "source descriptor is NULL");
+    ESP_RETURN_ON_FALSE(decoder != NULL, ESP_ERR_INVALID_ARG, TAG, "set source: decoder is NULL");
+    ESP_RETURN_ON_FALSE(src_desc != NULL, ESP_ERR_INVALID_ARG, TAG, "set source: source descriptor is NULL");
 
     anim = (gfx_anim_t *)obj->src;
-    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "Animation property is NULL");
+    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "set source: animation context is NULL");
 
     if (anim->is_playing) {
         gfx_anim_stop(obj);
     }
 
-    ESP_RETURN_ON_ERROR(decoder->open(src_desc, &new_handle), TAG, "Failed to open animation source");
-    ESP_RETURN_ON_FALSE(new_handle != NULL, ESP_ERR_INVALID_STATE, TAG, "decoder returned NULL handle");
+    ESP_RETURN_ON_ERROR(decoder->open(src_desc, &new_handle), TAG, "set source: failed to open animation source");
+    ESP_RETURN_ON_FALSE(new_handle != NULL, ESP_ERR_INVALID_STATE, TAG, "set source: decoder returned a NULL handle");
 
     total_frames = decoder->get_total_frames(new_handle);
     if (total_frames <= 0) {
@@ -1008,10 +1008,10 @@ static esp_err_t gfx_anim_set_src_desc_with_decoder_internal(gfx_obj_t *obj, con
     anim->current_frame = 0;
     anim->end_frame = total_frames - 1;
 
-    ESP_GOTO_ON_ERROR(gfx_anim_prepare_frame(obj), err, TAG, "Failed to prepare first frame");
+    ESP_GOTO_ON_ERROR(gfx_anim_prepare_frame(obj), err, TAG, "set source: failed to prepare the first frame");
 
     gfx_obj_invalidate(obj);
-    GFX_LOGD(TAG, "Set src with decoder [%s] [%" PRIu32 "-%" PRIu32 "]",
+    GFX_LOGD(TAG, "set source: decoder=%s, frames=%" PRIu32 "-%" PRIu32,
              decoder->name ? decoder->name : "unknown", anim->start_frame, anim->end_frame);
     return ESP_OK;
 
@@ -1039,15 +1039,15 @@ esp_err_t gfx_anim_set_segments(gfx_obj_t *obj, const gfx_anim_segment_t *segmen
     gfx_anim_segment_t *segment_copy;
 
     CHECK_OBJ_TYPE_ANIMATION(obj);
-    ESP_RETURN_ON_FALSE(segments != NULL, ESP_ERR_INVALID_ARG, TAG, "segments is NULL");
-    ESP_RETURN_ON_FALSE(segment_count > 0U, ESP_ERR_INVALID_ARG, TAG, "segment_count must be > 0");
+    ESP_RETURN_ON_FALSE(segments != NULL, ESP_ERR_INVALID_ARG, TAG, "set segments: segments is NULL");
+    ESP_RETURN_ON_FALSE(segment_count > 0U, ESP_ERR_INVALID_ARG, TAG, "set segments: segment_count must be greater than 0");
 
     anim = (gfx_anim_t *)obj->src;
-    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "Animation property is NULL");
-    ESP_RETURN_ON_FALSE(gfx_anim_has_source(anim), ESP_ERR_INVALID_STATE, TAG, "Animation source not set");
+    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "set segments: animation context is NULL");
+    ESP_RETURN_ON_FALSE(gfx_anim_has_source(anim), ESP_ERR_INVALID_STATE, TAG, "set segments: source is not set");
 
     segment_copy = calloc(segment_count, sizeof(gfx_anim_segment_t));
-    ESP_RETURN_ON_FALSE(segment_copy != NULL, ESP_ERR_NO_MEM, TAG, "No mem for segment plan");
+    ESP_RETURN_ON_FALSE(segment_copy != NULL, ESP_ERR_NO_MEM, TAG, "set segments: failed to allocate segment plan");
 
     memcpy(segment_copy, segments, segment_count * sizeof(gfx_anim_segment_t));
 
@@ -1067,10 +1067,10 @@ esp_err_t gfx_anim_drain_plan_blocking(gfx_obj_t *obj)
     CHECK_OBJ_TYPE_ANIMATION(obj);
 
     anim = (gfx_anim_t *)obj->src;
-    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "Animation property is NULL");
-    ESP_RETURN_ON_FALSE(gfx_anim_has_source(anim), ESP_ERR_INVALID_STATE, TAG, "Animation source not set");
-    ESP_RETURN_ON_FALSE(anim->segments != NULL && anim->segment_count > 0U, ESP_ERR_INVALID_STATE, TAG, "segment plan not set");
-    ESP_RETURN_ON_FALSE(anim->event_group != NULL, ESP_ERR_INVALID_STATE, TAG, "event group not ready");
+    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "drain plan: animation context is NULL");
+    ESP_RETURN_ON_FALSE(gfx_anim_has_source(anim), ESP_ERR_INVALID_STATE, TAG, "drain plan: source is not set");
+    ESP_RETURN_ON_FALSE(anim->segments != NULL && anim->segment_count > 0U, ESP_ERR_INVALID_STATE, TAG, "drain plan: segment plan is not set");
+    ESP_RETURN_ON_FALSE(anim->event_group != NULL, ESP_ERR_INVALID_STATE, TAG, "drain plan: event group is not ready");
 
     if (!anim->is_playing && !anim->segment_paused &&
             anim->segment_index == (anim->segment_count - 1U) &&
@@ -1082,13 +1082,13 @@ esp_err_t gfx_anim_drain_plan_blocking(gfx_obj_t *obj)
     anim->drain_remaining_segments = true;
 
     if (anim->segment_paused) {
-        ESP_RETURN_ON_FALSE(anim->pending_segment_index < anim->segment_count, ESP_ERR_INVALID_STATE, TAG, "no pending segment");
+        ESP_RETURN_ON_FALSE(anim->pending_segment_index < anim->segment_count, ESP_ERR_INVALID_STATE, TAG, "drain plan: pending segment index is invalid");
         ESP_RETURN_ON_ERROR(gfx_anim_apply_segment(obj, anim, &anim->segments[anim->pending_segment_index], anim->pending_segment_index),
-                            TAG, "Failed to resume pending segment");
+                            TAG, "drain plan: failed to resume the pending segment");
         anim->is_playing = true;
         gfx_obj_invalidate(obj);
     } else if (!anim->is_playing) {
-        ESP_RETURN_ON_ERROR(gfx_anim_start(obj), TAG, "Failed to start animation");
+        ESP_RETURN_ON_ERROR(gfx_anim_start(obj), TAG, "drain plan: failed to start animation");
         anim->drain_remaining_segments = true;
     }
 
@@ -1101,21 +1101,21 @@ esp_err_t gfx_anim_start(gfx_obj_t *obj)
     CHECK_OBJ_TYPE_ANIMATION(obj);
 
     gfx_anim_t *anim = (gfx_anim_t *)obj->src;
-    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "Animation property is NULL");
-    ESP_RETURN_ON_FALSE(gfx_anim_has_source(anim), ESP_ERR_INVALID_STATE, TAG, "Animation source not set");
+    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "start animation: animation context is NULL");
+    ESP_RETURN_ON_FALSE(gfx_anim_has_source(anim), ESP_ERR_INVALID_STATE, TAG, "start animation: source is not set");
 
     if (anim->is_playing) {
         return ESP_OK;
     }
 
     if (anim->segment_paused) {
-        ESP_RETURN_ON_FALSE(anim->segments != NULL, ESP_ERR_INVALID_STATE, TAG, "segment plan not set");
-        ESP_RETURN_ON_FALSE(anim->pending_segment_index < anim->segment_count, ESP_ERR_INVALID_STATE, TAG, "no pending segment");
+        ESP_RETURN_ON_FALSE(anim->segments != NULL, ESP_ERR_INVALID_STATE, TAG, "start animation: segment plan is not set");
+        ESP_RETURN_ON_FALSE(anim->pending_segment_index < anim->segment_count, ESP_ERR_INVALID_STATE, TAG, "start animation: pending segment index is invalid");
         ESP_RETURN_ON_ERROR(gfx_anim_apply_segment(obj, anim, &anim->segments[anim->pending_segment_index], anim->pending_segment_index),
-                            TAG, "Failed to resume next segment");
+                            TAG, "start animation: failed to resume the next segment");
     } else {
         anim->current_frame = anim->start_frame;
-        ESP_RETURN_ON_ERROR(gfx_anim_prepare_frame(obj), TAG, "Failed to prepare start frame");
+        ESP_RETURN_ON_ERROR(gfx_anim_prepare_frame(obj), TAG, "start animation: failed to prepare the start frame");
     }
 
     if (anim->event_group != NULL) {
@@ -1126,7 +1126,7 @@ esp_err_t gfx_anim_start(gfx_obj_t *obj)
     anim->drain_remaining_segments = false;
     gfx_obj_invalidate(obj);
 
-    GFX_LOGD(TAG, "Start");
+    GFX_LOGD(TAG, "start animation: playback started");
     return ESP_OK;
 }
 
@@ -1135,7 +1135,7 @@ esp_err_t gfx_anim_stop(gfx_obj_t *obj)
     CHECK_OBJ_TYPE_ANIMATION(obj);
 
     gfx_anim_t *anim = (gfx_anim_t *)obj->src;
-    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "Animation property is NULL");
+    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "stop animation: animation context is NULL");
 
     if (!anim->is_playing && !anim->segment_paused) {
         return ESP_OK;
@@ -1146,7 +1146,7 @@ esp_err_t gfx_anim_stop(gfx_obj_t *obj)
     anim->pending_segment_index = 0;
     anim->drain_remaining_segments = false;
     gfx_anim_signal_event(anim, GFX_ANIM_EVENT_PLAN_DONE);
-    GFX_LOGD(TAG, "Stop");
+    GFX_LOGD(TAG, "stop animation: playback stopped");
     return ESP_OK;
 }
 
@@ -1155,12 +1155,12 @@ esp_err_t gfx_anim_set_mirror(gfx_obj_t *obj, bool enabled, int16_t offset)
     CHECK_OBJ_TYPE_ANIMATION(obj);
 
     gfx_anim_t *anim = (gfx_anim_t *)obj->src;
-    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "Animation property is NULL");
+    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "set mirror: animation context is NULL");
 
     anim->mirror_mode = enabled ? GFX_MIRROR_MANUAL : GFX_MIRROR_DISABLED;
     anim->mirror_offset = offset;
 
-    GFX_LOGD(TAG, "Mirror %s offset:%d", enabled ? "on" : "off", offset);
+    GFX_LOGD(TAG, "set mirror: %s, offset=%d", enabled ? "manual mirroring enabled" : "mirroring disabled", offset);
     return ESP_OK;
 }
 
@@ -1169,10 +1169,10 @@ esp_err_t gfx_anim_set_auto_mirror(gfx_obj_t *obj, bool enabled)
     CHECK_OBJ_TYPE_ANIMATION(obj);
 
     gfx_anim_t *anim = (gfx_anim_t *)obj->src;
-    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "Animation property is NULL");
+    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "set auto mirror: animation context is NULL");
 
     anim->mirror_mode = enabled ? GFX_MIRROR_AUTO : GFX_MIRROR_DISABLED;
 
-    GFX_LOGD(TAG, "Auto mirror %s", enabled ? "on" : "off");
+    GFX_LOGD(TAG, "set auto mirror: %s", enabled ? "enabled" : "disabled");
     return ESP_OK;
 }
