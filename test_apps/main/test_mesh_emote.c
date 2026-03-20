@@ -14,17 +14,17 @@
 
 static const char *TAG = "test_mesh_emote";
 
-#define TEST_MESH_EMOTE_GRID_COLS       4U
-#define TEST_MESH_EMOTE_GRID_ROWS       4U
-#define TEST_MESH_EMOTE_POINT_COUNT     ((TEST_MESH_EMOTE_GRID_COLS + 1U) * (TEST_MESH_EMOTE_GRID_ROWS + 1U))
-#define TEST_MESH_EMOTE_TIMER_PERIOD_MS 33U
-#define TEST_MESH_EMOTE_EYE_COUNT       2U
-#define TEST_MESH_EMOTE_LEFT_EYE_X_OFS  (-90)
-#define TEST_MESH_EMOTE_RIGHT_EYE_X_OFS 90
-#define TEST_MESH_EMOTE_EYE_Y_OFS       0
-#define TEST_MESH_EMOTE_LEFT_EYE_SIGN   (-1)
-#define TEST_MESH_EMOTE_RIGHT_EYE_SIGN  1
-#define TEST_MESH_EMOTE_CENTER_POINT_IDX (((TEST_MESH_EMOTE_GRID_ROWS / 2U) * (TEST_MESH_EMOTE_GRID_COLS + 1U)) + (TEST_MESH_EMOTE_GRID_COLS / 2U))
+#define TEST_MESH_EMOTE_EMOTE_GRID_COLS       4U
+#define TEST_MESH_EMOTE_EMOTE_GRID_ROWS       4U
+#define TEST_MESH_EMOTE_EMOTE_POINT_COUNT     ((TEST_MESH_EMOTE_EMOTE_GRID_COLS + 1U) * (TEST_MESH_EMOTE_EMOTE_GRID_ROWS + 1U))
+#define TEST_MESH_EMOTE_EMOTE_TIMER_PERIOD_MS 33U
+#define TEST_MESH_EMOTE_EMOTE_EYE_COUNT       2U
+#define TEST_MESH_EMOTE_EMOTE_LEFT_EYE_X_OFS  (-90)
+#define TEST_MESH_EMOTE_EMOTE_RIGHT_EYE_X_OFS 90
+#define TEST_MESH_EMOTE_EMOTE_EYE_Y_OFS       0
+#define TEST_MESH_EMOTE_EMOTE_LEFT_EYE_SIGN   (-1)
+#define TEST_MESH_EMOTE_EMOTE_RIGHT_EYE_SIGN  1
+#define TEST_MESH_EMOTE_EMOTE_CENTER_POINT_IDX (((TEST_MESH_EMOTE_EMOTE_GRID_ROWS / 2U) * (TEST_MESH_EMOTE_EMOTE_GRID_COLS + 1U)) + (TEST_MESH_EMOTE_EMOTE_GRID_COLS / 2U))
 
 typedef struct {
     int16_t offset_x;
@@ -72,7 +72,7 @@ typedef struct {
 
 typedef struct {
     gfx_obj_t *mesh_obj;
-    gfx_mesh_img_point_t base_points[TEST_MESH_EMOTE_POINT_COUNT];
+    gfx_mesh_img_point_t base_points[TEST_MESH_EMOTE_EMOTE_POINT_COUNT];
     gfx_obj_t *top_lid_obj;
     gfx_obj_t *bottom_lid_obj;
     int16_t align_x;
@@ -81,7 +81,7 @@ typedef struct {
 } test_mesh_emote_eye_t;
 
 typedef struct {
-    test_mesh_emote_eye_t eyes[TEST_MESH_EMOTE_EYE_COUNT];
+    test_mesh_emote_eye_t eyes[TEST_MESH_EMOTE_EMOTE_EYE_COUNT];
     gfx_obj_t *next_btn;
     gfx_timer_handle_t anim_timer;
     test_mesh_emote_expr_t current_expr;
@@ -100,105 +100,105 @@ typedef struct {
 } test_mesh_emote_scene_t;
 
 enum {
-    TEST_MESH_EMOTE_EASING_GENTLE = 0,
-    TEST_MESH_EMOTE_EASING_SNAP,
-    TEST_MESH_EMOTE_EASING_LINGER,
-    TEST_MESH_EMOTE_EASING_SETTLE,
+    TEST_MESH_EMOTE_EMOTE_EASING_GENTLE = 0,
+    TEST_MESH_EMOTE_EMOTE_EASING_SNAP,
+    TEST_MESH_EMOTE_EMOTE_EASING_LINGER,
+    TEST_MESH_EMOTE_EMOTE_EASING_SETTLE,
 };
 
 enum {
-    TEST_MESH_EMOTE_HOLD_NONE = 0,
-    TEST_MESH_EMOTE_HOLD_IDLE,
-    TEST_MESH_EMOTE_HOLD_STARE,
-    TEST_MESH_EMOTE_HOLD_FOCUS,
-    TEST_MESH_EMOTE_HOLD_THINK,
-    TEST_MESH_EMOTE_HOLD_SLEEPY,
-    TEST_MESH_EMOTE_HOLD_HAPPY,
+    TEST_MESH_EMOTE_EMOTE_HOLD_NONE = 0,
+    TEST_MESH_EMOTE_EMOTE_HOLD_IDLE,
+    TEST_MESH_EMOTE_EMOTE_HOLD_STARE,
+    TEST_MESH_EMOTE_EMOTE_HOLD_FOCUS,
+    TEST_MESH_EMOTE_EMOTE_HOLD_THINK,
+    TEST_MESH_EMOTE_EMOTE_HOLD_SLEEPY,
+    TEST_MESH_EMOTE_EMOTE_HOLD_HAPPY,
 };
 
-#define TEST_MESH_EMOTE_CLIP_EXT(gx, gy, blink, squint, widen, smile, sleepy, sad, surprise, angry, sx, sy, trans, hold, easing, motion) \
+#define TEST_MESH_EMOTE_EMOTE_CLIP_EXT(gx, gy, blink, squint, widen, smile, sleepy, sad, surprise, angry, sx, sy, trans, hold, easing, motion) \
     {{gx, gy, blink, squint, widen, smile, sleepy, sad, surprise, angry, sx, sy}, trans, hold, easing, motion}
 
-#define TEST_MESH_EMOTE_CLIP(gx, gy, blink, squint, widen, smile, sleepy, sad, surprise, sx, sy, trans, hold, easing, motion) \
-    TEST_MESH_EMOTE_CLIP_EXT(gx, gy, blink, squint, widen, smile, sleepy, sad, surprise, 0, sx, sy, trans, hold, easing, motion)
+#define TEST_MESH_EMOTE_EMOTE_CLIP(gx, gy, blink, squint, widen, smile, sleepy, sad, surprise, sx, sy, trans, hold, easing, motion) \
+    TEST_MESH_EMOTE_EMOTE_CLIP_EXT(gx, gy, blink, squint, widen, smile, sleepy, sad, surprise, 0, sx, sy, trans, hold, easing, motion)
 
 static const test_mesh_emote_clip_t s_action_gif_angry[] = {
-    TEST_MESH_EMOTE_CLIP_EXT(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12U, 14U, TEST_MESH_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_HOLD_IDLE),
+    TEST_MESH_EMOTE_EMOTE_CLIP_EXT(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12U, 14U, TEST_MESH_EMOTE_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_EMOTE_HOLD_IDLE),
     /* Blink / Anticipation (like Frame 005) */
-    TEST_MESH_EMOTE_CLIP_EXT(0, 0, 50, 20, 0, 0, 0, 0, 0, 20, 0, 0, 6U, 2U, TEST_MESH_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_HOLD_NONE),
+    TEST_MESH_EMOTE_EMOTE_CLIP_EXT(0, 0, 50, 20, 0, 0, 0, 0, 0, 20, 0, 0, 6U, 2U, TEST_MESH_EMOTE_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_EMOTE_HOLD_NONE),
     /* Compressed angry blink (like Frame 010) */
-    TEST_MESH_EMOTE_CLIP_EXT(0, 0, 80, 40, 0, 0, 0, 0, 0, 60, 0, 0, 4U, 3U, TEST_MESH_EMOTE_EASING_LINGER, TEST_MESH_EMOTE_HOLD_NONE),
+    TEST_MESH_EMOTE_EMOTE_CLIP_EXT(0, 0, 80, 40, 0, 0, 0, 0, 0, 60, 0, 0, 4U, 3U, TEST_MESH_EMOTE_EMOTE_EASING_LINGER, TEST_MESH_EMOTE_EMOTE_HOLD_NONE),
     /* Eyes snap open into sharp angry shape (like Frame 015-030) */
-    TEST_MESH_EMOTE_CLIP_EXT(0, 0, 0, 10, 15, 0, 0, 0, 0, 120, 0, 0, 6U, 25U, TEST_MESH_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_HOLD_FOCUS),
+    TEST_MESH_EMOTE_EMOTE_CLIP_EXT(0, 0, 0, 10, 15, 0, 0, 0, 0, 120, 0, 0, 6U, 25U, TEST_MESH_EMOTE_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_EMOTE_HOLD_FOCUS),
     /* Settle into a sustained angry glare (like Frame 045) */
-    TEST_MESH_EMOTE_CLIP_EXT(0, 0, 0, 0, 0, 0, 0, 0, 0, 80, 0, 0, 10U, 20U, TEST_MESH_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_HOLD_FOCUS),
+    TEST_MESH_EMOTE_EMOTE_CLIP_EXT(0, 0, 0, 0, 0, 0, 0, 0, 0, 80, 0, 0, 10U, 20U, TEST_MESH_EMOTE_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_EMOTE_HOLD_FOCUS),
     /* Relax back to idle (like Frame 060) */
-    TEST_MESH_EMOTE_CLIP_EXT(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18U, 20U, TEST_MESH_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_HOLD_IDLE),
+    TEST_MESH_EMOTE_EMOTE_CLIP_EXT(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18U, 20U, TEST_MESH_EMOTE_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_EMOTE_HOLD_IDLE),
 };
 
 static const test_mesh_emote_clip_t s_action_idle[] = {
-    TEST_MESH_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18U, 26U, TEST_MESH_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_HOLD_IDLE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18U, 26U, TEST_MESH_EMOTE_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_EMOTE_HOLD_IDLE),
 };
 
 static const test_mesh_emote_clip_t s_action_blank_stare[] = {
-    TEST_MESH_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10U, 10U, TEST_MESH_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_HOLD_IDLE),
-    TEST_MESH_EMOTE_CLIP(0, 0, 0, 10, 48, 0, 0, 0, 20, 0, 0, 8U, 10U, TEST_MESH_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_HOLD_NONE),
-    TEST_MESH_EMOTE_CLIP(0, 0, 0, 6, 34, 0, 0, 0, 10, 0, 0, 12U, 30U, TEST_MESH_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_HOLD_STARE),
-    TEST_MESH_EMOTE_CLIP(0, 0, 20, 8, 26, 0, 0, 0, 6, 0, 0, 6U, 2U, TEST_MESH_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_HOLD_NONE),
-    TEST_MESH_EMOTE_CLIP(0, 0, 0, 2, 18, 0, 0, 0, 4, 0, 0, 8U, 10U, TEST_MESH_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_HOLD_STARE),
-    TEST_MESH_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14U, 22U, TEST_MESH_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_HOLD_IDLE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10U, 10U, TEST_MESH_EMOTE_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_EMOTE_HOLD_IDLE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 0, 10, 48, 0, 0, 0, 20, 0, 0, 8U, 10U, TEST_MESH_EMOTE_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_EMOTE_HOLD_NONE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 0, 6, 34, 0, 0, 0, 10, 0, 0, 12U, 30U, TEST_MESH_EMOTE_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_EMOTE_HOLD_STARE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 20, 8, 26, 0, 0, 0, 6, 0, 0, 6U, 2U, TEST_MESH_EMOTE_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_EMOTE_HOLD_NONE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 0, 2, 18, 0, 0, 0, 4, 0, 0, 8U, 10U, TEST_MESH_EMOTE_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_EMOTE_HOLD_STARE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14U, 22U, TEST_MESH_EMOTE_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_EMOTE_HOLD_IDLE),
 };
 
 static const test_mesh_emote_clip_t s_action_look_left[] = {
-    TEST_MESH_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12U, 14U, TEST_MESH_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_HOLD_IDLE),
-    TEST_MESH_EMOTE_CLIP(-10, 0, 80, 10, 0, 0, 0, 0, 0, -1, 0, 6U, 3U, TEST_MESH_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_HOLD_NONE),
-    TEST_MESH_EMOTE_CLIP(-34, 0, 0, 30, 0, 0, 0, 0, 0, -4, 0, 12U, 20U, TEST_MESH_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_HOLD_FOCUS),
-    TEST_MESH_EMOTE_CLIP(-22, 0, 0, 15, 0, 0, 0, 0, 0, -2, 0, 10U, 10U, TEST_MESH_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_HOLD_FOCUS),
-    TEST_MESH_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14U, 20U, TEST_MESH_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_HOLD_IDLE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12U, 14U, TEST_MESH_EMOTE_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_EMOTE_HOLD_IDLE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(-10, 0, 80, 10, 0, 0, 0, 0, 0, -1, 0, 6U, 3U, TEST_MESH_EMOTE_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_EMOTE_HOLD_NONE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(-34, 0, 0, 30, 0, 0, 0, 0, 0, -4, 0, 12U, 20U, TEST_MESH_EMOTE_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_EMOTE_HOLD_FOCUS),
+    TEST_MESH_EMOTE_EMOTE_CLIP(-22, 0, 0, 15, 0, 0, 0, 0, 0, -2, 0, 10U, 10U, TEST_MESH_EMOTE_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_EMOTE_HOLD_FOCUS),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14U, 20U, TEST_MESH_EMOTE_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_EMOTE_HOLD_IDLE),
 };
 
 static const test_mesh_emote_clip_t s_action_blink_soft[] = {
-    TEST_MESH_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12U, 12U, TEST_MESH_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_HOLD_IDLE),
-    TEST_MESH_EMOTE_CLIP(0, 0, 100, 15, 0, 0, 0, 0, 0, 0, 0, 5U, 3U, TEST_MESH_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_HOLD_NONE),
-    TEST_MESH_EMOTE_CLIP(0, 0, -10, 0, 15, 0, 0, 0, 0, 0, 0, 8U, 6U, TEST_MESH_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_HOLD_NONE),
-    TEST_MESH_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10U, 20U, TEST_MESH_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_HOLD_IDLE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12U, 12U, TEST_MESH_EMOTE_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_EMOTE_HOLD_IDLE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 100, 15, 0, 0, 0, 0, 0, 0, 0, 5U, 3U, TEST_MESH_EMOTE_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_EMOTE_HOLD_NONE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, -10, 0, 15, 0, 0, 0, 0, 0, 0, 8U, 6U, TEST_MESH_EMOTE_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_EMOTE_HOLD_NONE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10U, 20U, TEST_MESH_EMOTE_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_EMOTE_HOLD_IDLE),
 };
 
 static const test_mesh_emote_clip_t s_action_look_right[] = {
-    TEST_MESH_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12U, 14U, TEST_MESH_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_HOLD_IDLE),
-    TEST_MESH_EMOTE_CLIP(12, 0, 80, 10, 0, 0, 0, 0, 0, 1, 0, 6U, 3U, TEST_MESH_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_HOLD_NONE),
-    TEST_MESH_EMOTE_CLIP(38, 0, 0, 30, 0, 0, 0, 0, 0, 4, 0, 12U, 22U, TEST_MESH_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_HOLD_FOCUS),
-    TEST_MESH_EMOTE_CLIP(20, 0, 0, 15, 0, 0, 0, 0, 0, 2, 0, 10U, 10U, TEST_MESH_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_HOLD_FOCUS),
-    TEST_MESH_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14U, 20U, TEST_MESH_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_HOLD_IDLE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12U, 14U, TEST_MESH_EMOTE_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_EMOTE_HOLD_IDLE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(12, 0, 80, 10, 0, 0, 0, 0, 0, 1, 0, 6U, 3U, TEST_MESH_EMOTE_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_EMOTE_HOLD_NONE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(38, 0, 0, 30, 0, 0, 0, 0, 0, 4, 0, 12U, 22U, TEST_MESH_EMOTE_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_EMOTE_HOLD_FOCUS),
+    TEST_MESH_EMOTE_EMOTE_CLIP(20, 0, 0, 15, 0, 0, 0, 0, 0, 2, 0, 10U, 10U, TEST_MESH_EMOTE_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_EMOTE_HOLD_FOCUS),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14U, 20U, TEST_MESH_EMOTE_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_EMOTE_HOLD_IDLE),
 };
 
 static const test_mesh_emote_clip_t s_action_think_up[] = {
-    TEST_MESH_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12U, 14U, TEST_MESH_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_HOLD_IDLE),
-    TEST_MESH_EMOTE_CLIP(6, -18, 0, 12, 12, 0, 0, 0, 0, 0, -2, 18U, 20U, TEST_MESH_EMOTE_EASING_LINGER, TEST_MESH_EMOTE_HOLD_THINK),
-    TEST_MESH_EMOTE_CLIP(10, -34, 0, 20, 24, 0, 0, 0, 0, 0, -4, 20U, 28U, TEST_MESH_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_HOLD_THINK),
-    TEST_MESH_EMOTE_CLIP(10, -22, 72, 24, 0, 0, 0, 0, 0, 0, -2, 10U, 2U, TEST_MESH_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_HOLD_NONE),
-    TEST_MESH_EMOTE_CLIP(8, -30, 0, 10, 18, 0, 0, 0, 0, 0, -4, 12U, 20U, TEST_MESH_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_HOLD_THINK),
-    TEST_MESH_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18U, 24U, TEST_MESH_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_HOLD_IDLE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12U, 14U, TEST_MESH_EMOTE_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_EMOTE_HOLD_IDLE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(6, -18, 0, 12, 12, 0, 0, 0, 0, 0, -2, 18U, 20U, TEST_MESH_EMOTE_EMOTE_EASING_LINGER, TEST_MESH_EMOTE_EMOTE_HOLD_THINK),
+    TEST_MESH_EMOTE_EMOTE_CLIP(10, -34, 0, 20, 24, 0, 0, 0, 0, 0, -4, 20U, 28U, TEST_MESH_EMOTE_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_EMOTE_HOLD_THINK),
+    TEST_MESH_EMOTE_EMOTE_CLIP(10, -22, 72, 24, 0, 0, 0, 0, 0, 0, -2, 10U, 2U, TEST_MESH_EMOTE_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_EMOTE_HOLD_NONE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(8, -30, 0, 10, 18, 0, 0, 0, 0, 0, -4, 12U, 20U, TEST_MESH_EMOTE_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_EMOTE_HOLD_THINK),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18U, 24U, TEST_MESH_EMOTE_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_EMOTE_HOLD_IDLE),
 };
 
 static const test_mesh_emote_clip_t s_action_sleepy[] = {
-    TEST_MESH_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12U, 14U, TEST_MESH_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_HOLD_IDLE),
-    TEST_MESH_EMOTE_CLIP(0, 8, 0, 5, 0, 0, 20, 18, 0, 0, 0, 24U, 28U, TEST_MESH_EMOTE_EASING_LINGER, TEST_MESH_EMOTE_HOLD_NONE),
-    TEST_MESH_EMOTE_CLIP(0, 18, 20, 10, 0, 0, 60, 0, 0, 0, 3, 22U, 28U, TEST_MESH_EMOTE_EASING_LINGER, TEST_MESH_EMOTE_HOLD_SLEEPY),
-    TEST_MESH_EMOTE_CLIP(0, 22, 110, 15, 0, 0, 80, 0, 0, 0, 4, 10U, 5U, TEST_MESH_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_HOLD_NONE),
-    TEST_MESH_EMOTE_CLIP(0, 16, 30, 8, 0, 0, 50, 0, 0, 0, 3, 14U, 20U, TEST_MESH_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_HOLD_SLEEPY),
-    TEST_MESH_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18U, 24U, TEST_MESH_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_HOLD_IDLE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12U, 14U, TEST_MESH_EMOTE_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_EMOTE_HOLD_IDLE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 8, 0, 5, 0, 0, 20, 18, 0, 0, 0, 24U, 28U, TEST_MESH_EMOTE_EMOTE_EASING_LINGER, TEST_MESH_EMOTE_EMOTE_HOLD_NONE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 18, 20, 10, 0, 0, 60, 0, 0, 0, 3, 22U, 28U, TEST_MESH_EMOTE_EMOTE_EASING_LINGER, TEST_MESH_EMOTE_EMOTE_HOLD_SLEEPY),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 22, 110, 15, 0, 0, 80, 0, 0, 0, 4, 10U, 5U, TEST_MESH_EMOTE_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_EMOTE_HOLD_NONE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 16, 30, 8, 0, 0, 50, 0, 0, 0, 3, 14U, 20U, TEST_MESH_EMOTE_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_EMOTE_HOLD_SLEEPY),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18U, 24U, TEST_MESH_EMOTE_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_EMOTE_HOLD_IDLE),
 };
 
 static const test_mesh_emote_clip_t s_action_surprise_happy[] = {
-    TEST_MESH_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12U, 14U, TEST_MESH_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_HOLD_IDLE),
-    TEST_MESH_EMOTE_CLIP(0, -8, 0, 0, 72, 0, 0, 0, 60, 0, -4, 10U, 8U, TEST_MESH_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_HOLD_NONE),
-    TEST_MESH_EMOTE_CLIP(0, -4, 0, 0, 28, 0, 0, 0, 24, 0, -2, 12U, 18U, TEST_MESH_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_HOLD_NONE),
-    TEST_MESH_EMOTE_CLIP(0, -4, 0, 28, 10, 60, 0, 0, 0, 0, -2, 18U, 18U, TEST_MESH_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_HOLD_HAPPY),
-    TEST_MESH_EMOTE_CLIP(0, -2, 72, 34, 0, 30, 0, 0, 0, 0, -1, 8U, 2U, TEST_MESH_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_HOLD_NONE),
-    TEST_MESH_EMOTE_CLIP(0, -4, 0, 16, 8, 50, 0, 0, 0, 0, -2, 10U, 12U, TEST_MESH_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_HOLD_HAPPY),
-    TEST_MESH_EMOTE_CLIP(0, -3, 0, 22, 8, 70, 0, 0, 0, 0, -2, 16U, 26U, TEST_MESH_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_HOLD_HAPPY),
-    TEST_MESH_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18U, 24U, TEST_MESH_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_HOLD_IDLE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12U, 14U, TEST_MESH_EMOTE_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_EMOTE_HOLD_IDLE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, -8, 0, 0, 72, 0, 0, 0, 60, 0, -4, 10U, 8U, TEST_MESH_EMOTE_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_EMOTE_HOLD_NONE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, -4, 0, 0, 28, 0, 0, 0, 24, 0, -2, 12U, 18U, TEST_MESH_EMOTE_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_EMOTE_HOLD_NONE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, -4, 0, 28, 10, 60, 0, 0, 0, 0, -2, 18U, 18U, TEST_MESH_EMOTE_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_EMOTE_HOLD_HAPPY),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, -2, 72, 34, 0, 30, 0, 0, 0, 0, -1, 8U, 2U, TEST_MESH_EMOTE_EMOTE_EASING_SNAP, TEST_MESH_EMOTE_EMOTE_HOLD_NONE),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, -4, 0, 16, 8, 50, 0, 0, 0, 0, -2, 10U, 12U, TEST_MESH_EMOTE_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_EMOTE_HOLD_HAPPY),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, -3, 0, 22, 8, 70, 0, 0, 0, 0, -2, 16U, 26U, TEST_MESH_EMOTE_EMOTE_EASING_GENTLE, TEST_MESH_EMOTE_EMOTE_HOLD_HAPPY),
+    TEST_MESH_EMOTE_EMOTE_CLIP(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18U, 24U, TEST_MESH_EMOTE_EMOTE_EASING_SETTLE, TEST_MESH_EMOTE_EMOTE_HOLD_IDLE),
 };
 
 static const test_mesh_emote_action_t s_action_playlist[] = {
@@ -213,7 +213,7 @@ static const test_mesh_emote_action_t s_action_playlist[] = {
     {"surprise_happy", "惊讶到开心", s_action_surprise_happy, TEST_APP_ARRAY_SIZE(s_action_surprise_happy)},
 };
 
-#undef TEST_MESH_EMOTE_CLIP
+#undef TEST_MESH_EMOTE_EMOTE_CLIP
 
 static int32_t test_mesh_emote_abs_i32(int32_t value)
 {
@@ -298,13 +298,13 @@ static uint16_t test_mesh_emote_smoothstep_permille(uint16_t t_permille)
 static uint16_t test_mesh_emote_apply_easing(uint8_t easing_mode, uint16_t t_permille)
 {
     switch (easing_mode) {
-    case TEST_MESH_EMOTE_EASING_SNAP:
+    case TEST_MESH_EMOTE_EMOTE_EASING_SNAP:
         return test_mesh_emote_ease_out_cubic_permille(t_permille);
-    case TEST_MESH_EMOTE_EASING_LINGER:
+    case TEST_MESH_EMOTE_EMOTE_EASING_LINGER:
         return test_mesh_emote_ease_in_cubic_permille(t_permille);
-    case TEST_MESH_EMOTE_EASING_SETTLE:
+    case TEST_MESH_EMOTE_EMOTE_EASING_SETTLE:
         return test_mesh_emote_ease_in_out_cubic_permille(t_permille);
-    case TEST_MESH_EMOTE_EASING_GENTLE:
+    case TEST_MESH_EMOTE_EMOTE_EASING_GENTLE:
     default:
         return test_mesh_emote_smoothstep_permille(t_permille);
     }
@@ -419,9 +419,9 @@ static void test_mesh_emote_capture_base_points(test_mesh_emote_eye_t *eye)
 {
     TEST_ASSERT_NOT_NULL(eye);
     TEST_ASSERT_NOT_NULL(eye->mesh_obj);
-    TEST_ASSERT_EQUAL_UINT32(TEST_MESH_EMOTE_POINT_COUNT, gfx_mesh_img_get_point_count(eye->mesh_obj));
+    TEST_ASSERT_EQUAL_UINT32(TEST_MESH_EMOTE_EMOTE_POINT_COUNT, gfx_mesh_img_get_point_count(eye->mesh_obj));
 
-    for (size_t i = 0; i < TEST_MESH_EMOTE_POINT_COUNT; i++) {
+    for (size_t i = 0; i < TEST_MESH_EMOTE_EMOTE_POINT_COUNT; i++) {
         TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_get_point(eye->mesh_obj, i, &eye->base_points[i]));
     }
 }
@@ -522,10 +522,10 @@ static esp_err_t test_mesh_emote_apply_pose_to_eye(test_mesh_emote_eye_t *eye, c
 
     refined_pose = test_mesh_emote_refine_pose_for_eye(eye, pose);
 
-    center_x = eye->base_points[TEST_MESH_EMOTE_CENTER_POINT_IDX].x;
-    center_y = eye->base_points[TEST_MESH_EMOTE_CENTER_POINT_IDX].y;
+    center_x = eye->base_points[TEST_MESH_EMOTE_EMOTE_CENTER_POINT_IDX].x;
+    center_y = eye->base_points[TEST_MESH_EMOTE_EMOTE_CENTER_POINT_IDX].y;
 
-    for (size_t i = 0; i < TEST_MESH_EMOTE_POINT_COUNT; i++) {
+    for (size_t i = 0; i < TEST_MESH_EMOTE_EMOTE_POINT_COUNT; i++) {
         int32_t rel_x = eye->base_points[i].x - center_x;
         int32_t rel_y = eye->base_points[i].y - center_y;
 
@@ -533,7 +533,7 @@ static esp_err_t test_mesh_emote_apply_pose_to_eye(test_mesh_emote_eye_t *eye, c
         max_abs_y = test_mesh_emote_max_i32(max_abs_y, test_mesh_emote_abs_i32(rel_y));
     }
 
-    for (size_t i = 0; i < TEST_MESH_EMOTE_POINT_COUNT; i++) {
+    for (size_t i = 0; i < TEST_MESH_EMOTE_EMOTE_POINT_COUNT; i++) {
         int32_t rel_x = eye->base_points[i].x - center_x;
         int32_t rel_y = eye->base_points[i].y - center_y;
         int32_t nx = (rel_x * 1000) / max_abs_x;
@@ -634,40 +634,40 @@ static test_mesh_emote_expr_t test_mesh_emote_apply_hold_motion(const test_mesh_
                                                 (uint16_t)((scene->action_idx * 31U) + (scene->clip_idx * 11U)), 12);
 
     switch (clip->hold_motion_mode) {
-    case TEST_MESH_EMOTE_HOLD_IDLE:
+    case TEST_MESH_EMOTE_EMOTE_HOLD_IDLE:
         expr.gaze_x = test_mesh_emote_clamp_i16((int32_t)expr.gaze_x + primary_x, -180, 180);
         expr.gaze_y = test_mesh_emote_clamp_i16((int32_t)expr.gaze_y + (primary_y / 2), -180, 180);
         expr.shift_y = test_mesh_emote_clamp_i16((int32_t)expr.shift_y + (primary_y / 2), -24, 24);
         expr.widen = test_mesh_emote_clamp_i16((int32_t)expr.widen + (secondary / 2), -80, 120);
         break;
-    case TEST_MESH_EMOTE_HOLD_STARE:
+    case TEST_MESH_EMOTE_EMOTE_HOLD_STARE:
         expr.gaze_x = test_mesh_emote_clamp_i16((int32_t)expr.gaze_x + (primary_x / 4), -180, 180);
         expr.gaze_y = test_mesh_emote_clamp_i16((int32_t)expr.gaze_y + (primary_y / 5), -180, 180);
         expr.shift_y = test_mesh_emote_clamp_i16((int32_t)expr.shift_y + (primary_y / 4), -24, 24);
         expr.widen = test_mesh_emote_clamp_i16((int32_t)expr.widen + 4 + (test_mesh_emote_abs_i32(secondary) / 4), -80, 140);
         expr.surprise = test_mesh_emote_clamp_i16((int32_t)expr.surprise + (test_mesh_emote_abs_i32(primary_y) / 4), 0, 120);
         break;
-    case TEST_MESH_EMOTE_HOLD_FOCUS:
+    case TEST_MESH_EMOTE_EMOTE_HOLD_FOCUS:
         expr.gaze_x = test_mesh_emote_clamp_i16((int32_t)expr.gaze_x + (primary_x / 2), -180, 180);
         expr.squint = test_mesh_emote_clamp_i16((int32_t)expr.squint + test_mesh_emote_abs_i32(primary_x), -80, 240);
         break;
-    case TEST_MESH_EMOTE_HOLD_THINK:
+    case TEST_MESH_EMOTE_EMOTE_HOLD_THINK:
         expr.gaze_x = test_mesh_emote_clamp_i16((int32_t)expr.gaze_x + (primary_x / 2), -180, 180);
         expr.gaze_y = test_mesh_emote_clamp_i16((int32_t)expr.gaze_y + primary_y, -180, 180);
         expr.widen = test_mesh_emote_clamp_i16((int32_t)expr.widen + 4 + (test_mesh_emote_abs_i32(primary_y) / 2), -80, 160);
         break;
-    case TEST_MESH_EMOTE_HOLD_SLEEPY:
+    case TEST_MESH_EMOTE_EMOTE_HOLD_SLEEPY:
         expr.gaze_x = test_mesh_emote_clamp_i16((int32_t)expr.gaze_x + (primary_x / 3), -180, 180);
         expr.gaze_y = test_mesh_emote_clamp_i16((int32_t)expr.gaze_y + test_mesh_emote_abs_i32(primary_y), -180, 180);
         expr.sleepy = test_mesh_emote_clamp_i16((int32_t)expr.sleepy + 4 + test_mesh_emote_abs_i32(primary_y), 0, 160);
         expr.shift_y = test_mesh_emote_clamp_i16((int32_t)expr.shift_y + 1 + (primary_y / 3), -24, 24);
         break;
-    case TEST_MESH_EMOTE_HOLD_HAPPY:
+    case TEST_MESH_EMOTE_EMOTE_HOLD_HAPPY:
         expr.gaze_x = test_mesh_emote_clamp_i16((int32_t)expr.gaze_x + (primary_x / 2), -180, 180);
         expr.smile = test_mesh_emote_clamp_i16((int32_t)expr.smile + 4 + test_mesh_emote_abs_i32(primary_x), 0, 180);
         expr.squint = test_mesh_emote_clamp_i16((int32_t)expr.squint + 2 + (test_mesh_emote_abs_i32(primary_y) / 2), -80, 180);
         break;
-    case TEST_MESH_EMOTE_HOLD_NONE:
+    case TEST_MESH_EMOTE_EMOTE_HOLD_NONE:
     default:
         break;
     }
@@ -694,7 +694,7 @@ static esp_err_t test_mesh_emote_apply_pose(test_mesh_emote_scene_t *scene, cons
     ESP_RETURN_ON_FALSE(scene != NULL, ESP_ERR_INVALID_ARG, TAG, "apply pose: scene is NULL");
     ESP_RETURN_ON_FALSE(pose != NULL, ESP_ERR_INVALID_ARG, TAG, "apply pose: pose is NULL");
 
-    for (size_t i = 0; i < TEST_MESH_EMOTE_EYE_COUNT; i++) {
+    for (size_t i = 0; i < TEST_MESH_EMOTE_EMOTE_EYE_COUNT; i++) {
         ESP_RETURN_ON_ERROR(test_mesh_emote_apply_pose_to_eye(&scene->eyes[i], pose),
                             TAG, "apply pose: eye %u failed", (unsigned)i);
     }
@@ -775,7 +775,7 @@ static void test_mesh_emote_anim_cb(void *user_data)
         return;
     }
 
-    for (size_t i = 0; i < TEST_MESH_EMOTE_EYE_COUNT; i++) {
+    for (size_t i = 0; i < TEST_MESH_EMOTE_EMOTE_EYE_COUNT; i++) {
         if (scene->eyes[i].mesh_obj == NULL) {
             return;
         }
@@ -866,7 +866,7 @@ static void test_mesh_emote_scene_cleanup(test_mesh_emote_scene_t *scene)
         scene->next_btn = NULL;
     }
 
-    for (size_t i = 0; i < TEST_MESH_EMOTE_EYE_COUNT; i++) {
+    for (size_t i = 0; i < TEST_MESH_EMOTE_EMOTE_EYE_COUNT; i++) {
         if (scene->eyes[i].top_lid_obj != NULL) {
             gfx_obj_delete(scene->eyes[i].top_lid_obj);
             scene->eyes[i].top_lid_obj = NULL;
@@ -907,7 +907,7 @@ static void test_mesh_emote_init_eye(test_mesh_emote_eye_t *eye, int16_t align_x
     eye->mesh_obj = gfx_mesh_img_create(disp_default);
     TEST_ASSERT_NOT_NULL(eye->mesh_obj);
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(eye->mesh_obj, (void *)&orb_ball_center));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(eye->mesh_obj, TEST_MESH_EMOTE_GRID_COLS, TEST_MESH_EMOTE_GRID_ROWS));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(eye->mesh_obj, TEST_MESH_EMOTE_EMOTE_GRID_COLS, TEST_MESH_EMOTE_EMOTE_GRID_ROWS));
     // TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(eye->mesh_obj, false));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(eye->mesh_obj, true));
 
@@ -944,8 +944,8 @@ static void test_mesh_emote_run(void)
     // gfx_disp_set_bg_color(disp_default, GFX_COLOR_HEX(0x0f172a));
     gfx_disp_set_bg_color(disp_default, GFX_COLOR_HEX(0x000000));
 
-    test_mesh_emote_init_eye(&scene.eyes[0], TEST_MESH_EMOTE_LEFT_EYE_X_OFS, TEST_MESH_EMOTE_EYE_Y_OFS, TEST_MESH_EMOTE_LEFT_EYE_SIGN);
-    test_mesh_emote_init_eye(&scene.eyes[1], TEST_MESH_EMOTE_RIGHT_EYE_X_OFS, TEST_MESH_EMOTE_EYE_Y_OFS, TEST_MESH_EMOTE_RIGHT_EYE_SIGN);
+    test_mesh_emote_init_eye(&scene.eyes[0], TEST_MESH_EMOTE_EMOTE_LEFT_EYE_X_OFS, TEST_MESH_EMOTE_EMOTE_EYE_Y_OFS, TEST_MESH_EMOTE_EMOTE_LEFT_EYE_SIGN);
+    test_mesh_emote_init_eye(&scene.eyes[1], TEST_MESH_EMOTE_EMOTE_RIGHT_EYE_X_OFS, TEST_MESH_EMOTE_EMOTE_EYE_Y_OFS, TEST_MESH_EMOTE_EMOTE_RIGHT_EYE_SIGN);
 
     scene.next_btn = gfx_button_create(disp_default);
     TEST_ASSERT_NOT_NULL(scene.next_btn);
@@ -970,7 +970,7 @@ static void test_mesh_emote_run(void)
     TEST_ASSERT_EQUAL(ESP_OK, test_mesh_emote_apply_expr(&scene, &scene.current_expr));
     test_mesh_emote_update_next_btn_text(&scene);
 
-    scene.anim_timer = gfx_timer_create(emote_handle, test_mesh_emote_anim_cb, TEST_MESH_EMOTE_TIMER_PERIOD_MS, &scene);
+    scene.anim_timer = gfx_timer_create(emote_handle, test_mesh_emote_anim_cb, TEST_MESH_EMOTE_EMOTE_TIMER_PERIOD_MS, &scene);
     TEST_ASSERT_NOT_NULL(scene.anim_timer);
     test_app_unlock();
 
@@ -983,7 +983,7 @@ static void test_mesh_emote_run(void)
 }
 
 // TEST_CASE("widget mesh image deform", "[widget][image][mesh]")
-void test_mesh_emote_1_run_case(void)
+void test_mesh_emote_run_case(void)
 {
     test_app_runtime_t runtime;
 

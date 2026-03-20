@@ -11,24 +11,24 @@
 #include "unity.h"
 #include "common.h"
 
-static const char *TAG = "test_mesh_img_2";
+static const char *TAG = "test_mesh_drag";
 
-#define TEST_MESH2_GRID_COLS       6U
-#define TEST_MESH2_GRID_ROWS       4U
-#define TEST_MESH2_POINT_COUNT     ((TEST_MESH2_GRID_COLS + 1U) * (TEST_MESH2_GRID_ROWS + 1U))
-#define TEST_MESH2_TIMER_PERIOD_MS 33U
-// #define TEST_MESH2_DRAG_LIMIT_X    60
-// #define TEST_MESH2_DRAG_LIMIT_Y    50
-#define TEST_MESH2_DRAG_LIMIT_X    100
-#define TEST_MESH2_DRAG_LIMIT_Y    100
-#define TEST_MESH2_CENTER_POINT_IDX (((TEST_MESH2_GRID_ROWS / 2U) * (TEST_MESH2_GRID_COLS + 1U)) + (TEST_MESH2_GRID_COLS / 2U))
-#define TEST_MESH2_SHEAR_DIV       3000
-#define TEST_MESH2_SQUEEZE_DIV     8000
+#define TEST_MESH_DRAG_GRID_COLS       6U
+#define TEST_MESH_DRAG_GRID_ROWS       4U
+#define TEST_MESH_DRAG_POINT_COUNT     ((TEST_MESH_DRAG_GRID_COLS + 1U) * (TEST_MESH_DRAG_GRID_ROWS + 1U))
+#define TEST_MESH_DRAG_TIMER_PERIOD_MS 33U
+// #define TEST_MESH_DRAG_DRAG_LIMIT_X    60
+// #define TEST_MESH_DRAG_DRAG_LIMIT_Y    50
+#define TEST_MESH_DRAG_DRAG_LIMIT_X    100
+#define TEST_MESH_DRAG_DRAG_LIMIT_Y    100
+#define TEST_MESH_DRAG_CENTER_POINT_IDX (((TEST_MESH_DRAG_GRID_ROWS / 2U) * (TEST_MESH_DRAG_GRID_COLS + 1U)) + (TEST_MESH_DRAG_GRID_COLS / 2U))
+#define TEST_MESH_DRAG_SHEAR_DIV       3000
+#define TEST_MESH_DRAG_SQUEEZE_DIV     8000
 
 typedef struct {
     gfx_obj_t *mesh_obj;
     gfx_timer_handle_t anim_timer;
-    gfx_mesh_img_point_t base_points[TEST_MESH2_POINT_COUNT];
+    gfx_mesh_img_point_t base_points[TEST_MESH_DRAG_POINT_COUNT];
     int16_t current_drag_x;
     int16_t current_drag_y;
     int16_t target_drag_x;
@@ -36,19 +36,19 @@ typedef struct {
     int16_t press_x;
     int16_t press_y;
     bool dragging;
-} test_mesh_img_2_scene_t;
+} test_mesh_drag_scene_t;
 
-static int32_t test_mesh_img_2_abs_i32(int32_t value)
+static int32_t test_mesh_drag_abs_i32(int32_t value)
 {
     return (value < 0) ? -value : value;
 }
 
-static int32_t test_mesh_img_2_max_i32(int32_t a, int32_t b)
+static int32_t test_mesh_drag_max_i32(int32_t a, int32_t b)
 {
     return (a > b) ? a : b;
 }
 
-static int16_t test_mesh_img_2_clamp_i16(int32_t value, int16_t min_value, int16_t max_value)
+static int16_t test_mesh_drag_clamp_i16(int32_t value, int16_t min_value, int16_t max_value)
 {
     if (value < min_value) {
         return min_value;
@@ -59,7 +59,7 @@ static int16_t test_mesh_img_2_clamp_i16(int32_t value, int16_t min_value, int16
     return (int16_t)value;
 }
 
-static int16_t test_mesh_img_2_follow_axis(int16_t current, int16_t target)
+static int16_t test_mesh_drag_follow_axis(int16_t current, int16_t target)
 {
     int32_t diff = (int32_t)target - current;
     int32_t step;
@@ -76,18 +76,18 @@ static int16_t test_mesh_img_2_follow_axis(int16_t current, int16_t target)
     return (int16_t)(current + step);
 }
 
-static void test_mesh_img_2_capture_base_points(test_mesh_img_2_scene_t *scene)
+static void test_mesh_drag_capture_base_points(test_mesh_drag_scene_t *scene)
 {
     TEST_ASSERT_NOT_NULL(scene);
     TEST_ASSERT_NOT_NULL(scene->mesh_obj);
-    TEST_ASSERT_EQUAL_UINT32(TEST_MESH2_POINT_COUNT, gfx_mesh_img_get_point_count(scene->mesh_obj));
+    TEST_ASSERT_EQUAL_UINT32(TEST_MESH_DRAG_POINT_COUNT, gfx_mesh_img_get_point_count(scene->mesh_obj));
 
-    for (size_t i = 0; i < TEST_MESH2_POINT_COUNT; i++) {
+    for (size_t i = 0; i < TEST_MESH_DRAG_POINT_COUNT; i++) {
         TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_get_point(scene->mesh_obj, i, &scene->base_points[i]));
     }
 }
 
-static esp_err_t test_mesh_img_2_apply_drag_pose(test_mesh_img_2_scene_t *scene, int16_t drag_x, int16_t drag_y)
+static esp_err_t test_mesh_drag_apply_drag_pose(test_mesh_drag_scene_t *scene, int16_t drag_x, int16_t drag_y)
 {
     int32_t center_x;
     int32_t center_y;
@@ -98,20 +98,20 @@ static esp_err_t test_mesh_img_2_apply_drag_pose(test_mesh_img_2_scene_t *scene,
     ESP_RETURN_ON_FALSE(scene != NULL, ESP_ERR_INVALID_ARG, TAG, "apply drag pose: scene is NULL");
     ESP_RETURN_ON_FALSE(scene->mesh_obj != NULL, ESP_ERR_INVALID_STATE, TAG, "apply drag pose: object is NULL");
 
-    center_x = scene->base_points[TEST_MESH2_CENTER_POINT_IDX].x;
-    center_y = scene->base_points[TEST_MESH2_CENTER_POINT_IDX].y;
+    center_x = scene->base_points[TEST_MESH_DRAG_CENTER_POINT_IDX].x;
+    center_y = scene->base_points[TEST_MESH_DRAG_CENTER_POINT_IDX].y;
 
-    for (size_t i = 0; i < TEST_MESH2_POINT_COUNT; i++) {
+    for (size_t i = 0; i < TEST_MESH_DRAG_POINT_COUNT; i++) {
         int32_t rel_x = scene->base_points[i].x - center_x;
         int32_t rel_y = scene->base_points[i].y - center_y;
 
-        max_abs_x = test_mesh_img_2_max_i32(max_abs_x, test_mesh_img_2_abs_i32(rel_x));
-        max_abs_y = test_mesh_img_2_max_i32(max_abs_y, test_mesh_img_2_abs_i32(rel_y));
+        max_abs_x = test_mesh_drag_max_i32(max_abs_x, test_mesh_drag_abs_i32(rel_x));
+        max_abs_y = test_mesh_drag_max_i32(max_abs_y, test_mesh_drag_abs_i32(rel_y));
     }
 
-    drag_mag = test_mesh_img_2_abs_i32(drag_x) + test_mesh_img_2_abs_i32(drag_y);
+    drag_mag = test_mesh_drag_abs_i32(drag_x) + test_mesh_drag_abs_i32(drag_y);
 
-    for (size_t i = 0; i < TEST_MESH2_POINT_COUNT; i++) {
+    for (size_t i = 0; i < TEST_MESH_DRAG_POINT_COUNT; i++) {
         int32_t rel_x = scene->base_points[i].x - center_x;
         int32_t rel_y = scene->base_points[i].y - center_y;
         int32_t nx = (rel_x * 1000) / max_abs_x;
@@ -123,15 +123,15 @@ static esp_err_t test_mesh_img_2_apply_drag_pose(test_mesh_img_2_scene_t *scene,
         int32_t softness = (soft_x * soft_y) / 1000;
 
         /* Layer 1 -- Soft shear: center follows drag, edges anchored */
-        int32_t dx = ((int32_t)drag_x * softness) / TEST_MESH2_SHEAR_DIV;
-        int32_t dy = ((int32_t)drag_y * softness) / TEST_MESH2_SHEAR_DIV;
+        int32_t dx = ((int32_t)drag_x * softness) / TEST_MESH_DRAG_SHEAR_DIV;
+        int32_t dy = ((int32_t)drag_y * softness) / TEST_MESH_DRAG_SHEAR_DIV;
 
         /* Layer 2 -- Squash-and-stretch along drag direction */
         if (drag_mag > 0) {
             int32_t alignment = (nx * (int32_t)drag_x + ny * (int32_t)drag_y) / drag_mag;
             int32_t squeeze = (-alignment * softness) / 1000;
-            dx += (squeeze * (int32_t)drag_x) / TEST_MESH2_SQUEEZE_DIV;
-            dy += (squeeze * (int32_t)drag_y) / TEST_MESH2_SQUEEZE_DIV;
+            dx += (squeeze * (int32_t)drag_x) / TEST_MESH_DRAG_SQUEEZE_DIV;
+            dy += (squeeze * (int32_t)drag_y) / TEST_MESH_DRAG_SQUEEZE_DIV;
         }
 
         ESP_RETURN_ON_ERROR(gfx_mesh_img_set_point(scene->mesh_obj, i,
@@ -145,9 +145,9 @@ static esp_err_t test_mesh_img_2_apply_drag_pose(test_mesh_img_2_scene_t *scene,
     return ESP_OK;
 }
 
-static void test_mesh_img_2_touch_cb(gfx_obj_t *obj, const gfx_touch_event_t *event, void *user_data)
+static void test_mesh_drag_touch_cb(gfx_obj_t *obj, const gfx_touch_event_t *event, void *user_data)
 {
-    test_mesh_img_2_scene_t *scene = (test_mesh_img_2_scene_t *)user_data;
+    test_mesh_drag_scene_t *scene = (test_mesh_drag_scene_t *)user_data;
 
     (void)obj;
 
@@ -165,10 +165,10 @@ static void test_mesh_img_2_touch_cb(gfx_obj_t *obj, const gfx_touch_event_t *ev
     }
 
     if (event->type == GFX_TOUCH_EVENT_MOVE && scene->dragging) {
-        scene->target_drag_x = test_mesh_img_2_clamp_i16((int32_t)event->x - scene->press_x,
-                                                         -TEST_MESH2_DRAG_LIMIT_X, TEST_MESH2_DRAG_LIMIT_X);
-        scene->target_drag_y = test_mesh_img_2_clamp_i16((int32_t)event->y - scene->press_y,
-                                                         -TEST_MESH2_DRAG_LIMIT_Y, TEST_MESH2_DRAG_LIMIT_Y);
+        scene->target_drag_x = test_mesh_drag_clamp_i16((int32_t)event->x - scene->press_x,
+                                                         -TEST_MESH_DRAG_DRAG_LIMIT_X, TEST_MESH_DRAG_DRAG_LIMIT_X);
+        scene->target_drag_y = test_mesh_drag_clamp_i16((int32_t)event->y - scene->press_y,
+                                                         -TEST_MESH_DRAG_DRAG_LIMIT_Y, TEST_MESH_DRAG_DRAG_LIMIT_Y);
         return;
     }
 
@@ -179,9 +179,9 @@ static void test_mesh_img_2_touch_cb(gfx_obj_t *obj, const gfx_touch_event_t *ev
     }
 }
 
-static void test_mesh_img_2_anim_cb(void *user_data)
+static void test_mesh_drag_anim_cb(void *user_data)
 {
-    test_mesh_img_2_scene_t *scene = (test_mesh_img_2_scene_t *)user_data;
+    test_mesh_drag_scene_t *scene = (test_mesh_drag_scene_t *)user_data;
     int16_t next_drag_x;
     int16_t next_drag_y;
 
@@ -189,12 +189,12 @@ static void test_mesh_img_2_anim_cb(void *user_data)
         return;
     }
 
-    next_drag_x = test_mesh_img_2_follow_axis(scene->current_drag_x, scene->target_drag_x);
-    next_drag_y = test_mesh_img_2_follow_axis(scene->current_drag_y, scene->target_drag_y);
+    next_drag_x = test_mesh_drag_follow_axis(scene->current_drag_x, scene->target_drag_x);
+    next_drag_y = test_mesh_drag_follow_axis(scene->current_drag_y, scene->target_drag_y);
 
     if (!scene->dragging &&
-            test_mesh_img_2_abs_i32(next_drag_x) <= 1 &&
-            test_mesh_img_2_abs_i32(next_drag_y) <= 1 &&
+            test_mesh_drag_abs_i32(next_drag_x) <= 1 &&
+            test_mesh_drag_abs_i32(next_drag_y) <= 1 &&
             scene->target_drag_x == 0 && scene->target_drag_y == 0) {
         next_drag_x = 0;
         next_drag_y = 0;
@@ -206,10 +206,10 @@ static void test_mesh_img_2_anim_cb(void *user_data)
 
     scene->current_drag_x = next_drag_x;
     scene->current_drag_y = next_drag_y;
-    test_mesh_img_2_apply_drag_pose(scene, next_drag_x, next_drag_y);
+    test_mesh_drag_apply_drag_pose(scene, next_drag_x, next_drag_y);
 }
 
-static void test_mesh_img_2_scene_cleanup(test_mesh_img_2_scene_t *scene)
+static void test_mesh_drag_scene_cleanup(test_mesh_drag_scene_t *scene)
 {
     if (scene == NULL) {
         return;
@@ -226,9 +226,9 @@ static void test_mesh_img_2_scene_cleanup(test_mesh_img_2_scene_t *scene)
     }
 }
 
-static void test_mesh_img_2_run(void)
+static void test_mesh_drag_run(void)
 {
-    test_mesh_img_2_scene_t scene = {0};
+    test_mesh_drag_scene_t scene = {0};
 
     test_app_log_case(TAG, "Mesh image drag deform show case");
 
@@ -240,16 +240,16 @@ static void test_mesh_img_2_run(void)
     scene.mesh_obj = gfx_mesh_img_create(disp_default);
     TEST_ASSERT_NOT_NULL(scene.mesh_obj);
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.mesh_obj, (void *)&face_ui_simple));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(scene.mesh_obj, TEST_MESH2_GRID_COLS, TEST_MESH2_GRID_ROWS));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(scene.mesh_obj, TEST_MESH_DRAG_GRID_COLS, TEST_MESH_DRAG_GRID_ROWS));
     // TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(scene.mesh_obj, true));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(scene.mesh_obj, false));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_touch_cb(scene.mesh_obj, test_mesh_img_2_touch_cb, &scene));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_touch_cb(scene.mesh_obj, test_mesh_drag_touch_cb, &scene));
 
-    test_mesh_img_2_capture_base_points(&scene);
-    TEST_ASSERT_EQUAL(ESP_OK, test_mesh_img_2_apply_drag_pose(&scene, 0, 0));
+    test_mesh_drag_capture_base_points(&scene);
+    TEST_ASSERT_EQUAL(ESP_OK, test_mesh_drag_apply_drag_pose(&scene, 0, 0));
     gfx_obj_align(scene.mesh_obj, GFX_ALIGN_CENTER, 0, 0);
 
-    scene.anim_timer = gfx_timer_create(emote_handle, test_mesh_img_2_anim_cb, TEST_MESH2_TIMER_PERIOD_MS, &scene);
+    scene.anim_timer = gfx_timer_create(emote_handle, test_mesh_drag_anim_cb, TEST_MESH_DRAG_TIMER_PERIOD_MS, &scene);
     TEST_ASSERT_NOT_NULL(scene.anim_timer);
     test_app_unlock();
 
@@ -257,15 +257,15 @@ static void test_mesh_img_2_run(void)
     test_app_wait_for_observe(1000 * 1000);
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
-    test_mesh_img_2_scene_cleanup(&scene);
+    test_mesh_drag_scene_cleanup(&scene);
     test_app_unlock();
 }
 
-void test_mesh_img_2_run_case(void)
+void test_mesh_drag_run_case(void)
 {
     test_app_runtime_t runtime;
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime));
-    test_mesh_img_2_run();
+    test_mesh_drag_run();
     test_app_runtime_close(&runtime);
 }

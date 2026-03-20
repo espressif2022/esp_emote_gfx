@@ -407,6 +407,24 @@ esp_err_t gfx_obj_set_touch_cb(gfx_obj_t *obj, gfx_obj_touch_cb_t cb, void *user
     return ESP_OK;
 }
 
+uint32_t gfx_obj_get_trace_id(gfx_obj_t *obj)
+{
+    GFX_RETURN_IF_NULL(obj, 0U);
+    return obj->trace.create_seq;
+}
+
+const char *gfx_obj_get_class_name(gfx_obj_t *obj)
+{
+    GFX_RETURN_IF_NULL(obj, NULL);
+    return obj->trace.class_name;
+}
+
+const char *gfx_obj_get_trace_tag(gfx_obj_t *obj)
+{
+    GFX_RETURN_IF_NULL(obj, NULL);
+    return obj->trace.create_tag;
+}
+
 /*=====================
  * Other functions
  *====================*/

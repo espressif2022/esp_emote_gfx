@@ -29,8 +29,22 @@ void tearDown(void)
 }
 
 extern void test_anim_run_case_matrix(void);
+extern void test_eye_organic_run_case(void);
+extern void test_mesh_emote_run_case(void);
+extern void test_mesh_drag_run_case(void);
+extern void test_mesh_bulge_run_case(void);
+extern void test_list_run_case(void);
+extern void test_benchmark_run_case(void);
+
 void app_main(void)
 {
     // unity_run_menu();
-    test_anim_run_case_matrix();
+    // test_anim_run_case_matrix();
+    // test_eye_organic_run_case();
+    // test_mesh_emote_run_case();
+    // test_mesh_drag_run_case();
+    // test_mesh_bulge_run_case();
+    // test_list_run_case();
+    // test_benchmark_run_case();
+    test_mesh_bulge_run_case();
 }

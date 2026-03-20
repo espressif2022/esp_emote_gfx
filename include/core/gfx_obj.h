@@ -26,6 +26,7 @@ extern "C" {
 #define GFX_OBJ_TYPE_QRCODE      0x04
 #define GFX_OBJ_TYPE_BUTTON      0x05
 #define GFX_OBJ_TYPE_MESH_IMAGE  0x06
+#define GFX_OBJ_TYPE_LIST        0x07
 
 /* Alignment constants (similar to LVGL) */
 #define GFX_ALIGN_DEFAULT         0x00
@@ -167,6 +168,27 @@ esp_err_t gfx_obj_delete(gfx_obj_t *obj);
  * @return ESP_OK on success
  */
 esp_err_t gfx_obj_set_touch_cb(gfx_obj_t *obj, gfx_obj_touch_cb_t cb, void *user_data);
+
+/**
+ * @brief Get object creation sequence id (monotonic per process lifetime)
+ * @param obj Object pointer
+ * @return uint32_t Sequence id, 0 if obj is NULL
+ */
+uint32_t gfx_obj_get_trace_id(gfx_obj_t *obj);
+
+/**
+ * @brief Get object class name (from registered widget class metadata)
+ * @param obj Object pointer
+ * @return const char* Class name string, or NULL
+ */
+const char *gfx_obj_get_class_name(gfx_obj_t *obj);
+
+/**
+ * @brief Get object creation tag (creation-site annotation)
+ * @param obj Object pointer
+ * @return const char* Creation tag string, or NULL
+ */
+const char *gfx_obj_get_trace_tag(gfx_obj_t *obj);
 
 #ifdef __cplusplus
 }

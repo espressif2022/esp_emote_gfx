@@ -87,6 +87,12 @@ struct gfx_obj {
     /** Application touch callback (from gfx_obj_set_touch_cb) */
     gfx_obj_touch_cb_t user_touch_cb;
     void *user_touch_data;
+
+    struct {
+        uint32_t create_seq;            /**< Monotonic object creation sequence */
+        const char *class_name;         /**< Widget class name */
+        const char *create_tag;         /**< Creation annotation tag */
+    } trace;
 };
 
 typedef struct gfx_obj_child_t {
@@ -101,6 +107,9 @@ typedef struct gfx_obj_child_t {
 esp_err_t gfx_widget_class_register(const gfx_widget_class_t *klass);
 const gfx_widget_class_t *gfx_widget_class_get(uint8_t type);
 esp_err_t gfx_obj_init_class_instance(gfx_obj_t *obj, gfx_disp_t *disp, const gfx_widget_class_t *klass, void *src);
+esp_err_t gfx_obj_create_class_instance(gfx_disp_t *disp, const gfx_widget_class_t *klass,
+                                        void *src, uint16_t width, uint16_t height,
+                                        const char *create_tag, gfx_obj_t **out_obj);
 
 void gfx_obj_cal_aligned_pos(gfx_obj_t *obj, uint32_t parent_width, uint32_t parent_height, gfx_coord_t *x, gfx_coord_t *y);
 void gfx_obj_calc_pos_in_parent(gfx_obj_t *obj);

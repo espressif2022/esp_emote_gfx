@@ -11,6 +11,7 @@
 #include <string.h>
 #include "esp_log.h"
 #include "esp_err.h"
+#include "esp_timer.h"
 
 #include "common/gfx_comm.h"
 #include "core/draw/gfx_blend_priv.h"
@@ -36,6 +37,7 @@
 /**********************
  *  STATIC VARIABLES
  **********************/
+static gfx_blend_perf_stats_t *s_active_perf_stats = NULL;
 
 /**********************
  *   STATIC FUNCTIONS
@@ -69,9 +71,32 @@ static inline int32_t gfx_sw_blend_clamp_coord(int32_t value, int32_t min_value,
     return value;
 }
 
+static inline uint64_t gfx_blend_perf_elapsed_us(int64_t start_us)
+{
+    return (uint64_t)(esp_timer_get_time() - start_us);
+}
+
 /**********************
  *   PUBLIC FUNCTIONS
  **********************/
+
+void gfx_sw_blend_perf_reset(gfx_blend_perf_stats_t *stats)
+{
+    if (stats == NULL) {
+        return;
+    }
+    memset(stats, 0, sizeof(*stats));
+}
+
+void gfx_sw_blend_perf_bind(gfx_blend_perf_stats_t *stats)
+{
+    s_active_perf_stats = stats;
+}
+
+void gfx_sw_blend_perf_unbind(void)
+{
+    s_active_perf_stats = NULL;
+}
 
 gfx_color_t gfx_blend_color_mix(gfx_color_t c1, gfx_color_t c2, uint8_t mix, bool swap)
 {
@@ -123,6 +148,8 @@ void gfx_sw_blend_fill(uint16_t *buf, uint16_t color, size_t pixels)
 void gfx_sw_blend_fill_area(uint16_t *dest_buf, gfx_coord_t dest_stride,
                             const gfx_area_t *area, uint16_t color)
 {
+    int64_t perf_start_us = 0;
+
     if (dest_buf == NULL || area == NULL) {
         return;
     }
@@ -131,9 +158,17 @@ void gfx_sw_blend_fill_area(uint16_t *dest_buf, gfx_coord_t dest_stride,
     if (w <= 0 || h <= 0) {
         return;
     }
+    if (s_active_perf_stats != NULL) {
+        perf_start_us = esp_timer_get_time();
+    }
     for (int32_t y = area->y1; y < area->y2; y++) {
         uint16_t *row = dest_buf + (size_t)y * dest_stride + area->x1;
         gfx_sw_blend_fill(row, color, (size_t)w);
+    }
+    if (s_active_perf_stats != NULL) {
+        s_active_perf_stats->fill.calls++;
+        s_active_perf_stats->fill.pixels += (uint64_t)w * (uint64_t)h;
+        s_active_perf_stats->fill.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
     }
 }
 
@@ -143,9 +178,18 @@ void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
 {
     int32_t w = clip_area->x2 - clip_area->x1;
     int32_t h = clip_area->y2 - clip_area->y1;
+    int64_t perf_start_us = 0;
 
     int32_t x, y;
     uint32_t c32 = color.full + ((uint32_t)color.full << 16);
+
+    if (w <= 0 || h <= 0) {
+        return;
+    }
+
+    if (s_active_perf_stats != NULL) {
+        perf_start_us = esp_timer_get_time();
+    }
 
     /*Only the mask matters*/
     if (opa >= OPA_MAX) {
@@ -219,6 +263,11 @@ void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
             mask += (mask_stride - w);
         }
     }
+    if (s_active_perf_stats != NULL) {
+        s_active_perf_stats->color_draw.calls++;
+        s_active_perf_stats->color_draw.pixels += (uint64_t)w * (uint64_t)h;
+        s_active_perf_stats->color_draw.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
+    }
 }
 
 void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
@@ -228,8 +277,17 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
 {
     int32_t w = clip_area->x2 - clip_area->x1;
     int32_t h = clip_area->y2 - clip_area->y1;
+    int64_t perf_start_us = 0;
 
     int32_t x, y;
+
+    if (w <= 0 || h <= 0) {
+        return;
+    }
+
+    if (s_active_perf_stats != NULL) {
+        perf_start_us = esp_timer_get_time();
+    }
 
     if (mask == NULL) {
         size_t row_bytes = (size_t)w * sizeof(gfx_color_t);
@@ -237,6 +295,11 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
             memcpy(dest_buf, src_buf, row_bytes);
             dest_buf += dest_stride;
             src_buf += src_stride;
+        }
+        if (s_active_perf_stats != NULL) {
+            s_active_perf_stats->image_draw.calls++;
+            s_active_perf_stats->image_draw.pixels += (uint64_t)w * (uint64_t)h;
+            s_active_perf_stats->image_draw.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
         }
         return;
     }
@@ -270,6 +333,11 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
         src_buf += src_stride;
         mask += (mask_stride - w);
     }
+    if (s_active_perf_stats != NULL) {
+        s_active_perf_stats->image_draw.calls++;
+        s_active_perf_stats->image_draw.pixels += (uint64_t)w * (uint64_t)h;
+        s_active_perf_stats->image_draw.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
+    }
 }
 
 void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
@@ -297,6 +365,8 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
 
     int32_t area_2x;
     int32_t min_x, min_y, max_x, max_y;
+    int64_t perf_start_us = 0;
+    uint64_t perf_raster_pixels = 0;
 
     /* Edge function step constants (integer, not shifted yet) */
     int32_t e0_a, e0_b, e1_a, e1_b;
@@ -311,6 +381,10 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
             src_buf == NULL || v0 == NULL || v1 == NULL || v2 == NULL ||
             src_stride <= 0 || src_height <= 0) {
         return;
+    }
+
+    if (s_active_perf_stats != NULL) {
+        perf_start_us = esp_timer_get_time();
     }
 
     /*
@@ -340,6 +414,7 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
     if (min_x > max_x || min_y > max_y) {
         return;
     }
+    perf_raster_pixels = (uint64_t)(max_x - min_x + 1) * (uint64_t)(max_y - min_y + 1);
 
     /*
      * Edge function for w0 (weight of v0):
@@ -496,6 +571,12 @@ next_pixel:
             u_row += du_dy;
             v_row += dv_dy;
         }
+    }
+
+    if (s_active_perf_stats != NULL) {
+        s_active_perf_stats->triangle_draw.calls++;
+        s_active_perf_stats->triangle_draw.pixels += perf_raster_pixels;
+        s_active_perf_stats->triangle_draw.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
     }
 
 #undef FRAC_BITS

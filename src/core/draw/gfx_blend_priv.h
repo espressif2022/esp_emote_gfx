@@ -9,6 +9,7 @@
 #include <stddef.h>
 
 #include "core/gfx_types.h"
+#include "core/gfx_disp.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -117,6 +118,10 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                                     const gfx_sw_blend_img_vertex_t *v2,
                                     uint8_t internal_edges,
                                     bool swap);
+
+void gfx_sw_blend_perf_reset(gfx_blend_perf_stats_t *stats);
+void gfx_sw_blend_perf_bind(gfx_blend_perf_stats_t *stats);
+void gfx_sw_blend_perf_unbind(void);
 
 #ifdef __cplusplus
 }

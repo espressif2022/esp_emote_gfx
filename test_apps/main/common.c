@@ -47,8 +47,8 @@ static void test_app_configure_gfx_log_levels(void)
     gfx_log_set_level(GFX_LOG_MODULE_QRCODE, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_BUTTON, GFX_LOG_LEVEL_INFO);
 
-    gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_DEBUG);
-    // gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_INFO);
+    // gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_DEBUG);
+    gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_INFO);
 }
 
 #if CONFIG_IDF_TARGET_ESP32S3
@@ -85,10 +85,10 @@ static void touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t *event, v
 
     switch (event->type) {
     case GFX_TOUCH_EVENT_PRESS:
-        ESP_LOGI("", "%-7s: (%d, %d)", "press", event->x, event->y);
+        // ESP_LOGI("", "%-7s: (%d, %d)", "press", event->x, event->y);
         break;
     case GFX_TOUCH_EVENT_RELEASE:
-        ESP_LOGI("", "%-7s: (%d, %d)", "release", event->x, event->y);
+        // ESP_LOGI("", "%-7s: (%d, %d)", "release", event->x, event->y);
         break;
     case GFX_TOUCH_EVENT_MOVE:
         // ESP_LOGI("", "%-7s: (%d, %d)", "move", event->x, event->y);

@@ -157,6 +157,14 @@ static const gfx_anim_pixel_renderer_cb_t s_anim_renderers[GFX_ANIM_DEPTH_MAX] =
     gfx_anim_render_8bit_pixels,
     gfx_anim_render_24bit_pixels,
 };
+static const gfx_widget_class_t s_gfx_anim_widget_class = {
+    .type = GFX_OBJ_TYPE_ANIMATION,
+    .name = "anim",
+    .draw = gfx_draw_animation,
+    .delete = gfx_anim_delete,
+    .update = gfx_anim_update,
+    .touch_event = NULL,
+};
 
 /**********************
  *   STATIC FUNCTIONS
@@ -898,29 +906,18 @@ static void gfx_anim_timer_callback(void *arg)
 
 gfx_obj_t *gfx_anim_create(gfx_disp_t *disp)
 {
+    gfx_obj_t *obj = NULL;
+    gfx_anim_t *anim = NULL;
+    uint32_t period_ms;
+
     if (disp == NULL) {
         GFX_LOGE(TAG, "create animation: display must come from gfx_emote_add_disp");
         return NULL;
     }
 
-    gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
-    if (obj == NULL) {
-        GFX_LOGE(TAG, "create animation: failed to allocate animation object");
-        return NULL;
-    }
-
-    memset(obj, 0, sizeof(gfx_obj_t));
-    obj->type = GFX_OBJ_TYPE_ANIMATION;
-    obj->disp = disp;
-    obj->state.is_visible = true;
-    obj->vfunc.draw = gfx_draw_animation;
-    obj->vfunc.delete = gfx_anim_delete;
-    obj->vfunc.update = gfx_anim_update;
-
-    gfx_anim_t *anim = (gfx_anim_t *)malloc(sizeof(gfx_anim_t));
+    anim = (gfx_anim_t *)malloc(sizeof(gfx_anim_t));
     if (anim == NULL) {
         GFX_LOGE(TAG, "create animation: failed to allocate animation state");
-        free(obj);
         return NULL;
     }
 
@@ -932,22 +929,24 @@ gfx_obj_t *gfx_anim_create(gfx_disp_t *disp)
     if (anim->event_group == NULL) {
         GFX_LOGE(TAG, "create animation: failed to create event group");
         free(anim);
-        free(obj);
         return NULL;
     }
 
-    uint32_t period_ms = 1000 / anim->fps;
+    period_ms = 1000 / anim->fps;
+    if (gfx_obj_create_class_instance(disp, &s_gfx_anim_widget_class,
+                                      anim, 0, 0, "gfx_anim_create", &obj) != ESP_OK) {
+        GFX_LOGE(TAG, "create animation: failed to create object");
+        vEventGroupDelete(anim->event_group);
+        free(anim);
+        return NULL;
+    }
+
     anim->timer = gfx_timer_create((void *)disp->ctx, gfx_anim_timer_callback, period_ms, obj);
     if (anim->timer == NULL) {
         GFX_LOGE(TAG, "create animation: failed to create timer");
-        vEventGroupDelete(anim->event_group);
-        free(anim);
-        free(obj);
+        gfx_obj_delete(obj);
         return NULL;
     }
-
-    obj->src = anim;
-    gfx_disp_add_child(disp, obj);
     return obj;
 }
 

@@ -64,6 +64,15 @@ static esp_err_t gfx_qrcode_generate(gfx_obj_t *obj, bool swap);
 static void gfx_qrcode_blend(gfx_obj_t *obj, gfx_qrcode_t *qrcode, const gfx_draw_ctx_t *ctx);
 static void gfx_qrcode_init_default_state(gfx_qrcode_t *qrcode);
 
+static const gfx_widget_class_t s_gfx_qrcode_widget_class = {
+    .type = GFX_OBJ_TYPE_QRCODE,
+    .name = "qrcode",
+    .draw = gfx_qrcode_draw,
+    .delete = gfx_qrcode_delete_impl,
+    .update = NULL,
+    .touch_event = NULL,
+};
+
 /**********************
  *   STATIC FUNCTIONS
  **********************/
@@ -289,38 +298,26 @@ static esp_err_t gfx_qrcode_delete_impl(gfx_obj_t *obj)
 
 gfx_obj_t *gfx_qrcode_create(gfx_disp_t *disp)
 {
+    gfx_obj_t *obj = NULL;
+    gfx_qrcode_t *qrcode;
+
     if (disp == NULL) {
         GFX_LOGE(TAG, "disp must be from gfx_emote_add_disp");
         return NULL;
     }
 
-    gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
-    if (obj == NULL) {
-        GFX_LOGE(TAG, "No mem for QR Code object");
-        return NULL;
-    }
-
-    memset(obj, 0, sizeof(gfx_obj_t));
-    obj->type = GFX_OBJ_TYPE_QRCODE;
-    obj->disp = disp;
-    obj->state.is_visible = true;
-    obj->vfunc.draw = gfx_qrcode_draw;
-    obj->vfunc.delete = gfx_qrcode_delete_impl;
-
-    gfx_qrcode_t *qrcode = (gfx_qrcode_t *)malloc(sizeof(gfx_qrcode_t));
+    qrcode = (gfx_qrcode_t *)malloc(sizeof(gfx_qrcode_t));
     if (qrcode == NULL) {
         GFX_LOGE(TAG, "Failed to allocate memory for QR Code object");
-        free(obj);
         return NULL;
     }
     gfx_qrcode_init_default_state(qrcode);
-
-    obj->src = qrcode;
-    obj->geometry.width = qrcode->display_size;
-    obj->geometry.height = qrcode->display_size;
-
-    gfx_obj_invalidate(obj);
-    gfx_disp_add_child(disp, obj);
+    if (gfx_obj_create_class_instance(disp, &s_gfx_qrcode_widget_class,
+                                      qrcode, qrcode->display_size, qrcode->display_size,
+                                      "gfx_qrcode_create", &obj) != ESP_OK) {
+        free(qrcode);
+        return NULL;
+    }
 
     GFX_LOGD(TAG, "Created QR Code object");
     return obj;

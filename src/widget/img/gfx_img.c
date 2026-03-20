@@ -168,19 +168,9 @@ gfx_obj_t *gfx_img_create(gfx_disp_t *disp)
         return NULL;
     }
 
-    obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
-    if (obj == NULL) {
+    if (gfx_obj_create_class_instance(disp, &s_gfx_img_widget_class,
+                                      NULL, 0, 0, "gfx_img_create", &obj) != ESP_OK) {
         GFX_LOGE(TAG, "No mem for image object");
-        return NULL;
-    }
-
-    if (gfx_obj_init_class_instance(obj, disp, &s_gfx_img_widget_class, NULL) != ESP_OK) {
-        free(obj);
-        return NULL;
-    }
-
-    if (gfx_disp_add_child(disp, obj) != ESP_OK) {
-        free(obj);
         return NULL;
     }
 

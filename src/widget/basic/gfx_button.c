@@ -75,6 +75,15 @@ static esp_err_t gfx_button_call_label_draw(gfx_obj_t *obj, const gfx_draw_ctx_t
 static esp_err_t gfx_button_call_label_update(gfx_obj_t *obj);
 static esp_err_t gfx_button_call_label_delete(gfx_obj_t *obj);
 
+static const gfx_widget_class_t s_gfx_button_widget_class = {
+    .type = GFX_OBJ_TYPE_BUTTON,
+    .name = "button",
+    .draw = gfx_button_draw,
+    .delete = gfx_button_delete_impl,
+    .update = gfx_button_update,
+    .touch_event = gfx_button_touch_event,
+};
+
 /**********************
  *   STATIC FUNCTIONS
  **********************/
@@ -297,10 +306,8 @@ gfx_obj_t *gfx_button_create(gfx_disp_t *disp)
         return NULL;
     }
 
-    obj = calloc(1, sizeof(gfx_obj_t));
     button = calloc(1, sizeof(gfx_button_t));
-    if (obj == NULL || button == NULL) {
-        free(obj);
+    if (button == NULL) {
         free(button);
         GFX_LOGE(TAG, "No mem for button object");
         return NULL;
@@ -308,22 +315,10 @@ gfx_obj_t *gfx_button_create(gfx_disp_t *disp)
 
     gfx_button_init_default_state(button);
 
-    obj->type = GFX_OBJ_TYPE_BUTTON;
-    obj->disp = disp;
-    obj->src = button;
-    obj->state.is_visible = true;
-    obj->geometry.width = GFX_BUTTON_DEFAULT_WIDTH;
-    obj->geometry.height = GFX_BUTTON_DEFAULT_HEIGHT;
-    obj->vfunc.draw = gfx_button_draw;
-    obj->vfunc.update = gfx_button_update;
-    obj->vfunc.delete = gfx_button_delete_impl;
-    obj->vfunc.touch_event = gfx_button_touch_event;
-
-    gfx_obj_invalidate(obj);
-
-    if (gfx_disp_add_child(disp, obj) != ESP_OK) {
+    if (gfx_obj_create_class_instance(disp, &s_gfx_button_widget_class,
+                                      button, GFX_BUTTON_DEFAULT_WIDTH, GFX_BUTTON_DEFAULT_HEIGHT,
+                                      "gfx_button_create", &obj) != ESP_OK) {
         free(button);
-        free(obj);
         return NULL;
     }
 

@@ -419,3 +419,18 @@ bool gfx_disp_is_flushing_last(gfx_disp_t *disp)
     }
     return disp->render.flushing_last;
 }
+
+esp_err_t gfx_disp_get_perf_stats(gfx_disp_t *disp, gfx_disp_perf_stats_t *out_stats)
+{
+    if (disp == NULL || out_stats == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    out_stats->dirty_pixels = disp->render.dirty_pixels;
+    out_stats->frame_time_us = disp->render.frame_time_us;
+    out_stats->render_time_us = disp->render.render_time_us;
+    out_stats->flush_time_us = disp->render.flush_time_us;
+    out_stats->flush_count = disp->render.flush_count;
+    out_stats->blend = disp->render.blend;
+    return ESP_OK;
+}

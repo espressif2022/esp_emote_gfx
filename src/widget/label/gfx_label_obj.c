@@ -92,32 +92,19 @@ gfx_obj_t *gfx_label_create(gfx_disp_t *disp)
         return NULL;
     }
 
-    obj = calloc(1, sizeof(gfx_obj_t));
-    if (obj == NULL) {
-        GFX_LOGE(TAG, "No mem for label object");
-        return NULL;
-    }
-
     label = calloc(1, sizeof(gfx_label_t));
     if (label == NULL) {
         GFX_LOGE(TAG, "Failed to allocate memory for label object");
-        free(obj);
         return NULL;
     }
 
-    if (gfx_obj_init_class_instance(obj, disp, &s_gfx_label_widget_class, label) != ESP_OK) {
+    if (gfx_obj_create_class_instance(disp, &s_gfx_label_widget_class,
+                                      label, 0, 0, "gfx_label_create", &obj) != ESP_OK) {
         free(label);
-        free(obj);
         return NULL;
     }
 
     gfx_label_init_default_state(label);
-
-    if (gfx_disp_add_child(disp, obj) != ESP_OK) {
-        free(label);
-        free(obj);
-        return NULL;
-    }
 
     GFX_LOGD(TAG, "Created label object with default font config");
     return obj;

@@ -274,6 +274,8 @@ void gfx_render_dirty_areas(gfx_disp_t *disp)
     disp->render.render_time_us = 0;
     disp->render.flush_time_us = 0;
     disp->render.flush_count = 0;
+    gfx_sw_blend_perf_reset(&disp->render.blend);
+    gfx_sw_blend_perf_bind(&disp->render.blend);
 
     gfx_render_sync_dirty_areas(disp);
 
@@ -295,6 +297,7 @@ void gfx_render_dirty_areas(gfx_disp_t *disp)
         sync_points++;
         gfx_area_copy(&disp->sync_pending.areas[sync_points], area);
     }
+    gfx_sw_blend_perf_unbind();
     disp->sync_pending.count = sync_points;
 }
 
@@ -359,6 +362,8 @@ bool gfx_render_handler(gfx_core_context_t *ctx)
         uint32_t dirty_px = gfx_render_area_summary(disp);
         gfx_render_dirty_areas(disp);
         uint64_t frame_time_us = (uint64_t)(esp_timer_get_time() - frame_start_us);
+        disp->render.dirty_pixels = dirty_px;
+        disp->render.frame_time_us = frame_time_us;
 
         if (dirty_px > 0) {
             did_render = true;

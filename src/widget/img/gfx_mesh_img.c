@@ -72,6 +72,15 @@ static esp_err_t gfx_mesh_img_load_header(void *src, gfx_image_header_t *header)
 static esp_err_t gfx_mesh_img_prepare_decoder(const gfx_mesh_img_t *mesh, gfx_image_decoder_dsc_t *decoder_dsc);
 static void gfx_mesh_img_draw_ctrl_points(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx, const gfx_mesh_img_t *mesh);
 
+static const gfx_widget_class_t s_gfx_mesh_img_widget_class = {
+    .type = GFX_OBJ_TYPE_MESH_IMAGE,
+    .name = "mesh_img",
+    .draw = gfx_mesh_img_draw,
+    .delete = gfx_mesh_img_delete_impl,
+    .update = NULL,
+    .touch_event = NULL,
+};
+
 /**********************
  *   STATIC FUNCTIONS
  **********************/
@@ -450,36 +459,21 @@ gfx_obj_t *gfx_mesh_img_create(gfx_disp_t *disp)
         return NULL;
     }
 
-    obj = calloc(1, sizeof(gfx_obj_t));
-    if (obj == NULL) {
-        GFX_LOGE(TAG, "create mesh image: no mem for object");
-        return NULL;
-    }
-
     mesh = calloc(1, sizeof(gfx_mesh_img_t));
     if (mesh == NULL) {
         GFX_LOGE(TAG, "create mesh image: no mem for state");
-        free(obj);
         return NULL;
     }
 
     if (gfx_mesh_img_alloc_points(mesh, GFX_MESH_IMG_DEFAULT_COLS, GFX_MESH_IMG_DEFAULT_ROWS) != ESP_OK) {
         free(mesh);
-        free(obj);
         return NULL;
     }
 
-    obj->type = GFX_OBJ_TYPE_MESH_IMAGE;
-    obj->disp = disp;
-    obj->state.is_visible = true;
-    obj->vfunc.draw = gfx_mesh_img_draw;
-    obj->vfunc.delete = gfx_mesh_img_delete_impl;
-    obj->src = mesh;
-
-    if (gfx_disp_add_child(disp, obj) != ESP_OK) {
+    if (gfx_obj_create_class_instance(disp, &s_gfx_mesh_img_widget_class,
+                                      mesh, 0, 0, "gfx_mesh_img_create", &obj) != ESP_OK) {
         gfx_mesh_img_free_points(mesh);
         free(mesh);
-        free(obj);
         return NULL;
     }
 

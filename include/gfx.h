@@ -18,6 +18,7 @@
 #include "widget/gfx_qrcode.h"
 #include "widget/gfx_label.h"
 #include "widget/gfx_button.h"
+#include "widget/gfx_list.h"
 #include "widget/gfx_anim.h"
 #include "widget/gfx_font_lvgl.h"
 
