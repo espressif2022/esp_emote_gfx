@@ -67,22 +67,37 @@ void gfx_sw_draw_hline(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                        gfx_coord_t x1, gfx_coord_t x2, gfx_coord_t y,
                        gfx_color_t color, gfx_opa_t opa, bool swap)
 {
-    gfx_coord_t draw_x1;
-    gfx_coord_t draw_x2;
-
-    if (dest_buf == NULL || buf_area == NULL || clip_area == NULL || x2 <= x1) {
+    if (dest_buf == NULL || buf_area == NULL || clip_area == NULL || x2 <= x1 || opa == 0) {
         return;
     }
 
-    draw_x1 = (x1 > clip_area->x1) ? x1 : clip_area->x1;
-    draw_x2 = (x2 < clip_area->x2) ? x2 : clip_area->x2;
+    /* Clip against both clip_area and buf_area in one pass */
+    gfx_coord_t draw_x1 = (x1 > clip_area->x1) ? x1 : clip_area->x1;
+    gfx_coord_t draw_x2 = (x2 < clip_area->x2) ? x2 : clip_area->x2;
+    if (draw_x1 < buf_area->x1) {
+        draw_x1 = buf_area->x1;
+    }
+    if (draw_x2 > buf_area->x2) {
+        draw_x2 = buf_area->x2;
+    }
 
-    if (draw_x2 <= draw_x1 || y < clip_area->y1 || y >= clip_area->y2) {
+    if (draw_x2 <= draw_x1) {
+        return;
+    }
+    if (y < clip_area->y1 || y >= clip_area->y2 || y < buf_area->y1 || y >= buf_area->y2) {
         return;
     }
 
-    for (gfx_coord_t x = draw_x1; x < draw_x2; ++x) {
-        gfx_sw_draw_point(dest_buf, dest_stride, buf_area, clip_area, x, y, color, opa, swap);
+    gfx_color_t *pixel = dest_buf + (size_t)(y - buf_area->y1) * dest_stride
+                         + (size_t)(draw_x1 - buf_area->x1);
+    size_t count = (size_t)(draw_x2 - draw_x1);
+
+    if (opa >= 0xFF) {
+        gfx_sw_blend_fill((uint16_t *)pixel, color.full, count);
+    } else {
+        for (size_t i = 0; i < count; ++i) {
+            pixel[i] = gfx_blend_color_mix(color, pixel[i], opa, swap);
+        }
     }
 }
 
@@ -91,22 +106,41 @@ void gfx_sw_draw_vline(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                        gfx_coord_t x, gfx_coord_t y1, gfx_coord_t y2,
                        gfx_color_t color, gfx_opa_t opa, bool swap)
 {
-    gfx_coord_t draw_y1;
-    gfx_coord_t draw_y2;
-
-    if (dest_buf == NULL || buf_area == NULL || clip_area == NULL || y2 <= y1) {
+    if (dest_buf == NULL || buf_area == NULL || clip_area == NULL || y2 <= y1 || opa == 0) {
         return;
     }
 
-    draw_y1 = (y1 > clip_area->y1) ? y1 : clip_area->y1;
-    draw_y2 = (y2 < clip_area->y2) ? y2 : clip_area->y2;
-
-    if (draw_y2 <= draw_y1 || x < clip_area->x1 || x >= clip_area->x2) {
+    if (x < clip_area->x1 || x >= clip_area->x2 || x < buf_area->x1 || x >= buf_area->x2) {
         return;
     }
 
-    for (gfx_coord_t y = draw_y1; y < draw_y2; ++y) {
-        gfx_sw_draw_point(dest_buf, dest_stride, buf_area, clip_area, x, y, color, opa, swap);
+    /* Clip against both clip_area and buf_area in one pass */
+    gfx_coord_t draw_y1 = (y1 > clip_area->y1) ? y1 : clip_area->y1;
+    gfx_coord_t draw_y2 = (y2 < clip_area->y2) ? y2 : clip_area->y2;
+    if (draw_y1 < buf_area->y1) {
+        draw_y1 = buf_area->y1;
+    }
+    if (draw_y2 > buf_area->y2) {
+        draw_y2 = buf_area->y2;
+    }
+
+    if (draw_y2 <= draw_y1) {
+        return;
+    }
+
+    gfx_color_t *pixel = dest_buf + (size_t)(draw_y1 - buf_area->y1) * dest_stride
+                         + (size_t)(x - buf_area->x1);
+
+    if (opa >= 0xFF) {
+        for (gfx_coord_t row = draw_y1; row < draw_y2; ++row) {
+            *pixel = color;
+            pixel += dest_stride;
+        }
+    } else {
+        for (gfx_coord_t row = draw_y1; row < draw_y2; ++row) {
+            *pixel = gfx_blend_color_mix(color, *pixel, opa, swap);
+            pixel += dest_stride;
+        }
     }
 }
 

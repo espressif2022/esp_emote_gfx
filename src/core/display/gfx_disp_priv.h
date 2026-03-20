@@ -23,7 +23,11 @@ struct gfx_core_context;
 /*********************
  *   DEFINES
  *********************/
-#define GFX_DISP_INV_BUF_SIZE  16   /**< Max dirty areas per display */
+#ifdef CONFIG_GFX_DISP_INV_BUF_SIZE
+#define GFX_DISP_INV_BUF_SIZE  CONFIG_GFX_DISP_INV_BUF_SIZE
+#else
+#define GFX_DISP_INV_BUF_SIZE  32
+#endif
 
 /*********************
  *   INTERNAL STRUCTS

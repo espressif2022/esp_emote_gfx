@@ -21,8 +21,8 @@ static const char *TAG = "test_eye_layered";
 #define TEST_EYE_LID_OVERDRAW          36
 #define TEST_EYE_SOCKET_FOLLOW_X_DIV   5
 #define TEST_EYE_SOCKET_FOLLOW_Y_DIV   6
-#define TEST_EYE_LOOK_X_PIXELS         18
-#define TEST_EYE_LOOK_Y_PIXELS         12
+#define TEST_EYE_LOOK_X_PIXELS         26
+#define TEST_EYE_LOOK_Y_PIXELS         18
 
 #define TEST_FACE_EYE_GAP              24
 #define TEST_FACE_Y_OFS                (-16)
@@ -30,8 +30,8 @@ static const char *TAG = "test_eye_layered";
 #define TEST_FACE_MOUTH_BASE_H         6
 #define TEST_FACE_MOUTH_COLS           4
 #define TEST_FACE_MOUTH_BELOW_EYE      28
-#define TEST_FACE_MOUTH_SMILE_PX       24
-#define TEST_FACE_MOUTH_OPEN_PX        30
+#define TEST_FACE_MOUTH_SMILE_PX       32
+#define TEST_FACE_MOUTH_OPEN_PX        40
 
 typedef struct {
     int16_t eye_x_ofs;
@@ -269,7 +269,6 @@ static const test_eye_layered_clip_t s_eye_clips[] = {
     {"sad_down",         s_clip_sad_down,         TEST_APP_ARRAY_SIZE(s_clip_sad_down)},
 };
 
-// static const uint16_t s_black_pixel = 0x00FF;
 static const uint16_t s_black_pixel = 0x0000;
 static const gfx_image_dsc_t s_black_img = {
     .header = {
@@ -284,6 +283,8 @@ static const gfx_image_dsc_t s_black_img = {
 };
 
 static const uint16_t s_white_pixel = 0xFFFF;
+// static const uint16_t s_white_pixel = 0x8DD3;
+
 static const gfx_image_dsc_t s_white_img = {
     .header = {
         .magic = 0x19,
@@ -386,21 +387,21 @@ static test_eye_layered_pose_t test_eye_layered_ctrl_to_pose(const test_eye_laye
     widen = test_eye_layered_clamp_i32(ctrl->widen, 0, 100);
     softness = test_eye_layered_clamp_i32(ctrl->softness, 0, 100);
 
-    pose.eye_x_ofs = (int16_t)test_eye_layered_clamp_i32(ctrl->eye_x_ofs + ((look_x * TEST_EYE_LOOK_X_PIXELS) / 100), -22, 22);
-    pose.eye_y_ofs = (int16_t)test_eye_layered_clamp_i32(ctrl->eye_y_ofs + ((look_y * TEST_EYE_LOOK_Y_PIXELS) / 100), -18, 18);
+    pose.eye_x_ofs = (int16_t)test_eye_layered_clamp_i32((ctrl->eye_x_ofs * 3 / 2) + ((look_x * TEST_EYE_LOOK_X_PIXELS) / 100), -30, 30);
+    pose.eye_y_ofs = (int16_t)test_eye_layered_clamp_i32((ctrl->eye_y_ofs * 3 / 2) + ((look_y * TEST_EYE_LOOK_Y_PIXELS) / 100), -24, 24);
 
-    upper_lid = ((blink * 74) / 100) + ((squint * 14) / 100) + ((softness * 8) / 100) - ((widen * 14) / 100);
-    lower_lid = ((blink * 42) / 100) + ((squint * 16) / 100) + ((softness * 10) / 100) - ((widen * 10) / 100);
+    upper_lid = ((blink * 74) / 100) + ((squint * 20) / 100) + ((softness * 10) / 100) - ((widen * 20) / 100);
+    lower_lid = ((blink * 42) / 100) + ((squint * 22) / 100) + ((softness * 12) / 100) - ((widen * 14) / 100);
 
     if (look_y < 0) {
-        upper_lid += (-look_y) / 10;
+        upper_lid += (-look_y) / 8;
     } else {
-        lower_lid += look_y / 8;
+        lower_lid += look_y / 6;
     }
 
     pose.upper_lid = (int16_t)test_eye_layered_clamp_i32(upper_lid, 0, 84);
     pose.lower_lid = (int16_t)test_eye_layered_clamp_i32(lower_lid, 0, 52);
-    pose.lid_tilt_permille = (int16_t)test_eye_layered_clamp_i32((look_x * 16) / 10, -180, 180);
+    pose.lid_tilt_permille = (int16_t)test_eye_layered_clamp_i32((look_x * 20) / 10, -240, 240);
 
     pose.mouth_curve = (int16_t)test_eye_layered_clamp_i32(
         (test_eye_layered_clamp_i32(ctrl->mouth_smile, -100, 100) * TEST_FACE_MOUTH_SMILE_PX) / 100,
@@ -444,9 +445,9 @@ static void test_eye_layered_update_saccade(test_eye_layered_scene_t *scene)
     }
 
     rng = test_eye_layered_xorshift16(&scene->rng_state);
-    scene->saccade_target_x = (int16_t)((int32_t)(rng % 5U) - 2);
+    scene->saccade_target_x = (int16_t)((int32_t)(rng % 7U) - 3);
     rng = test_eye_layered_xorshift16(&scene->rng_state);
-    scene->saccade_target_y = (int16_t)((int32_t)(rng % 3U) - 1);
+    scene->saccade_target_y = (int16_t)((int32_t)(rng % 5U) - 2);
     rng = test_eye_layered_xorshift16(&scene->rng_state);
     scene->saccade_countdown = 8U + (uint16_t)(rng % 18U);
     scene->saccade_settle_ticks = 2U;
@@ -475,11 +476,11 @@ static void test_eye_layered_get_organic_offset(const test_eye_layered_scene_t *
     }
 
     if (scene->current_ctrl.blink > 50) {
-        *out_dx = drift_x / 60;
-        *out_dy = breath_y / 45;
+        *out_dx = drift_x / 40;
+        *out_dy = breath_y / 30;
     } else {
-        *out_dx = (int32_t)scene->saccade_x + (drift_x / 60);
-        *out_dy = (int32_t)scene->saccade_y + (breath_y / 45);
+        *out_dx = (int32_t)scene->saccade_x + (drift_x / 40);
+        *out_dy = (int32_t)scene->saccade_y + (breath_y / 30);
     }
 }
 
@@ -558,8 +559,8 @@ static void test_eye_layered_apply_single_eye(test_eye_layered_scene_t *scene,
 
     top_height = top_cover + TEST_EYE_LID_OVERDRAW;
     bottom_height = bottom_cover + TEST_EYE_LID_OVERDRAW;
-    top_skew = test_eye_layered_clamp_i32((pose->lid_tilt_permille * 18) / 1000, -18, 18);
-    bottom_skew = test_eye_layered_clamp_i32((pose->lid_tilt_permille * 12) / 1000, -12, 12);
+    top_skew = test_eye_layered_clamp_i32((pose->lid_tilt_permille * 22) / 1000, -22, 22);
+    bottom_skew = test_eye_layered_clamp_i32((pose->lid_tilt_permille * 16) / 1000, -16, 16);
 
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_pos(eye->white_obj, (gfx_coord_t)eye_left, (gfx_coord_t)eye_top));
 
@@ -569,8 +570,8 @@ static void test_eye_layered_apply_single_eye(test_eye_layered_scene_t *scene,
                               top_height,
                               0,
                               lid_width,
-                              test_eye_layered_clamp_i32(8 + top_skew, -8, 24),
-                              lid_width - test_eye_layered_clamp_i32(8 - top_skew, -8, 24));
+                              test_eye_layered_clamp_i32(10 + top_skew, -16, 34),
+                              lid_width - test_eye_layered_clamp_i32(10 - top_skew, -16, 34));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_pos(eye->top_lid_obj,
                                               (gfx_coord_t)top_origin_x,
                                               (gfx_coord_t)(lid_y_base - TEST_EYE_LID_OVERDRAW)));
@@ -579,8 +580,8 @@ static void test_eye_layered_apply_single_eye(test_eye_layered_scene_t *scene,
     test_eye_layered_set_quad(eye->bottom_lid_obj,
                               lid_width,
                               bottom_height,
-                              test_eye_layered_clamp_i32(6 - bottom_skew, -8, 20),
-                              lid_width - test_eye_layered_clamp_i32(6 + bottom_skew, -8, 20),
+                              test_eye_layered_clamp_i32(8 - bottom_skew, -12, 26),
+                              lid_width - test_eye_layered_clamp_i32(8 + bottom_skew, -12, 26),
                               0,
                               lid_width);
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_pos(eye->bottom_lid_obj,
@@ -668,7 +669,16 @@ static void test_eye_layered_apply_pose(test_eye_layered_scene_t *scene, const t
                                       right_socket, eye_top, organic_dx, organic_dy);
 
     mouth_y = eye_top + TEST_EYE_WHITE_SIZE + TEST_FACE_MOUTH_BELOW_EYE;
-    test_eye_layered_apply_mouth(scene, pose, face_cx, mouth_y);
+    {
+        test_eye_layered_pose_t talk = *pose;
+        int32_t t = (int32_t)scene->global_tick;
+        int32_t w1 = (t % 7 < 4)  ? (t % 7)  : (7  - t % 7);
+        int32_t w2 = (t % 11 < 6) ? (t % 11) : (11 - t % 11);
+        int32_t w3 = (t % 23 < 12) ? (t % 23) : (23 - t % 23);
+        talk.mouth_open_px = (int16_t)(5 + w1 * 4 + w2 * 2 + w3 / 2);
+        talk.mouth_curve = (int16_t)(3 + w3 / 4);
+        test_eye_layered_apply_mouth(scene, &talk, face_cx, mouth_y);
+    }
 
     scene->current_pose = *pose;
 }

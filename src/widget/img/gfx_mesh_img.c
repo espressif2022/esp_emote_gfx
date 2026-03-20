@@ -347,39 +347,54 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
             gfx_sw_blend_img_vertex_t tri1[3];
             gfx_sw_blend_img_vertex_t tri2[3];
 
+            /*
+             * Internal-edge masks: suppress AA on edges shared with a
+             * neighbouring triangle to prevent dark-seam artefacts.
+             *
+             * Tri1 (v0=TL, v1=TR, v2=BR):
+             *   edge 0 (TR→BR) = right  — internal when col+1 < cols
+             *   edge 1 (BR→TL) = diag   — always internal
+             *   edge 2 (TL→TR) = top    — internal when row > 0
+             *
+             * Tri2 (v0=TL, v1=BR, v2=BL):
+             *   edge 0 (BR→BL) = bottom — internal when row+1 < rows
+             *   edge 1 (BL→TL) = left   — internal when col > 0
+             *   edge 2 (TL→BR) = diag   — always internal
+             */
+            uint8_t ie1 = 0x02;
+            uint8_t ie2 = 0x04;
+            if (col + 1U < mesh->grid_cols) { ie1 |= 0x01; }
+            if (row > 0U)                   { ie1 |= 0x04; }
+            if (row + 1U < mesh->grid_rows) { ie2 |= 0x01; }
+            if (col > 0U)                   { ie2 |= 0x02; }
+
             /* --------- Triangle 1 --------- */
-            /* Point 1: Top-Left (0, 0) */
             tri1[0].x = origin_x + mesh->points[idx00].x;
             tri1[0].y = origin_y + mesh->points[idx00].y;
             tri1[0].u = mesh->rest_points[idx00].x;
             tri1[0].v = mesh->rest_points[idx00].y;
 
-            /* Point 2: Top-Right (1, 0) */
             tri1[1].x = origin_x + mesh->points[idx10].x;
             tri1[1].y = origin_y + mesh->points[idx10].y;
             tri1[1].u = mesh->rest_points[idx10].x;
             tri1[1].v = mesh->rest_points[idx10].y;
 
-            /* Point 3: Bottom-Right (1, 1) */
             tri1[2].x = origin_x + mesh->points[idx11].x;
             tri1[2].y = origin_y + mesh->points[idx11].y;
             tri1[2].u = mesh->rest_points[idx11].x;
             tri1[2].v = mesh->rest_points[idx11].y;
 
             /* --------- Triangle 2 --------- */
-            /* Point 1: Top-Left (0, 0) */
             tri2[0].x = origin_x + mesh->points[idx00].x;
             tri2[0].y = origin_y + mesh->points[idx00].y;
             tri2[0].u = mesh->rest_points[idx00].x;
             tri2[0].v = mesh->rest_points[idx00].y;
 
-            /* Point 2: Bottom-Right (1, 1) */
             tri2[1].x = origin_x + mesh->points[idx11].x;
             tri2[1].y = origin_y + mesh->points[idx11].y;
             tri2[1].u = mesh->rest_points[idx11].x;
             tri2[1].v = mesh->rest_points[idx11].y;
 
-            /* Point 3: Bottom-Left (0, 1) */
             tri2[2].x = origin_x + mesh->points[idx01].x;
             tri2[2].y = origin_y + mesh->points[idx01].y;
             tri2[2].u = mesh->rest_points[idx01].x;
@@ -389,12 +404,14 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
                                            &ctx->buf_area, &clip_area,
                                            src_pixels, src_stride, src_height,
                                            alpha_mask, alpha_mask ? src_stride : 0,
-                                           &tri1[0], &tri1[1], &tri1[2], ctx->swap);
+                                           &tri1[0], &tri1[1], &tri1[2],
+                                           ie1, ctx->swap);
             gfx_sw_blend_img_triangle_draw((gfx_color_t *)ctx->buf, ctx->stride,
                                            &ctx->buf_area, &clip_area,
                                            src_pixels, src_stride, src_height,
                                            alpha_mask, alpha_mask ? src_stride : 0,
-                                           &tri2[0], &tri2[1], &tri2[2], ctx->swap);
+                                           &tri2[0], &tri2[1], &tri2[2],
+                                           ie2, ctx->swap);
         }
     }
 

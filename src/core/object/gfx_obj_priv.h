@@ -41,9 +41,19 @@ typedef esp_err_t (*gfx_obj_delete_fn_t)(gfx_obj_t *obj);
 typedef esp_err_t (*gfx_obj_update_fn_t)(gfx_obj_t *obj);
 typedef void (*gfx_obj_touch_fn_t)(gfx_obj_t *obj, const void *event);
 
+typedef struct gfx_widget_class {
+    uint8_t type;                  /**< Stable object type id */
+    const char *name;              /**< Debug-friendly class name */
+    gfx_obj_draw_fn_t draw;        /**< Draw callback */
+    gfx_obj_delete_fn_t delete;    /**< Delete callback */
+    gfx_obj_update_fn_t update;    /**< Update callback */
+    gfx_obj_touch_fn_t touch_event;/**< Touch callback */
+} gfx_widget_class_t;
+
 struct gfx_obj {
     void *src;                  /**< Source data (image, label, etc.) */
     int type;                   /**< Object type */
+    const gfx_widget_class_t *klass; /**< Registered class metadata */
     gfx_disp_t *disp;           /**< Display this object belongs to (from gfx_emote_add_disp) */
 
     struct {
@@ -87,6 +97,10 @@ typedef struct gfx_obj_child_t {
 /**********************
  *   INTERNAL API
  **********************/
+
+esp_err_t gfx_widget_class_register(const gfx_widget_class_t *klass);
+const gfx_widget_class_t *gfx_widget_class_get(uint8_t type);
+esp_err_t gfx_obj_init_class_instance(gfx_obj_t *obj, gfx_disp_t *disp, const gfx_widget_class_t *klass, void *src);
 
 void gfx_obj_cal_aligned_pos(gfx_obj_t *obj, uint32_t parent_width, uint32_t parent_height, gfx_coord_t *x, gfx_coord_t *y);
 void gfx_obj_calc_pos_in_parent(gfx_obj_t *obj);

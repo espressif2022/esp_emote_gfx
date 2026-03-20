@@ -100,6 +100,14 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                            const gfx_opa_t *mask, gfx_coord_t mask_stride,
                            gfx_area_t *clip_area, bool swap);
 
+/**
+ * @brief Draw a textured triangle with edge anti-aliasing
+ *
+ * @param internal_edges Bitmask of edges shared with adjacent triangles.
+ *        Bit 0 = edge 0 (v1→v2), bit 1 = edge 1 (v2→v0), bit 2 = edge 2 (v0→v1).
+ *        AA is suppressed on flagged edges to prevent dark-seam artifacts.
+ *        Pass 0 for standalone triangles (full AA on all edges).
+ */
 void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                                     const gfx_area_t *buf_area, const gfx_area_t *clip_area,
                                     const gfx_color_t *src_buf, gfx_coord_t src_stride, gfx_coord_t src_height,
@@ -107,6 +115,7 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                                     const gfx_sw_blend_img_vertex_t *v0,
                                     const gfx_sw_blend_img_vertex_t *v1,
                                     const gfx_sw_blend_img_vertex_t *v2,
+                                    uint8_t internal_edges,
                                     bool swap);
 
 #ifdef __cplusplus

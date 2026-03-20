@@ -37,6 +37,15 @@ static const char *TAG = "label_obj";
 
 static void gfx_label_init_default_state(gfx_label_t *label);
 
+static const gfx_widget_class_t s_gfx_label_widget_class = {
+    .type = GFX_OBJ_TYPE_LABEL,
+    .name = "label",
+    .draw = gfx_draw_label,
+    .delete = gfx_label_delete_impl,
+    .update = gfx_label_update_impl,
+    .touch_event = NULL,
+};
+
 /**********************
  *   STATIC FUNCTIONS
  **********************/
@@ -75,34 +84,34 @@ static void gfx_label_init_default_state(gfx_label_t *label)
 
 gfx_obj_t *gfx_label_create(gfx_disp_t *disp)
 {
+    gfx_obj_t *obj = NULL;
+    gfx_label_t *label = NULL;
+
     if (disp == NULL) {
         GFX_LOGE(TAG, "disp must be from gfx_emote_add_disp");
         return NULL;
     }
 
-    gfx_obj_t *obj = calloc(1, sizeof(gfx_obj_t));
+    obj = calloc(1, sizeof(gfx_obj_t));
     if (obj == NULL) {
         GFX_LOGE(TAG, "No mem for label object");
         return NULL;
     }
 
-    gfx_label_t *label = calloc(1, sizeof(gfx_label_t));
+    label = calloc(1, sizeof(gfx_label_t));
     if (label == NULL) {
         GFX_LOGE(TAG, "Failed to allocate memory for label object");
         free(obj);
         return NULL;
     }
 
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    obj->disp = disp;
-    obj->state.is_visible = true;
-    obj->vfunc.draw = gfx_draw_label;
-    obj->vfunc.delete = gfx_label_delete_impl;
-    obj->vfunc.update = gfx_label_update_impl;
-    obj->src = label;
+    if (gfx_obj_init_class_instance(obj, disp, &s_gfx_label_widget_class, label) != ESP_OK) {
+        free(label);
+        free(obj);
+        return NULL;
+    }
 
     gfx_label_init_default_state(label);
-    gfx_obj_invalidate(obj);
 
     if (gfx_disp_add_child(disp, obj) != ESP_OK) {
         free(label);

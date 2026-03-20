@@ -22,6 +22,8 @@ static const char *TAG = "test_mesh_img_2";
 #define TEST_MESH2_DRAG_LIMIT_X    100
 #define TEST_MESH2_DRAG_LIMIT_Y    100
 #define TEST_MESH2_CENTER_POINT_IDX (((TEST_MESH2_GRID_ROWS / 2U) * (TEST_MESH2_GRID_COLS + 1U)) + (TEST_MESH2_GRID_COLS / 2U))
+#define TEST_MESH2_SHEAR_DIV       3000
+#define TEST_MESH2_SQUEEZE_DIV     8000
 
 typedef struct {
     gfx_obj_t *mesh_obj;
@@ -114,34 +116,23 @@ static esp_err_t test_mesh_img_2_apply_drag_pose(test_mesh_img_2_scene_t *scene,
         int32_t rel_y = scene->base_points[i].y - center_y;
         int32_t nx = (rel_x * 1000) / max_abs_x;
         int32_t ny = (rel_y * 1000) / max_abs_y;
-        int32_t abs_nx = test_mesh_img_2_abs_i32(nx);
-        int32_t abs_ny = test_mesh_img_2_abs_i32(ny);
-        int32_t dx = 0;
-        int32_t dy = 0;
 
-        /*
-         * Corner weight: 0 at center and along center axes (horizontal/vertical),
-         * maximum (~1000) at the four diagonal corners.
-         * This keeps the eyes and mouth (center band) stable while the
-         * peripheral corners stretch outward.
-         */
-        int32_t corner_weight = (abs_nx * abs_ny) / 1000;
+        /* Softness field: parabolic falloff, 0 at every edge, 1000 at center */
+        int32_t soft_x = 1000 - (nx * nx) / 1000;
+        int32_t soft_y = 1000 - (ny * ny) / 1000;
+        int32_t softness = (soft_x * soft_y) / 1000;
 
-        /*
-         * Radial diagonal stretch: each corner point pushes outward along its
-         * own diagonal direction, driven by the overall drag magnitude.
-         * Points on the center cross (corner_weight ≈ 0) are unaffected.
-         */
-        dx += (rel_x * drag_mag * corner_weight) / 500000;
-        dy += (rel_y * drag_mag * corner_weight) / 500000;
+        /* Layer 1 -- Soft shear: center follows drag, edges anchored */
+        int32_t dx = ((int32_t)drag_x * softness) / TEST_MESH2_SHEAR_DIV;
+        int32_t dy = ((int32_t)drag_y * softness) / TEST_MESH2_SHEAR_DIV;
 
-        /*
-         * Directional lean: corners on the side being dragged toward
-         * stretch a bit more, giving a subtle directional "lean" to the
-         * overall shape.
-         */
-        dx += ((int32_t)drag_x * corner_weight) / 2500;
-        dy += ((int32_t)drag_y * corner_weight) / 2500;
+        /* Layer 2 -- Squash-and-stretch along drag direction */
+        if (drag_mag > 0) {
+            int32_t alignment = (nx * (int32_t)drag_x + ny * (int32_t)drag_y) / drag_mag;
+            int32_t squeeze = (-alignment * softness) / 1000;
+            dx += (squeeze * (int32_t)drag_x) / TEST_MESH2_SQUEEZE_DIV;
+            dy += (squeeze * (int32_t)drag_y) / TEST_MESH2_SQUEEZE_DIV;
+        }
 
         ESP_RETURN_ON_ERROR(gfx_mesh_img_set_point(scene->mesh_obj, i,
                                                    (gfx_coord_t)(scene->base_points[i].x + dx),
@@ -250,8 +241,8 @@ static void test_mesh_img_2_run(void)
     TEST_ASSERT_NOT_NULL(scene.mesh_obj);
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.mesh_obj, (void *)&face_ui_simple));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(scene.mesh_obj, TEST_MESH2_GRID_COLS, TEST_MESH2_GRID_ROWS));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(scene.mesh_obj, true));
-    // TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(scene.mesh_obj, false));
+    // TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(scene.mesh_obj, true));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(scene.mesh_obj, false));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_touch_cb(scene.mesh_obj, test_mesh_img_2_touch_cb, &scene));
 
     test_mesh_img_2_capture_base_points(&scene);

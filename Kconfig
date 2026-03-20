@@ -1,62 +1,88 @@
 menu "ESP Emote Graphics Framework"
 
-    config GFX_FONT_FREETYPE_SUPPORT
-        bool "Enable FreeType font support"
-        default n
-        help
-            Enable support for FreeType fonts (TTF/OTF).
-            This requires the FreeType library to be enabled.
+    menu "Display"
 
-            When enabled, you can use TrueType and OpenType fonts.
-            When disabled, only LVGL C format fonts are supported.
-
-    config GFX_EAF_JPEG_DECODE_SUPPORT
-        bool "Enable JPEG decoding support in EAF"
-        default y
-        help
-            Enable support for JPEG decoding in EAF (Emote Animation Format).
-            This requires the ESP JPEG decoder component to be enabled.
-
-            When enabled, EAF files can use JPEG encoding for image blocks.
-            When disabled, JPEG encoding will not be available, reducing code size.
-
-    config GFX_EAF_HEATSHRINK_SUPPORT
-        bool "Enable Heatshrink support in EAF"
-        default y
-        depends on HEATSHRINK_DYNAMIC_ALLOC || (HEATSHRINK_STATIC_WINDOW_BITS = 8 && HEATSHRINK_STATIC_LOOKAHEAD_BITS = 4)
-        help
-            Enable support for Heatshrink decoding in EAF (Emote Animation Format).
-
-            Note: Only supports 8-bit window and 4-bit lookahead if dynamic allocation is disabled.
-
-    menu "Label Glyph Cache"
-
-        config GFX_LABEL_GLYPH_CACHE_MAX_ENTRIES
-            int "Maximum cached glyph entries per font"
-            range 8 512
-            default 64
+        config GFX_DISP_INV_BUF_SIZE
+            int "Maximum dirty areas per display"
+            range 8 64
+            default 32
             help
-                Maximum number of glyph records retained in the shared glyph cache
-                for a single font adapter.
+                Maximum number of dirty (invalidated) rectangles tracked per
+                display in a single frame. Each object move / update adds one
+                entry; overlapping areas are merged during refresh.
 
-        config GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES
-            int "Maximum glyph cache bitmap bytes per font"
-            range 1024 131072
-            default 12288
-            help
-                Upper memory budget, in bytes, for cached glyph alpha bitmaps and
-                atlas pages owned by a single font adapter cache.
-
-        config GFX_LABEL_GLYPH_ATLAS_PAGE_BYTES
-            int "Glyph atlas page size"
-            range 256 8192
-            default 1024
-            help
-                Minimum allocation unit, in bytes, for glyph atlas pages. Larger
-                values reduce allocation frequency but increase retained memory.
+                Increase if complex scenes with many independently moving
+                objects cause "inv_buf overflow" warnings. Decrease to save
+                a small amount of RAM on simple UIs.
 
     endmenu
 
-    comment "Heatshrink support is unavailable due to static bit mismatch"
-        depends on !HEATSHRINK_DYNAMIC_ALLOC && (HEATSHRINK_STATIC_WINDOW_BITS != 8 || HEATSHRINK_STATIC_LOOKAHEAD_BITS != 4)
+    menu "Font"
+
+        config GFX_FONT_FREETYPE_SUPPORT
+            bool "Enable FreeType font support"
+            default n
+            help
+                Enable support for FreeType fonts (TTF/OTF).
+                This requires the FreeType library to be enabled.
+
+                When enabled, you can use TrueType and OpenType fonts.
+                When disabled, only LVGL C format fonts are supported.
+
+        menu "Glyph Cache"
+
+            config GFX_LABEL_GLYPH_CACHE_MAX_ENTRIES
+                int "Maximum cached glyph entries per font"
+                range 8 512
+                default 64
+                help
+                    Maximum number of glyph records retained in the shared glyph cache
+                    for a single font adapter.
+
+            config GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES
+                int "Maximum glyph cache bitmap bytes per font"
+                range 1024 131072
+                default 12288
+                help
+                    Upper memory budget, in bytes, for cached glyph alpha bitmaps and
+                    atlas pages owned by a single font adapter cache.
+
+            config GFX_LABEL_GLYPH_ATLAS_PAGE_BYTES
+                int "Glyph atlas page size"
+                range 256 8192
+                default 1024
+                help
+                    Minimum allocation unit, in bytes, for glyph atlas pages. Larger
+                    values reduce allocation frequency but increase retained memory.
+
+        endmenu
+
+    endmenu
+
+    menu "EAF (Emote Animation Format)"
+
+        config GFX_EAF_JPEG_DECODE_SUPPORT
+            bool "Enable JPEG decoding support"
+            default y
+            help
+                Enable support for JPEG decoding in EAF (Emote Animation Format).
+                This requires the ESP JPEG decoder component to be enabled.
+
+                When enabled, EAF files can use JPEG encoding for image blocks.
+                When disabled, JPEG encoding will not be available, reducing code size.
+
+        config GFX_EAF_HEATSHRINK_SUPPORT
+            bool "Enable Heatshrink support"
+            default y
+            depends on HEATSHRINK_DYNAMIC_ALLOC || (HEATSHRINK_STATIC_WINDOW_BITS = 8 && HEATSHRINK_STATIC_LOOKAHEAD_BITS = 4)
+            help
+                Enable support for Heatshrink decoding in EAF (Emote Animation Format).
+
+                Note: Only supports 8-bit window and 4-bit lookahead if dynamic allocation is disabled.
+
+        comment "Heatshrink support is unavailable due to static bit mismatch"
+            depends on !HEATSHRINK_DYNAMIC_ALLOC && (HEATSHRINK_STATIC_WINDOW_BITS != 8 || HEATSHRINK_STATIC_LOOKAHEAD_BITS != 4)
+
+    endmenu
+
 endmenu

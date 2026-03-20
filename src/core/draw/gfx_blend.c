@@ -100,11 +100,17 @@ void gfx_sw_blend_fill(uint16_t *buf, uint16_t color, size_t pixels)
     if ((color & 0xFF) == (color >> 8)) {
         memset(buf, color & 0xFF, pixels * sizeof(uint16_t));
     } else {
-        uint32_t color32 = (color << 16) | color;
-        uint32_t *buf32 = (uint32_t *)buf;
-        size_t pixels_half = pixels / 2;
+        uint32_t color32 = ((uint32_t)color << 16) | color;
 
-        for (size_t i = 0; i < pixels_half; i++) {
+        if (((uintptr_t)buf & 0x3) && pixels > 0) {
+            *buf++ = color;
+            pixels--;
+        }
+
+        uint32_t *buf32 = (uint32_t *)buf;
+        size_t pairs = pixels / 2;
+
+        for (size_t i = 0; i < pairs; i++) {
             buf32[i] = color32;
         }
 
@@ -146,14 +152,14 @@ void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
         int32_t x_end4 = w - 4;
 
         for (y = 0; y < h; y++) {
-            for (x = 0; x < w && ((unsigned int)(mask) & 0x3); x++) {
+            for (x = 0; x < w && ((uintptr_t)mask & 0x3); x++) {
                 FILL_NORMAL_MASK_PX(color, swap)
             }
 
             for (; x <= x_end4; x += 4) {
                 uint32_t mask32 = *((uint32_t *)mask);
                 if (mask32 == 0xFFFFFFFF) {
-                    if ((unsigned int)dest_buf & 0x3) {/*dest_buf is not 4-byte aligned*/
+                    if ((uintptr_t)dest_buf & 0x3) {
                         dest_buf[0] = color;
                         ((uint32_t *)(dest_buf + 1))[0] = c32;
                         dest_buf[3] = color;
@@ -235,7 +241,6 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
         return;
     }
 
-    // Slow path: with mask
     gfx_color_t last_dest_color;
     gfx_color_t last_res_color;
     gfx_color_t last_src_color;
@@ -246,30 +251,24 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
 
     for (y = 0; y < h; y++) {
         for (x = 0; x < w; x++) {
-            if (mask == NULL || *mask) {
-                if (mask == NULL || *mask != last_mask || last_dest_color.full != dest_buf[x].full || last_src_color.full != src_buf[x].full) {
-                    if (mask == NULL || *mask == OPA_COVER) {
+            if (*mask) {
+                if (*mask != last_mask || last_dest_color.full != dest_buf[x].full || last_src_color.full != src_buf[x].full) {
+                    if (*mask == OPA_COVER) {
                         last_res_color = src_buf[x];
                     } else {
                         last_res_color = gfx_blend_color_mix(src_buf[x], dest_buf[x], *mask, swap);
                     }
-                    if (mask) {
-                        last_mask = *mask;
-                    }
+                    last_mask = *mask;
                     last_dest_color.full = dest_buf[x].full;
                     last_src_color.full = src_buf[x].full;
                 }
                 dest_buf[x] = last_res_color;
             }
-            if (mask) {
-                mask++;
-            }
+            mask++;
         }
         dest_buf += dest_stride;
         src_buf += src_stride;
-        if (mask) {
-            mask += (mask_stride - w);
-        }
+        mask += (mask_stride - w);
     }
 }
 
@@ -280,6 +279,7 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                                     const gfx_sw_blend_img_vertex_t *v0,
                                     const gfx_sw_blend_img_vertex_t *v1,
                                     const gfx_sw_blend_img_vertex_t *v2,
+                                    uint8_t internal_edges,
                                     bool swap)
 {
     /*
@@ -448,16 +448,22 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                         *dst_row = src_color;
                     }
                 } else {
-                    /* Outside triangle — edge AA: blend if within 1 px */
+                    /* Outside triangle — edge AA: blend if within 1 px.
+                     * Skip distance for edges flagged as internal (shared
+                     * with an adjacent triangle) to avoid dark-seam artifacts.
+                     * Bit 0 = edge 0 (v1→v2), bit 1 = edge 1 (v2→v0),
+                     * bit 2 = edge 2 (v0→v1).
+                     * If only internal edges are violated max_od stays 0
+                     * and the existing threshold check drops the pixel. */
                     int32_t max_od = 0;
                     if (area_2x > 0) {
-                        if (w0 < 0) { int32_t d = ((-w0) * e0_inv + 32) >> 6; if (d > max_od) { max_od = d; } }
-                        if (w1 < 0) { int32_t d = ((-w1) * e1_inv + 32) >> 6; if (d > max_od) { max_od = d; } }
-                        if (w2 < 0) { int32_t d = ((-w2) * e2_inv + 32) >> 6; if (d > max_od) { max_od = d; } }
+                        if (w0 < 0 && !(internal_edges & 0x01)) { int32_t d = ((-w0) * e0_inv + 32) >> 6; if (d > max_od) { max_od = d; } }
+                        if (w1 < 0 && !(internal_edges & 0x02)) { int32_t d = ((-w1) * e1_inv + 32) >> 6; if (d > max_od) { max_od = d; } }
+                        if (w2 < 0 && !(internal_edges & 0x04)) { int32_t d = ((-w2) * e2_inv + 32) >> 6; if (d > max_od) { max_od = d; } }
                     } else {
-                        if (w0 > 0) { int32_t d = (w0 * e0_inv + 32) >> 6; if (d > max_od) { max_od = d; } }
-                        if (w1 > 0) { int32_t d = (w1 * e1_inv + 32) >> 6; if (d > max_od) { max_od = d; } }
-                        if (w2 > 0) { int32_t d = (w2 * e2_inv + 32) >> 6; if (d > max_od) { max_od = d; } }
+                        if (w0 > 0 && !(internal_edges & 0x01)) { int32_t d = (w0 * e0_inv + 32) >> 6; if (d > max_od) { max_od = d; } }
+                        if (w1 > 0 && !(internal_edges & 0x02)) { int32_t d = (w1 * e1_inv + 32) >> 6; if (d > max_od) { max_od = d; } }
+                        if (w2 > 0 && !(internal_edges & 0x04)) { int32_t d = (w2 * e2_inv + 32) >> 6; if (d > max_od) { max_od = d; } }
                     }
 
                     if (max_od > 0 && max_od < 256) {

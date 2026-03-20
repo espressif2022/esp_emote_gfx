@@ -40,6 +40,15 @@ static const char *TAG = "img";
 static esp_err_t gfx_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx);
 static esp_err_t gfx_img_delete_impl(gfx_obj_t *obj);
 
+static const gfx_widget_class_t s_gfx_img_widget_class = {
+    .type = GFX_OBJ_TYPE_IMAGE,
+    .name = "image",
+    .draw = gfx_img_draw,
+    .delete = gfx_img_delete_impl,
+    .update = NULL,
+    .touch_event = NULL,
+};
+
 /**********************
  *   STATIC FUNCTIONS
  **********************/
@@ -152,24 +161,23 @@ static esp_err_t gfx_img_delete_impl(gfx_obj_t *obj)
 
 gfx_obj_t *gfx_img_create(gfx_disp_t *disp)
 {
+    gfx_obj_t *obj = NULL;
+
     if (disp == NULL) {
         GFX_LOGE(TAG, "disp must be from gfx_emote_add_disp");
         return NULL;
     }
 
-    gfx_obj_t *obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
+    obj = (gfx_obj_t *)malloc(sizeof(gfx_obj_t));
     if (obj == NULL) {
         GFX_LOGE(TAG, "No mem for image object");
         return NULL;
     }
 
-    memset(obj, 0, sizeof(gfx_obj_t));
-    obj->type = GFX_OBJ_TYPE_IMAGE;
-    obj->disp = disp;
-    obj->state.is_visible = true;
-    obj->vfunc.draw = gfx_img_draw;
-    obj->vfunc.delete = gfx_img_delete_impl;
-    gfx_obj_invalidate(obj);
+    if (gfx_obj_init_class_instance(obj, disp, &s_gfx_img_widget_class, NULL) != ESP_OK) {
+        free(obj);
+        return NULL;
+    }
 
     if (gfx_disp_add_child(disp, obj) != ESP_OK) {
         free(obj);
