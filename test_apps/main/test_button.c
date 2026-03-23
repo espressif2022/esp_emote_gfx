@@ -102,15 +102,16 @@ static void test_button_run(void)
     gfx_label_set_text(scene.status_label, "automatically follows");
     test_app_unlock();
 
-    // test_app_wait_for_observe(4000);
-    test_app_wait_for_observe(4000 * 10000);
+    test_app_wait_for_observe(4000);
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     test_button_scene_cleanup(&scene);
     test_app_unlock();
 }
 
-TEST_CASE("widget button interaction with align_to", "[widget][button][align_to]")
+// TEST_CASE("widget button interaction with align_to", "[widget][button][align_to]")
+
+void test_button_run_case(void)
 {
     test_app_runtime_t runtime;
 

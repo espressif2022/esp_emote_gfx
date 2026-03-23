@@ -13,8 +13,8 @@
 
 static const char *TAG = "test_mesh_drag";
 
-#define TEST_MESH_DRAG_GRID_COLS       6U
-#define TEST_MESH_DRAG_GRID_ROWS       4U
+#define TEST_MESH_DRAG_GRID_COLS       12U
+#define TEST_MESH_DRAG_GRID_ROWS       8U
 #define TEST_MESH_DRAG_POINT_COUNT     ((TEST_MESH_DRAG_GRID_COLS + 1U) * (TEST_MESH_DRAG_GRID_ROWS + 1U))
 #define TEST_MESH_DRAG_TIMER_PERIOD_MS 33U
 // #define TEST_MESH_DRAG_DRAG_LIMIT_X    60
@@ -27,6 +27,8 @@ static const char *TAG = "test_mesh_drag";
 
 typedef struct {
     gfx_obj_t *mesh_obj;
+    gfx_obj_t *title_label;
+    gfx_obj_t *hint_label;
     gfx_timer_handle_t anim_timer;
     gfx_mesh_img_point_t base_points[TEST_MESH_DRAG_POINT_COUNT];
     int16_t current_drag_x;
@@ -76,6 +78,61 @@ static int16_t test_mesh_drag_follow_axis(int16_t current, int16_t target)
     return (int16_t)(current + step);
 }
 
+static int32_t test_mesh_drag_edge_dense_coord(uint32_t idx, uint32_t segments, int32_t max_coord)
+{
+    uint64_t denom;
+    uint64_t value_num;
+
+    if (segments == 0U || max_coord <= 0) {
+        return 0;
+    }
+
+    denom = (uint64_t)segments * (uint64_t)segments;
+    if ((idx * 2U) <= segments) {
+        value_num = 2ULL * (uint64_t)idx * (uint64_t)idx * (uint64_t)max_coord;
+        return (int32_t)((value_num + denom / 2U) / denom);
+    }
+
+    idx = segments - idx;
+    value_num = 2ULL * (uint64_t)idx * (uint64_t)idx * (uint64_t)max_coord;
+    return max_coord - (int32_t)((value_num + denom / 2U) / denom);
+}
+
+static void test_mesh_drag_apply_dense_edge_grid(test_mesh_drag_scene_t *scene)
+{
+    gfx_mesh_img_point_t remapped[TEST_MESH_DRAG_POINT_COUNT];
+    int32_t max_x = 0;
+    int32_t max_y = 0;
+    size_t idx = 0;
+
+    TEST_ASSERT_NOT_NULL(scene);
+    TEST_ASSERT_NOT_NULL(scene->mesh_obj);
+
+    for (size_t i = 0; i < TEST_MESH_DRAG_POINT_COUNT; i++) {
+        gfx_mesh_img_point_t point;
+        TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_get_point(scene->mesh_obj, i, &point));
+        if (point.x > max_x) {
+            max_x = point.x;
+        }
+        if (point.y > max_y) {
+            max_y = point.y;
+        }
+    }
+
+    for (uint32_t row = 0; row <= TEST_MESH_DRAG_GRID_ROWS; row++) {
+        int32_t y = test_mesh_drag_edge_dense_coord(row, TEST_MESH_DRAG_GRID_ROWS, max_y);
+        for (uint32_t col = 0; col <= TEST_MESH_DRAG_GRID_COLS; col++) {
+            int32_t x = test_mesh_drag_edge_dense_coord(col, TEST_MESH_DRAG_GRID_COLS, max_x);
+            remapped[idx].x = (gfx_coord_t)x;
+            remapped[idx].y = (gfx_coord_t)y;
+            idx++;
+        }
+    }
+
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_rest_points(scene->mesh_obj, remapped, TEST_MESH_DRAG_POINT_COUNT));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_reset_points(scene->mesh_obj));
+}
+
 static void test_mesh_drag_capture_base_points(test_mesh_drag_scene_t *scene)
 {
     TEST_ASSERT_NOT_NULL(scene);
@@ -94,6 +151,7 @@ static esp_err_t test_mesh_drag_apply_drag_pose(test_mesh_drag_scene_t *scene, i
     int32_t max_abs_x = 1;
     int32_t max_abs_y = 1;
     int32_t drag_mag;
+    gfx_mesh_img_point_t pose_points[TEST_MESH_DRAG_POINT_COUNT];
 
     ESP_RETURN_ON_FALSE(scene != NULL, ESP_ERR_INVALID_ARG, TAG, "apply drag pose: scene is NULL");
     ESP_RETURN_ON_FALSE(scene->mesh_obj != NULL, ESP_ERR_INVALID_STATE, TAG, "apply drag pose: object is NULL");
@@ -134,11 +192,12 @@ static esp_err_t test_mesh_drag_apply_drag_pose(test_mesh_drag_scene_t *scene, i
             dy += (squeeze * (int32_t)drag_y) / TEST_MESH_DRAG_SQUEEZE_DIV;
         }
 
-        ESP_RETURN_ON_ERROR(gfx_mesh_img_set_point(scene->mesh_obj, i,
-                                                   (gfx_coord_t)(scene->base_points[i].x + dx),
-                                                   (gfx_coord_t)(scene->base_points[i].y + dy)),
-                            TAG, "apply drag pose: set point failed");
+        pose_points[i].x = (gfx_coord_t)(scene->base_points[i].x + dx);
+        pose_points[i].y = (gfx_coord_t)(scene->base_points[i].y + dy);
     }
+
+    ESP_RETURN_ON_ERROR(gfx_mesh_img_set_points(scene->mesh_obj, pose_points, TEST_MESH_DRAG_POINT_COUNT),
+                        TAG, "apply drag pose: set points failed");
 
     /* Object follows the finger position directly */
     gfx_obj_align(scene->mesh_obj, GFX_ALIGN_CENTER, drag_x, drag_y);
@@ -224,6 +283,14 @@ static void test_mesh_drag_scene_cleanup(test_mesh_drag_scene_t *scene)
         gfx_obj_delete(scene->mesh_obj);
         scene->mesh_obj = NULL;
     }
+    if (scene->title_label != NULL) {
+        gfx_obj_delete(scene->title_label);
+        scene->title_label = NULL;
+    }
+    if (scene->hint_label != NULL) {
+        gfx_obj_delete(scene->hint_label);
+        scene->hint_label = NULL;
+    }
 }
 
 static void test_mesh_drag_run(void)
@@ -234,20 +301,43 @@ static void test_mesh_drag_run(void)
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     TEST_ASSERT_NOT_NULL(disp_default);
-    // gfx_disp_set_bg_color(disp_default, GFX_COLOR_HEX(0x0f172a));
-    gfx_disp_set_bg_color(disp_default, GFX_COLOR_HEX(0x000000));
+    gfx_disp_set_bg_color(disp_default, GFX_COLOR_HEX(0x02040A));
 
     scene.mesh_obj = gfx_mesh_img_create(disp_default);
+    scene.title_label = gfx_label_create(disp_default);
+    scene.hint_label = gfx_label_create(disp_default);
     TEST_ASSERT_NOT_NULL(scene.mesh_obj);
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.mesh_obj, (void *)&face_ui_simple));
+    TEST_ASSERT_NOT_NULL(scene.title_label);
+    TEST_ASSERT_NOT_NULL(scene.hint_label);
+    // TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.mesh_obj, (void *)&simple_face2));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.mesh_obj, (void *)&simple_face));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(scene.mesh_obj, TEST_MESH_DRAG_GRID_COLS, TEST_MESH_DRAG_GRID_ROWS));
+    test_mesh_drag_apply_dense_edge_grid(&scene);
     // TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(scene.mesh_obj, true));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(scene.mesh_obj, false));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_touch_cb(scene.mesh_obj, test_mesh_drag_touch_cb, &scene));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.mesh_obj, GFX_ALIGN_CENTER, 0, 0));
+
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_size(scene.title_label, 306, 24));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.title_label, GFX_ALIGN_TOP_MID, 0, 8));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_font(scene.title_label, (gfx_font_t)&font_puhui_16_4));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_bg_enable(scene.title_label, true));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_bg_color(scene.title_label, GFX_COLOR_HEX(0x122544)));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_color(scene.title_label, GFX_COLOR_HEX(0xEAF1FF)));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_text_align(scene.title_label, GFX_TEXT_ALIGN_CENTER));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_text(scene.title_label, " Drag"));
+
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_size(scene.hint_label, 260, 24));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.hint_label, GFX_ALIGN_BOTTOM_MID, 0, -10));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_font(scene.hint_label, (gfx_font_t)&font_puhui_16_4));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_bg_enable(scene.hint_label, true));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_bg_color(scene.hint_label, GFX_COLOR_HEX(0x101A30)));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_color(scene.hint_label, GFX_COLOR_HEX(0xC9D8FF)));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_text_align(scene.hint_label, GFX_TEXT_ALIGN_CENTER));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_text(scene.hint_label, " drag to pull + stretch "));
 
     test_mesh_drag_capture_base_points(&scene);
     TEST_ASSERT_EQUAL(ESP_OK, test_mesh_drag_apply_drag_pose(&scene, 0, 0));
-    gfx_obj_align(scene.mesh_obj, GFX_ALIGN_CENTER, 0, 0);
 
     scene.anim_timer = gfx_timer_create(emote_handle, test_mesh_drag_anim_cb, TEST_MESH_DRAG_TIMER_PERIOD_MS, &scene);
     TEST_ASSERT_NOT_NULL(scene.anim_timer);

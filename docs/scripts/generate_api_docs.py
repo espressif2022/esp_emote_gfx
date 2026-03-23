@@ -382,6 +382,8 @@ HEADER_MAPPING = {
     'include/widget/gfx_img.h': ('api/widgets/gfx_img.rst', 'Image (gfx_img)'),
     'include/widget/gfx_label.h': ('api/widgets/gfx_label.rst', 'Label (gfx_label)'),
     'include/widget/gfx_anim.h': ('api/widgets/gfx_anim.rst', 'Animation (gfx_anim)'),
+    'include/widget/gfx_button.h': ('api/widgets/gfx_button.rst', 'Button (gfx_button)'),
+    'include/widget/gfx_font_lvgl.h': ('api/widgets/gfx_font_lvgl.rst', 'LVGL Font Compatibility (gfx_font_lvgl)'),
     'include/widget/gfx_qrcode.h': ('api/widgets/gfx_qrcode.rst', 'QR Code (gfx_qrcode)'),
 }
 

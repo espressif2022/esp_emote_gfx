@@ -44,6 +44,7 @@ uint32_t gfx_render_area_summary(gfx_disp_t *disp);
 /**
  * @brief Draw child objects for one display using draw context (buf_area + clip_area)
  * @param ctx Draw context: buf, buf_area, clip_area, stride, swap
+ *            buf_area and clip_area use half-open bounds [x1, x2) x [y1, y2)
  */
 void gfx_render_draw_child_objects(gfx_disp_t *disp, const gfx_draw_ctx_t *ctx);
 

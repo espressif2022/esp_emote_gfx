@@ -220,7 +220,7 @@ static void gfx_qrcode_blend(gfx_obj_t *obj, gfx_qrcode_t *qrcode, const gfx_dra
                           };
     gfx_area_t clip_area;
 
-    if (!gfx_area_intersect(&clip_area, &render_area, &obj_area)) {
+    if (!gfx_area_intersect_exclusive(&clip_area, &render_area, &obj_area)) {
         return;
     }
 

@@ -5,46 +5,18 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 DOC_BUILD_DIR="docs/_build/html"
+DOXYGEN_SRC_DIR="docs/_build/doxygen/html"
 DOXYGEN_DIR="${DOC_BUILD_DIR}/doxygen"
 ASSETS_DIR="${DOC_BUILD_DIR}/assets"
 
 mkdir -p "$DOC_BUILD_DIR" "$ASSETS_DIR"
 
-# Create Doxyfile if it doesn't exist
-if [ ! -f Doxyfile ]; then
-  cat <<'EOF' > Doxyfile
-PROJECT_NAME           = esp_emote_gfx
-OUTPUT_DIRECTORY       = docs/doxygen_output
-GENERATE_HTML          = YES
-HTML_OUTPUT            = html
-INPUT                  = . src include components
-FILE_PATTERNS          = *.h *.hpp *.c *.cpp
-RECURSIVE              = YES
-EXTRACT_ALL            = YES
-FULL_PATH_NAMES        = NO
-GENERATE_LATEX         = NO
-WARN_IF_UNDOCUMENTED   = NO
-QUIET                  = YES
-EOF
-fi
-
-# Doxygen and graphviz should be installed by the CI workflow
-if ! command -v doxygen >/dev/null 2>&1; then
-  echo "Warning: doxygen not found, Doxygen API docs will be skipped"
-fi
-
-# Create doxygen output directory (separate from Sphinx api/)
+# Recreate the published Doxygen directory from the generated HTML output.
 rm -rf "$DOXYGEN_DIR"
 mkdir -p "$DOXYGEN_DIR"
 
-# Run doxygen if available
-if command -v doxygen >/dev/null 2>&1; then
-  doxygen Doxyfile
-  
-  # Copy doxygen output to the doxygen directory
-  if [ -d docs/doxygen_output/html ]; then
-    cp -r docs/doxygen_output/html/. "$DOXYGEN_DIR"/
-  fi
+if [ -d "$DOXYGEN_SRC_DIR" ]; then
+  cp -r "$DOXYGEN_SRC_DIR"/. "$DOXYGEN_DIR"/
 fi
 
 # Create fallback doxygen index if no output was generated

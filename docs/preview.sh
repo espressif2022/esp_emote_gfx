@@ -2,11 +2,12 @@
 # ESP Emote GFX 文档本地预览脚本
 # 一键构建并预览文档
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PORT="${1:-8090}"
+HOST="${HOST:-127.0.0.1}"
 
 cd "$REPO_ROOT"
 
@@ -35,39 +36,28 @@ else
     echo "  ✓ Sphinx 已安装"
 fi
 
-# 构建 Sphinx 文档
-echo "[2/4] 构建 Sphinx 文档..."
-make -C docs html 2>&1 | grep -E "(warning|error|Writing|building)" || true
-echo "  ✓ Sphinx 构建完成"
-
-# 运行后处理脚本（Doxygen）
-echo "[3/4] 生成 Doxygen API 文档..."
-if command -v doxygen >/dev/null 2>&1; then
-    bash docs/scripts/postprocess_docs.sh >/dev/null 2>&1
-    echo "  ✓ Doxygen 文档生成完成"
-else
-    echo "  ⚠ Doxygen 未安装，跳过 C/C++ API 文档"
-    echo "    安装方式: sudo apt-get install doxygen graphviz"
-fi
+# 统一构建文档
+echo "[2/4] 构建文档站点..."
+bash docs/scripts/build_docs.sh >/dev/null
+echo "  ✓ 文档构建完成"
 
 # 启动本地服务器
-echo "[4/4] 启动本地预览服务器..."
+echo "[3/4] 启动本地预览服务器..."
 echo ""
 echo "=========================================="
 echo "  文档预览地址："
 echo ""
-echo "    http://10.18.20.57:$PORT"
+echo "    http://$HOST:$PORT"
 echo ""
 echo "  主要页面："
-echo "    - 主页:       http://10.18.20.57:$PORT/index.html"
-echo "    - Core API:   http://10.18.20.57:$PORT/api/core/index.html"
-echo "    - Widget API: http://10.18.20.57:$PORT/api/widgets/index.html"
-echo "    - Doxygen:    http://10.18.20.57:$PORT/doxygen/index.html"
+echo "    - 主页:       http://$HOST:$PORT/index.html"
+echo "    - Core API:   http://$HOST:$PORT/api/core/index.html"
+echo "    - Widget API: http://$HOST:$PORT/api/widgets/index.html"
+echo "    - Doxygen:    http://$HOST:$PORT/doxygen/index.html"
 echo ""
 echo "  按 Ctrl+C 停止服务器"
 echo "=========================================="
 echo ""
 
 cd docs/_build/html
-python3 -m http.server "$PORT" --bind 10.18.20.57
-
+python3 -m http.server "$PORT" --bind "$HOST"

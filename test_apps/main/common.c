@@ -47,8 +47,8 @@ static void test_app_configure_gfx_log_levels(void)
     gfx_log_set_level(GFX_LOG_MODULE_QRCODE, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_BUTTON, GFX_LOG_LEVEL_INFO);
 
-    // gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_DEBUG);
-    gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_DEBUG);
+    // gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_INFO);
 }
 
 #if CONFIG_IDF_TARGET_ESP32S3
@@ -75,6 +75,7 @@ static bool flush_dpi_panel_ready_callback(esp_lcd_panel_handle_t panel_io,
 static void disp_flush_callback(gfx_disp_t *disp, int x1, int y1, int x2, int y2, const void *data)
 {
     esp_lcd_panel_handle_t panel = (esp_lcd_panel_handle_t)gfx_disp_get_user_data(disp);
+    // ESP_LOGI("", "(%d,%d), (%d,%d)", x1, y1, x2, y2);
     esp_lcd_panel_draw_bitmap(panel, x1, y1, x2, y2, data);
     gfx_disp_flush_ready(disp, true);
 }
@@ -196,7 +197,8 @@ esp_err_t display_and_graphics_init(const char *partition_label, uint32_t max_fi
 #if CONFIG_IDF_TARGET_ESP32S3
     /* Initialize display and panel */
     const bsp_display_config_t bsp_disp_cfg = {
-        .max_transfer_sz = (BSP_LCD_H_RES * 100) * sizeof(uint16_t),
+        // .max_transfer_sz = (BSP_LCD_H_RES * 100) * sizeof(uint16_t),
+        .max_transfer_sz = (BSP_LCD_H_RES * 16) * sizeof(uint16_t),
     };
     bsp_display_new(&bsp_disp_cfg, &panel_handle, &io_handle);
     esp_lcd_panel_disp_on_off(panel_handle, true);
@@ -237,11 +239,13 @@ esp_err_t display_and_graphics_init(const char *partition_label, uint32_t max_fi
         .update_cb = NULL,
         .user_data = (void *)panel_handle,
 #if CONFIG_IDF_TARGET_ESP32S3
-        .flags = { .swap = true, .buff_dma = true, .buff_spiram = false, .double_buffer = true },
+        // .flags = { .swap = true, .buff_dma = true, .buff_spiram = false, .double_buffer = true },
+        .flags = { .swap = true, .buff_dma = false, .buff_spiram = true, .double_buffer = true },
 #elif CONFIG_IDF_TARGET_ESP32P4
         .flags = { .swap = false, .buff_dma = true, .buff_spiram = false, .double_buffer = true },
 #endif
-        .buffers = { .buf1 = NULL, .buf2 = NULL, .buf_pixels = BSP_LCD_H_RES * 64 },
+        // .buffers = { .buf1 = NULL, .buf2 = NULL, .buf_pixels = BSP_LCD_H_RES * 64 },
+        .buffers = { .buf1 = NULL, .buf2 = NULL, .buf_pixels = BSP_LCD_H_RES * BSP_LCD_V_RES },
     };
     disp_default = gfx_disp_add(emote_handle, &disp_cfg);
     ESP_GOTO_ON_FALSE(disp_default != NULL, ESP_FAIL, err_gfx, TAG, "Failed to add display");

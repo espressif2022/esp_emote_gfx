@@ -314,7 +314,7 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     obj_area.x2 = obj->geometry.x + obj->geometry.width;
     obj_area.y2 = obj->geometry.y + obj->geometry.height;
 
-    if (!gfx_area_intersect(&clip_area, &ctx->clip_area, &obj_area)) {
+    if (!gfx_area_intersect_exclusive(&clip_area, &ctx->clip_area, &obj_area)) {
         gfx_image_decoder_close(&decoder_dsc);
         return ESP_OK;
     }
@@ -589,6 +589,42 @@ esp_err_t gfx_mesh_img_set_point(gfx_obj_t *obj, size_t point_idx, gfx_coord_t x
     mesh->points[point_idx].y = y;
     gfx_mesh_img_update_bounds(obj, mesh);
     gfx_obj_update_layout(obj);
+    gfx_obj_invalidate(obj);
+    return ESP_OK;
+}
+
+esp_err_t gfx_mesh_img_set_points(gfx_obj_t *obj, const gfx_mesh_img_point_t *points, size_t point_count)
+{
+    gfx_mesh_img_t *mesh;
+
+    CHECK_OBJ_TYPE_MESH_IMAGE(obj);
+    ESP_RETURN_ON_FALSE(points != NULL, ESP_ERR_INVALID_ARG, TAG, "set mesh points: input is NULL");
+
+    mesh = (gfx_mesh_img_t *)obj->src;
+    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh points: state is NULL");
+    ESP_RETURN_ON_FALSE(point_count == mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "set mesh points: count mismatch");
+
+    gfx_obj_invalidate(obj);
+    memcpy(mesh->points, points, point_count * sizeof(*points));
+    gfx_mesh_img_update_bounds(obj, mesh);
+    gfx_obj_update_layout(obj);
+    gfx_obj_invalidate(obj);
+    return ESP_OK;
+}
+
+esp_err_t gfx_mesh_img_set_rest_points(gfx_obj_t *obj, const gfx_mesh_img_point_t *points, size_t point_count)
+{
+    gfx_mesh_img_t *mesh;
+
+    CHECK_OBJ_TYPE_MESH_IMAGE(obj);
+    ESP_RETURN_ON_FALSE(points != NULL, ESP_ERR_INVALID_ARG, TAG, "set mesh rest points: input is NULL");
+
+    mesh = (gfx_mesh_img_t *)obj->src;
+    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh rest points: state is NULL");
+    ESP_RETURN_ON_FALSE(point_count == mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "set mesh rest points: count mismatch");
+
+    gfx_obj_invalidate(obj);
+    memcpy(mesh->rest_points, points, point_count * sizeof(*points));
     gfx_obj_invalidate(obj);
     return ESP_OK;
 }

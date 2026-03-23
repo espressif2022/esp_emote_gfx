@@ -34,6 +34,8 @@ size_t gfx_mesh_img_get_point_count(gfx_obj_t *obj);
 esp_err_t gfx_mesh_img_get_point(gfx_obj_t *obj, size_t point_idx, gfx_mesh_img_point_t *point);
 esp_err_t gfx_mesh_img_get_point_screen(gfx_obj_t *obj, size_t point_idx, gfx_coord_t *x, gfx_coord_t *y);
 esp_err_t gfx_mesh_img_set_point(gfx_obj_t *obj, size_t point_idx, gfx_coord_t x, gfx_coord_t y);
+esp_err_t gfx_mesh_img_set_points(gfx_obj_t *obj, const gfx_mesh_img_point_t *points, size_t point_count);
+esp_err_t gfx_mesh_img_set_rest_points(gfx_obj_t *obj, const gfx_mesh_img_point_t *points, size_t point_count);
 esp_err_t gfx_mesh_img_reset_points(gfx_obj_t *obj);
 esp_err_t gfx_mesh_img_set_ctrl_points_visible(gfx_obj_t *obj, bool visible);
 

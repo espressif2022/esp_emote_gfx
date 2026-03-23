@@ -202,13 +202,13 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
         if (disp->flags.full_frame) {
             buf_area.x1 = 0;
             buf_area.y1 = 0;
-            buf_area.x2 = (gfx_coord_t)disp->res.h_res - 1;
-            buf_area.y2 = (gfx_coord_t)disp->res.v_res - 1;
+            buf_area.x2 = (gfx_coord_t)disp->res.h_res;
+            buf_area.y2 = (gfx_coord_t)disp->res.v_res;
         } else {
             buf_area.x1 = chunk_x1;
             buf_area.y1 = chunk_y1;
-            buf_area.x2 = chunk_x2 - 1;
-            buf_area.y2 = chunk_y2 - 1;
+            buf_area.x2 = chunk_x2;
+            buf_area.y2 = chunk_y2;
         }
 
         gfx_draw_ctx_t draw_ctx = {

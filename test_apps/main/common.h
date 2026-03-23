@@ -31,7 +31,7 @@ typedef struct {
 extern const gfx_image_dsc_t icon_rgb565;
 extern const gfx_image_dsc_t icon_rgb565A8;
 extern const gfx_image_dsc_t orb_ball_center;
-extern const gfx_image_dsc_t face_ui_simple;
+extern const gfx_image_dsc_t simple_face;
 extern const lv_font_t font_puhui_16_4;
 
 /**********************

@@ -50,13 +50,17 @@ void gfx_sw_draw_point(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                        gfx_color_t color, gfx_opa_t opa, bool swap)
 {
     gfx_color_t *pixel = NULL;
+    gfx_color_t draw_color = color;
 
     if (!gfx_sw_draw_get_pixel_ptr(&pixel, dest_buf, dest_stride, buf_area, clip_area, x, y)) {
         return;
     }
 
     if (opa >= 0xFF) {
-        *pixel = color;
+        if (swap) {
+            draw_color.full = __builtin_bswap16(draw_color.full);
+        }
+        *pixel = draw_color;
     } else if (opa > 0) {
         *pixel = gfx_blend_color_mix(color, *pixel, opa, swap);
     }
@@ -67,6 +71,8 @@ void gfx_sw_draw_hline(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                        gfx_coord_t x1, gfx_coord_t x2, gfx_coord_t y,
                        gfx_color_t color, gfx_opa_t opa, bool swap)
 {
+    gfx_color_t draw_color = color;
+
     if (dest_buf == NULL || buf_area == NULL || clip_area == NULL || x2 <= x1 || opa == 0) {
         return;
     }
@@ -93,7 +99,10 @@ void gfx_sw_draw_hline(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
     size_t count = (size_t)(draw_x2 - draw_x1);
 
     if (opa >= 0xFF) {
-        gfx_sw_blend_fill((uint16_t *)pixel, color.full, count);
+        if (swap) {
+            draw_color.full = __builtin_bswap16(draw_color.full);
+        }
+        gfx_sw_blend_fill((uint16_t *)pixel, draw_color.full, count);
     } else {
         for (size_t i = 0; i < count; ++i) {
             pixel[i] = gfx_blend_color_mix(color, pixel[i], opa, swap);
@@ -106,6 +115,8 @@ void gfx_sw_draw_vline(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                        gfx_coord_t x, gfx_coord_t y1, gfx_coord_t y2,
                        gfx_color_t color, gfx_opa_t opa, bool swap)
 {
+    gfx_color_t draw_color = color;
+
     if (dest_buf == NULL || buf_area == NULL || clip_area == NULL || y2 <= y1 || opa == 0) {
         return;
     }
@@ -132,8 +143,11 @@ void gfx_sw_draw_vline(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                          + (size_t)(x - buf_area->x1);
 
     if (opa >= 0xFF) {
+        if (swap) {
+            draw_color.full = __builtin_bswap16(draw_color.full);
+        }
         for (gfx_coord_t row = draw_y1; row < draw_y2; ++row) {
-            *pixel = color;
+            *pixel = draw_color;
             pixel += dest_stride;
         }
     } else {

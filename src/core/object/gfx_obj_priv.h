@@ -30,8 +30,8 @@ extern "C" {
 
 typedef struct gfx_draw_ctx {
     void *buf;                  /**< Buffer start (chunk start or offset into full-frame) */
-    gfx_area_t buf_area;        /**< Screen rect: buf[0] is at (buf_area.x1, buf_area.y1) */
-    gfx_area_t clip_area;       /**< Screen rect to draw this part */
+    gfx_area_t buf_area;        /**< Half-open screen rect [x1, x2) x [y1, y2); buf[0] maps to (buf_area.x1, buf_area.y1) */
+    gfx_area_t clip_area;       /**< Half-open screen rect [x1, x2) x [y1, y2) for this draw pass */
     int stride;                 /**< Row stride in pixels (chunk width or h_res) */
     bool swap;                  /**< Color byte swap */
 } gfx_draw_ctx_t;

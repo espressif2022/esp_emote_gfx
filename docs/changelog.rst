@@ -3,6 +3,32 @@ Changelog
 
 All notable changes to the ESP Emote GFX component will be documented in this file.
 
+[Unreleased]
+------------
+
+Changed
+~~~~~~~
+* Require each delivered change to record a changelog entry describing the modification, affected modules, and known risk points.
+* Improve button press-state behavior so visual feedback is cancelled when the pointer moves outside the control and restored when it moves back in.
+* Allow button borders to be disabled by setting border width to `0`, without changing the existing public API shape.
+* Resolve touch hit-testing against aligned or layout-dirty objects before evaluating pointer containment.
+* Add public API documentation coverage for `gfx_button`.
+* Fix the button demo/test observation wait so it no longer blocks for an accidental ultra-long duration.
+
+Affected modules
+~~~~~~~~~~~~~~~~
+* `src/widget/basic/gfx_button.c`
+* `src/core/runtime/gfx_touch.c`
+* `include/widget/gfx_button.h`
+* `docs/api/widgets/*`
+* `test_apps/main/test_button.c`
+
+Risk points
+~~~~~~~~~~~
+* Touch interactions on aligned widgets may behave slightly differently because hit-testing now resolves pending layout before matching coordinates.
+* Applications that intentionally relied on a pressed visual state staying active after dragging out of a button will now see the more standard “cancel on leave” feedback.
+* Border width `0` now has semantic meaning (“no border”), so rendering may change for callers that previously only used positive widths.
+
 [3.0.1] - 2026-02-13
 --------------------
 * Add CI build action for P4

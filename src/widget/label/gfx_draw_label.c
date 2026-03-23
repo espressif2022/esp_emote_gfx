@@ -1118,7 +1118,7 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     gfx_area_t obj_area = {obj->geometry.x, obj->geometry.y, obj->geometry.x + obj->geometry.width, obj->geometry.y + obj->geometry.height};
     gfx_area_t clip_area;
 
-    if (!gfx_area_intersect(&clip_area, &render_area, &obj_area)) {
+    if (!gfx_area_intersect_exclusive(&clip_area, &render_area, &obj_area)) {
         return ESP_OK;
     }
 

@@ -143,7 +143,7 @@ static void setup_img(gfx_disp_t *disp, void *user_data)
     gfx_obj_t *img_obj = gfx_img_create(disp);
     TEST_ASSERT_NOT_NULL(img_obj);
 
-    gfx_img_set_src(img_obj, (void *)&face_ui_simple);
+    gfx_img_set_src(img_obj, (void *)&simple_face);
     gfx_obj_set_size(img_obj, gfx_disp_get_hor_res(disp), gfx_disp_get_ver_res(disp));
     gfx_obj_align(img_obj, GFX_ALIGN_CENTER, 0, 0);
     scene->objs[scene->obj_count++] = img_obj;
@@ -155,7 +155,7 @@ static void setup_mesh_4x4(gfx_disp_t *disp, void *user_data)
     test_benchmark_scene_t *scene = (test_benchmark_scene_t *)user_data;
     gfx_obj_t *mesh = gfx_mesh_img_create(disp);
     TEST_ASSERT_NOT_NULL(mesh);
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(mesh, (void *)&face_ui_simple));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(mesh, (void *)&simple_face));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(mesh, 4, 4));
     gfx_obj_set_size(mesh, gfx_disp_get_hor_res(disp), gfx_disp_get_ver_res(disp));
     gfx_obj_align(mesh, GFX_ALIGN_CENTER, 0, 0);
@@ -174,7 +174,7 @@ static void setup_mesh_8x8(gfx_disp_t *disp, void *user_data)
     test_benchmark_scene_t *scene = (test_benchmark_scene_t *)user_data;
     gfx_obj_t *mesh = gfx_mesh_img_create(disp);
     TEST_ASSERT_NOT_NULL(mesh);
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(mesh, (void *)&face_ui_simple));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(mesh, (void *)&simple_face));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(mesh, 8, 8));
     gfx_obj_set_size(mesh, gfx_disp_get_hor_res(disp), gfx_disp_get_ver_res(disp));
     gfx_obj_align(mesh, GFX_ALIGN_CENTER, 0, 0);

@@ -717,7 +717,7 @@ static esp_err_t gfx_draw_animation(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     };
     gfx_area_t clip_area;
 
-    if (!gfx_area_intersect(&clip_area, &render_area, &obj_area)) {
+    if (!gfx_area_intersect_exclusive(&clip_area, &render_area, &obj_area)) {
         return ESP_OK;
     }
 
@@ -735,7 +735,7 @@ static esp_err_t gfx_draw_animation(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
         gfx_area_t block_area = {block_start_x, block_start_y, block_end_x, block_end_y};
         gfx_area_t clip_block;
 
-        if (!gfx_area_intersect(&clip_block, &clip_area, &block_area)) {
+        if (!gfx_area_intersect_exclusive(&clip_block, &clip_area, &block_area)) {
             continue;
         }
 

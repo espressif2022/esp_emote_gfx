@@ -479,6 +479,10 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
         int32_t w0_row = (int32_t)(min_x - v1->x) * e0_a + (int32_t)(min_y - v1->y) * e0_b;
         int32_t w1_row = (int32_t)(min_x - v2->x) * e1_a + (int32_t)(min_y - v2->y) * e1_b;
 
+        /* Evaluate triangle coverage at pixel centers for steadier edge AA. */
+        w0_row += (e0_a + e0_b) / 2;
+        w1_row += (e1_a + e1_b) / 2;
+
         /* UV at starting point (fixed-point) */
         int64_t u_start_num = (int64_t)w0_row * v0->u + (int64_t)w1_row * v1->u
                             + (int64_t)(area_2x - w0_row - w1_row) * v2->u;
@@ -486,6 +490,10 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                             + (int64_t)(area_2x - w0_row - w1_row) * v2->v;
         int32_t u_row = (int32_t)((u_start_num << FRAC_BITS) / area_2x);
         int32_t v_row = (int32_t)((v_start_num << FRAC_BITS) / area_2x);
+
+        /* Sample UV at pixel centers while keeping the existing coverage walk. */
+        u_row += (du_dx + du_dy) / 2;
+        v_row += (dv_dx + dv_dy) / 2;
 
         for (int32_t y = min_y; y <= max_y; y++) {
             int32_t w0 = w0_row;

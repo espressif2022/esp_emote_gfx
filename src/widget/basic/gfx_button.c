@@ -67,6 +67,7 @@ static const char *TAG = "button";
 
 static void gfx_button_init_default_state(gfx_button_t *button);
 static void gfx_button_apply_label_geometry(gfx_obj_t *obj);
+static bool gfx_button_contains_point(gfx_obj_t *obj, uint16_t x, uint16_t y);
 static esp_err_t gfx_button_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx);
 static esp_err_t gfx_button_update(gfx_obj_t *obj);
 static esp_err_t gfx_button_delete_impl(gfx_obj_t *obj);
@@ -134,6 +135,19 @@ static void gfx_button_apply_label_geometry(gfx_obj_t *obj)
     button->label.style.bg_enable = false;
 }
 
+static bool gfx_button_contains_point(gfx_obj_t *obj, uint16_t x, uint16_t y)
+{
+    if (obj == NULL) {
+        return false;
+    }
+
+    gfx_obj_calc_pos_in_parent(obj);
+    return ((gfx_coord_t)x >= obj->geometry.x) &&
+           ((gfx_coord_t)y >= obj->geometry.y) &&
+           ((gfx_coord_t)x < (obj->geometry.x + (gfx_coord_t)obj->geometry.width)) &&
+           ((gfx_coord_t)y < (obj->geometry.y + (gfx_coord_t)obj->geometry.height));
+}
+
 static esp_err_t gfx_button_call_label_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 {
     int original_type = obj->type;
@@ -178,6 +192,7 @@ static esp_err_t gfx_button_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     gfx_area_t fill_area;
     gfx_area_t saved_geometry;
     gfx_color_t fill_color;
+    uint16_t fill_color_raw;
 
     CHECK_OBJ_TYPE_BUTTON(obj);
     GFX_RETURN_IF_NULL(ctx, ESP_ERR_INVALID_ARG);
@@ -192,18 +207,19 @@ static esp_err_t gfx_button_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     obj_area.x2 = obj->geometry.x + obj->geometry.width;
     obj_area.y2 = obj->geometry.y + obj->geometry.height;
 
-    if (!gfx_area_intersect(&clip_area, &ctx->clip_area, &obj_area)) {
+    if (!gfx_area_intersect_exclusive(&clip_area, &ctx->clip_area, &obj_area)) {
         return ESP_OK;
     }
 
     fill_color = button->state.pressed ? button->style.bg_color_pressed : button->style.bg_color;
+    fill_color_raw = ctx->swap ? (uint16_t)__builtin_bswap16(fill_color.full) : fill_color.full;
     gfx_color_t *dest_pixels = (gfx_color_t *)ctx->buf;
     fill_area.x1 = clip_area.x1 - ctx->buf_area.x1;
     fill_area.y1 = clip_area.y1 - ctx->buf_area.y1;
     fill_area.x2 = clip_area.x2 - ctx->buf_area.x1;
     fill_area.y2 = clip_area.y2 - ctx->buf_area.y1;
 
-    gfx_sw_blend_fill_area((uint16_t *)dest_pixels, ctx->stride, &fill_area, fill_color.full);
+    gfx_sw_blend_fill_area((uint16_t *)dest_pixels, ctx->stride, &fill_area, fill_color_raw);
     gfx_sw_draw_rect_stroke(dest_pixels,
                             ctx->stride,
                             &ctx->buf_area,
@@ -266,6 +282,7 @@ static void gfx_button_touch_event(gfx_obj_t *obj, const void *event_data)
 {
     const gfx_touch_event_t *event = (const gfx_touch_event_t *)event_data;
     gfx_button_t *button;
+    bool should_press;
 
     if (obj == NULL || event == NULL || obj->src == NULL) {
         return;
@@ -280,13 +297,19 @@ static void gfx_button_touch_event(gfx_obj_t *obj, const void *event_data)
             gfx_obj_invalidate(obj);
         }
         break;
+    case GFX_TOUCH_EVENT_MOVE:
+        should_press = gfx_button_contains_point(obj, event->x, event->y);
+        if (button->state.pressed != should_press) {
+            button->state.pressed = should_press;
+            gfx_obj_invalidate(obj);
+        }
+        break;
     case GFX_TOUCH_EVENT_RELEASE:
         if (button->state.pressed) {
             button->state.pressed = false;
             gfx_obj_invalidate(obj);
         }
         break;
-    case GFX_TOUCH_EVENT_MOVE:
     default:
         break;
     }
@@ -473,7 +496,6 @@ esp_err_t gfx_button_set_border_width(gfx_obj_t *obj, uint16_t width)
 {
     CHECK_OBJ_TYPE_BUTTON(obj);
     GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
-    ESP_RETURN_ON_FALSE(width > 0, ESP_ERR_INVALID_ARG, TAG, "border width must be > 0");
 
     ((gfx_button_t *)obj->src)->style.border_width = width;
     gfx_obj_invalidate(obj);

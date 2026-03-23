@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ESP Emote GFX UI Designer</title>
+  <link rel="stylesheet" href="./designer.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="panel panel-left">
+      <div class="panel-head">
+        <p class="eyebrow">Prototype</p>
+        <h1>ESP Emote GFX UI Designer</h1>
+        <p class="subtitle">Drag widgets, edit properties, and export a scene JSON that stays close to the current runtime APIs.</p>
+      </div>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Screen</h2>
+          <button id="fit-canvas" class="ghost-btn" type="button">Fit</button>
+        </div>
+        <div class="form-grid">
+          <label>
+            <span>Width</span>
+            <input id="screen-width" type="number" min="64" max="2048" step="1">
+          </label>
+          <label>
+            <span>Height</span>
+            <input id="screen-height" type="number" min="64" max="2048" step="1">
+          </label>
+          <label>
+            <span>Background</span>
+            <input id="screen-bg" type="color">
+          </label>
+          <label>
+            <span>Grid</span>
+            <input id="screen-grid" type="number" min="1" max="64" step="1">
+          </label>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Palette</h2>
+        </div>
+        <div id="palette" class="palette"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Export</h2>
+          <div class="action-row">
+            <button id="copy-json" class="ghost-btn" type="button">Copy</button>
+            <button id="reset-scene" class="ghost-btn danger" type="button">Reset</button>
+          </div>
+        </div>
+        <textarea id="scene-json" spellcheck="false"></textarea>
+        <div class="inline-actions">
+          <button id="import-json" class="primary-btn" type="button">Import JSON</button>
+        </div>
+      </section>
+    </aside>
+
+    <main class="workspace">
+      <header class="workspace-head">
+        <div>
+          <p class="eyebrow">Canvas</p>
+          <h2>Screen Composer</h2>
+        </div>
+        <div class="status-group">
+          <span id="selection-badge" class="status-chip">No selection</span>
+          <span class="status-chip muted">Absolute layout first</span>
+        </div>
+      </header>
+
+      <section class="canvas-stage">
+        <div id="canvas-wrap" class="canvas-wrap">
+          <div id="canvas" class="canvas" aria-label="screen canvas"></div>
+        </div>
+      </section>
+    </main>
+
+    <aside class="panel panel-right">
+      <section class="card">
+        <div class="card-head">
+          <h2>Layers</h2>
+          <div class="action-row">
+            <button id="layer-up" class="ghost-btn" type="button">Up</button>
+            <button id="layer-down" class="ghost-btn" type="button">Down</button>
+          </div>
+        </div>
+        <div id="layer-list" class="layer-list"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Inspector</h2>
+          <div class="action-row">
+            <button id="duplicate-widget" class="ghost-btn" type="button">Duplicate</button>
+            <button id="delete-widget" class="ghost-btn danger" type="button">Delete</button>
+          </div>
+        </div>
+        <div id="inspector-empty" class="empty-state">
+          Select a widget on the canvas or from the layer list.
+        </div>
+        <form id="inspector-form" class="inspector hidden">
+          <div class="group">
+            <h3>General</h3>
+            <div class="form-grid">
+              <label>
+                <span>Name</span>
+                <input data-prop="name" type="text">
+              </label>
+              <label>
+                <span>Type</span>
+                <input data-prop="type" type="text" disabled>
+              </label>
+              <label>
+                <span>X</span>
+                <input data-prop="x" type="number" step="1">
+              </label>
+              <label>
+                <span>Y</span>
+                <input data-prop="y" type="number" step="1">
+              </label>
+              <label>
+                <span>Width</span>
+                <input data-prop="w" type="number" min="1" step="1">
+              </label>
+              <label>
+                <span>Height</span>
+                <input data-prop="h" type="number" min="1" step="1">
+              </label>
+              <label class="checkbox">
+                <input data-prop="visible" type="checkbox">
+                <span>Visible</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="group">
+            <h3>Widget Properties</h3>
+            <div id="type-fields" class="form-grid"></div>
+          </div>
+        </form>
+      </section>
+    </aside>
+  </div>
+
+  <template id="palette-item-template">
+    <button class="palette-item" type="button"></button>
+  </template>
+
+  <template id="layer-item-template">
+    <button class="layer-item" type="button">
+      <span class="layer-title"></span>
+      <span class="layer-meta"></span>
+    </button>
+  </template>
+
+  <script src="./designer.js"></script>
+</body>
+</html>
+

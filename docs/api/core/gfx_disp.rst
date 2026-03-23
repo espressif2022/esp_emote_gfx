@@ -29,6 +29,45 @@ gfx_disp_event_t
        GFX_DISP_EVENT_ALL_FRAME_DONE,
    } gfx_disp_event_t;
 
+gfx_perf_counter_t
+~~~~~~~~~~~~~~~~~~
+
+.. code-block:: c
+
+   typedef struct {
+       uint64_t calls;           /**< Number of API calls */
+       uint64_t pixels;          /**< Processed pixels */
+       uint64_t time_us;         /**< Elapsed time in microseconds */
+   } gfx_perf_counter_t;
+
+gfx_blend_perf_stats_t
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: c
+
+   typedef struct {
+       gfx_perf_counter_t fill;          /**< gfx_sw_blend_fill_area */
+       gfx_perf_counter_t color_draw;    /**< gfx_sw_blend_draw */
+       gfx_perf_counter_t image_draw;    /**< gfx_sw_blend_img_draw */
+       gfx_perf_counter_t triangle_draw; /**< gfx_sw_blend_img_triangle_draw */
+       uint64_t triangle_covered_pixels; /**< Triangle pixels blended (inside + AA) */
+       uint64_t triangle_aa_pixels;      /**< Triangle edge-AA blended pixels */
+   } gfx_blend_perf_stats_t;
+
+gfx_disp_perf_stats_t
+~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: c
+
+   typedef struct {
+       uint32_t dirty_pixels;            /**< Dirty pixels in the latest rendered frame */
+       uint64_t frame_time_us;           /**< Total frame time */
+       uint64_t render_time_us;          /**< Time spent in render phase */
+       uint64_t flush_time_us;           /**< Time spent in flush callbacks */
+       uint32_t flush_count;             /**< Number of flush calls */
+       gfx_blend_perf_stats_t blend;     /**< Blend-stage details */
+   } gfx_disp_perf_stats_t;
+
 gfx_disp_config_t
 ~~~~~~~~~~~~~~~~~
 
@@ -45,6 +84,7 @@ gfx_disp_config_t
            unsigned char buff_dma : 1;          /**< Alloc buffer with MALLOC_CAP_DMA (internal alloc only) */
            unsigned char buff_spiram : 1;       /**< Alloc buffer in PSRAM (internal alloc only) */
            unsigned char double_buffer : 1;     /**< Alloc second buffer for double buffering (internal alloc only) */
+           unsigned char full_frame : 1;    /**< 1 = buf1/buf2 are full-screen framebuffers (e.g. RGB); draw at chunk region. 0 = partition buffer; draw from start. */
        } flags;
        struct {
            void *buf1;                          /**< Frame buffer 1 (NULL = internal alloc) */
@@ -124,6 +164,75 @@ Get user data for a display
 
 * void* User data, or NULL
 
+gfx_disp_get_hor_res()
+~~~~~~~~~~~~~~~~~~~~~~
+
+Get display horizontal resolution in pixels
+
+.. code-block:: c
+
+   uint32_t gfx_disp_get_hor_res(gfx_disp_t *disp);
+
+**Parameters:**
+
+* ``disp`` - Display from gfx_disp_add (NULL allowed; returns default width)
+
+**Returns:**
+
+* uint32_t Width in pixels
+
+gfx_disp_get_ver_res()
+~~~~~~~~~~~~~~~~~~~~~~
+
+Get display vertical resolution in pixels
+
+.. code-block:: c
+
+   uint32_t gfx_disp_get_ver_res(gfx_disp_t *disp);
+
+**Parameters:**
+
+* ``disp`` - Display from gfx_disp_add (NULL allowed; returns default height)
+
+**Returns:**
+
+* uint32_t Height in pixels
+
+gfx_disp_is_flushing_last()
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Check if display is currently flushing the last block
+
+.. code-block:: c
+
+   bool gfx_disp_is_flushing_last(gfx_disp_t *disp);
+
+**Parameters:**
+
+* ``disp`` - Display from gfx_disp_add
+
+**Returns:**
+
+* true if flushing last block, false otherwise
+
+gfx_disp_get_perf_stats()
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Get latest per-display performance statistics
+
+.. code-block:: c
+
+   esp_err_t gfx_disp_get_perf_stats(gfx_disp_t *disp, gfx_disp_perf_stats_t *out_stats);
+
+**Parameters:**
+
+* ``disp`` - Display handle
+* ``out_stats`` - Output stats structure
+
+**Returns:**
+
+* ESP_OK on success
+
 gfx_disp_set_bg_color()
 ~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -141,3 +250,21 @@ Set default background color for a display
 **Returns:**
 
 * esp_err_t ESP_OK on success
+
+gfx_disp_set_bg_enable()
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Enable or disable drawing the background (fill with bg_color before widgets)
+
+.. code-block:: c
+
+   esp_err_t gfx_disp_set_bg_enable(gfx_disp_t *disp, bool enable);
+
+**Parameters:**
+
+* ``disp`` - Display from gfx_disp_add
+* ``enable`` - true to enable background (default), false to disable background
+
+**Returns:**
+
+* ESP_OK on success

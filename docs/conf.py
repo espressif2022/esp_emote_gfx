@@ -15,10 +15,8 @@ release = '1.0.0'
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.viewcode',
     'sphinx.ext.intersphinx',
-    'breathe',  # For Doxygen integration (optional)
+    'breathe',
 ]
 
 templates_path = ['_templates']
@@ -36,7 +34,7 @@ html_favicon = None
 
 # Breathe configuration (if using Doxygen)
 breathe_projects = {
-    "esp_emote_gfx": "../doxygen/xml"
+    "esp_emote_gfx": "_build/doxygen/xml"
 }
 breathe_default_project = "esp_emote_gfx"
 
@@ -44,7 +42,4 @@ breathe_default_project = "esp_emote_gfx"
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
 }
-
-# -- Options for autodoc ----------------------------------------------------
-autodoc_mock_imports = ['esp_err', 'esp_log', 'lvgl', 'freetype']
 

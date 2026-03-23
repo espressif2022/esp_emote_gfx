@@ -64,10 +64,16 @@ static gfx_obj_t *gfx_touch_hit_test(gfx_disp_t *disp, uint16_t x, uint16_t y)
         if (!obj->state.is_visible) {
             continue;
         }
+        if (obj->align.enabled || obj->state.layout_dirty) {
+            gfx_obj_calc_pos_in_parent(obj);
+        }
         int32_t ox = obj->geometry.x;
         int32_t oy = obj->geometry.y;
         uint32_t w = obj->geometry.width;
         uint32_t h = obj->geometry.height;
+        if (w == 0 || h == 0) {
+            continue;
+        }
         if ((int32_t)x >= ox && (int32_t)x < ox + (int32_t)w && (int32_t)y >= oy && (int32_t)y < oy + (int32_t)h) {
             hit = obj;
         }

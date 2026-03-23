@@ -9,6 +9,7 @@ Welcome to the ESP Emote GFX API documentation. This is a lightweight graphics f
 
    overview
    quickstart
+   rendering
    api/core/index
    api/widgets/index
    examples
@@ -39,6 +40,7 @@ Quick Links
 -----------
 
 * :doc:`Quick Start Guide <quickstart>`
+* :doc:`Rendering and Performance <rendering>`
 * :doc:`Core API Reference <api/core/index>`
 * :doc:`Widget API Reference <api/widgets/index>`
 * :doc:`Examples <examples>`

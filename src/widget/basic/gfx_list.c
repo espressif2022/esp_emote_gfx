@@ -343,6 +343,8 @@ static esp_err_t gfx_list_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     gfx_area_t clip_area;
     gfx_area_t fill_area;
     gfx_area_t saved_geometry;
+    uint16_t bg_color_raw;
+    uint16_t selected_bg_color_raw;
 
     CHECK_OBJ_TYPE_LIST(obj);
     GFX_RETURN_IF_NULL(ctx, ESP_ERR_INVALID_ARG);
@@ -357,15 +359,18 @@ static esp_err_t gfx_list_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     obj_area.x2 = obj->geometry.x + obj->geometry.width;
     obj_area.y2 = obj->geometry.y + obj->geometry.height;
 
-    if (!gfx_area_intersect(&clip_area, &ctx->clip_area, &obj_area)) {
+    if (!gfx_area_intersect_exclusive(&clip_area, &ctx->clip_area, &obj_area)) {
         return ESP_OK;
     }
+
+    bg_color_raw = ctx->swap ? (uint16_t)__builtin_bswap16(list->style.bg_color.full) : list->style.bg_color.full;
+    selected_bg_color_raw = ctx->swap ? (uint16_t)__builtin_bswap16(list->style.selected_bg_color.full) : list->style.selected_bg_color.full;
 
     fill_area.x1 = clip_area.x1 - ctx->buf_area.x1;
     fill_area.y1 = clip_area.y1 - ctx->buf_area.y1;
     fill_area.x2 = clip_area.x2 - ctx->buf_area.x1;
     fill_area.y2 = clip_area.y2 - ctx->buf_area.y1;
-    gfx_sw_blend_fill_area((uint16_t *)ctx->buf, ctx->stride, &fill_area, list->style.bg_color.full);
+    gfx_sw_blend_fill_area((uint16_t *)ctx->buf, ctx->stride, &fill_area, bg_color_raw);
 
     if (list->items.selected >= 0 && list->items.selected < (int32_t)list->items.count && list->style.row_height > 0U) {
         gfx_area_t selected_area;
@@ -377,12 +382,12 @@ static esp_err_t gfx_list_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
         selected_area.y2 = selected_area.y1 + (gfx_coord_t)list->style.row_height;
 
         if (selected_area.x2 > selected_area.x1 && selected_area.y2 > selected_area.y1 &&
-                gfx_area_intersect(&selected_clip, &ctx->clip_area, &selected_area)) {
+                gfx_area_intersect_exclusive(&selected_clip, &ctx->clip_area, &selected_area)) {
             fill_area.x1 = selected_clip.x1 - ctx->buf_area.x1;
             fill_area.y1 = selected_clip.y1 - ctx->buf_area.y1;
             fill_area.x2 = selected_clip.x2 - ctx->buf_area.x1;
             fill_area.y2 = selected_clip.y2 - ctx->buf_area.y1;
-            gfx_sw_blend_fill_area((uint16_t *)ctx->buf, ctx->stride, &fill_area, list->style.selected_bg_color.full);
+            gfx_sw_blend_fill_area((uint16_t *)ctx->buf, ctx->stride, &fill_area, selected_bg_color_raw);
         }
     }
 
@@ -704,4 +709,3 @@ esp_err_t gfx_list_set_padding(gfx_obj_t *obj, uint16_t pad_x, uint16_t pad_y)
     gfx_obj_invalidate(obj);
     return ESP_OK;
 }
-

@@ -13,8 +13,8 @@
 
 static const char *TAG = "test_mesh_bulge";
 
-#define TEST_MESH_BULGE_GRID_COLS         10U
-#define TEST_MESH_BULGE_GRID_ROWS         8U
+#define TEST_MESH_BULGE_GRID_COLS         16U
+#define TEST_MESH_BULGE_GRID_ROWS         12U
 #define TEST_MESH_BULGE_POINT_COUNT       ((TEST_MESH_BULGE_GRID_COLS + 1U) * (TEST_MESH_BULGE_GRID_ROWS + 1U))
 #define TEST_MESH_BULGE_TIMER_PERIOD_MS   33U
 #define TEST_MESH_BULGE_FOCUS_LIMIT_X     96
@@ -71,6 +71,61 @@ static int16_t test_mesh_bulge_follow_axis(int16_t current, int16_t target)
     return (int16_t)(current + step);
 }
 
+static int32_t test_mesh_bulge_edge_dense_coord(uint32_t idx, uint32_t segments, int32_t max_coord)
+{
+    uint64_t denom;
+    uint64_t value_num;
+
+    if (segments == 0U || max_coord <= 0) {
+        return 0;
+    }
+
+    denom = (uint64_t)segments * (uint64_t)segments;
+    if ((idx * 2U) <= segments) {
+        value_num = 2ULL * (uint64_t)idx * (uint64_t)idx * (uint64_t)max_coord;
+        return (int32_t)((value_num + denom / 2U) / denom);
+    }
+
+    idx = segments - idx;
+    value_num = 2ULL * (uint64_t)idx * (uint64_t)idx * (uint64_t)max_coord;
+    return max_coord - (int32_t)((value_num + denom / 2U) / denom);
+}
+
+static void test_mesh_bulge_apply_dense_edge_grid(test_mesh_bulge_scene_t *scene)
+{
+    gfx_mesh_img_point_t remapped[TEST_MESH_BULGE_POINT_COUNT];
+    int32_t max_x = 0;
+    int32_t max_y = 0;
+    size_t idx = 0;
+
+    TEST_ASSERT_NOT_NULL(scene);
+    TEST_ASSERT_NOT_NULL(scene->mesh_obj);
+
+    for (size_t i = 0; i < TEST_MESH_BULGE_POINT_COUNT; i++) {
+        gfx_mesh_img_point_t point;
+        TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_get_point(scene->mesh_obj, i, &point));
+        if (point.x > max_x) {
+            max_x = point.x;
+        }
+        if (point.y > max_y) {
+            max_y = point.y;
+        }
+    }
+
+    for (uint32_t row = 0; row <= TEST_MESH_BULGE_GRID_ROWS; row++) {
+        int32_t y = test_mesh_bulge_edge_dense_coord(row, TEST_MESH_BULGE_GRID_ROWS, max_y);
+        for (uint32_t col = 0; col <= TEST_MESH_BULGE_GRID_COLS; col++) {
+            int32_t x = test_mesh_bulge_edge_dense_coord(col, TEST_MESH_BULGE_GRID_COLS, max_x);
+            remapped[idx].x = (gfx_coord_t)x;
+            remapped[idx].y = (gfx_coord_t)y;
+            idx++;
+        }
+    }
+
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_rest_points(scene->mesh_obj, remapped, TEST_MESH_BULGE_POINT_COUNT));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_reset_points(scene->mesh_obj));
+}
+
 static void test_mesh_bulge_capture_base_points(test_mesh_bulge_scene_t *scene)
 {
     TEST_ASSERT_NOT_NULL(scene);
@@ -90,6 +145,7 @@ static esp_err_t test_mesh_bulge_apply_pose(test_mesh_bulge_scene_t *scene, int1
 {
     int32_t focus_x;
     int32_t focus_y;
+    gfx_mesh_img_point_t pose_points[TEST_MESH_BULGE_POINT_COUNT];
     const int32_t radius2 = TEST_MESH_BULGE_RADIUS * TEST_MESH_BULGE_RADIUS;
 
     ESP_RETURN_ON_FALSE(scene != NULL, ESP_ERR_INVALID_ARG, TAG, "apply pose: scene is NULL");
@@ -114,11 +170,12 @@ static esp_err_t test_mesh_bulge_apply_pose(test_mesh_bulge_scene_t *scene, int1
             delta_y = (int32_t)(((int64_t)rel_y * strength * influence) / TEST_MESH_BULGE_INTENSITY_SCALE);
         }
 
-        ESP_RETURN_ON_ERROR(gfx_mesh_img_set_point(scene->mesh_obj, i,
-                                                   (gfx_coord_t)(base_x + delta_x),
-                                                   (gfx_coord_t)(base_y + delta_y)),
-                            TAG, "apply pose: set point failed");
+        pose_points[i].x = (gfx_coord_t)(base_x + delta_x);
+        pose_points[i].y = (gfx_coord_t)(base_y + delta_y);
     }
+
+    ESP_RETURN_ON_ERROR(gfx_mesh_img_set_points(scene->mesh_obj, pose_points, TEST_MESH_BULGE_POINT_COUNT),
+                        TAG, "apply pose: set points failed");
 
     return ESP_OK;
 }
@@ -195,8 +252,7 @@ static void test_mesh_bulge_anim_cb(void *user_data)
     test_mesh_bulge_apply_pose(scene, next_focus_x, next_focus_y, next_strength);
 
     if (scene->hint_label != NULL) {
-        const char *mode = (next_strength >= 0) ? "bulge" : "pinch";
-        gfx_label_set_text_fmt(scene->hint_label, " mode:%s  strength:%d ", mode, (int)next_strength);
+        gfx_label_set_text_fmt(scene->hint_label, " strength:%d ", (int)next_strength);
     }
 }
 
@@ -242,8 +298,9 @@ static void test_mesh_bulge_run(void)
     TEST_ASSERT_NOT_NULL(scene.title_label);
     TEST_ASSERT_NOT_NULL(scene.hint_label);
 
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.mesh_obj, (void *)&face_ui_simple));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.mesh_obj, (void *)&simple_face));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(scene.mesh_obj, TEST_MESH_BULGE_GRID_COLS, TEST_MESH_BULGE_GRID_ROWS));
+    test_mesh_bulge_apply_dense_edge_grid(&scene);
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(scene.mesh_obj, false));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_touch_cb(scene.mesh_obj, test_mesh_bulge_touch_cb, &scene));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.mesh_obj, GFX_ALIGN_CENTER, 0, 0));
@@ -255,7 +312,7 @@ static void test_mesh_bulge_run(void)
     TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_bg_color(scene.title_label, GFX_COLOR_HEX(0x122544)));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_color(scene.title_label, GFX_COLOR_HEX(0xEAF1FF)));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_text_align(scene.title_label, GFX_TEXT_ALIGN_CENTER));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_text(scene.title_label, " Bulge / Pinch  |  move focus + swipe up/down "));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_text(scene.title_label, " Bulge"));
 
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_size(scene.hint_label, 240, 24));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.hint_label, GFX_ALIGN_BOTTOM_MID, 0, -10));
@@ -264,7 +321,7 @@ static void test_mesh_bulge_run(void)
     TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_bg_color(scene.hint_label, GFX_COLOR_HEX(0x101A30)));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_color(scene.hint_label, GFX_COLOR_HEX(0xC9D8FF)));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_text_align(scene.hint_label, GFX_TEXT_ALIGN_CENTER));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_text(scene.hint_label, " mode:bulge  strength:0 "));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_text(scene.hint_label, " strength:0 "));
 
     test_mesh_bulge_capture_base_points(&scene);
     TEST_ASSERT_EQUAL(ESP_OK, test_mesh_bulge_apply_pose(&scene, 0, 0, 0));
@@ -274,7 +331,7 @@ static void test_mesh_bulge_run(void)
     test_app_unlock();
 
     test_app_log_step(TAG, "Touch to move fisheye center; drag up to bulge, drag down to pinch");
-    test_app_wait_for_observe(120000);
+    test_app_wait_for_observe(1000 * 1000);
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     test_mesh_bulge_scene_cleanup(&scene);

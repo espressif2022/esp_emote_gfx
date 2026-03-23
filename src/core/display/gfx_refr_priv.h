@@ -76,6 +76,15 @@ bool gfx_area_is_in(const gfx_area_t *area_in, const gfx_area_t *area_parent);
 bool gfx_area_intersect(gfx_area_t *result, const gfx_area_t *a1, const gfx_area_t *a2);
 
 /**
+ * @brief Get intersection of two half-open areas [x1, x2) x [y1, y2)
+ * @param result Result area (intersection)
+ * @param a1 First area with exclusive x2/y2
+ * @param a2 Second area with exclusive x2/y2
+ * @return true if areas intersect, false otherwise
+ */
+bool gfx_area_intersect_exclusive(gfx_area_t *result, const gfx_area_t *a1, const gfx_area_t *a2);
+
+/**
  * @brief Get the size (area) of a rectangular region
  * @param area Area to calculate size for
  * @return Size in pixels (width * height)
