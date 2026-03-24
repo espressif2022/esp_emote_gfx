@@ -69,16 +69,22 @@ typedef struct {
     int16_t      w_sad;
     int16_t      w_surprise;
     int16_t      w_angry;
+    int16_t      w_look_x;
+    int16_t      w_look_y;
     uint16_t     hold_ticks;
 } face_emotion_t;
 
 #include "test_mouth_model_keyframes.inc"
 
 static void face_blend_emotion(const face_emotion_t *em,
-                                face_eye_kf_t        *eye_out,
-                                face_brow_kf_t       *brow_out,
-                                face_mouth_kf_t      *mouth_out)
+                               face_eye_kf_t        *eye_out,
+                               face_brow_kf_t       *brow_out,
+                               face_mouth_kf_t      *mouth_out,
+                               int16_t              *look_x_out,
+                               int16_t              *look_y_out)
 {
+    if (look_x_out) *look_x_out = em->w_look_x;
+    if (look_y_out) *look_y_out = em->w_look_y;
     int i;
     for (i = 0; i < 14; i++) {
         eye_out->pts[i] = s_ref_eye[0].pts[i]
@@ -141,6 +147,10 @@ typedef struct {
     face_brow_kf_t   brow_tgt;
     face_mouth_kf_t  mouth_cur;
     face_mouth_kf_t  mouth_tgt;
+    int16_t          look_x_cur;
+    int16_t          look_x_tgt;
+    int16_t          look_y_cur;
+    int16_t          look_y_tgt;
 
     uint16_t hold_tick;
     uint32_t anim_tick;
@@ -386,12 +396,18 @@ static void test_mouth_model_apply_scene_pose(test_mouth_model_scene_t *scene)
     for (i = 0; i < 8; i++) {
         scene->brow_cur.pts[i] = face_ease_spring(scene->brow_cur.pts[i], scene->brow_tgt.pts[i]);
     }
+    
+    scene->look_x_cur = face_ease_spring(scene->look_x_cur, scene->look_x_tgt);
+    scene->look_y_cur = face_ease_spring(scene->look_y_cur, scene->look_y_tgt);
+    
+    int32_t lx = scene->look_x_cur;
+    int32_t ly = scene->look_y_cur;
 
-    test_mouth_model_apply_bezier_fill(scene->left_eye_obj, scene->eye_cur.pts, FACE_LEFT_EYE_CX, FACE_LEFT_EYE_CY, 200, false, TEST_MOUTH_MODEL_EYE_SEGS);
-    test_mouth_model_apply_bezier_fill(scene->right_eye_obj, scene->eye_cur.pts, FACE_RIGHT_EYE_CX, FACE_RIGHT_EYE_CY, 200, true, TEST_MOUTH_MODEL_EYE_SEGS);
+    test_mouth_model_apply_bezier_fill(scene->left_eye_obj, scene->eye_cur.pts, FACE_LEFT_EYE_CX + lx, FACE_LEFT_EYE_CY + ly, 200, false, TEST_MOUTH_MODEL_EYE_SEGS);
+    test_mouth_model_apply_bezier_fill(scene->right_eye_obj, scene->eye_cur.pts, FACE_RIGHT_EYE_CX + lx, FACE_RIGHT_EYE_CY + ly, 200, true, TEST_MOUTH_MODEL_EYE_SEGS);
 
-    test_mouth_model_apply_bezier_stroke(scene->left_brow_obj, scene->brow_cur.pts, false, FACE_LEFT_BROW_CX, FACE_LEFT_BROW_CY, 200, 4, false, TEST_MOUTH_MODEL_BROW_SEGS);
-    test_mouth_model_apply_bezier_stroke(scene->right_brow_obj, scene->brow_cur.pts, false, FACE_RIGHT_BROW_CX, FACE_RIGHT_BROW_CY, 200, 4, true, TEST_MOUTH_MODEL_BROW_SEGS);
+    test_mouth_model_apply_bezier_stroke(scene->left_brow_obj, scene->brow_cur.pts, false, FACE_LEFT_BROW_CX + lx, FACE_LEFT_BROW_CY + ly, 200, 4, false, TEST_MOUTH_MODEL_BROW_SEGS);
+    test_mouth_model_apply_bezier_stroke(scene->right_brow_obj, scene->brow_cur.pts, false, FACE_RIGHT_BROW_CX + lx, FACE_RIGHT_BROW_CY + ly, 200, 4, true, TEST_MOUTH_MODEL_BROW_SEGS);
 
     test_mouth_model_apply_bezier_stroke(scene->mouth_obj, scene->mouth_cur.pts, true, FACE_MOUTH_CX, FACE_MOUTH_CY, 200, 5, false, TEST_MOUTH_MODEL_MOUTH_SEGS);
 
@@ -423,6 +439,9 @@ static void test_mouth_model_anim_cb(void *user_data)
             all_settled = false; break;
         }
     }
+    if (scene->look_x_cur != scene->look_x_tgt || scene->look_y_cur != scene->look_y_tgt) {
+        all_settled = false;
+    }
 
     if (all_settled) {
         scene->hold_tick++;
@@ -430,7 +449,7 @@ static void test_mouth_model_anim_cb(void *user_data)
             scene->hold_tick = 0U;
             scene->expr_idx  = (scene->expr_idx + 1U) % TEST_APP_ARRAY_SIZE(s_face_sequence);
             em = &s_face_sequence[scene->expr_idx];
-            face_blend_emotion(em, &scene->eye_tgt, &scene->brow_tgt, &scene->mouth_tgt);
+            face_blend_emotion(em, &scene->eye_tgt, &scene->brow_tgt, &scene->mouth_tgt, &scene->look_x_tgt, &scene->look_y_tgt);
         }
     } else {
         scene->hold_tick = 0U;
@@ -497,10 +516,12 @@ static void test_mouth_model_run(void)
 
     {
         scene.expr_idx = 0U;
-        face_blend_emotion(&s_face_sequence[0], &scene.eye_cur, &scene.brow_cur, &scene.mouth_cur);
-        scene.eye_tgt   = scene.eye_cur;
-        scene.brow_tgt  = scene.brow_cur;
-        scene.mouth_tgt = scene.mouth_cur;
+        face_blend_emotion(&s_face_sequence[0], &scene.eye_cur, &scene.brow_cur, &scene.mouth_cur, &scene.look_x_cur, &scene.look_y_cur);
+        scene.eye_tgt    = scene.eye_cur;
+        scene.brow_tgt   = scene.brow_cur;
+        scene.mouth_tgt  = scene.mouth_cur;
+        scene.look_x_tgt = scene.look_x_cur;
+        scene.look_y_tgt = scene.look_y_cur;
     }
     test_mouth_model_apply_scene_pose(&scene);
 
