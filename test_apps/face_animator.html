@@ -57,20 +57,20 @@
   <svg id="canvas" width="640" height="480" viewBox="0 0 320 240">
     <g transform="translate(160, 160)">
       <!-- Left Brow -->
-      <g transform="translate(-40, -56)">
+      <g id="g_l_brow" transform="translate(-40, -56)">
         <path id="l_brow" class="face-part" stroke-width="4" d="" />
       </g>
       <!-- Right Brow (Flipped symmetrically) -->
-      <g transform="translate(40, -56) scale(-1, 1)">
+      <g id="g_r_brow" transform="translate(40, -56) scale(-1, 1)">
         <path id="r_brow" class="face-part" stroke-width="4" d="" />
       </g>
       
       <!-- Left Eye -->
-      <g transform="translate(-40, -40)">
+      <g id="g_l_eye" transform="translate(-40, -40)">
         <path id="l_eye" class="face-eye" d="" />
       </g>
       <!-- Right Eye (Flipped symmetrically) -->
-      <g transform="translate(40, -40) scale(-1, 1)">
+      <g id="g_r_eye" transform="translate(40, -40) scale(-1, 1)">
         <path id="r_eye" class="face-eye" d="" />
       </g>
       
@@ -90,7 +90,7 @@
  * 纯数学贝塞尔动画引擎：
  * 用严格的 M+C+C 六控制点拓扑极简地刻画了 6 种基础基准情绪（中性、微笑、开怀、伤心、惊恐、生气）。
  * 并直接利用从 C 语言读取的 24 组表情权重（w_smile, w_happy等）进行点对点张量插值！
- * 彻底替换了原始 C 逻辑的锯齿多边形和繁杂物理参数。
+ * 加上全向平移的注视(Look)偏移向量，产生无限逼真的眼神注视动作。
  */
 
 // 6 基准表情几何库 (14个值: x0, y0, cx1, cy1, cx2, cy2... x0, y0)
@@ -125,35 +125,40 @@ const B_BASE = [
 
 // 测试24个表情序列，照搬自 C 语言宏及 JSON 脚本的设定
 const s_face_sequence = [
-  { name: "00 neutralize", sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0 },
-  { name: "01 smile",      sm: 100, hp: 0,   sd: 0,   su: 0,   an: 0 },
-  { name: "02 happy",      sm: 0,   hp: 100, sd: 0,   su: 0,   an: 0 },
-  { name: "03 grinning",   sm: 50,  hp: 100, sd: 0,   su: 0,   an: 0 },
-  { name: "04 loving",     sm: 80,  hp: 20,  sd: 0,   su: 0,   an: 0 },
-  { name: "05 neutral",    sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0 },
-  { name: "06 sad",        sm: 0,   hp: 0,   sd: 100, su: 0,   an: 0 },
-  { name: "07 crying",     sm: 0,   hp: 0,   sd: 100, su: 0,   an: 0 },
-  { name: "08 sobbing",    sm: 0,   hp: 0,   sd: 120, su: 0,   an: 0 },
-  { name: "09 horrified",  sm: 0,   hp: 0,   sd: 60,  su: 100, an: 0 },
-  { name: "10 neutral",    sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0 },
-  { name: "11 surprise",   sm: 0,   hp: 0,   sd: 0,   su: 100, an: 0 },
-  { name: "12 shocked",    sm: 0,   hp: 0,   sd: 0,   su: 120, an: 0 },
-  { name: "13 excited",    sm: 60,  hp: 100, sd: 0,   su: 50,  an: 0 },
-  { name: "14 laughing",   sm: 20,  hp: 100, sd: 0,   su: 40,  an: 0 },
-  { name: "15 neutral",    sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0 },
-  { name: "16 angry",      sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 100 },
-  { name: "17 thinking",   sm: 0,   hp: 0,   sd: 20,  su: 0,   an: 30 },
-  { name: "18 confused",   sm: 0,   hp: 0,   sd: 30,  su: 20,  an: 20 },
-  { name: "19 sympathetic",sm: 30,  hp: 0,   sd: 50,  su: 0,   an: 0 },
-  { name: "20 sheepish",   sm: 50,  hp: 0,   sd: 30,  su: 0,   an: 0 },
-  { name: "21 amused",     sm: 60,  hp: 0,   sd: 0,   su: 30,  an: 0 },
-  { name: "22 relaxed",    sm: 40,  hp: 0,   sd: 0,   su: 0,   an: 0 },
-  { name: "23 neutral",    sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0 }
+  { name: "00 neutral",   sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0,   lx: 0,   ly: 0 },
+  { name: "01 look up",   sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0,   lx: 0,   ly: -40 },
+  { name: "02 look dwn",  sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0,   lx: 0,   ly: 40 },
+  { name: "03 look lft",  sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0,   lx: -40, ly: 0 },
+  { name: "04 look rgt",  sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0,   lx: 40,  ly: 0 },
+  { name: "05 neutral",   sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0,   lx: 0,   ly: 0 },
+  { name: "06 smile",     sm: 100, hp: 0,   sd: 0,   su: 0,   an: 0,   lx: 0,   ly: 0 },
+  { name: "07 happy",     sm: 0,   hp: 100, sd: 0,   su: 0,   an: 0,   lx: 0,   ly: 0 },
+  { name: "08 grinning",  sm: 50,  hp: 100, sd: 0,   su: 0,   an: 0,   lx: 0,   ly: 0 },
+  { name: "09 loving",    sm: 80,  hp: 20,  sd: 0,   su: 0,   an: 0,   lx: 0,   ly: -20 },
+  { name: "10 neutral",   sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0,   lx: 0,   ly: 0 },
+  { name: "11 sad",       sm: 0,   hp: 0,   sd: 100, su: 0,   an: 0,   lx: 0,   ly: 20 },
+  { name: "12 crying",    sm: 0,   hp: 0,   sd: 100, su: 0,   an: 0,   lx: 0,   ly: 0 },
+  { name: "13 sobbing",   sm: 0,   hp: 0,   sd: 120, su: 0,   an: 0,   lx: 0,   ly: 0 },
+  { name: "14 horrified", sm: 0,   hp: 0,   sd: 60,  su: 100, an: 0,   lx: 0,   ly: 0 },
+  { name: "15 neutral",   sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0,   lx: 0,   ly: 0 },
+  { name: "16 surprise",  sm: 0,   hp: 0,   sd: 0,   su: 100, an: 0,   lx: 0,   ly: -25 },
+  { name: "17 shocked",   sm: 0,   hp: 0,   sd: 0,   su: 120, an: 0,   lx: 0,   ly: 0 },
+  { name: "18 excited",   sm: 60,  hp: 100, sd: 0,   su: 50,  an: 0,   lx: 0,   ly: 0 },
+  { name: "19 laughing",  sm: 20,  hp: 100, sd: 0,   su: 40,  an: 0,   lx: 0,   ly: 0 },
+  { name: "20 neutral",   sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0,   lx: 0,   ly: 0 },
+  { name: "21 angry",     sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 100, lx: 0,   ly: 0 },
+  { name: "22 thinking",  sm: 0,   hp: 0,   sd: 20,  su: 0,   an: 30,  lx: 40,  ly: -30 },
+  { name: "23 confused",  sm: 0,   hp: 0,   sd: 30,  su: 20,  an: 20,  lx: -30, ly: 20 },
+  { name: "24 sympathet", sm: 30,  hp: 0,   sd: 50,  su: 0,   an: 0,   lx: 0,   ly: 10 },
+  { name: "25 sheepish",  sm: 50,  hp: 0,   sd: 30,  su: 0,   an: 0,   lx: 30,  ly: 20 },
+  { name: "26 amused",    sm: 60,  hp: 0,   sd: 0,   su: 30,  an: 0,   lx: 0,   ly: 0 },
+  { name: "27 relaxed",   sm: 40,  hp: 0,   sd: 0,   su: 0,   an: 0,   lx: 0,   ly: 0 },
+  { name: "28 neutral",   sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0,   lx: 0,   ly: 0 }
 ];
 
 // Current State and Target State arrays
-let S_cur = { M: [...M_BASE[0]], E: [...E_BASE[0]], B: [...B_BASE[0]] };
-let S_tgt = { M: [...M_BASE[0]], E: [...E_BASE[0]], B: [...B_BASE[0]] };
+let S_cur = { M: [...M_BASE[0]], E: [...E_BASE[0]], B: [...B_BASE[0]], lx: 0, ly: 0 };
+let S_tgt = { M: [...M_BASE[0]], E: [...E_BASE[0]], B: [...B_BASE[0]], lx: 0, ly: 0 };
 
 const pathM = document.getElementById('mouth');
 const pathE_L = document.getElementById('l_eye');
@@ -193,6 +198,8 @@ function setEmotion(e) {
   S_tgt.M = blendTargetPoints(M_BASE, e);
   S_tgt.E = blendTargetPoints(E_BASE, e);
   S_tgt.B = blendTargetPoints(B_BASE, e);
+  S_tgt.lx = e.lx || 0;
+  S_tgt.ly = e.ly || 0;
 }
 
 // 每帧更新 UI
@@ -200,6 +207,10 @@ function tick() {
   ease_arr(S_cur.M, S_tgt.M);
   ease_arr(S_cur.E, S_tgt.E);
   ease_arr(S_cur.B, S_tgt.B);
+
+  // Easing for look coordinates
+  if (Math.abs(S_tgt.lx - S_cur.lx) > 0.1) S_cur.lx += (S_tgt.lx - S_cur.lx) * 0.25; else S_cur.lx = S_tgt.lx;
+  if (Math.abs(S_tgt.ly - S_cur.ly) > 0.1) S_cur.ly += (S_tgt.ly - S_cur.ly) * 0.25; else S_cur.ly = S_tgt.ly;
 
   // M + C + C 模型
   const m = S_cur.M, e = S_cur.E, b = S_cur.B;
@@ -211,13 +222,25 @@ function tick() {
   
   /* 眼睛和眉毛由于右侧使用了 SVG <g scale="-1, 1"> 的镜像矩阵翻转，
    * 因此它们共享的是结构和坐标系完全相同的路径 d ! 
-   * 完全避免了在代码层面计算镜像控制点的麻烦。
    */
   pathE_L.setAttribute('d', dE);
   pathE_R.setAttribute('d', dE);
-  
   pathB_L.setAttribute('d', dB);
   pathB_R.setAttribute('d', dB);
+
+  // Apply look offsets to the <g> transform wrappers!
+  // Right eye translation X is 40 + lx. Since the group has scale(-1, 1), the visual x shifts left physically. 
+  // Wait! If right eye group is `translate(40 + lx, ...) scale(-1, 1)`, does it shift right?
+  // The translation happens BEFORE scale (meaning in parent coordinates).
+  // So `translate(40 + lx, y)` means the origin of the group in parent space moves right by `lx`.
+  // Yes! The scale(-1,1) only flips the inner shapes.
+  const lx = S_cur.lx;
+  const ly = S_cur.ly;
+  
+  document.getElementById('g_l_brow').setAttribute('transform', `translate(${-40 + lx}, ${-56 + ly})`);
+  document.getElementById('g_r_brow').setAttribute('transform', `translate(${ 40 + lx}, ${-56 + ly}) scale(-1, 1)`);
+  document.getElementById('g_l_eye').setAttribute('transform', `translate(${-40 + lx}, ${-40 + ly})`);
+  document.getElementById('g_r_eye').setAttribute('transform', `translate(${ 40 + lx}, ${-40 + ly}) scale(-1, 1)`);
 
   requestAnimationFrame(tick);
 }
