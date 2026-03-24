@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Mouth Curves Morphing Demo</title>
+<style>
+  body { 
+    background: #f4f6f9; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+    padding: 40px; 
+    color: #333;
+  }
+  h2 { margin-bottom: 10px; font-weight: 500; font-size: 1.5rem; text-align: center; }
+  .demo-container {
+    background: white;
+    padding: 40px;
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    margin-bottom: 40px;
+    text-align: center;
+    width: 300px;
+  }
+  .demo-name {
+    font-size: 24px;
+    font-weight: 700;
+    color: #0066cc;
+    margin-top: 20px;
+    height: 30px;
+  }
+  .grid { 
+    display: flex; 
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 30px; 
+  }
+  .card { 
+    background: white; 
+    padding: 20px; 
+    border-radius: 16px; 
+    box-shadow: 0 4px 14px rgba(0,0,0,0.06); 
+    text-align: center; 
+    width: 120px;
+  }
+  .card span { 
+    display: block; 
+    margin-top: 15px; 
+    font-size: 14px; 
+    font-weight: 600; 
+    color: #555; 
+  }
+  svg { display: block; margin: 0 auto; overflow: visible; }
+  .mouth-path { 
+    fill: none;           
+    stroke: #222;         
+    stroke-linecap: round; 
+    stroke-linejoin: round; 
+  }
+  .guide { stroke: #e0e0e0; stroke-width: 1.5; stroke-dasharray: 4 4; fill: none; }
+</style>
+</head>
+<body>
+  <h2>平滑过渡效果展示 (Morphing Demo)</h2>
+  <div style="margin-bottom: 30px; color:#666; font-size: 14px;">所有的形状由于具备严格相同的贝塞尔拓扑，可以实现完美的顶点补间插值。</div>
+  
+  <div class="demo-container">
+    <!-- 放大两倍展示 -->
+    <svg width="200" height="200" viewBox="0 0 100 100">
+      <path class="guide" d="M 0 50 L 100 50 M 50 0 L 50 100" />
+      <path id="anim-path" class="mouth-path" stroke-width="6" d="" />
+    </svg>
+    <div id="anim-name" class="demo-name">加载中...</div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <svg width="100" height="100" viewBox="0 0 100 100">
+        <path class="guide" d="M 0 50 L 100 50 M 50 0 L 50 100" />
+        <path class="mouth-path" stroke-width="6" d="M 10 35 C 35 38, 65 38, 90 35 C 90 90, 10 90, 10 35 Z" />
+      </svg>
+      <span>大笑<br>(Laugh)</span>
+    </div>
+    <div class="card">
+      <svg width="100" height="100" viewBox="0 0 100 100">
+        <path class="guide" d="M 0 50 L 100 50 M 50 0 L 50 100" />
+        <path class="mouth-path" stroke-width="6" d="M 10 45 C 35 70, 65 70, 90 45 C 80 85, 20 85, 10 45 Z" />
+      </svg>
+      <span>微笑<br>(Smile)</span>
+    </div>
+    <div class="card">
+      <svg width="100" height="100" viewBox="0 0 100 100">
+        <path class="guide" d="M 0 50 L 100 50 M 50 0 L 50 100" />
+        <path class="mouth-path" stroke-width="6" d="M 35 50 C 35 15, 65 15, 65 50 C 65 85, 35 85, 35 50 Z" />
+      </svg>
+      <span>惊恐<br>(Surprise)</span>
+    </div>
+    <div class="card">
+      <svg width="100" height="100" viewBox="0 0 100 100">
+        <path class="guide" d="M 0 50 L 100 50 M 50 0 L 50 100" />
+        <path class="mouth-path" stroke-width="6" d="M 20 50 C 20 46, 80 46, 80 50 C 80 54, 20 54, 20 50 Z" />
+      </svg>
+      <span>平淡<br>(Neutral)</span>
+    </div>
+    <div class="card">
+      <svg width="100" height="100" viewBox="0 0 100 100">
+        <path class="guide" d="M 0 50 L 100 50 M 50 0 L 50 100" />
+        <path class="mouth-path" stroke-width="6" d="M 10 60 C 30 20, 70 20, 90 60 C 70 35, 30 35, 10 60 Z" />
+      </svg>
+      <span>伤心<br>(Sad)</span>
+    </div>
+  </div>
+
+<script>
+  // 将所有的拓扑提取为 14 个数值参数: x0, y0, cx1, cy1, cx2, cy2, x3, y3, cx4, cy4, cx5, cy5, x0, y0
+  const states = [
+    { name: '平淡 (Neutral)',  pts: [20, 50,  20, 46,  80, 46,  80, 50,  80, 54,  20, 54,  20, 50] },
+    { name: '微笑 (Smile)',    pts: [10, 45,  35, 70,  65, 70,  90, 45,  80, 85,  20, 85,  10, 45] },
+    { name: '大笑 (Laugh)',    pts: [10, 35,  35, 38,  65, 38,  90, 35,  90, 90,  10, 90,  10, 35] },
+    { name: '惊恐 (Surprise)', pts: [35, 50,  35, 15,  65, 15,  65, 50,  65, 85,  35, 85,  35, 50] },
+    { name: '伤心 (Sad)',      pts: [10, 60,  30, 20,  70, 20,  90, 60,  70, 35,  30, 35,  10, 60] },
+  ];
+
+  const pathEl = document.getElementById('anim-path');
+  const nameEl = document.getElementById('anim-name');
+
+  let curIdx = 0;
+  let nextIdx = 1;
+  let progress = 0;
+  const duration = 1000; // ms 过渡时间
+  const hold = 1000;     // ms 停留时间
+  let lastTime = null;
+  let phase = 'morph'; // 'morph' or 'hold'
+
+  function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  function lerp(a, b, t) {
+    return a + (b - a) * t;
+  }
+
+  function updatePath(p) {
+    const d = `M ${p[0]} ${p[1]} C ${p[2]} ${p[3]}, ${p[4]} ${p[5]}, ${p[6]} ${p[7]} C ${p[8]} ${p[9]}, ${p[10]} ${p[11]}, ${p[12]} ${p[13]} Z`;
+    pathEl.setAttribute('d', d);
+  }
+
+  function animate(time) {
+    if (!lastTime) lastTime = time;
+    const dt = time - lastTime;
+    
+    if (phase === 'morph') {
+      progress += dt / duration;
+      if (progress >= 1) {
+        progress = 1;
+        phase = 'hold';
+        lastTime = time;
+      }
+      
+      const t = easeInOutCubic(progress);
+      const curPts = states[curIdx].pts;
+      const nextPts = states[nextIdx].pts;
+      
+      let currentPts = [];
+      for (let i = 0; i < 14; i++) {
+        currentPts.push(lerp(curPts[i], nextPts[i], t));
+      }
+      updatePath(currentPts);
+
+      // 名称渐变展示逻辑
+      if (t < 0.5) {
+        nameEl.innerText = states[curIdx].name;
+        nameEl.style.opacity = 1 - (t * 2);
+      } else {
+        nameEl.innerText = states[nextIdx].name;
+        nameEl.style.opacity = (t - 0.5) * 2;
+      }
+
+    } else if (phase === 'hold') {
+      if (dt >= hold) {
+        phase = 'morph';
+        progress = 0;
+        lastTime = time;
+        curIdx = nextIdx;
+        nextIdx = (nextIdx + 1) % states.length;
+      }
+    }
+
+    if (phase === 'morph') {
+      lastTime = time; 
+    }
+    requestAnimationFrame(animate);
+  }
+
+  // 初始化
+  updatePath(states[0].pts);
+  nameEl.innerText = states[0].name;
+  requestAnimationFrame(animate);
+
+</script>
+</body>
+</html>

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Procedural Face Animation Demo (Optimized Curves)</title>
+<style>
+  body { 
+    background: #0f1115; color: #eee; 
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+    display: flex; flex-direction: column; align-items: center; 
+    margin: 0; padding: 20px;
+  }
+  .viewer {
+    background: #1a1e26;
+    width: 640px; height: 480px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 8px; width: 640px; justify-content: center;
+  }
+  button {
+    background: #2c323f; color: #ccc; border: 1px solid #444; padding: 8px 12px;
+    border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 13px;
+    font-weight: 500;
+  }
+  button:hover { background: #3d4554; color: #fff;}
+  button.active { background: #3b82f6; border-color: #60a5fa; color: white;}
+  
+  /* 美化的空心曲线设计 */
+  .face-part { 
+    fill: none; 
+    stroke: #ffffff; 
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  /* 眼睛实心填充 */
+  .face-eye {
+    fill: #ffffff;
+    stroke: none;
+  }
+  
+  .hud {
+    position: absolute; bottom: 15px; right: 15px; color: #64748b; 
+    font-family: monospace; font-size: 13px; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="viewer">
+  <!-- Scale factor = 2.0 to match the 640x480 container proportionally -->
+  <svg id="canvas" width="640" height="480" viewBox="0 0 320 240">
+    <g transform="translate(160, 160)">
+      <!-- Left Brow -->
+      <g transform="translate(-40, -56)">
+        <path id="l_brow" class="face-part" stroke-width="4" d="" />
+      </g>
+      <!-- Right Brow (Flipped symmetrically) -->
+      <g transform="translate(40, -56) scale(-1, 1)">
+        <path id="r_brow" class="face-part" stroke-width="4" d="" />
+      </g>
+      
+      <!-- Left Eye -->
+      <g transform="translate(-40, -40)">
+        <path id="l_eye" class="face-eye" d="" />
+      </g>
+      <!-- Right Eye (Flipped symmetrically) -->
+      <g transform="translate(40, -40) scale(-1, 1)">
+        <path id="r_eye" class="face-eye" d="" />
+      </g>
+      
+      <!-- Mouth -->
+      <g transform="translate(0, 30)">
+        <path id="mouth" class="face-part" stroke-width="5" d="" />
+      </g>
+    </g>
+  </svg>
+  <div id="hud" class="hud"></div>
+</div>
+
+<div class="controls" id="btn-container"></div>
+
+<script>
+/**
+ * 纯数学贝塞尔动画引擎：
+ * 用严格的 M+C+C 六控制点拓扑极简地刻画了 6 种基础基准情绪（中性、微笑、开怀、伤心、惊恐、生气）。
+ * 并直接利用从 C 语言读取的 24 组表情权重（w_smile, w_happy等）进行点对点张量插值！
+ * 彻底替换了原始 C 逻辑的锯齿多边形和繁杂物理参数。
+ */
+
+// 6 基准表情几何库 (14个值: x0, y0, cx1, cy1, cx2, cy2... x0, y0)
+const M_BASE = [
+  /* 0 neu */ [-30,  0, -30, -4,  30, -4,  30,  0,  30,  4, -30,  4, -30,  0],
+  /* 1 sml */ [-40, -5, -15, 20,  15, 20,  40, -5,  30, 35, -30, 35, -40, -5],
+  /* 2 hap */ [-40,-15, -15,-12,  15,-12,  40,-15,  40, 40, -40, 40, -40,-15],
+  /* 3 sad */ [-40, 10, -20,-30,  20,-30,  40, 10,  20,-15, -20,-15, -40, 10],
+  /* 4 sur */ [-15,  0, -15,-35,  15,-35,  15,  0,  15, 35, -15, 35, -15,  0],
+  /* 5 ang */ [-35, 10, -15,-10,  15,-10,  35, 10,  15,-15, -15,-15, -35, 10]
+];
+
+// 左眼的 6 基准形态 (x 为正的是靠鼻梁内眼角，x 为负的是外眼角)
+const E_BASE = [
+  /* 0 neu */ [-16,  0,  -8,-16,   8,-16,  16,  0,   8, 16,  -8, 16, -16,  0],
+  /* 1 sml */ [-16,  4,  -8,-10,   8,-10,  16,  4,   8, -4,  -8, -4, -16,  4], // 新月眼 ^
+  /* 2 hap */ [-16,  4,  -8, -8,   8, -8,  16,  4,   8, -4,  -8, -4, -16,  4], 
+  /* 3 sad */ [-16,  8,  -8,-12,   8,-16,  16, -4,   8, 14,  -8, 16, -16,  8], // 外眼角(-16)下垂，内眼角(16)抬起
+  /* 4 sur */ [-14,  0,  -7,-22,   7,-22,  14,  0,   7, 22,  -7, 22, -14,  0], // 瞪圆
+  /* 5 ang */ [-16, -2,  -8, -8,   8,-16,  16,  6,   8, 12,  -8, 12, -16, -2]  // 内眼角(16)压低，外眼角(-16)抬高，平顶
+];
+
+// 左眉毛的 6 基准形态 (只用了一条 M+C 的 8 个值)
+const B_BASE = [
+  /* 0 neu */ [-16,  0,  -5, -6,   5, -6,  16,  0],
+  /* 1 sml */ [-16,  2,  -5, -5,   5, -5,  16, -1],
+  /* 2 hap */ [-16, -1,  -5, -8,   5, -8,  16, -1],
+  /* 3 sad */ [-16,  4,  -5, -5,   5, -9,  16, -8], // 外眉角下垂，内眉角上扬(-8更靠上)
+  /* 4 sur */ [-14, -8,  -5,-15,   5,-15,  14, -8],
+  /* 5 ang */ [-16, -5,  -5, -5,   5,  3,  16,  6]  // 外眉角略扬，内眉角(-16压低+6)怒竖
+];
+
+// 测试24个表情序列，照搬自 C 语言宏及 JSON 脚本的设定
+const s_face_sequence = [
+  { name: "00 neutralize", sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0 },
+  { name: "01 smile",      sm: 100, hp: 0,   sd: 0,   su: 0,   an: 0 },
+  { name: "02 happy",      sm: 0,   hp: 100, sd: 0,   su: 0,   an: 0 },
+  { name: "03 grinning",   sm: 50,  hp: 100, sd: 0,   su: 0,   an: 0 },
+  { name: "04 loving",     sm: 80,  hp: 20,  sd: 0,   su: 0,   an: 0 },
+  { name: "05 neutral",    sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0 },
+  { name: "06 sad",        sm: 0,   hp: 0,   sd: 100, su: 0,   an: 0 },
+  { name: "07 crying",     sm: 0,   hp: 0,   sd: 100, su: 0,   an: 0 },
+  { name: "08 sobbing",    sm: 0,   hp: 0,   sd: 120, su: 0,   an: 0 },
+  { name: "09 horrified",  sm: 0,   hp: 0,   sd: 60,  su: 100, an: 0 },
+  { name: "10 neutral",    sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0 },
+  { name: "11 surprise",   sm: 0,   hp: 0,   sd: 0,   su: 100, an: 0 },
+  { name: "12 shocked",    sm: 0,   hp: 0,   sd: 0,   su: 120, an: 0 },
+  { name: "13 excited",    sm: 60,  hp: 100, sd: 0,   su: 50,  an: 0 },
+  { name: "14 laughing",   sm: 20,  hp: 100, sd: 0,   su: 40,  an: 0 },
+  { name: "15 neutral",    sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0 },
+  { name: "16 angry",      sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 100 },
+  { name: "17 thinking",   sm: 0,   hp: 0,   sd: 20,  su: 0,   an: 30 },
+  { name: "18 confused",   sm: 0,   hp: 0,   sd: 30,  su: 20,  an: 20 },
+  { name: "19 sympathetic",sm: 30,  hp: 0,   sd: 50,  su: 0,   an: 0 },
+  { name: "20 sheepish",   sm: 50,  hp: 0,   sd: 30,  su: 0,   an: 0 },
+  { name: "21 amused",     sm: 60,  hp: 0,   sd: 0,   su: 30,  an: 0 },
+  { name: "22 relaxed",    sm: 40,  hp: 0,   sd: 0,   su: 0,   an: 0 },
+  { name: "23 neutral",    sm: 0,   hp: 0,   sd: 0,   su: 0,   an: 0 }
+];
+
+// Current State and Target State arrays
+let S_cur = { M: [...M_BASE[0]], E: [...E_BASE[0]], B: [...B_BASE[0]] };
+let S_tgt = { M: [...M_BASE[0]], E: [...E_BASE[0]], B: [...B_BASE[0]] };
+
+const pathM = document.getElementById('mouth');
+const pathE_L = document.getElementById('l_eye');
+const pathE_R = document.getElementById('r_eye');
+const pathB_L = document.getElementById('l_brow');
+const pathB_R = document.getElementById('r_brow');
+
+// JS 版本的阻尼迭代，接近 c 的 diff/4 算法
+function ease_arr(cur, tgt) {
+  for (let i = 0; i < cur.length; i++) {
+    let diff = tgt[i] - cur[i];
+    if (Math.abs(diff) > 0.1) {
+      cur[i] += diff * 0.25; // 对应 step = diff/4
+    } else {
+      cur[i] = tgt[i];
+    }
+  }
+}
+
+// 基于权重混合得出目标阵列
+function blendTargetPoints(baseList, e) {
+  let len = baseList[0].length;
+  let res = new Array(len).fill(0);
+  for (let i = 0; i < len; i++) {
+    let val = baseList[0][i] 
+      + (baseList[1][i] - baseList[0][i]) * e.sm / 100
+      + (baseList[2][i] - baseList[0][i]) * e.hp / 100
+      + (baseList[3][i] - baseList[0][i]) * e.sd / 100
+      + (baseList[4][i] - baseList[0][i]) * e.su / 100
+      + (baseList[5][i] - baseList[0][i]) * e.an / 100;
+    res[i] = val;
+  }
+  return res;
+}
+
+function setEmotion(e) {
+  S_tgt.M = blendTargetPoints(M_BASE, e);
+  S_tgt.E = blendTargetPoints(E_BASE, e);
+  S_tgt.B = blendTargetPoints(B_BASE, e);
+}
+
+// 每帧更新 UI
+function tick() {
+  ease_arr(S_cur.M, S_tgt.M);
+  ease_arr(S_cur.E, S_tgt.E);
+  ease_arr(S_cur.B, S_tgt.B);
+
+  // M + C + C 模型
+  const m = S_cur.M, e = S_cur.E, b = S_cur.B;
+  let dM = `M ${m[0]} ${m[1]} C ${m[2]} ${m[3]}, ${m[4]} ${m[5]}, ${m[6]} ${m[7]} C ${m[8]} ${m[9]}, ${m[10]} ${m[11]}, ${m[12]} ${m[13]} Z`;
+  let dE = `M ${e[0]} ${e[1]} C ${e[2]} ${e[3]}, ${e[4]} ${e[5]}, ${e[6]} ${e[7]} C ${e[8]} ${e[9]}, ${e[10]} ${e[11]}, ${e[12]} ${e[13]} Z`;
+  let dB = `M ${b[0]} ${b[1]} C ${b[2]} ${b[3]}, ${b[4]} ${b[5]}, ${b[6]} ${b[7]}`;
+
+  pathM.setAttribute('d', dM);
+  
+  /* 眼睛和眉毛由于右侧使用了 SVG <g scale="-1, 1"> 的镜像矩阵翻转，
+   * 因此它们共享的是结构和坐标系完全相同的路径 d ! 
+   * 完全避免了在代码层面计算镜像控制点的麻烦。
+   */
+  pathE_L.setAttribute('d', dE);
+  pathE_R.setAttribute('d', dE);
+  
+  pathB_L.setAttribute('d', dB);
+  pathB_R.setAttribute('d', dB);
+
+  requestAnimationFrame(tick);
+}
+
+// Build UI
+const btnContainer = document.getElementById('btn-container');
+s_face_sequence.forEach((e, i) => {
+  let btn = document.createElement('button');
+  btn.innerText = e.name;
+  btn.onclick = () => {
+    document.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    setEmotion(e);
+  };
+  btnContainer.appendChild(btn);
+});
+
+// Initialization
+setEmotion(s_face_sequence[0]);
+btnContainer.firstChild.classList.add('active');
+requestAnimationFrame(tick);
+
+</script>
+</body>
+</html>

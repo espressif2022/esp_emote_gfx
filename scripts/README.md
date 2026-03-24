@@ -218,5 +218,62 @@ gfx_img_set_src(img2, &rgb565a8_image);  // RGB565A8 图片
 
 SPDX-License-Identifier: Apache-2.0
 
-Copyright 2025 Espressif Systems (Shanghai) CO LTD
+## Face Keyframe Debugger
 
+用于把人脸控件（眼/眉/嘴）的关键帧定义从 C 逻辑中抽离，做本地坐标验证。
+
+### 配置文件
+
+- `face_keyframes.json`
+  - `geometry`: 布局锚点（嘴中心、眼间距、眉偏移）
+  - `reference_keyframes`: 眼/眉/嘴 6 组基准关键帧（neutral/smile/happy/sad/surprise/angry）
+  - `sequence`: 用户情绪权重序列（`w_smile`/`w_happy`/`w_sad`/`w_surprise`/`w_angry`）
+
+### 常用命令
+
+```bash
+# 从 JSON 重新生成 C 表（test_mouth_model.c 通过 include 使用）
+python3 generate_face_keyframes_c.py
+
+# 查看单个表情（默认输出 JSON 到终端）
+python3 face_keyframe_debug.py --expr happy
+
+# 按序号查看（与 sequence 下标一致）
+python3 face_keyframe_debug.py --index 12
+
+# 导出全部表情帧坐标
+python3 face_keyframe_debug.py --all --dump-json /tmp/face_frames.json
+
+# 导出单帧预览图（需要 matplotlib）
+python3 face_keyframe_debug.py --expr sad --plot /tmp/sad_face.png
+
+# 导出全序列预览帧（每个表情一张图）
+python3 face_keyframe_debug.py --all \
+  --plot-all-dir ./tmp/frames \
+  --dump-json ./tmp/preview_frames.json
+
+# 导出全序列拼图（便于快速横向评估）
+python3 face_keyframe_debug.py --all \
+  --contact-sheet ./tmp/preview_sheet.png \
+  --sheet-cols 6
+
+# 导出 GIF 预览（便于观察节奏/切换观感）
+python3 face_keyframe_debug.py --all \
+  --gif ./tmp/preview.gif \
+  --gif-frame-ms 120 \
+  --gif-loop 0
+```
+
+### 说明
+
+- `test_apps/main/test_mouth_model_keyframes.inc` 由 `generate_face_keyframes_c.py` 生成，
+  该文件包含 `s_ref_eye/s_ref_brow/s_ref_mouth/s_face_sequence`。
+- 脚本实现了与 `test_mouth_model.c` 一致的关键帧混合与阈值判断逻辑（blend/clamp/mode/shape）。
+- 输出结果包含：
+  - 每个控件的目标关键帧值（眼/眉/嘴）
+  - 锚点坐标（mouth/eye/brow centers）
+  - 眼/眉/嘴曲线采样点（可直接用于本地核对）
+  - 可选全序列预览帧、contact-sheet 总览图、GIF 动画（用于快速评估整体效果）
+  - 预览图默认样式：黑色背景 + 白色控件 + 控件实心填充
+
+Copyright 2025 Espressif Systems (Shanghai) CO LTD
