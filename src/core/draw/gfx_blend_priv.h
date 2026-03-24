@@ -24,8 +24,8 @@ extern "C" {
  **********************/
 
 typedef struct {
-    gfx_coord_t x;
-    gfx_coord_t y;
+    int32_t x;
+    int32_t y;
     gfx_coord_t u;
     gfx_coord_t v;
 } gfx_sw_blend_img_vertex_t;

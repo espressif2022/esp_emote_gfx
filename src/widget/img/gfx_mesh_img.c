@@ -31,6 +31,8 @@
 #define GFX_MESH_IMG_DEFAULT_COLS      1U
 #define GFX_MESH_IMG_DEFAULT_ROWS      1U
 #define GFX_MESH_IMG_CTRL_POINT_RADIUS 2
+#define GFX_MESH_IMG_Q8_SHIFT          8
+#define GFX_MESH_IMG_Q8_ONE            (1 << GFX_MESH_IMG_Q8_SHIFT)
 
 /**********************
  *      TYPEDEFS
@@ -42,13 +44,17 @@ typedef struct {
     uint8_t grid_cols;
     uint8_t grid_rows;
     bool ctrl_points_visible;
+    int32_t bounds_min_x_q8;
+    int32_t bounds_min_y_q8;
+    int32_t bounds_max_x_q8;
+    int32_t bounds_max_y_q8;
     gfx_coord_t bounds_min_x;
     gfx_coord_t bounds_min_y;
     gfx_coord_t bounds_max_x;
     gfx_coord_t bounds_max_y;
     size_t point_count;
-    gfx_mesh_img_point_t *rest_points;
-    gfx_mesh_img_point_t *points;
+    gfx_mesh_img_point_q8_t *rest_points;
+    gfx_mesh_img_point_q8_t *points;
 } gfx_mesh_img_t;
 
 /**********************
@@ -67,7 +73,7 @@ static void gfx_mesh_img_free_points(gfx_mesh_img_t *mesh);
 static esp_err_t gfx_mesh_img_alloc_points(gfx_mesh_img_t *mesh, uint8_t cols, uint8_t rows);
 static void gfx_mesh_img_update_bounds(gfx_obj_t *obj, gfx_mesh_img_t *mesh);
 static void gfx_mesh_img_reset_rest_points(gfx_mesh_img_t *mesh);
-static void gfx_mesh_img_get_draw_origin(gfx_obj_t *obj, const gfx_mesh_img_t *mesh, gfx_coord_t *x, gfx_coord_t *y);
+static void gfx_mesh_img_get_draw_origin_q8(gfx_obj_t *obj, const gfx_mesh_img_t *mesh, int32_t *x_q8, int32_t *y_q8);
 static esp_err_t gfx_mesh_img_load_header(void *src, gfx_image_header_t *header);
 static esp_err_t gfx_mesh_img_prepare_decoder(const gfx_mesh_img_t *mesh, gfx_image_decoder_dsc_t *decoder_dsc);
 static void gfx_mesh_img_draw_ctrl_points(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx, const gfx_mesh_img_t *mesh);
@@ -84,6 +90,30 @@ static const gfx_widget_class_t s_gfx_mesh_img_widget_class = {
 /**********************
  *   STATIC FUNCTIONS
  **********************/
+
+static inline int32_t gfx_mesh_img_floor_q8_to_int(int32_t value_q8)
+{
+    if (value_q8 >= 0) {
+        return value_q8 >> GFX_MESH_IMG_Q8_SHIFT;
+    }
+    return -(((-value_q8) + GFX_MESH_IMG_Q8_ONE - 1) >> GFX_MESH_IMG_Q8_SHIFT);
+}
+
+static inline int32_t gfx_mesh_img_ceil_q8_to_int(int32_t value_q8)
+{
+    if (value_q8 >= 0) {
+        return (value_q8 + GFX_MESH_IMG_Q8_ONE - 1) >> GFX_MESH_IMG_Q8_SHIFT;
+    }
+    return -((-value_q8) >> GFX_MESH_IMG_Q8_SHIFT);
+}
+
+static inline gfx_coord_t gfx_mesh_img_round_q8_to_coord(int32_t value_q8)
+{
+    if (value_q8 >= 0) {
+        return (gfx_coord_t)((value_q8 + (GFX_MESH_IMG_Q8_ONE / 2)) >> GFX_MESH_IMG_Q8_SHIFT);
+    }
+    return (gfx_coord_t)(-(((-value_q8) + (GFX_MESH_IMG_Q8_ONE / 2)) >> GFX_MESH_IMG_Q8_SHIFT));
+}
 
 static void gfx_mesh_img_free_points(gfx_mesh_img_t *mesh)
 {
@@ -114,10 +144,10 @@ static esp_err_t gfx_mesh_img_alloc_points(gfx_mesh_img_t *mesh, uint8_t cols, u
     point_count = (size_t)(cols + 1U) * (size_t)(rows + 1U);
     gfx_mesh_img_free_points(mesh);
 
-    mesh->rest_points = calloc(point_count, sizeof(gfx_mesh_img_point_t));
+    mesh->rest_points = calloc(point_count, sizeof(gfx_mesh_img_point_q8_t));
     ESP_RETURN_ON_FALSE(mesh->rest_points != NULL, ESP_ERR_NO_MEM, TAG, "no mem for rest points");
 
-    mesh->points = calloc(point_count, sizeof(gfx_mesh_img_point_t));
+    mesh->points = calloc(point_count, sizeof(gfx_mesh_img_point_q8_t));
     if (mesh->points == NULL) {
         free(mesh->rest_points);
         mesh->rest_points = NULL;
@@ -150,8 +180,8 @@ static void gfx_mesh_img_reset_rest_points(gfx_mesh_img_t *mesh)
         for (uint8_t col = 0; col <= mesh->grid_cols; col++) {
             int32_t x = (mesh->grid_cols > 0U) ? ((width * col) / mesh->grid_cols) : 0;
 
-            mesh->rest_points[index].x = (gfx_coord_t)x;
-            mesh->rest_points[index].y = (gfx_coord_t)y;
+            mesh->rest_points[index].x_q8 = x << GFX_MESH_IMG_Q8_SHIFT;
+            mesh->rest_points[index].y_q8 = y << GFX_MESH_IMG_Q8_SHIFT;
             mesh->points[index] = mesh->rest_points[index];
             index++;
         }
@@ -160,10 +190,14 @@ static void gfx_mesh_img_reset_rest_points(gfx_mesh_img_t *mesh)
 
 static void gfx_mesh_img_update_bounds(gfx_obj_t *obj, gfx_mesh_img_t *mesh)
 {
-    gfx_coord_t min_x;
-    gfx_coord_t min_y;
-    gfx_coord_t max_x;
-    gfx_coord_t max_y;
+    int32_t min_x_q8;
+    int32_t min_y_q8;
+    int32_t max_x_q8;
+    int32_t max_y_q8;
+    int32_t min_x;
+    int32_t min_y;
+    int32_t max_x;
+    int32_t max_y;
 
     if (obj == NULL || mesh == NULL) {
         return;
@@ -172,6 +206,10 @@ static void gfx_mesh_img_update_bounds(gfx_obj_t *obj, gfx_mesh_img_t *mesh)
     if (mesh->points == NULL || mesh->point_count == 0U) {
         obj->geometry.width = mesh->header.w;
         obj->geometry.height = mesh->header.h;
+        mesh->bounds_min_x_q8 = 0;
+        mesh->bounds_min_y_q8 = 0;
+        mesh->bounds_max_x_q8 = (mesh->header.w > 0U) ? ((int32_t)(mesh->header.w - 1U) << GFX_MESH_IMG_Q8_SHIFT) : 0;
+        mesh->bounds_max_y_q8 = (mesh->header.h > 0U) ? ((int32_t)(mesh->header.h - 1U) << GFX_MESH_IMG_Q8_SHIFT) : 0;
         mesh->bounds_min_x = 0;
         mesh->bounds_min_y = 0;
         mesh->bounds_max_x = (mesh->header.w > 0U) ? (gfx_coord_t)(mesh->header.w - 1U) : 0;
@@ -179,35 +217,44 @@ static void gfx_mesh_img_update_bounds(gfx_obj_t *obj, gfx_mesh_img_t *mesh)
         return;
     }
 
-    min_x = mesh->points[0].x;
-    min_y = mesh->points[0].y;
-    max_x = mesh->points[0].x;
-    max_y = mesh->points[0].y;
+    min_x_q8 = mesh->points[0].x_q8;
+    min_y_q8 = mesh->points[0].y_q8;
+    max_x_q8 = mesh->points[0].x_q8;
+    max_y_q8 = mesh->points[0].y_q8;
 
     for (size_t i = 1; i < mesh->point_count; i++) {
-        min_x = MIN(min_x, mesh->points[i].x);
-        min_y = MIN(min_y, mesh->points[i].y);
-        max_x = MAX(max_x, mesh->points[i].x);
-        max_y = MAX(max_y, mesh->points[i].y);
+        min_x_q8 = MIN(min_x_q8, mesh->points[i].x_q8);
+        min_y_q8 = MIN(min_y_q8, mesh->points[i].y_q8);
+        max_x_q8 = MAX(max_x_q8, mesh->points[i].x_q8);
+        max_y_q8 = MAX(max_y_q8, mesh->points[i].y_q8);
     }
 
-    mesh->bounds_min_x = min_x;
-    mesh->bounds_min_y = min_y;
-    mesh->bounds_max_x = max_x;
-    mesh->bounds_max_y = max_y;
+    min_x = gfx_mesh_img_floor_q8_to_int(min_x_q8);
+    min_y = gfx_mesh_img_floor_q8_to_int(min_y_q8);
+    max_x = gfx_mesh_img_ceil_q8_to_int(max_x_q8);
+    max_y = gfx_mesh_img_ceil_q8_to_int(max_y_q8);
+
+    mesh->bounds_min_x_q8 = min_x_q8;
+    mesh->bounds_min_y_q8 = min_y_q8;
+    mesh->bounds_max_x_q8 = max_x_q8;
+    mesh->bounds_max_y_q8 = max_y_q8;
+    mesh->bounds_min_x = (gfx_coord_t)min_x;
+    mesh->bounds_min_y = (gfx_coord_t)min_y;
+    mesh->bounds_max_x = (gfx_coord_t)max_x;
+    mesh->bounds_max_y = (gfx_coord_t)max_y;
     obj->geometry.width = (uint16_t)(max_x - min_x + 1);
     obj->geometry.height = (uint16_t)(max_y - min_y + 1);
 }
 
-static void gfx_mesh_img_get_draw_origin(gfx_obj_t *obj, const gfx_mesh_img_t *mesh, gfx_coord_t *x, gfx_coord_t *y)
+static void gfx_mesh_img_get_draw_origin_q8(gfx_obj_t *obj, const gfx_mesh_img_t *mesh, int32_t *x_q8, int32_t *y_q8)
 {
-    if (obj == NULL || mesh == NULL || x == NULL || y == NULL) {
+    if (obj == NULL || mesh == NULL || x_q8 == NULL || y_q8 == NULL) {
         return;
     }
 
     gfx_obj_calc_pos_in_parent(obj);
-    *x = obj->geometry.x - mesh->bounds_min_x;
-    *y = obj->geometry.y - mesh->bounds_min_y;
+    *x_q8 = ((int32_t)obj->geometry.x << GFX_MESH_IMG_Q8_SHIFT) - mesh->bounds_min_x_q8;
+    *y_q8 = ((int32_t)obj->geometry.y << GFX_MESH_IMG_Q8_SHIFT) - mesh->bounds_min_y_q8;
 }
 
 static esp_err_t gfx_mesh_img_load_header(void *src, gfx_image_header_t *header)
@@ -238,8 +285,8 @@ static esp_err_t gfx_mesh_img_prepare_decoder(const gfx_mesh_img_t *mesh, gfx_im
 
 static void gfx_mesh_img_draw_ctrl_points(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx, const gfx_mesh_img_t *mesh)
 {
-    gfx_coord_t origin_x;
-    gfx_coord_t origin_y;
+    int32_t origin_x_q8;
+    int32_t origin_y_q8;
     gfx_color_t outer_color = GFX_COLOR_HEX(0x2dd4bf);
     gfx_color_t inner_color = GFX_COLOR_HEX(0xf8fafc);
 
@@ -247,11 +294,11 @@ static void gfx_mesh_img_draw_ctrl_points(gfx_obj_t *obj, const gfx_draw_ctx_t *
         return;
     }
 
-    gfx_mesh_img_get_draw_origin(obj, mesh, &origin_x, &origin_y);
+    gfx_mesh_img_get_draw_origin_q8(obj, mesh, &origin_x_q8, &origin_y_q8);
 
     for (size_t i = 0; i < mesh->point_count; i++) {
-        gfx_coord_t screen_x = origin_x + mesh->points[i].x;
-        gfx_coord_t screen_y = origin_y + mesh->points[i].y;
+        gfx_coord_t screen_x = gfx_mesh_img_round_q8_to_coord(origin_x_q8 + mesh->points[i].x_q8);
+        gfx_coord_t screen_y = gfx_mesh_img_round_q8_to_coord(origin_y_q8 + mesh->points[i].y_q8);
 
         for (gfx_coord_t dy = -GFX_MESH_IMG_CTRL_POINT_RADIUS; dy <= GFX_MESH_IMG_CTRL_POINT_RADIUS; dy++) {
             for (gfx_coord_t dx = -GFX_MESH_IMG_CTRL_POINT_RADIUS; dx <= GFX_MESH_IMG_CTRL_POINT_RADIUS; dx++) {
@@ -271,8 +318,8 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     gfx_image_decoder_dsc_t decoder_dsc;
     gfx_area_t obj_area;
     gfx_area_t clip_area;
-    gfx_coord_t origin_x;
-    gfx_coord_t origin_y;
+    int32_t origin_x_q8;
+    int32_t origin_y_q8;
     gfx_coord_t src_stride;
     gfx_coord_t src_height;
     gfx_color_format_t color_format;
@@ -307,7 +354,7 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
         return ESP_ERR_INVALID_STATE;
     }
 
-    gfx_mesh_img_get_draw_origin(obj, mesh, &origin_x, &origin_y);
+    gfx_mesh_img_get_draw_origin_q8(obj, mesh, &origin_x_q8, &origin_y_q8);
 
     obj_area.x1 = obj->geometry.x;
     obj_area.y1 = obj->geometry.y;
@@ -339,14 +386,14 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 
             /* Early clip-out: skip cells entirely outside clip area */
             {
-                gfx_coord_t p0x = mesh->points[idx00].x, p1x = mesh->points[idx10].x;
-                gfx_coord_t p2x = mesh->points[idx01].x, p3x = mesh->points[idx11].x;
-                gfx_coord_t p0y = mesh->points[idx00].y, p1y = mesh->points[idx10].y;
-                gfx_coord_t p2y = mesh->points[idx01].y, p3y = mesh->points[idx11].y;
-                gfx_coord_t cmin_x = MIN(MIN(p0x, p1x), MIN(p2x, p3x)) + origin_x;
-                gfx_coord_t cmax_x = MAX(MAX(p0x, p1x), MAX(p2x, p3x)) + origin_x;
-                gfx_coord_t cmin_y = MIN(MIN(p0y, p1y), MIN(p2y, p3y)) + origin_y;
-                gfx_coord_t cmax_y = MAX(MAX(p0y, p1y), MAX(p2y, p3y)) + origin_y;
+                int32_t p0x_q8 = mesh->points[idx00].x_q8, p1x_q8 = mesh->points[idx10].x_q8;
+                int32_t p2x_q8 = mesh->points[idx01].x_q8, p3x_q8 = mesh->points[idx11].x_q8;
+                int32_t p0y_q8 = mesh->points[idx00].y_q8, p1y_q8 = mesh->points[idx10].y_q8;
+                int32_t p2y_q8 = mesh->points[idx01].y_q8, p3y_q8 = mesh->points[idx11].y_q8;
+                int32_t cmin_x = gfx_mesh_img_floor_q8_to_int(MIN(MIN(p0x_q8, p1x_q8), MIN(p2x_q8, p3x_q8)) + origin_x_q8);
+                int32_t cmax_x = gfx_mesh_img_ceil_q8_to_int(MAX(MAX(p0x_q8, p1x_q8), MAX(p2x_q8, p3x_q8)) + origin_x_q8);
+                int32_t cmin_y = gfx_mesh_img_floor_q8_to_int(MIN(MIN(p0y_q8, p1y_q8), MIN(p2y_q8, p3y_q8)) + origin_y_q8);
+                int32_t cmax_y = gfx_mesh_img_ceil_q8_to_int(MAX(MAX(p0y_q8, p1y_q8), MAX(p2y_q8, p3y_q8)) + origin_y_q8);
                 if (cmax_x < clip_area.x1 || cmin_x >= clip_area.x2 ||
                     cmax_y < clip_area.y1 || cmin_y >= clip_area.y2) {
                     continue;
@@ -378,36 +425,36 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
             if (col > 0U)                   { ie2 |= 0x02; }
 
             /* --------- Triangle 1 --------- */
-            tri1[0].x = origin_x + mesh->points[idx00].x;
-            tri1[0].y = origin_y + mesh->points[idx00].y;
-            tri1[0].u = mesh->rest_points[idx00].x;
-            tri1[0].v = mesh->rest_points[idx00].y;
+            tri1[0].x = origin_x_q8 + mesh->points[idx00].x_q8;
+            tri1[0].y = origin_y_q8 + mesh->points[idx00].y_q8;
+            tri1[0].u = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx00].x_q8);
+            tri1[0].v = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx00].y_q8);
 
-            tri1[1].x = origin_x + mesh->points[idx10].x;
-            tri1[1].y = origin_y + mesh->points[idx10].y;
-            tri1[1].u = mesh->rest_points[idx10].x;
-            tri1[1].v = mesh->rest_points[idx10].y;
+            tri1[1].x = origin_x_q8 + mesh->points[idx10].x_q8;
+            tri1[1].y = origin_y_q8 + mesh->points[idx10].y_q8;
+            tri1[1].u = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx10].x_q8);
+            tri1[1].v = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx10].y_q8);
 
-            tri1[2].x = origin_x + mesh->points[idx11].x;
-            tri1[2].y = origin_y + mesh->points[idx11].y;
-            tri1[2].u = mesh->rest_points[idx11].x;
-            tri1[2].v = mesh->rest_points[idx11].y;
+            tri1[2].x = origin_x_q8 + mesh->points[idx11].x_q8;
+            tri1[2].y = origin_y_q8 + mesh->points[idx11].y_q8;
+            tri1[2].u = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx11].x_q8);
+            tri1[2].v = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx11].y_q8);
 
             /* --------- Triangle 2 --------- */
-            tri2[0].x = origin_x + mesh->points[idx00].x;
-            tri2[0].y = origin_y + mesh->points[idx00].y;
-            tri2[0].u = mesh->rest_points[idx00].x;
-            tri2[0].v = mesh->rest_points[idx00].y;
+            tri2[0].x = origin_x_q8 + mesh->points[idx00].x_q8;
+            tri2[0].y = origin_y_q8 + mesh->points[idx00].y_q8;
+            tri2[0].u = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx00].x_q8);
+            tri2[0].v = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx00].y_q8);
 
-            tri2[1].x = origin_x + mesh->points[idx11].x;
-            tri2[1].y = origin_y + mesh->points[idx11].y;
-            tri2[1].u = mesh->rest_points[idx11].x;
-            tri2[1].v = mesh->rest_points[idx11].y;
+            tri2[1].x = origin_x_q8 + mesh->points[idx11].x_q8;
+            tri2[1].y = origin_y_q8 + mesh->points[idx11].y_q8;
+            tri2[1].u = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx11].x_q8);
+            tri2[1].v = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx11].y_q8);
 
-            tri2[2].x = origin_x + mesh->points[idx01].x;
-            tri2[2].y = origin_y + mesh->points[idx01].y;
-            tri2[2].u = mesh->rest_points[idx01].x;
-            tri2[2].v = mesh->rest_points[idx01].y;
+            tri2[2].x = origin_x_q8 + mesh->points[idx01].x_q8;
+            tri2[2].y = origin_y_q8 + mesh->points[idx01].y_q8;
+            tri2[2].u = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx01].x_q8);
+            tri2[2].v = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx01].y_q8);
 
             gfx_sw_blend_img_triangle_draw((gfx_color_t *)ctx->buf, ctx->stride,
                                            &ctx->buf_area, &clip_area,
@@ -551,15 +598,16 @@ esp_err_t gfx_mesh_img_get_point(gfx_obj_t *obj, size_t point_idx, gfx_mesh_img_
     ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "get mesh point: state is NULL");
     ESP_RETURN_ON_FALSE(point_idx < mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "get mesh point: index out of range");
 
-    *point = mesh->points[point_idx];
+    point->x = gfx_mesh_img_round_q8_to_coord(mesh->points[point_idx].x_q8);
+    point->y = gfx_mesh_img_round_q8_to_coord(mesh->points[point_idx].y_q8);
     return ESP_OK;
 }
 
 esp_err_t gfx_mesh_img_get_point_screen(gfx_obj_t *obj, size_t point_idx, gfx_coord_t *x, gfx_coord_t *y)
 {
     gfx_mesh_img_t *mesh;
-    gfx_coord_t origin_x;
-    gfx_coord_t origin_y;
+    int32_t origin_x_q8;
+    int32_t origin_y_q8;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
     ESP_RETURN_ON_FALSE(x != NULL && y != NULL, ESP_ERR_INVALID_ARG, TAG, "get mesh point screen: output is NULL");
@@ -568,25 +616,85 @@ esp_err_t gfx_mesh_img_get_point_screen(gfx_obj_t *obj, size_t point_idx, gfx_co
     ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "get mesh point screen: state is NULL");
     ESP_RETURN_ON_FALSE(point_idx < mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "get mesh point screen: index out of range");
 
-    gfx_mesh_img_get_draw_origin(obj, mesh, &origin_x, &origin_y);
-    *x = origin_x + mesh->points[point_idx].x;
-    *y = origin_y + mesh->points[point_idx].y;
+    gfx_mesh_img_get_draw_origin_q8(obj, mesh, &origin_x_q8, &origin_y_q8);
+    *x = gfx_mesh_img_round_q8_to_coord(origin_x_q8 + mesh->points[point_idx].x_q8);
+    *y = gfx_mesh_img_round_q8_to_coord(origin_y_q8 + mesh->points[point_idx].y_q8);
     return ESP_OK;
 }
 
-esp_err_t gfx_mesh_img_set_point(gfx_obj_t *obj, size_t point_idx, gfx_coord_t x, gfx_coord_t y)
+esp_err_t gfx_mesh_img_get_point_q8(gfx_obj_t *obj, size_t point_idx, gfx_mesh_img_point_q8_t *point)
+{
+    gfx_mesh_img_t *mesh;
+
+    CHECK_OBJ_TYPE_MESH_IMAGE(obj);
+    ESP_RETURN_ON_FALSE(point != NULL, ESP_ERR_INVALID_ARG, TAG, "get mesh point q8: output is NULL");
+
+    mesh = (gfx_mesh_img_t *)obj->src;
+    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "get mesh point q8: state is NULL");
+    ESP_RETURN_ON_FALSE(point_idx < mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "get mesh point q8: index out of range");
+
+    *point = mesh->points[point_idx];
+    return ESP_OK;
+}
+
+esp_err_t gfx_mesh_img_get_point_screen_q8(gfx_obj_t *obj, size_t point_idx, int32_t *x_q8, int32_t *y_q8)
+{
+    gfx_mesh_img_t *mesh;
+    int32_t origin_x_q8;
+    int32_t origin_y_q8;
+
+    CHECK_OBJ_TYPE_MESH_IMAGE(obj);
+    ESP_RETURN_ON_FALSE(x_q8 != NULL && y_q8 != NULL, ESP_ERR_INVALID_ARG, TAG, "get mesh point screen q8: output is NULL");
+
+    mesh = (gfx_mesh_img_t *)obj->src;
+    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "get mesh point screen q8: state is NULL");
+    ESP_RETURN_ON_FALSE(point_idx < mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "get mesh point screen q8: index out of range");
+
+    gfx_mesh_img_get_draw_origin_q8(obj, mesh, &origin_x_q8, &origin_y_q8);
+    *x_q8 = origin_x_q8 + mesh->points[point_idx].x_q8;
+    *y_q8 = origin_y_q8 + mesh->points[point_idx].y_q8;
+    return ESP_OK;
+}
+
+esp_err_t gfx_mesh_img_set_point_q8(gfx_obj_t *obj, size_t point_idx, int32_t x_q8, int32_t y_q8)
 {
     gfx_mesh_img_t *mesh;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
 
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh point: state is NULL");
-    ESP_RETURN_ON_FALSE(point_idx < mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "set mesh point: index out of range");
+    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh point q8: state is NULL");
+    ESP_RETURN_ON_FALSE(point_idx < mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "set mesh point q8: index out of range");
 
     gfx_obj_invalidate(obj);
-    mesh->points[point_idx].x = x;
-    mesh->points[point_idx].y = y;
+    mesh->points[point_idx].x_q8 = x_q8;
+    mesh->points[point_idx].y_q8 = y_q8;
+    gfx_mesh_img_update_bounds(obj, mesh);
+    gfx_obj_update_layout(obj);
+    gfx_obj_invalidate(obj);
+    return ESP_OK;
+}
+
+esp_err_t gfx_mesh_img_set_point(gfx_obj_t *obj, size_t point_idx, gfx_coord_t x, gfx_coord_t y)
+{
+    return gfx_mesh_img_set_point_q8(obj, point_idx,
+                                     (int32_t)x << GFX_MESH_IMG_Q8_SHIFT,
+                                     (int32_t)y << GFX_MESH_IMG_Q8_SHIFT);
+}
+
+esp_err_t gfx_mesh_img_set_points_q8(gfx_obj_t *obj, const gfx_mesh_img_point_q8_t *points, size_t point_count)
+{
+    gfx_mesh_img_t *mesh;
+
+    CHECK_OBJ_TYPE_MESH_IMAGE(obj);
+    ESP_RETURN_ON_FALSE(points != NULL, ESP_ERR_INVALID_ARG, TAG, "set mesh points q8: input is NULL");
+
+    mesh = (gfx_mesh_img_t *)obj->src;
+    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh points q8: state is NULL");
+    ESP_RETURN_ON_FALSE(point_count == mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "set mesh points q8: count mismatch");
+
+    gfx_obj_invalidate(obj);
+    memcpy(mesh->points, points, point_count * sizeof(*points));
     gfx_mesh_img_update_bounds(obj, mesh);
     gfx_obj_update_layout(obj);
     gfx_obj_invalidate(obj);
@@ -605,9 +713,29 @@ esp_err_t gfx_mesh_img_set_points(gfx_obj_t *obj, const gfx_mesh_img_point_t *po
     ESP_RETURN_ON_FALSE(point_count == mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "set mesh points: count mismatch");
 
     gfx_obj_invalidate(obj);
-    memcpy(mesh->points, points, point_count * sizeof(*points));
+    for (size_t i = 0; i < point_count; i++) {
+        mesh->points[i].x_q8 = (int32_t)points[i].x << GFX_MESH_IMG_Q8_SHIFT;
+        mesh->points[i].y_q8 = (int32_t)points[i].y << GFX_MESH_IMG_Q8_SHIFT;
+    }
     gfx_mesh_img_update_bounds(obj, mesh);
     gfx_obj_update_layout(obj);
+    gfx_obj_invalidate(obj);
+    return ESP_OK;
+}
+
+esp_err_t gfx_mesh_img_set_rest_points_q8(gfx_obj_t *obj, const gfx_mesh_img_point_q8_t *points, size_t point_count)
+{
+    gfx_mesh_img_t *mesh;
+
+    CHECK_OBJ_TYPE_MESH_IMAGE(obj);
+    ESP_RETURN_ON_FALSE(points != NULL, ESP_ERR_INVALID_ARG, TAG, "set mesh rest points q8: input is NULL");
+
+    mesh = (gfx_mesh_img_t *)obj->src;
+    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh rest points q8: state is NULL");
+    ESP_RETURN_ON_FALSE(point_count == mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "set mesh rest points q8: count mismatch");
+
+    gfx_obj_invalidate(obj);
+    memcpy(mesh->rest_points, points, point_count * sizeof(*points));
     gfx_obj_invalidate(obj);
     return ESP_OK;
 }
@@ -624,7 +752,10 @@ esp_err_t gfx_mesh_img_set_rest_points(gfx_obj_t *obj, const gfx_mesh_img_point_
     ESP_RETURN_ON_FALSE(point_count == mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "set mesh rest points: count mismatch");
 
     gfx_obj_invalidate(obj);
-    memcpy(mesh->rest_points, points, point_count * sizeof(*points));
+    for (size_t i = 0; i < point_count; i++) {
+        mesh->rest_points[i].x_q8 = (int32_t)points[i].x << GFX_MESH_IMG_Q8_SHIFT;
+        mesh->rest_points[i].y_q8 = (int32_t)points[i].y << GFX_MESH_IMG_Q8_SHIFT;
+    }
     gfx_obj_invalidate(obj);
     return ESP_OK;
 }

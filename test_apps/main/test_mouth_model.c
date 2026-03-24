@@ -43,6 +43,10 @@ static const char *TAG = "test_mouth_model";
 #define TEST_MOUTH_MODEL_EYE_SEGS         24U
 #define TEST_MOUTH_MODEL_BROW_SEGS        24U
 #define TEST_MOUTH_MODEL_MOUTH_SEGS       32U
+/* Diagnostic toggle: 0=legacy hard 1x1 white, 1=4x4 RGB565A8 soft-edge white. */
+#ifndef TEST_MOUTH_MODEL_USE_SOFT_EDGE_SRC
+#define TEST_MOUTH_MODEL_USE_SOFT_EDGE_SRC 0
+#endif
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * Layer 1 — Widget keyframe types (14-coordinate Beziers)
@@ -158,7 +162,7 @@ typedef struct {
 } test_mouth_model_scene_t;
 
 static const uint16_t s_white_pixel = 0xFFFF;
-static const gfx_image_dsc_t s_white_img = {
+static const gfx_image_dsc_t s_white_img_hard = {
     .header = {
         .magic = 0x19,
         .cf = GFX_COLOR_FORMAT_RGB565,
@@ -168,6 +172,38 @@ static const gfx_image_dsc_t s_white_img = {
     },
     .data_size = 2,
     .data = (const uint8_t *)&s_white_pixel,
+};
+
+typedef struct {
+    uint16_t rgb565[16];
+    uint8_t alpha[16];
+} test_mouth_model_soft_src_t;
+
+static const test_mouth_model_soft_src_t s_soft_white_data = {
+    .rgb565 = {
+        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+    },
+    .alpha = {
+          0,  64,  64,   0,
+         64, 255, 255,  64,
+         64, 255, 255,  64,
+          0,  64,  64,   0,
+    },
+};
+
+static const gfx_image_dsc_t s_white_img_soft = {
+    .header = {
+        .magic = 0x19,
+        .cf = GFX_COLOR_FORMAT_RGB565A8,
+        .w = 4,
+        .h = 4,
+        .stride = 8,
+    },
+    .data_size = sizeof(s_soft_white_data),
+    .data = (const uint8_t *)&s_soft_white_data,
 };
 
 static int32_t test_mouth_model_isqrt_i64(uint64_t value)
@@ -188,6 +224,14 @@ static int32_t test_mouth_model_isqrt_i64(uint64_t value)
         one >>= 2;
     }
     return (int32_t)res;
+}
+
+static inline int32_t test_mouth_model_q8_floor_to_int(int32_t value_q8)
+{
+    if (value_q8 >= 0) {
+        return value_q8 / 256;
+    }
+    return -(((-value_q8) + 255) / 256);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -252,9 +296,9 @@ static esp_err_t test_mouth_model_apply_bezier_stroke(gfx_obj_t *obj,
         }
     }
 
-    gfx_mesh_img_point_t mesh_pts[258];
-    int32_t min_x = 999999, min_y = 999999;
-    int32_t max_x = -999999;
+    gfx_mesh_img_point_q8_t mesh_pts[258];
+    int32_t min_x_q8 = INT32_MAX;
+    int32_t min_y_q8 = INT32_MAX;
     int32_t thick_q8 = thickness * 256;
 
     for (i = 0; i <= total_segs; i++) {
@@ -274,35 +318,33 @@ static esp_err_t test_mouth_model_apply_bezier_stroke(gfx_obj_t *obj,
             ny_q8 = (int32_t)( (int64_t)dx * thick_q8) / len;
         }
 
-        int32_t out_x = (px_q8[i] + nx_q8) / 256;
-        int32_t out_y = (py_q8[i] + ny_q8) / 256;
-        int32_t in_x  = (px_q8[i] - nx_q8) / 256;
-        int32_t in_y  = (py_q8[i] - ny_q8) / 256;
+        int32_t out_x_q8 = px_q8[i] + nx_q8;
+        int32_t out_y_q8 = py_q8[i] + ny_q8;
+        int32_t in_x_q8  = px_q8[i] - nx_q8;
+        int32_t in_y_q8  = py_q8[i] - ny_q8;
 
-        mesh_pts[i].x = out_x;
-        mesh_pts[i].y = out_y;
-        mesh_pts[total_segs + 1 + i].x = in_x;
-        mesh_pts[total_segs + 1 + i].y = in_y;
+        mesh_pts[i].x_q8 = out_x_q8;
+        mesh_pts[i].y_q8 = out_y_q8;
+        mesh_pts[total_segs + 1 + i].x_q8 = in_x_q8;
+        mesh_pts[total_segs + 1 + i].y_q8 = in_y_q8;
 
-        if (out_x < min_x) { min_x = out_x; }
-        if (out_x > max_x) { max_x = out_x; }
-        if (out_y < min_y) { min_y = out_y; }
-        if (in_x < min_x) { min_x = in_x; }
-        if (in_x > max_x) { max_x = in_x; }
-        if (in_y < min_y) { min_y = in_y; }
+        if (out_x_q8 < min_x_q8) { min_x_q8 = out_x_q8; }
+        if (out_y_q8 < min_y_q8) { min_y_q8 = out_y_q8; }
+        if (in_x_q8 < min_x_q8) { min_x_q8 = in_x_q8; }
+        if (in_y_q8 < min_y_q8) { min_y_q8 = in_y_q8; }
     }
 
     for (i = 0; i < (total_segs + 1) * 2; i++) {
-        mesh_pts[i].x = (gfx_coord_t)((int32_t)mesh_pts[i].x - min_x);
-        mesh_pts[i].y = (gfx_coord_t)((int32_t)mesh_pts[i].y - min_y);
+        mesh_pts[i].x_q8 -= min_x_q8;
+        mesh_pts[i].y_q8 -= min_y_q8;
     }
 
     {
-        int32_t width = max_x - min_x + 1;
-        int32_t align_x = cx - (width / 2);
-        ESP_RETURN_ON_ERROR(gfx_obj_align(obj, GFX_ALIGN_TOP_LEFT, align_x, min_y), TAG, "stroke align failed");
+        int32_t align_x = test_mouth_model_q8_floor_to_int(min_x_q8);
+        int32_t align_y = test_mouth_model_q8_floor_to_int(min_y_q8);
+        ESP_RETURN_ON_ERROR(gfx_obj_align(obj, GFX_ALIGN_TOP_LEFT, align_x, align_y), TAG, "stroke align failed");
     }
-    return gfx_mesh_img_set_points(obj, mesh_pts, (total_segs + 1) * 2);
+    return gfx_mesh_img_set_points_q8(obj, mesh_pts, (total_segs + 1) * 2);
 }
 
 /* Evaluates a closed Bezier curve as a solid filled polygon structure using Q8 sub-pixel precision. */
@@ -315,8 +357,8 @@ static esp_err_t test_mouth_model_apply_bezier_fill(gfx_obj_t *obj,
                                                     int32_t segs)
 {
     if (segs > 64) return ESP_ERR_INVALID_ARG;
-    int32_t px0[65], py0[65]; // upper loop
-    int32_t px1[65], py1[65]; // lower loop
+    int32_t px0_q8[65], py0_q8[65]; // upper loop
+    int32_t px1_q8[65], py1_q8[65]; // lower loop
     int i;
 
     // Upper curve
@@ -335,8 +377,8 @@ static esp_err_t test_mouth_model_apply_bezier_fill(gfx_obj_t *obj,
         int32_t w1 = 3 * t * mt / 1000 * mt / 1000;
         int32_t w2 = 3 * t * t / 1000 * mt / 1000;
         int32_t w3 = t * t / 1000 * t / 1000;
-        px0[i] = ((p0x * w0 + p1x * w1 + p2x * w2 + p3x * w3) * 256 / 1000) / 256;
-        py0[i] = ((p0y * w0 + p1y * w1 + p2y * w2 + p3y * w3) * 256 / 1000) / 256;
+        px0_q8[i] = (p0x * w0 + p1x * w1 + p2x * w2 + p3x * w3) * 256 / 1000;
+        py0_q8[i] = (p0y * w0 + p1y * w1 + p2y * w2 + p3y * w3) * 256 / 1000;
     }
 
     // Lower curve (reverse evaluate)
@@ -355,35 +397,32 @@ static esp_err_t test_mouth_model_apply_bezier_fill(gfx_obj_t *obj,
         int32_t w1 = 3 * t * mt / 1000 * mt / 1000;
         int32_t w2 = 3 * t * t / 1000 * mt / 1000;
         int32_t w3 = t * t / 1000 * t / 1000;
-        px1[i] = ((p0x * w0 + p1x * w1 + p2x * w2 + p3x * w3) * 256 / 1000) / 256;
-        py1[i] = ((p0y * w0 + p1y * w1 + p2y * w2 + p3y * w3) * 256 / 1000) / 256;
+        px1_q8[i] = (p0x * w0 + p1x * w1 + p2x * w2 + p3x * w3) * 256 / 1000;
+        py1_q8[i] = (p0y * w0 + p1y * w1 + p2y * w2 + p3y * w3) * 256 / 1000;
     }
 
-    gfx_mesh_img_point_t mesh_pts[130];
-    int32_t min_x = px0[0], min_y = py0[0];
-    int32_t max_x = px0[0];
+    gfx_mesh_img_point_q8_t mesh_pts[130];
+    int32_t min_x_q8 = px0_q8[0], min_y_q8 = py0_q8[0];
     for (i = 0; i <= segs; i++) {
-        if (px0[i] < min_x) min_x = px0[i];
-        if (px0[i] > max_x) max_x = px0[i];
-        if (py0[i] < min_y) min_y = py0[i];
-        if (px1[i] < min_x) min_x = px1[i];
-        if (px1[i] > max_x) max_x = px1[i];
-        if (py1[i] < min_y) min_y = py1[i];
-        mesh_pts[i].x = px0[i];
-        mesh_pts[i].y = py0[i];
-        mesh_pts[segs + 1 + i].x = px1[i];
-        mesh_pts[segs + 1 + i].y = py1[i];
+        if (px0_q8[i] < min_x_q8) min_x_q8 = px0_q8[i];
+        if (py0_q8[i] < min_y_q8) min_y_q8 = py0_q8[i];
+        if (px1_q8[i] < min_x_q8) min_x_q8 = px1_q8[i];
+        if (py1_q8[i] < min_y_q8) min_y_q8 = py1_q8[i];
+        mesh_pts[i].x_q8 = px0_q8[i];
+        mesh_pts[i].y_q8 = py0_q8[i];
+        mesh_pts[segs + 1 + i].x_q8 = px1_q8[i];
+        mesh_pts[segs + 1 + i].y_q8 = py1_q8[i];
     }
     for (i = 0; i < (segs + 1) * 2; i++) {
-        mesh_pts[i].x = (gfx_coord_t)((int32_t)mesh_pts[i].x - min_x);
-        mesh_pts[i].y = (gfx_coord_t)((int32_t)mesh_pts[i].y - min_y);
+        mesh_pts[i].x_q8 -= min_x_q8;
+        mesh_pts[i].y_q8 -= min_y_q8;
     }
     {
-        int32_t width = max_x - min_x + 1;
-        int32_t align_x = cx - (width / 2);
-        ESP_RETURN_ON_ERROR(gfx_obj_align(obj, GFX_ALIGN_TOP_LEFT, align_x, min_y), TAG, "fill align failed");
+        int32_t align_x = test_mouth_model_q8_floor_to_int(min_x_q8);
+        int32_t align_y = test_mouth_model_q8_floor_to_int(min_y_q8);
+        ESP_RETURN_ON_ERROR(gfx_obj_align(obj, GFX_ALIGN_TOP_LEFT, align_x, align_y), TAG, "fill align failed");
     }
-    return gfx_mesh_img_set_points(obj, mesh_pts, (segs + 1) * 2);
+    return gfx_mesh_img_set_points_q8(obj, mesh_pts, (segs + 1) * 2);
 }
 
 static void test_mouth_model_apply_scene_pose(test_mouth_model_scene_t *scene)
@@ -471,6 +510,7 @@ static void test_mouth_model_scene_cleanup(test_mouth_model_scene_t *scene)
 static void test_mouth_model_run(void)
 {
     test_mouth_model_scene_t scene = {0};
+    const gfx_image_dsc_t *brush_src = TEST_MOUTH_MODEL_USE_SOFT_EDGE_SRC ? &s_white_img_soft : &s_white_img_hard;
 
     test_app_log_case(TAG, "Standalone mouth model");
 
@@ -485,23 +525,23 @@ static void test_mouth_model_run(void)
     scene.right_brow_obj = gfx_mesh_img_create(disp_default);
     scene.title_label = gfx_label_create(disp_default);
     
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.mouth_obj, (void *)&s_white_img));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.mouth_obj, (void *)brush_src));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(scene.mouth_obj, TEST_MOUTH_MODEL_MOUTH_SEGS * 2, 1));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.mouth_obj, GFX_ALIGN_CENTER, 0, FACE_MOUTH_CY - FACE_DISPLAY_CY));
 
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.left_eye_obj, (void *)&s_white_img));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.left_eye_obj, (void *)brush_src));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(scene.left_eye_obj, TEST_MOUTH_MODEL_EYE_SEGS, 1));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.left_eye_obj, GFX_ALIGN_CENTER, FACE_LEFT_EYE_CX - FACE_DISPLAY_CX, FACE_LEFT_EYE_CY - FACE_DISPLAY_CY));
 
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.right_eye_obj, (void *)&s_white_img));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.right_eye_obj, (void *)brush_src));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(scene.right_eye_obj, TEST_MOUTH_MODEL_EYE_SEGS, 1));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.right_eye_obj, GFX_ALIGN_CENTER, FACE_RIGHT_EYE_CX - FACE_DISPLAY_CX, FACE_RIGHT_EYE_CY - FACE_DISPLAY_CY));
 
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.left_brow_obj, (void *)&s_white_img));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.left_brow_obj, (void *)brush_src));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(scene.left_brow_obj, TEST_MOUTH_MODEL_BROW_SEGS, 1));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.left_brow_obj, GFX_ALIGN_CENTER, FACE_LEFT_BROW_CX - FACE_DISPLAY_CX, FACE_LEFT_BROW_CY - FACE_DISPLAY_CY));
 
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.right_brow_obj, (void *)&s_white_img));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.right_brow_obj, (void *)brush_src));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(scene.right_brow_obj, TEST_MOUTH_MODEL_BROW_SEGS, 1));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.right_brow_obj, GFX_ALIGN_CENTER, FACE_RIGHT_BROW_CX - FACE_DISPLAY_CX, FACE_RIGHT_BROW_CY - FACE_DISPLAY_CY));
 
