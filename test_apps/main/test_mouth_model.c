@@ -24,7 +24,7 @@ static const char *TAG = "test_mouth_model";
 #define FACE_MOUTH_CX           FACE_DISPLAY_CX
 #define FACE_MOUTH_CY           (FACE_DISPLAY_CY + 40)
 #define FACE_EYE_X_HALF_GAP     50
-#define FACE_EYE_Y_OFS         (-92)
+#define FACE_EYE_Y_OFS         (-80)
 #define FACE_BROW_Y_OFS_EXTRA  (-34)
 
 #define FACE_LEFT_EYE_CX        (FACE_MOUTH_CX - FACE_EYE_X_HALF_GAP)
@@ -43,10 +43,6 @@ static const char *TAG = "test_mouth_model";
 #define TEST_MOUTH_MODEL_EYE_SEGS         24U
 #define TEST_MOUTH_MODEL_BROW_SEGS        24U
 #define TEST_MOUTH_MODEL_MOUTH_SEGS       32U
-/* Diagnostic toggle: 0=legacy hard 1x1 white, 1=4x4 RGB565A8 soft-edge white. */
-#ifndef TEST_MOUTH_MODEL_USE_SOFT_EDGE_SRC
-#define TEST_MOUTH_MODEL_USE_SOFT_EDGE_SRC 0
-#endif
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * Layer 1 — Widget keyframe types (14-coordinate Beziers)
@@ -67,15 +63,16 @@ typedef struct {
  * Layer 2 — User-facing emotion controller
  * ═══════════════════════════════════════════════════════════════════════════ */
 typedef struct {
-    const char  *name;
-    int16_t      w_smile;
-    int16_t      w_happy;
-    int16_t      w_sad;
-    int16_t      w_surprise;
-    int16_t      w_angry;
-    int16_t      w_look_x;
-    int16_t      w_look_y;
-    uint16_t     hold_ticks;
+    const char *name;
+    const char *name_cn;
+    int16_t     w_smile;
+    int16_t     w_happy;
+    int16_t     w_sad;
+    int16_t     w_surprise;
+    int16_t     w_angry;
+    int16_t     w_look_x;
+    int16_t     w_look_y;
+    uint32_t    hold_ticks;
 } face_emotion_t;
 
 #include "test_mouth_model_keyframes.inc"
@@ -143,7 +140,10 @@ typedef struct {
     gfx_obj_t *left_brow_obj;
     gfx_obj_t *right_brow_obj;
     gfx_obj_t *title_label;
+    gfx_obj_t *head_obj;
     gfx_timer_handle_t anim_timer;
+
+    bool             use_chinese;
 
     face_eye_kf_t    eye_cur;
     face_eye_kf_t    eye_tgt;
@@ -155,6 +155,10 @@ typedef struct {
     int16_t          look_x_tgt;
     int16_t          look_y_cur;
     int16_t          look_y_tgt;
+
+    bool             is_touched;
+    uint16_t         touch_x;
+    uint16_t         touch_y;
 
     uint16_t hold_tick;
     uint32_t anim_tick;
@@ -172,38 +176,6 @@ static const gfx_image_dsc_t s_white_img_hard = {
     },
     .data_size = 2,
     .data = (const uint8_t *)&s_white_pixel,
-};
-
-typedef struct {
-    uint16_t rgb565[16];
-    uint8_t alpha[16];
-} test_mouth_model_soft_src_t;
-
-static const test_mouth_model_soft_src_t s_soft_white_data = {
-    .rgb565 = {
-        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
-        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
-        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
-        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
-    },
-    .alpha = {
-          0,  64,  64,   0,
-         64, 255, 255,  64,
-         64, 255, 255,  64,
-          0,  64,  64,   0,
-    },
-};
-
-static const gfx_image_dsc_t s_white_img_soft = {
-    .header = {
-        .magic = 0x19,
-        .cf = GFX_COLOR_FORMAT_RGB565A8,
-        .w = 4,
-        .h = 4,
-        .stride = 8,
-    },
-    .data_size = sizeof(s_soft_white_data),
-    .data = (const uint8_t *)&s_soft_white_data,
 };
 
 static int32_t test_mouth_model_isqrt_i64(uint64_t value)
@@ -425,6 +397,38 @@ static esp_err_t test_mouth_model_apply_bezier_fill(gfx_obj_t *obj,
     return gfx_mesh_img_set_points_q8(obj, mesh_pts, (segs + 1) * 2);
 }
 
+static void test_mouth_model_touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t *event, void *user_data)
+{
+    (void)touch;
+    test_mouth_model_scene_t *scene = (test_mouth_model_scene_t *)user_data;
+    if (event->type == GFX_TOUCH_EVENT_RELEASE) {
+        ESP_LOGI("", "release");
+        scene->is_touched = false;
+        // Restore target from current sequence
+        scene->look_x_tgt = s_face_sequence[scene->expr_idx].w_look_x;
+        scene->look_y_tgt = s_face_sequence[scene->expr_idx].w_look_y;
+    } else {
+        scene->is_touched = true;
+        scene->touch_x = event->x;
+        scene->touch_y = event->y;
+        // Direct override of targets
+        scene->look_x_tgt = (int16_t)(((int32_t)event->x - FACE_DISPLAY_CX) * 80 / FACE_DISPLAY_CX);
+        scene->look_y_tgt = (int16_t)(((int32_t)event->y - FACE_DISPLAY_CY) * 80 / FACE_DISPLAY_CY);
+    }
+}
+
+static void test_mouth_model_update_title(test_mouth_model_scene_t *scene)
+{
+    if (scene == NULL || scene->title_label == NULL) {
+        return;
+    }
+
+    {
+        const face_emotion_t *em = &s_face_sequence[scene->expr_idx];
+        gfx_label_set_text_fmt(scene->title_label, "  %s", scene->use_chinese ? em->name_cn : em->name);
+    }
+}
+
 static void test_mouth_model_apply_scene_pose(test_mouth_model_scene_t *scene)
 {
     int i;
@@ -445,14 +449,12 @@ static void test_mouth_model_apply_scene_pose(test_mouth_model_scene_t *scene)
     test_mouth_model_apply_bezier_fill(scene->left_eye_obj, scene->eye_cur.pts, FACE_LEFT_EYE_CX + lx, FACE_LEFT_EYE_CY + ly, 200, false, TEST_MOUTH_MODEL_EYE_SEGS);
     test_mouth_model_apply_bezier_fill(scene->right_eye_obj, scene->eye_cur.pts, FACE_RIGHT_EYE_CX + lx, FACE_RIGHT_EYE_CY + ly, 200, true, TEST_MOUTH_MODEL_EYE_SEGS);
 
-    test_mouth_model_apply_bezier_stroke(scene->left_brow_obj, scene->brow_cur.pts, false, FACE_LEFT_BROW_CX + lx, FACE_LEFT_BROW_CY + ly, 200, 4, false, TEST_MOUTH_MODEL_BROW_SEGS);
-    test_mouth_model_apply_bezier_stroke(scene->right_brow_obj, scene->brow_cur.pts, false, FACE_RIGHT_BROW_CX + lx, FACE_RIGHT_BROW_CY + ly, 200, 4, true, TEST_MOUTH_MODEL_BROW_SEGS);
+    test_mouth_model_apply_bezier_stroke(scene->left_brow_obj, scene->brow_cur.pts, false, FACE_LEFT_BROW_CX + lx, FACE_LEFT_BROW_CY + ly, 200, 3, false, TEST_MOUTH_MODEL_BROW_SEGS);
+    test_mouth_model_apply_bezier_stroke(scene->right_brow_obj, scene->brow_cur.pts, false, FACE_RIGHT_BROW_CX + lx, FACE_RIGHT_BROW_CY + ly, 200, 3, true, TEST_MOUTH_MODEL_BROW_SEGS);
 
-    test_mouth_model_apply_bezier_stroke(scene->mouth_obj, scene->mouth_cur.pts, true, FACE_MOUTH_CX, FACE_MOUTH_CY, 200, 5, false, TEST_MOUTH_MODEL_MOUTH_SEGS);
+    /* Mouth moves with 0.6x parallax factor for 3D sphere illusion */
+    test_mouth_model_apply_bezier_stroke(scene->mouth_obj, scene->mouth_cur.pts, true, FACE_MOUTH_CX + (lx * 6 / 10), FACE_MOUTH_CY + (ly * 6 / 10), 200, 3, false, TEST_MOUTH_MODEL_MOUTH_SEGS);
 
-    if (scene->title_label != NULL) {
-        gfx_label_set_text_fmt(scene->title_label, "  %s", s_face_sequence[scene->expr_idx].name);
-    }
 }
 
 static void test_mouth_model_anim_cb(void *user_data)
@@ -489,9 +491,20 @@ static void test_mouth_model_anim_cb(void *user_data)
             scene->expr_idx  = (scene->expr_idx + 1U) % TEST_APP_ARRAY_SIZE(s_face_sequence);
             em = &s_face_sequence[scene->expr_idx];
             face_blend_emotion(em, &scene->eye_tgt, &scene->brow_tgt, &scene->mouth_tgt, &scene->look_x_tgt, &scene->look_y_tgt);
+            test_mouth_model_update_title(scene);
+            /* If touching, keep the touch-driven target */
+            if (scene->is_touched) {
+                scene->look_x_tgt = (int16_t)(((int32_t)scene->touch_x - FACE_DISPLAY_CX) * 80 / FACE_DISPLAY_CX);
+                scene->look_y_tgt = (int16_t)(((int32_t)scene->touch_y - FACE_DISPLAY_CY) * 80 / FACE_DISPLAY_CY);
+            }
         }
     } else {
         scene->hold_tick = 0U;
+    }
+    /* Periodic touch override refresh (in case sequence update happened) */
+    if (scene->is_touched) {
+        scene->look_x_tgt = (int16_t)(((int32_t)scene->touch_x - FACE_DISPLAY_CX) * 80 / FACE_DISPLAY_CX);
+        scene->look_y_tgt = (int16_t)(((int32_t)scene->touch_y - FACE_DISPLAY_CY) * 80 / FACE_DISPLAY_CY);
     }
 }
 
@@ -504,13 +517,13 @@ static void test_mouth_model_scene_cleanup(test_mouth_model_scene_t *scene)
     if (scene->right_eye_obj != NULL) gfx_obj_delete(scene->right_eye_obj);
     if (scene->left_eye_obj != NULL) gfx_obj_delete(scene->left_eye_obj);
     if (scene->mouth_obj != NULL) gfx_obj_delete(scene->mouth_obj);
+    if (scene->head_obj != NULL) gfx_obj_delete(scene->head_obj);
     if (scene->title_label != NULL) gfx_obj_delete(scene->title_label);
 }
 
 static void test_mouth_model_run(void)
 {
     test_mouth_model_scene_t scene = {0};
-    const gfx_image_dsc_t *brush_src = TEST_MOUTH_MODEL_USE_SOFT_EDGE_SRC ? &s_white_img_soft : &s_white_img_hard;
 
     test_app_log_case(TAG, "Standalone mouth model");
 
@@ -525,23 +538,29 @@ static void test_mouth_model_run(void)
     scene.right_brow_obj = gfx_mesh_img_create(disp_default);
     scene.title_label = gfx_label_create(disp_default);
     
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.mouth_obj, (void *)brush_src));
+    /* Head background (also serves as main touch surface) */
+    scene.head_obj = gfx_img_create(disp_default);
+    // gfx_img_set_src(scene.head_obj, (void *)&face_parts_head);
+    gfx_obj_align(scene.head_obj, GFX_ALIGN_CENTER, 0, 0);
+    test_app_set_touch_event_cb(test_mouth_model_touch_event_cb, &scene);
+    
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.mouth_obj, (void *)&s_white_img_hard));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(scene.mouth_obj, TEST_MOUTH_MODEL_MOUTH_SEGS * 2, 1));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.mouth_obj, GFX_ALIGN_CENTER, 0, FACE_MOUTH_CY - FACE_DISPLAY_CY));
 
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.left_eye_obj, (void *)brush_src));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.left_eye_obj, (void *)&s_white_img_hard));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(scene.left_eye_obj, TEST_MOUTH_MODEL_EYE_SEGS, 1));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.left_eye_obj, GFX_ALIGN_CENTER, FACE_LEFT_EYE_CX - FACE_DISPLAY_CX, FACE_LEFT_EYE_CY - FACE_DISPLAY_CY));
 
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.right_eye_obj, (void *)brush_src));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.right_eye_obj, (void *)&s_white_img_hard));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(scene.right_eye_obj, TEST_MOUTH_MODEL_EYE_SEGS, 1));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.right_eye_obj, GFX_ALIGN_CENTER, FACE_RIGHT_EYE_CX - FACE_DISPLAY_CX, FACE_RIGHT_EYE_CY - FACE_DISPLAY_CY));
 
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.left_brow_obj, (void *)brush_src));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.left_brow_obj, (void *)&s_white_img_hard));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(scene.left_brow_obj, TEST_MOUTH_MODEL_BROW_SEGS, 1));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.left_brow_obj, GFX_ALIGN_CENTER, FACE_LEFT_BROW_CX - FACE_DISPLAY_CX, FACE_LEFT_BROW_CY - FACE_DISPLAY_CY));
 
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.right_brow_obj, (void *)brush_src));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene.right_brow_obj, (void *)&s_white_img_hard));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(scene.right_brow_obj, TEST_MOUTH_MODEL_BROW_SEGS, 1));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.right_brow_obj, GFX_ALIGN_CENTER, FACE_RIGHT_BROW_CX - FACE_DISPLAY_CX, FACE_RIGHT_BROW_CY - FACE_DISPLAY_CY));
 
@@ -556,12 +575,14 @@ static void test_mouth_model_run(void)
 
     {
         scene.expr_idx = 0U;
+        scene.use_chinese = true; // Set to false for English
         face_blend_emotion(&s_face_sequence[0], &scene.eye_cur, &scene.brow_cur, &scene.mouth_cur, &scene.look_x_cur, &scene.look_y_cur);
         scene.eye_tgt    = scene.eye_cur;
         scene.brow_tgt   = scene.brow_cur;
         scene.mouth_tgt  = scene.mouth_cur;
         scene.look_x_tgt = scene.look_x_cur;
         scene.look_y_tgt = scene.look_y_cur;
+        test_mouth_model_update_title(&scene);
     }
     test_mouth_model_apply_scene_pose(&scene);
 
@@ -574,6 +595,7 @@ static void test_mouth_model_run(void)
     test_app_wait_for_observe(1000 * 10000);
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
+    test_app_set_touch_event_cb(NULL, NULL);
     test_mouth_model_scene_cleanup(&scene);
     test_app_unlock();
 }

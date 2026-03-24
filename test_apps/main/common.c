@@ -20,6 +20,8 @@
 #include "common.h"
 
 static const char *TAG = "common";
+static test_app_touch_event_cb_t s_test_app_touch_event_cb = NULL;
+static void *s_test_app_touch_event_user_data = NULL;
 
 /* Shared globals (declared in common.h) */
 gfx_handle_t emote_handle = NULL;
@@ -84,6 +86,10 @@ static void touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t *event, v
 {
     (void)user_data;
 
+    if (s_test_app_touch_event_cb != NULL) {
+        s_test_app_touch_event_cb(touch, event, s_test_app_touch_event_user_data);
+    }
+
     switch (event->type) {
     case GFX_TOUCH_EVENT_PRESS:
         // ESP_LOGI("", "%-7s: (%d, %d)", "press", event->x, event->y);
@@ -97,6 +103,12 @@ static void touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t *event, v
     default:
         break;
     }
+}
+
+void test_app_set_touch_event_cb(test_app_touch_event_cb_t cb, void *user_data)
+{
+    s_test_app_touch_event_cb = cb;
+    s_test_app_touch_event_user_data = user_data;
 }
 
 esp_err_t test_app_runtime_open(test_app_runtime_t *runtime)

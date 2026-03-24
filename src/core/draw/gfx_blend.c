@@ -25,15 +25,6 @@
 #define OPA_COVER    0xFF
 /* Triangle edge AA tuning (distance unit is in Q8 geometry space) */
 #define GFX_TRI_EDGE_AA_RANGE        256  /* 1.0 px feather */
-#define GFX_TRI_EDGE_AA_DITHER_SHIFT 4    /* 4x4 Bayer contribution: about +/-8 opa  */
-/* Diagnostic toggle: keep enabled by default to preserve current appearance. */
-#ifndef GFX_TRI_EDGE_AA_ENABLE_DITHER
-#define GFX_TRI_EDGE_AA_ENABLE_DITHER 0
-#endif
-/* Keep coverage AA disabled by default; subpixel vertices already improve edges a lot. */
-#ifndef GFX_TRI_EDGE_AA_USE_MSAA16
-#define GFX_TRI_EDGE_AA_USE_MSAA16 0
-#endif
 
 #define FILL_NORMAL_MASK_PX(color, swap)                              \
     if(*mask == OPA_COVER) *dest_buf = color;                \
@@ -98,31 +89,6 @@ static int32_t gfx_sw_blend_isqrt_i64(uint64_t value)
     return (int32_t)res;
 }
 
-static inline uint8_t gfx_sw_blend_smoothstep_u8(uint8_t t)
-{
-    /* smoothstep(t): t*t*(3-2*t), fixed-point with t in [0..255] */
-    uint32_t tu = (uint32_t)t;
-    uint32_t t2 = (tu * tu + 127U) / 255U;
-    uint32_t x = (3U * 255U) - (2U * tu);
-    uint32_t out = (t2 * x + 127U) / 255U;
-    if (out > 255U) {
-        out = 255U;
-    }
-    return (uint8_t)out;
-}
-
-/* Small ordered-dither matrix to reduce contour banding near soft AA edges. */
-static inline int32_t gfx_sw_blend_bayer4x4(int32_t x, int32_t y)
-{
-    static const uint8_t s_bayer4x4[4][4] = {
-        {0U, 8U, 2U, 10U},
-        {12U, 4U, 14U, 6U},
-        {3U, 11U, 1U, 9U},
-        {15U, 7U, 13U, 5U},
-    };
-    return (int32_t)s_bayer4x4[y & 3][x & 3] * 16 - 128;
-}
-
 static inline int32_t gfx_sw_blend_clamp_coord(int32_t value, int32_t min_value, int32_t max_value)
 {
     if (value < min_value) {
@@ -157,36 +123,6 @@ static inline bool gfx_sw_blend_triangle_sample_inside(int64_t area_2x,
         return (w0 >= 0) && (w1 >= 0) && (w2 >= 0);
     }
     return (w0 <= 0) && (w1 <= 0) && (w2 <= 0);
-}
-
-static inline gfx_opa_t gfx_sw_blend_triangle_msaa16_coverage(int64_t area_2x,
-                                                              int64_t w0, int64_t w1, int64_t w2,
-                                                              int32_t e0_a, int32_t e0_b,
-                                                              int32_t e1_a, int32_t e1_b)
-{
-    static const int16_t s_offsets[16][2] = {
-        {-96, -96}, {-32, -96}, { 32, -96}, { 96, -96},
-        {-96, -32}, {-32, -32}, { 32, -32}, { 96, -32},
-        {-96,  32}, {-32,  32}, { 32,  32}, { 96,  32},
-        {-96,  96}, {-32,  96}, { 32,  96}, { 96,  96},
-    };
-    int32_t e2_a = -(e0_a + e1_a);
-    int32_t e2_b = -(e0_b + e1_b);
-    uint8_t covered = 0;
-
-    for (uint8_t i = 0; i < 16; i++) {
-        int32_t ox = s_offsets[i][0];
-        int32_t oy = s_offsets[i][1];
-        int64_t sw0 = w0 + (int64_t)e0_a * ox + (int64_t)e0_b * oy;
-        int64_t sw1 = w1 + (int64_t)e1_a * ox + (int64_t)e1_b * oy;
-        int64_t sw2 = w2 + (int64_t)e2_a * ox + (int64_t)e2_b * oy;
-
-        if (gfx_sw_blend_triangle_sample_inside(area_2x, sw0, sw1, sw2)) {
-            covered++;
-        }
-    }
-
-    return (gfx_opa_t)((covered * 255U + 8U) / 16U);
 }
 
 static inline uint64_t gfx_blend_perf_elapsed_us(int64_t start_us)
@@ -665,24 +601,7 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                     }
 
                     if (max_od > 0 && max_od < GFX_TRI_EDGE_AA_RANGE) {
-                        gfx_opa_t aa_opa;
-#if GFX_TRI_EDGE_AA_USE_MSAA16
-                        aa_opa = gfx_sw_blend_triangle_msaa16_coverage(area_2x, w0, w1, w2,
-                                                                       e0_a, e0_b, e1_a, e1_b);
-#else
-                        int32_t t_lin = ((GFX_TRI_EDGE_AA_RANGE - max_od) * 255 + (GFX_TRI_EDGE_AA_RANGE / 2))
-                                      / GFX_TRI_EDGE_AA_RANGE;
-                        int32_t t_dither = t_lin;
-#if GFX_TRI_EDGE_AA_ENABLE_DITHER
-                        t_dither += (gfx_sw_blend_bayer4x4(x, y) >> GFX_TRI_EDGE_AA_DITHER_SHIFT);
-#endif
-                        if (t_dither < 0) {
-                            t_dither = 0;
-                        } else if (t_dither > 255) {
-                            t_dither = 255;
-                        }
-                        aa_opa = gfx_sw_blend_smoothstep_u8((uint8_t)t_dither);
-#endif
+                        gfx_opa_t aa_opa = (gfx_opa_t)((GFX_TRI_EDGE_AA_RANGE - max_od) * 255 / GFX_TRI_EDGE_AA_RANGE);
                         int32_t src_x = (u_cur + FRAC_HALF) >> FRAC_BITS;
                         int32_t src_y = (v_cur + FRAC_HALF) >> FRAC_BITS;
                         src_x = gfx_sw_blend_clamp_coord(src_x, 0, src_stride - 1);

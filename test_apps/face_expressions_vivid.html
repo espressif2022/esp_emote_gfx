@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vivid Face Expression Library v2</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+    body {
+      background: #080b10; color: #e2e8f0;
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      display: flex; flex-direction: column; align-items: center;
+      margin: 0; padding: 24px; gap: 20px;
+    }
+    h1 { font-size: 18px; font-weight: 600; color: #94a3b8; margin: 0; letter-spacing: 0.5px; }
+    .layout { display: flex; gap: 20px; align-items: flex-start; }
+    .viewer {
+      background: radial-gradient(ellipse at 50% 40%, #1e2636 0%, #0d1118 100%);
+      width: 400px; height: 360px;
+      border-radius: 16px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 20px 40px rgba(0,0,0,0.7);
+      position: relative; overflow: hidden; flex-shrink: 0;
+      cursor: crosshair;
+    }
+    .viewer::after {
+      content: '✦ drag to look'; position: absolute; bottom: 12px; right: 14px;
+      color: rgba(100,116,139,0.6); font-size: 11px; pointer-events: none;
+    }
+    /* Expression panel */
+    .panel {
+      display: flex; flex-direction: column; gap: 8px;
+      width: 220px; max-height: 360px; overflow-y: auto;
+      scrollbar-width: thin; scrollbar-color: #2d3748 transparent;
+    }
+    .panel-section { color: #4ade80; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; padding: 4px 0 2px; border-bottom: 1px solid rgba(74,222,128,0.2); margin-top: 4px; }
+    .panel-section:first-child { margin-top: 0; }
+    button {
+      background: rgba(255,255,255,0.04); color: #94a3b8;
+      border: 1px solid rgba(255,255,255,0.07); padding: 6px 12px;
+      border-radius: 8px; cursor: pointer; transition: all 0.15s;
+      font-size: 12px; font-weight: 500; text-align: left; width: 100%;
+    }
+    button:hover { background: rgba(255,255,255,0.09); color: #e2e8f0; border-color: rgba(255,255,255,0.15); }
+    button.active { background: rgba(59,130,246,0.25); border-color: #3b82f6; color: #93c5fd; }
+
+    .face-part { fill: none; stroke: #ffffff; stroke-linecap: round; stroke-linejoin: round; }
+    .face-eye  { fill: #ffffff; stroke: none; }
+  </style>
+</head>
+<body>
+
+<h1>Vivid Face Expression Library v2</h1>
+
+<div class="layout">
+  <div class="viewer">
+    <svg id="canvas" width="400" height="360" viewBox="0 0 320 288">
+      <g transform="translate(160, 170)">
+        <g id="g_l_brow" transform="translate(-40, -56)"><path id="l_brow" class="face-part" stroke-width="2.5" d="" /></g>
+        <g id="g_r_brow" transform="translate(40, -56) scale(-1, 1)"><path id="r_brow" class="face-part" stroke-width="2.5" d="" /></g>
+        <g id="g_l_eye"  transform="translate(-40, -40)"><path id="l_eye" class="face-eye" d="" /></g>
+        <g id="g_r_eye"  transform="translate( 40, -40) scale(-1, 1)"><path id="r_eye" class="face-eye" d="" /></g>
+        <g id="g_mouth"  transform="translate(0, 30)"><path id="mouth" class="face-part" stroke-width="3" d="" /></g>
+      </g>
+    </svg>
+    <div id="hud" style="position:absolute;bottom:38px;left:14px;font-size:12px;color:#475569;font-family:monospace;" ></div>
+  </div>
+  <div class="panel" id="panel"></div>
+</div>
+
+<script>
+/**
+ * VIVID FACE EXPRESSION LIBRARY v2
+ * Expanded set of 40+ expressions spanning joy, sadness, anger, fear, 
+ * surprise, cognition, social signals, and special states.
+ * Uses same M+C+C Bezier topology as face_animator.html.
+ */
+
+// ─── 6 BASE GEOMETRIES ───────────────────────────────────────────────────────
+
+// Mouth: [x0,y0, cx1,cy1, cx2,cy2, x1,y1,  cx3,cy3, cx4,cy4, x0,y0]
+const M_BASE = [
+  /* 0 neu */ [-28,  0, -14, -1,  14, -1,  28,  0,  14,  1, -14,  1, -28,  0],
+  /* 1 sml */ [-34, -5, -12, 18,  12, 18,  34, -5,  26, 30, -26, 30, -34, -5],
+  /* 2 hap */ [-34,-15, -12,-12,  12,-12,  34,-15,  34, 40, -34, 40, -34,-15],
+  /* 3 sad */ [-30, 12, -15,-25,  15,-25,  30, 12,  15,-10, -15,-10, -30, 12],
+  /* 4 sur */ [-15,  0, -15,-35,  15,-35,  15,  0,  15, 35, -15, 35, -15,  0],
+  /* 5 ang */ [-30, 10, -12,-10,  12,-10,  30, 10,  12,-15, -12,-15, -30, 10],
+];
+
+// Eye: [same M+C+C topology, left eye space]
+const E_BASE = [
+  /* 0 neu */ [-16,  0,  -8,-16,   8,-16,  16,  0,   8, 16,  -8, 16, -16,  0],
+  /* 1 sml */ [-16,  4,  -8,-10,   8,-10,  16,  4,   8, -4,  -8, -4, -16,  4],
+  /* 2 hap */ [-16,  4,  -8, -8,   8, -8,  16,  4,   8, -4,  -8, -4, -16,  4],
+  /* 3 sad */ [-16,  8,  -8,-12,   8,-16,  16, -4,   8, 14,  -8, 16, -16,  8],
+  /* 4 sur */ [-14,  0,  -7,-22,   7,-22,  14,  0,   7, 22,  -7, 22, -14,  0],
+  /* 5 ang */ [-16, -2,  -8, -8,   8,-16,  16,  6,   8, 12,  -8, 12, -16, -2],
+];
+
+// Brow: [x0,y0, cx1,cy1, cx2,cy2, x1,y1]
+const B_BASE = [
+  /* 0 neu */ [-16,  0,  -5, -6,   5, -6,  16,  0],
+  /* 1 sml */ [-16,  2,  -5, -5,   5, -5,  16, -1],
+  /* 2 hap */ [-16, -1,  -5, -8,   5, -8,  16, -1],
+  /* 3 sad */ [-16,  4,  -5, -5,   5, -9,  16, -8],
+  /* 4 sur */ [-14, -8,  -5,-15,   5,-15,  14, -8],
+  /* 5 ang */ [-16, -5,  -5, -5,   5,  3,  16,  6],
+];
+
+// ─── EXPRESSION LIBRARY ───────────────────────────────────────────────────────
+// name, sm(ile), hp(happy), sd(sad), su(rprise), an(gry), lx(look-x), ly(look-y)
+
+const EXPRESSIONS = [
+
+  // ── 😌 Neutral & Look ──────────────────────────────────────
+  { group: "😌 Neutral & Gaze  中性&注视", name: "neutral",      cn: "平静",       sm:  0, hp:  0, sd:  0, su:  0, an:  0, lx:  0, ly:  0 },
+  { group: null,                           name: "look up",       cn: "抬头看",     sm:  0, hp:  0, sd:  0, su:  5, an:  0, lx:  0, ly:-22 },
+  { group: null,                           name: "look down",     cn: "低头看",     sm:  0, hp:  0, sd:  0, su:  0, an:  0, lx:  0, ly: 22 },
+  { group: null,                           name: "look left",     cn: "向左看",     sm:  5, hp:  0, sd:  0, su:  0, an:  0, lx:-22, ly:  0 },
+  { group: null,                           name: "look right",    cn: "向右看",     sm:  5, hp:  0, sd:  0, su:  0, an:  0, lx: 22, ly:  0 },
+  { group: null,                           name: "side-eye",      cn: "斜视",       sm:  0, hp:  0, sd: 10, su:  0, an: 15, lx:-35, ly:  5 },
+  { group: null,                           name: "daydream",      cn: "发呆",       sm: 25, hp:  0, sd:  0, su:  0, an:  0, lx: 20, ly:-18 },
+
+  // ── 😊 Positive ─────────────────────────────────────────────
+  { group: "😊 Happy & Positive  开心&正面", name: "soft smile",   cn: "微笑",       sm: 50, hp:  0, sd:  0, su:  0, an:  0, lx:  0, ly:  0 },
+  { group: null,                             name: "smile",        cn: "灿烂微笑",   sm:100, hp:  0, sd:  0, su:  0, an:  0, lx:  0, ly:  0 },
+  { group: null,                             name: "happy",        cn: "开心",       sm:  0, hp:100, sd:  0, su:  0, an:  0, lx:  0, ly:  0 },
+  { group: null,                             name: "grinning",     cn: "咧嘴笑",     sm: 50, hp:100, sd:  0, su:  0, an:  0, lx:  0, ly:  0 },
+  { group: null,                             name: "big grin",     cn: "大嘴笑",     sm: 80, hp:100, sd:  0, su: 20, an:  0, lx:  0, ly: -5 },
+  { group: null,                             name: "loving",       cn: "爱慕",       sm: 80, hp: 20, sd:  0, su:  0, an:  0, lx:  0, ly:-20 },
+  { group: null,                             name: "excited",      cn: "激动",       sm: 60, hp:100, sd:  0, su: 50, an:  0, lx:  0, ly: -8 },
+  { group: null,                             name: "laughing",     cn: "大笑",       sm: 20, hp:100, sd:  0, su: 40, an:  0, lx:  0, ly:  0 },
+  { group: null,                             name: "amused",       cn: "忍俊不禁",   sm: 60, hp:  0, sd:  0, su: 30, an:  0, lx: 10, ly:  0 },
+  { group: null,                             name: "relaxed",      cn: "放松",       sm: 40, hp:  0, sd:  0, su:  0, an:  0, lx:  0, ly:  8 },
+  { group: null,                             name: "blissful",     cn: "陶醉",       sm: 70, hp: 40, sd:  0, su:  0, an:  0, lx:  0, ly:-12 },
+  { group: null,                             name: "proud",        cn: "骄傲",       sm: 50, hp: 20, sd:  0, su:  0, an: 20, lx:  0, ly: -5 },
+  { group: null,                             name: "smug",         cn: "自鸣得意",   sm: 60, hp:  0, sd:  0, su:  0, an: 30, lx: 25, ly:  0 },
+
+  // ── 😢 Sad & Distressed ─────────────────────────────────────
+  { group: "😢 Sad & Distressed  悲伤&难过", name: "sad",         cn: "难过",       sm:  0, hp:  0, sd:100, su:  0, an:  0, lx:  0, ly: 20 },
+  { group: null,                              name: "sorrowful",   cn: "哀愁",       sm:  0, hp:  0, sd:110, su:  0, an:  0, lx:  0, ly: 15 },
+  { group: null,                              name: "crying",      cn: "哭泣",       sm:  0, hp:  0, sd:100, su:  0, an:  0, lx:  0, ly:  0 },
+  { group: null,                              name: "sobbing",     cn: "抽泣",       sm:  0, hp:  0, sd:120, su:  0, an:  0, lx:  0, ly:  0 },
+  { group: null,                              name: "dejected",    cn: "沮丧",       sm:  0, hp:  0, sd: 80, su:  0, an:  0, lx:-15, ly: 20 },
+  { group: null,                              name: "sympathetic", cn: "同情",       sm: 30, hp:  0, sd: 50, su:  0, an:  0, lx:  0, ly: 10 },
+  { group: null,                              name: "longing",     cn: "思念",       sm: 20, hp:  0, sd: 40, su:  0, an:  0, lx: 18, ly:-10 },
+  { group: null,                              name: "tearful plea",cn: "泪眼求饶",   sm:  0, hp:  0, sd: 90, su: 30, an:  0, lx:  0, ly: 12 },
+
+  // ── 😲 Surprise & Fear ──────────────────────────────────────
+  { group: "😲 Surprise & Fear  惊讶&恐惧", name: "wow",         cn: "哇",         sm:  0, hp:  0, sd:  0, su:100, an:  0, lx:  0, ly:-25 },
+  { group: null,                            name: "shocked",     cn: "震惊",       sm:  0, hp:  0, sd:  0, su:120, an:  0, lx:  0, ly:  0 },
+  { group: null,                            name: "horrified",   cn: "恐惧",       sm:  0, hp:  0, sd: 60, su:100, an:  0, lx:  0, ly:  0 },
+  { group: null,                            name: "spooked",     cn: "受惊",       sm:  0, hp:  0, sd: 30, su:100, an:  0, lx:-20, ly:-10 },
+  { group: null,                            name: "in awe",      cn: "敬畏",       sm: 10, hp:  0, sd:  0, su: 90, an:  0, lx:  0, ly:-18 },
+  { group: null,                            name: "alarmed",     cn: "警觉",       sm:  0, hp:  0, sd: 20, su: 80, an: 20, lx: 15, ly:  5 },
+
+  // ── 😠 Anger & Contempt ─────────────────────────────────────
+  { group: "😠 Anger & Contempt  愤怒&不满", name: "angry",       cn: "生气",       sm:  0, hp:  0, sd:  0, su:  0, an:100, lx:  0, ly:  0 },
+  { group: null,                              name: "furious",     cn: "暴怒",       sm:  0, hp:  0, sd:  0, su:  0, an:120, lx:  0, ly:  5 },
+  { group: null,                              name: "displeased",  cn: "不悦",       sm:  0, hp:  0, sd: 20, su:  0, an: 60, lx:  0, ly:  0 },
+  { group: null,                              name: "contempt",    cn: "鄙视",       sm: 30, hp:  0, sd:  0, su:  0, an: 60, lx: 30, ly:  0 },
+  { group: null,                              name: "suspicious",  cn: "起疑",       sm:  0, hp:  0, sd: 15, su:  0, an: 40, lx:-25, ly:  8 },
+
+  // ── 🤔 Cognitive & Social ────────────────────────────────────
+  { group: "🤔 Cognitive & Social  思考&社交", name: "thinking",    cn: "思考",       sm:  0, hp:  0, sd: 20, su:  0, an: 30, lx: 20, ly:-15 },
+  { group: null,                               name: "pondering",   cn: "沉思",       sm: 10, hp:  0, sd: 10, su: 10, an:  0, lx:-25, ly:-20 },
+  { group: null,                               name: "confused",    cn: "困惑",       sm:  0, hp:  0, sd: 30, su: 20, an: 20, lx:-20, ly: 10 },
+  { group: null,                               name: "curious",     cn: "好奇",       sm: 20, hp:  0, sd:  0, su: 50, an:  0, lx: 15, ly:-15 },
+  { group: null,                               name: "sheepish",    cn: "装乖",       sm: 50, hp:  0, sd: 30, su:  0, an:  0, lx: 15, ly: 15 },
+  { group: null,                               name: "mischievous", cn: "坏笑",       sm: 55, hp:  0, sd:  0, su:  0, an: 35, lx: 20, ly:  0 },
+  { group: null,                               name: "determined",  cn: "坚定",       sm: 10, hp:  0, sd:  0, su:  0, an: 60, lx:  0, ly: -8 },
+  { group: null,                               name: "nervous",     cn: "紧张",       sm: 30, hp:  0, sd: 30, su: 20, an:  0, lx: -5, ly: 12 },
+  { group: null,                               name: "embarrassed", cn: "尴尬",       sm: 40, hp:  0, sd: 20, su: 20, an:  0, lx:-20, ly: 18 },
+  { group: null,                               name: "flattered",   cn: "受宠若惊",   sm: 70, hp: 15, sd: 10, su: 20, an:  0, lx:-10, ly:-10 },
+];
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let S_cur = { M: [...M_BASE[0]], E: [...E_BASE[0]], B: [...B_BASE[0]], lx: 0, ly: 0 };
+let S_tgt = { M: [...M_BASE[0]], E: [...E_BASE[0]], B: [...B_BASE[0]], lx: 0, ly: 0 };
+let currentEmotion = EXPRESSIONS[0];
+
+const pathM   = document.getElementById('mouth');
+const pathE_L = document.getElementById('l_eye');
+const pathE_R = document.getElementById('r_eye');
+const pathB_L = document.getElementById('l_brow');
+const pathB_R = document.getElementById('r_brow');
+const hud     = document.getElementById('hud');
+
+function ease_arr(cur, tgt) {
+  for (let i = 0; i < cur.length; i++) {
+    let d = tgt[i] - cur[i];
+    cur[i] = Math.abs(d) > 0.05 ? cur[i] + d * 0.22 : tgt[i];
+  }
+}
+
+function blend(baseList, e) {
+  let len = baseList[0].length, res = new Array(len).fill(0);
+  for (let i = 0; i < len; i++) {
+    res[i] = baseList[0][i]
+      + (baseList[1][i] - baseList[0][i]) * e.sm / 100
+      + (baseList[2][i] - baseList[0][i]) * e.hp / 100
+      + (baseList[3][i] - baseList[0][i]) * e.sd / 100
+      + (baseList[4][i] - baseList[0][i]) * e.su / 100
+      + (baseList[5][i] - baseList[0][i]) * e.an / 100;
+  }
+  return res;
+}
+
+function setEmotion(e) {
+  S_tgt.M  = blend(M_BASE, e);
+  S_tgt.E  = blend(E_BASE, e);
+  S_tgt.B  = blend(B_BASE, e);
+  S_tgt.lx = e.lx || 0;
+  S_tgt.ly = e.ly || 0;
+}
+
+function tick() {
+  ease_arr(S_cur.M, S_tgt.M);
+  ease_arr(S_cur.E, S_tgt.E);
+  ease_arr(S_cur.B, S_tgt.B);
+  let dlx = S_tgt.lx - S_cur.lx, dly = S_tgt.ly - S_cur.ly;
+  S_cur.lx = Math.abs(dlx) > 0.05 ? S_cur.lx + dlx * 0.22 : S_tgt.lx;
+  S_cur.ly = Math.abs(dly) > 0.05 ? S_cur.ly + dly * 0.22 : S_tgt.ly;
+
+  const m = S_cur.M, e = S_cur.E, b = S_cur.B;
+  pathM.setAttribute('d', `M ${m[0]} ${m[1]} C ${m[2]} ${m[3]}, ${m[4]} ${m[5]}, ${m[6]} ${m[7]} C ${m[8]} ${m[9]}, ${m[10]} ${m[11]}, ${m[12]} ${m[13]} Z`);
+  const dE = `M ${e[0]} ${e[1]} C ${e[2]} ${e[3]}, ${e[4]} ${e[5]}, ${e[6]} ${e[7]} C ${e[8]} ${e[9]}, ${e[10]} ${e[11]}, ${e[12]} ${e[13]} Z`;
+  pathE_L.setAttribute('d', dE); pathE_R.setAttribute('d', dE);
+  const dB = `M ${b[0]} ${b[1]} C ${b[2]} ${b[3]}, ${b[4]} ${b[5]}, ${b[6]} ${b[7]}`;
+  pathB_L.setAttribute('d', dB); pathB_R.setAttribute('d', dB);
+
+  const lx = S_cur.lx, ly = S_cur.ly;
+  document.getElementById('g_l_brow').setAttribute('transform', `translate(${-40+lx}, ${-56+ly})`);
+  document.getElementById('g_r_brow').setAttribute('transform', `translate(${ 40+lx}, ${-56+ly}) scale(-1,1)`);
+  document.getElementById('g_l_eye' ).setAttribute('transform', `translate(${-40+lx}, ${-40+ly})`);
+  document.getElementById('g_r_eye' ).setAttribute('transform', `translate(${ 40+lx}, ${-40+ly}) scale(-1,1)`);
+  document.getElementById('g_mouth' ).setAttribute('transform', `translate(${lx*0.6}, ${30+ly*0.6})`);
+
+  hud.textContent = `${currentEmotion.name}  lx:${lx.toFixed(0)} ly:${ly.toFixed(0)}`;
+  requestAnimationFrame(tick);
+}
+
+// ─── BUILD PANEL ──────────────────────────────────────────────────────────────
+const panel = document.getElementById('panel');
+let activeBtn = null;
+EXPRESSIONS.forEach((ex) => {
+  if (ex.group !== null) {
+    const hdr = document.createElement('div');
+    hdr.className = 'panel-section';
+    hdr.textContent = ex.group;
+    panel.appendChild(hdr);
+  }
+  const btn = document.createElement('button');
+  btn.innerHTML = `${ex.name} <span style="color:#64748b;font-size:11px">${ex.cn || ''}</span>`;
+  btn.onclick = () => {
+    if (activeBtn) activeBtn.classList.remove('active');
+    btn.classList.add('active');
+    activeBtn = btn;
+    currentEmotion = ex;
+    setEmotion(ex);
+  };
+  panel.appendChild(btn);
+});
+panel.firstElementChild.nextElementSibling.click(); // activate first emotion
+
+// ─── POINTER GAZE ─────────────────────────────────────────────────────────────
+const viewer = document.querySelector('.viewer');
+let isDrgging = false;
+
+viewer.addEventListener('pointerdown', (e) => {
+  isDrgging = true; viewer.setPointerCapture(e.pointerId); handlePMove(e);
+});
+viewer.addEventListener('pointermove', (e) => { if (isDrgging) handlePMove(e); });
+viewer.addEventListener('pointerup',   (e) => { isDrgging = false; viewer.releasePointerCapture(e.pointerId); restoreGaze(); });
+viewer.addEventListener('pointercancel',(e) => { isDrgging = false; restoreGaze(); });
+
+function handlePMove(e) {
+  const r = viewer.getBoundingClientRect();
+  const cx = r.width / 2, cy = r.height / 2;
+  S_tgt.lx = Math.max(-70, Math.min(70, ((e.clientX - r.left) - cx) / cx * 70));
+  S_tgt.ly = Math.max(-70, Math.min(70, ((e.clientY - r.top)  - cy) / cy * 70));
+}
+function restoreGaze() {
+  S_tgt.lx = currentEmotion.lx || 0;
+  S_tgt.ly = currentEmotion.ly || 0;
+}
+
+// ─── LAUNCH ───────────────────────────────────────────────────────────────────
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
