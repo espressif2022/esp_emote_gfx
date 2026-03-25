@@ -3,8 +3,9 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
+ * Reference shapes + expression name table for gfx_face_emote.
  * Generated from test_apps/face_expressions_vivid.html
- * Update this file by exporting ".inc Code" from the page and replacing the contents here.
+ * Update by exporting ".inc Code" from the page and replacing the contents here.
  */
 
 #pragma once

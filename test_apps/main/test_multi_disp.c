@@ -114,15 +114,15 @@ static void test_multi_disp_run(mmap_assets_handle_t assets_handle)
     TEST_ASSERT_NOT_NULL(scene.anim_left);
     TEST_ASSERT_NOT_NULL(scene.anim_right);
 
-    // anim_data = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF);
-    // anim_size = mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF);
+    // anim_data = mmap_assets_get_mem(assets_handle, MMAP_ASSETS_TEST_MI_2_EYE_8BIT_AAF);
+    // anim_size = mmap_assets_get_size(assets_handle, MMAP_ASSETS_TEST_MI_2_EYE_8BIT_AAF);
     TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src(scene.anim_left, anim_data, anim_size));
     gfx_obj_align(scene.anim_left, GFX_ALIGN_CENTER, 0, 0);
     gfx_anim_set_segment(scene.anim_left, 0, 0xFFFF, 15, true);
     TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_start(scene.anim_left));
 
-    // anim_data = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_TRANSPARENT_EAF);
-    // anim_size = mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_TRANSPARENT_EAF);
+    // anim_data = mmap_assets_get_mem(assets_handle, MMAP_ASSETS_TEST_TRANSPARENT_EAF);
+    // anim_size = mmap_assets_get_size(assets_handle, MMAP_ASSETS_TEST_TRANSPARENT_EAF);
     TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src(scene.anim_right, anim_data, anim_size));
     gfx_obj_align(scene.anim_right, GFX_ALIGN_CENTER, 0, 0);
     gfx_anim_set_segment(scene.anim_right, 0, 0xFFFF, 15, true);

@@ -8,7 +8,7 @@
 #include "cJSON.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
-#include "mmap_generate_test_assets.h"
+#include "mmap_generate_assets_test.h"
 #include "unity.h"
 #include "common.h"
 
@@ -268,11 +268,11 @@ static void test_anim_run(mmap_assets_handle_t assets_handle)
     }
 }
 
-void test_anim_run_case_web(void)
+void test_anim_run_case_emote_gen(void)
 {
     test_app_runtime_t runtime;
 
-    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, "anim_icon"));
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, "emote_gen"));
     test_anim_run(runtime.assets_handle);
     test_app_runtime_close(&runtime);
 }

@@ -8,7 +8,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "gfx.h"
-#include "mmap_generate_test_assets.h"
+#include "mmap_generate_assets_test.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,17 +33,11 @@ typedef void (*test_app_touch_event_cb_t)(gfx_touch_t *touch, const gfx_touch_ev
  *  EXTERNAL SYMBOLS
  **********************/
 
+extern const lv_font_t font_puhui_16_4;
 extern const gfx_image_dsc_t icon_rgb565;
 extern const gfx_image_dsc_t icon_rgb565A8;
 extern const gfx_image_dsc_t orb_ball_center;
 extern const gfx_image_dsc_t simple_face;
-extern const gfx_image_dsc_t simple_face2;
-extern const gfx_image_dsc_t face_parts_head;
-extern const gfx_image_dsc_t face_parts_eye;
-extern const gfx_image_dsc_t face_parts_mouth;
-extern const gfx_image_dsc_t face_parts_mouth_flat;
-extern const gfx_image_dsc_t face_parts_mouth_o;
-extern const lv_font_t font_puhui_16_4;
 
 /**********************
  *  SHARED GLOBALS

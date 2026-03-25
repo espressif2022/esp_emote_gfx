@@ -339,7 +339,7 @@ function exportCCode() {
   const modal = document.getElementById('export-modal');
   const txt = document.getElementById('export-text');
   let out = "/* Generated from test_apps/face_expressions_vivid.html */\n";
-  out += "/* Paste into test_apps/main/test_mouth_model_keyframes.inc */\n\n";
+  out += "/* Paste into test_apps/main/face_emote_expr_assets.inc */\n\n";
   const fmt = (arr) => arr.map(v => v.toString().padStart(3)).join(', ');
 
   out += "static const gfx_face_emote_shape14_t s_ref_mouth[] = {\n";

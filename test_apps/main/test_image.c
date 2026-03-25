@@ -66,7 +66,7 @@ static void test_image_run(mmap_assets_handle_t assets_handle)
     gfx_obj_delete(scene.img_primary);
     scene.img_primary = gfx_img_create(disp_default);
     TEST_ASSERT_NOT_NULL(scene.img_primary);
-    TEST_ASSERT_EQUAL(ESP_OK, load_image(assets_handle, MMAP_TEST_ASSETS_ICON_RGB565A8_BIN, &img_dsc));
+    TEST_ASSERT_EQUAL(ESP_OK, load_image(assets_handle, MMAP_ASSETS_TEST_ICON_RGB565A8_BIN, &img_dsc));
     gfx_img_set_src(scene.img_primary, (void *)&img_dsc);
     gfx_obj_set_pos(scene.img_primary, 100, 160);
     test_app_unlock();
@@ -75,7 +75,7 @@ static void test_image_run(mmap_assets_handle_t assets_handle)
 
     test_app_log_step(TAG, "Reload mmap-backed source");
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
-    TEST_ASSERT_EQUAL(ESP_OK, load_image(assets_handle, MMAP_TEST_ASSETS_ICON_RGB565A8_BIN, &img_dsc));
+    TEST_ASSERT_EQUAL(ESP_OK, load_image(assets_handle, MMAP_ASSETS_TEST_ICON_RGB565A8_BIN, &img_dsc));
     gfx_img_set_src(scene.img_primary, (void *)&img_dsc);
     test_app_unlock();
 
@@ -86,7 +86,7 @@ static void test_image_run(mmap_assets_handle_t assets_handle)
     scene.img_secondary = gfx_img_create(disp_default);
     TEST_ASSERT_NOT_NULL(scene.img_secondary);
     gfx_img_set_src(scene.img_primary, (void *)&icon_rgb565A8);
-    TEST_ASSERT_EQUAL(ESP_OK, load_image(assets_handle, MMAP_TEST_ASSETS_ICON_RGB565_BIN, &img_dsc));
+    TEST_ASSERT_EQUAL(ESP_OK, load_image(assets_handle, MMAP_ASSETS_TEST_ICON_RGB565_BIN, &img_dsc));
     gfx_img_set_src(scene.img_secondary, (void *)&img_dsc);
     gfx_obj_set_pos(scene.img_primary, 90, 90);
     gfx_obj_set_pos(scene.img_secondary, 90, 180);

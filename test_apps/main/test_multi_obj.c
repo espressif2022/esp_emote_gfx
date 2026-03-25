@@ -53,8 +53,8 @@ static void test_multi_obj_configure_font(test_multi_obj_scene_t *scene, mmap_as
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
     gfx_label_cfg_t font_cfg = {
         .name = "DejaVuSans.ttf",
-        .mem = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_DEJAVUSANS_TTF),
-        .mem_size = (size_t)mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_DEJAVUSANS_TTF),
+        .mem = mmap_assets_get_mem(assets_handle, MMAP_ASSETS_TEST_DEJAVUSANS_TTF),
+        .mem_size = (size_t)mmap_assets_get_size(assets_handle, MMAP_ASSETS_TEST_DEJAVUSANS_TTF),
         .font_size = 20,
     };
 
@@ -88,8 +88,8 @@ static void test_multi_obj_run(mmap_assets_handle_t assets_handle)
     TEST_ASSERT_NOT_NULL(scene.label_obj);
     TEST_ASSERT_NOT_NULL(scene.timer);
 
-    // anim_data = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF);
-    // anim_size = mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF);
+    // anim_data = mmap_assets_get_mem(assets_handle, MMAP_ASSETS_TEST_MI_2_EYE_8BIT_AAF);
+    // anim_size = mmap_assets_get_size(assets_handle, MMAP_ASSETS_TEST_MI_2_EYE_8BIT_AAF);
     TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src(scene.anim_obj, anim_data, anim_size));
     gfx_obj_align(scene.anim_obj, GFX_ALIGN_CENTER, 0, 0);
     gfx_anim_set_segment(scene.anim_obj, 0, 30, 15, true);
@@ -103,7 +103,7 @@ static void test_multi_obj_run(mmap_assets_handle_t assets_handle)
     gfx_label_set_long_mode(scene.label_obj, GFX_LABEL_LONG_SCROLL);
     gfx_obj_align(scene.label_obj, GFX_ALIGN_BOTTOM_MID, 0, -4);
 
-    TEST_ASSERT_EQUAL(ESP_OK, load_image(assets_handle, MMAP_TEST_ASSETS_ICON_RGB565_BIN, &img_dsc));
+    TEST_ASSERT_EQUAL(ESP_OK, load_image(assets_handle, MMAP_ASSETS_TEST_ICON_RGB565_BIN, &img_dsc));
     gfx_img_set_src(scene.img_obj, (void *)&img_dsc);
     gfx_obj_align(scene.img_obj, GFX_ALIGN_TOP_MID, 0, 8);
     test_app_unlock();

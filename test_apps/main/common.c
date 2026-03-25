@@ -119,7 +119,7 @@ esp_err_t test_app_runtime_open(test_app_runtime_t *runtime, const char *partiti
 
     runtime->assets_handle = NULL;
     test_app_configure_gfx_log_levels();
-    return display_and_graphics_init(partition_label, MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &runtime->assets_handle);
+    return display_and_graphics_init(partition_label, MMAP_ASSETS_TEST_FILES, MMAP_ASSETS_TEST_CHECKSUM, &runtime->assets_handle);
 }
 
 void test_app_runtime_close(test_app_runtime_t *runtime)

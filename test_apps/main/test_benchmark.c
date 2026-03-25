@@ -298,8 +298,8 @@ static void setup_anim_single(gfx_disp_t *disp, void *user_data)
     size_t anim_size;
 
     TEST_ASSERT_NOT_NULL(scene);
-    anim_data = mmap_assets_get_mem(scene->assets_handle, MMAP_TEST_ASSETS_A1_017_041_075_EAF);
-    anim_size = mmap_assets_get_size(scene->assets_handle, MMAP_TEST_ASSETS_A1_017_041_075_EAF);
+    anim_data = mmap_assets_get_mem(scene->assets_handle, MMAP_ASSETS_TEST_MI_1_EYE_8BIT_EAF);
+    anim_size = mmap_assets_get_size(scene->assets_handle, MMAP_ASSETS_TEST_MI_1_EYE_8BIT_EAF);
     TEST_ASSERT_NOT_NULL(anim_data);
     TEST_ASSERT_TRUE(anim_size > 0U);
 
@@ -322,8 +322,8 @@ static void setup_anim_dual(gfx_disp_t *disp, void *user_data)
     size_t anim_size;
 
     TEST_ASSERT_NOT_NULL(scene);
-    anim_data = mmap_assets_get_mem(scene->assets_handle, MMAP_TEST_ASSETS_A2_018_039_063_EAF);
-    anim_size = mmap_assets_get_size(scene->assets_handle, MMAP_TEST_ASSETS_A2_018_039_063_EAF);
+    anim_data = mmap_assets_get_mem(scene->assets_handle, MMAP_ASSETS_TEST_MI_2_EYE_8BIT_HUFF_EAF);
+    anim_size = mmap_assets_get_size(scene->assets_handle, MMAP_ASSETS_TEST_MI_2_EYE_8BIT_HUFF_EAF);
     TEST_ASSERT_NOT_NULL(anim_data);
     TEST_ASSERT_TRUE(anim_size > 0U);
 

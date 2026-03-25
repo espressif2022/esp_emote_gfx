@@ -73,8 +73,8 @@ static esp_err_t test_label_create_scene(mmap_assets_handle_t assets_handle, boo
     if (use_freetype) {
         gfx_label_cfg_t font_cfg = {
             .name = "DejaVuSans.ttf",
-            .mem = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_DEJAVUSANS_TTF),
-            .mem_size = (size_t)mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_DEJAVUSANS_TTF),
+            .mem = mmap_assets_get_mem(assets_handle, MMAP_ASSETS_TEST_DEJAVUSANS_TTF),
+            .mem_size = (size_t)mmap_assets_get_size(assets_handle, MMAP_ASSETS_TEST_DEJAVUSANS_TTF),
             .font_size = 20,
         };
 

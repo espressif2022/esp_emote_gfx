@@ -16,7 +16,7 @@
  **********************/
 
 typedef struct {
-    eaf_format_handle_t eaf_handle;
+    eaf_dec_handle_t eaf_handle;
 } gfx_anim_eaf_handle_t;
 
 /**********************
@@ -58,7 +58,7 @@ static bool gfx_anim_eaf_can_open(const gfx_anim_src_desc_t *src_desc)
 {
     const uint8_t *data = NULL;
 
-    if (src_desc == NULL || src_desc->data == NULL || src_desc->data_len < sizeof(eaf_header_t)) {
+    if (src_desc == NULL || src_desc->data == NULL || src_desc->data_len < sizeof(eaf_dec_header_t)) {
         return false;
     }
 
@@ -93,7 +93,7 @@ static esp_err_t gfx_anim_eaf_open(const gfx_anim_src_desc_t *src_desc, void **o
         return ESP_ERR_INVALID_SIZE;
     }
 
-    if (eaf_init(src_desc->data, data_len, &handle->eaf_handle) != ESP_OK) {
+    if (eaf_dec_init(src_desc->data, data_len, &handle->eaf_handle) != ESP_OK) {
         free(handle);
         return ESP_FAIL;
     }
@@ -111,7 +111,7 @@ static void gfx_anim_eaf_close(void *handle)
     }
 
     if (eaf_handle->eaf_handle != NULL) {
-        eaf_deinit(eaf_handle->eaf_handle);
+        eaf_dec_deinit(eaf_handle->eaf_handle);
     }
 
     free(eaf_handle);
@@ -126,11 +126,11 @@ static int gfx_anim_eaf_get_total_frames(void *handle)
         return -1;
     }
 
-    total_frames = eaf_get_total_frames(eaf_handle->eaf_handle);
+    total_frames = eaf_dec_get_total_frames(eaf_handle->eaf_handle);
     return total_frames > 0 ? (total_frames - 1) : 0;
 }
 
-static void gfx_anim_eaf_desc_from_header(gfx_anim_frame_desc_t *frame_desc, eaf_header_t *header)
+static void gfx_anim_eaf_desc_from_header(gfx_anim_frame_desc_t *frame_desc, eaf_dec_header_t *header)
 {
     memset(frame_desc, 0, sizeof(*frame_desc));
     frame_desc->bit_depth = header->bit_depth;
@@ -147,7 +147,7 @@ static void gfx_anim_eaf_desc_from_header(gfx_anim_frame_desc_t *frame_desc, eaf
     header->palette = NULL;
 }
 
-static void gfx_anim_eaf_header_from_desc(const gfx_anim_frame_desc_t *frame_desc, eaf_header_t *header)
+static void gfx_anim_eaf_header_from_desc(const gfx_anim_frame_desc_t *frame_desc, eaf_dec_header_t *header)
 {
     memset(header, 0, sizeof(*header));
     header->bit_depth = frame_desc->bit_depth;
@@ -164,17 +164,17 @@ static void gfx_anim_eaf_header_from_desc(const gfx_anim_frame_desc_t *frame_des
 static esp_err_t gfx_anim_eaf_get_frame_info(void *handle, int frame_index, gfx_anim_frame_desc_t *frame_desc)
 {
     gfx_anim_eaf_handle_t *eaf_handle = (gfx_anim_eaf_handle_t *)handle;
-    eaf_header_t header;
-    eaf_format_type_t format;
+    eaf_dec_header_t header;
+    eaf_dec_type_t format;
 
     if (eaf_handle == NULL || frame_desc == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
     memset(&header, 0, sizeof(header));
-    format = eaf_get_frame_info(eaf_handle->eaf_handle, frame_index, &header);
-    if (format != EAF_FORMAT_VALID) {
-        eaf_free_header(&header);
+    format = eaf_dec_get_frame_info(eaf_handle->eaf_handle, frame_index, &header);
+    if (format != EAF_DEC_TYPE_VALID) {
+        eaf_dec_free_header(&header);
         return ESP_ERR_INVALID_RESPONSE;
     }
 
@@ -196,39 +196,39 @@ static void gfx_anim_eaf_free_frame_info(gfx_anim_frame_desc_t *frame_desc)
 static const uint8_t *gfx_anim_eaf_get_frame_data(void *handle, int frame_index)
 {
     gfx_anim_eaf_handle_t *eaf_handle = (gfx_anim_eaf_handle_t *)handle;
-    return eaf_handle != NULL ? eaf_get_frame_data(eaf_handle->eaf_handle, frame_index) : NULL;
+    return eaf_handle != NULL ? eaf_dec_get_frame_data(eaf_handle->eaf_handle, frame_index) : NULL;
 }
 
 static int gfx_anim_eaf_get_frame_size(void *handle, int frame_index)
 {
     gfx_anim_eaf_handle_t *eaf_handle = (gfx_anim_eaf_handle_t *)handle;
-    return eaf_handle != NULL ? eaf_get_frame_size(eaf_handle->eaf_handle, frame_index) : -1;
+    return eaf_handle != NULL ? eaf_dec_get_frame_size(eaf_handle->eaf_handle, frame_index) : -1;
 }
 
 static esp_err_t gfx_anim_eaf_decode_block(const gfx_anim_frame_desc_t *frame_desc, const uint8_t *block_data,
-                                           int block_len, uint8_t *decode_buffer, bool swap_color)
+                                           int block_len, uint8_t *out_data, bool swap_color)
 {
-    eaf_header_t header;
+    eaf_dec_header_t header;
 
     if (frame_desc == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
     gfx_anim_eaf_header_from_desc(frame_desc, &header);
-    return eaf_decode_block(&header, block_data, block_len, decode_buffer, swap_color);
+    return eaf_dec_decode_block(&header, block_data, block_len, out_data, swap_color);
 }
 
 static bool gfx_anim_eaf_get_palette_color(const gfx_anim_frame_desc_t *frame_desc, uint8_t color_index,
                                            bool swap_bytes, gfx_color_t *result)
 {
-    eaf_header_t header;
+    eaf_dec_header_t header;
 
     if (frame_desc == NULL || result == NULL) {
         return true;
     }
 
     gfx_anim_eaf_header_from_desc(frame_desc, &header);
-    return eaf_palette_get_color(&header, color_index, swap_bytes, result);
+    return eaf_dec_get_palette_color(&header, color_index, swap_bytes, result);
 }
 
 /**********************
