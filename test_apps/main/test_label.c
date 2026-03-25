@@ -194,7 +194,7 @@ static void test_label_validation_run(mmap_assets_handle_t assets_handle, bool u
 TEST_CASE("label widget with bitmap font", "[label][bitmap]")
 {
     test_app_runtime_t runtime;
-    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime));
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, TEST_APP_ASSETS_PARTITION_DEFAULT));
 
     test_label_validation_run(runtime.assets_handle, false);
 
@@ -204,7 +204,7 @@ TEST_CASE("label widget with bitmap font", "[label][bitmap]")
 TEST_CASE("label widget with freetype", "[label][freetype]")
 {
     test_app_runtime_t runtime;
-    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime));
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, TEST_APP_ASSETS_PARTITION_DEFAULT));
 
     test_label_validation_run(runtime.assets_handle, true);
 

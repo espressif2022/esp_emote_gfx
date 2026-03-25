@@ -225,9 +225,9 @@ static void test_mesh_drag_touch_cb(gfx_obj_t *obj, const gfx_touch_event_t *eve
 
     if (event->type == GFX_TOUCH_EVENT_MOVE && scene->dragging) {
         scene->target_drag_x = test_mesh_drag_clamp_i16((int32_t)event->x - scene->press_x,
-                                                         -TEST_MESH_DRAG_DRAG_LIMIT_X, TEST_MESH_DRAG_DRAG_LIMIT_X);
+                                                        -TEST_MESH_DRAG_DRAG_LIMIT_X, TEST_MESH_DRAG_DRAG_LIMIT_X);
         scene->target_drag_y = test_mesh_drag_clamp_i16((int32_t)event->y - scene->press_y,
-                                                         -TEST_MESH_DRAG_DRAG_LIMIT_Y, TEST_MESH_DRAG_DRAG_LIMIT_Y);
+                                                        -TEST_MESH_DRAG_DRAG_LIMIT_Y, TEST_MESH_DRAG_DRAG_LIMIT_Y);
         return;
     }
 
@@ -355,7 +355,7 @@ void test_mesh_drag_run_case(void)
 {
     test_app_runtime_t runtime;
 
-    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime));
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, TEST_APP_ASSETS_PARTITION_DEFAULT));
     test_mesh_drag_run();
     test_app_runtime_close(&runtime);
 }

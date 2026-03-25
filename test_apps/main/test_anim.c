@@ -12,10 +12,6 @@
 #include "common.h"
 
 static const char *TAG = "test_anim";
-static int32_t s_drag_offset_x = 0;
-static int32_t s_drag_offset_y = 0;
-static bool s_drag_active = false;
-static gfx_obj_t *s_drag_obj = NULL;
 
 enum {
     TEST_ANIM_EVENT_NEXT = BIT0,
@@ -30,36 +26,6 @@ static void test_anim_next_btn_cb(gfx_obj_t *obj, const gfx_touch_event_t *event
     if (event != NULL && event->type == GFX_TOUCH_EVENT_RELEASE && s_anim_events != NULL) {
         xEventGroupSetBits(s_anim_events, TEST_ANIM_EVENT_NEXT);
         ESP_LOGW(TAG, "Next");
-    }
-}
-
-static void test_anim_image_touch_cb(gfx_obj_t *obj, const gfx_touch_event_t *event, void *user_data)
-{
-    gfx_coord_t obj_x = 0;
-    gfx_coord_t obj_y = 0;
-
-    (void)user_data;
-
-    if (obj == NULL || event == NULL) {
-        return;
-    }
-
-    gfx_obj_get_pos(obj, &obj_x, &obj_y);
-
-    if (event->type == GFX_TOUCH_EVENT_PRESS) {
-        s_drag_offset_x = (int32_t)event->x - obj_x;
-        s_drag_offset_y = (int32_t)event->y - obj_y;
-        s_drag_active = true;
-        s_drag_obj = obj;
-    }
-
-    if (s_drag_active && s_drag_obj == obj) {
-        gfx_obj_set_pos(obj, (int32_t)event->x - s_drag_offset_x, (int32_t)event->y - s_drag_offset_y);
-    }
-
-    if (event->type == GFX_TOUCH_EVENT_RELEASE && s_drag_obj == obj) {
-        s_drag_active = false;
-        s_drag_obj = NULL;
     }
 }
 
@@ -171,7 +137,6 @@ static void test_anim_show_case(mmap_assets_handle_t assets_handle, gfx_obj_t *a
         segments[1].end = (uint32_t)numbers.value_b - 1;
         segments[1].fps = 50;
         segments[1].play_count = 5;
-        // segments[1].end_action = GFX_ANIM_SEGMENT_ACTION_PAUSE;
         segments[1].end_action = GFX_ANIM_SEGMENT_ACTION_CONTINUE;
 
         segments[2].start = (uint32_t)numbers.value_b;
@@ -187,37 +152,6 @@ static void test_anim_show_case(mmap_assets_handle_t assets_handle, gfx_obj_t *a
 
     TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_start(anim_obj));
     test_app_unlock();
-}
-
-
-static void test_anim_show_case_image(mmap_assets_handle_t assets_handle)
-{
-    gfx_image_dsc_t img_dsc = {0};
-    test_anim_image_scene_t scene = {0};
-
-    test_app_log_case(TAG, "Image widget show case");
-
-    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
-    TEST_ASSERT_NOT_NULL(disp_default);
-    gfx_disp_set_bg_color(disp_default, GFX_COLOR_HEX(0x101820));
-
-    scene.img_primary = gfx_img_create(disp_default);
-    scene.img_secondary = gfx_img_create(disp_default);
-    TEST_ASSERT_NOT_NULL(scene.img_primary);
-    TEST_ASSERT_NOT_NULL(scene.img_secondary);
-
-    gfx_img_set_src(scene.img_primary, (void *)&icon_rgb565);
-    gfx_obj_set_pos(scene.img_primary, 80, 90);
-    gfx_obj_align(scene.img_primary, GFX_ALIGN_CENTER, -100, 0);
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_touch_cb(scene.img_primary, test_anim_image_touch_cb, NULL));
-
-    TEST_ASSERT_EQUAL(ESP_OK, load_image(assets_handle, MMAP_TEST_ASSETS_ICON_RGB565A8_BIN, &img_dsc));
-    gfx_img_set_src(scene.img_secondary, (void *)&img_dsc);
-    gfx_obj_align(scene.img_secondary, GFX_ALIGN_CENTER, 100, 0);
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_touch_cb(scene.img_secondary, test_anim_image_touch_cb, NULL));
-    test_app_unlock();
-
-    test_app_wait_for_observe(1000 * 1000);
 }
 
 static void test_anim_run(mmap_assets_handle_t assets_handle)
@@ -305,8 +239,7 @@ void test_anim_run_case_matrix(void)
 {
     test_app_runtime_t runtime;
 
-    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime));
-    // test_anim_run(runtime.assets_handle);
-    test_anim_show_case_image(runtime.assets_handle);
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, TEST_APP_ASSETS_PARTITION_DEFAULT));
+    test_anim_run(runtime.assets_handle);
     test_app_runtime_close(&runtime);
 }

@@ -49,8 +49,8 @@ static void test_app_configure_gfx_log_levels(void)
     gfx_log_set_level(GFX_LOG_MODULE_QRCODE, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_BUTTON, GFX_LOG_LEVEL_INFO);
 
-    gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_DEBUG);
-    // gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_INFO);
+    // gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_DEBUG);
+    gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_INFO);
 }
 
 #if CONFIG_IDF_TARGET_ESP32S3
@@ -64,7 +64,7 @@ static bool flush_io_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_
 }
 #elif CONFIG_IDF_TARGET_ESP32P4
 static bool flush_dpi_panel_ready_callback(esp_lcd_panel_handle_t panel_io,
-        esp_lcd_dpi_panel_event_data_t *edata, void *user_ctx)
+                                           esp_lcd_dpi_panel_event_data_t *edata, void *user_ctx)
 {
     gfx_disp_t *disp = (gfx_disp_t *)user_ctx;
     if (disp) {
@@ -111,13 +111,15 @@ void test_app_set_touch_event_cb(test_app_touch_event_cb_t cb, void *user_data)
     s_test_app_touch_event_user_data = user_data;
 }
 
-esp_err_t test_app_runtime_open(test_app_runtime_t *runtime)
+esp_err_t test_app_runtime_open(test_app_runtime_t *runtime, const char *partition_label)
 {
     ESP_RETURN_ON_FALSE(runtime != NULL, ESP_ERR_INVALID_ARG, TAG, "runtime is NULL");
+    ESP_RETURN_ON_FALSE(partition_label != NULL && partition_label[0] != '\0', ESP_ERR_INVALID_ARG, TAG,
+                        "partition_label is NULL or empty");
 
     runtime->assets_handle = NULL;
     test_app_configure_gfx_log_levels();
-    return display_and_graphics_init("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &runtime->assets_handle);
+    return display_and_graphics_init(partition_label, MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &runtime->assets_handle);
 }
 
 void test_app_runtime_close(test_app_runtime_t *runtime)

@@ -342,8 +342,7 @@ void test_mesh_bulge_run_case(void)
 {
     test_app_runtime_t runtime;
 
-    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime));
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, TEST_APP_ASSETS_PARTITION_DEFAULT));
     test_mesh_bulge_run();
     test_app_runtime_close(&runtime);
 }
-

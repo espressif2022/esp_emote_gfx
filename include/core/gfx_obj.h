@@ -27,6 +27,7 @@ extern "C" {
 #define GFX_OBJ_TYPE_BUTTON      0x05
 #define GFX_OBJ_TYPE_MESH_IMAGE  0x06
 #define GFX_OBJ_TYPE_LIST        0x07
+#define GFX_OBJ_TYPE_FACE_EMOTE  0x08
 
 /* Alignment constants (similar to LVGL) */
 #define GFX_ALIGN_DEFAULT         0x00

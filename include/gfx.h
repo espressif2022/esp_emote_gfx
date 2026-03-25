@@ -15,6 +15,7 @@
 #include "core/gfx_obj.h"
 #include "widget/gfx_img.h"
 #include "widget/gfx_mesh_img.h"
+#include "widget/gfx_face_emote.h"
 #include "widget/gfx_qrcode.h"
 #include "widget/gfx_label.h"
 #include "widget/gfx_button.h"

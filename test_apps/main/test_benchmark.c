@@ -417,7 +417,7 @@ void test_benchmark_run_case(void)
     esp_log_level_t refr_prev_level = esp_log_level_get("refr");
 #endif
     test_app_runtime_t runtime;
-    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime));
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, TEST_APP_ASSETS_PARTITION_DEFAULT));
 
 #if TEST_BENCHMARK_SUPPRESS_REFR_WARN
     esp_log_level_set("refr", ESP_LOG_ERROR);

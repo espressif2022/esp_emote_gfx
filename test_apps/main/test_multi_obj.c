@@ -127,7 +127,7 @@ TEST_CASE("multi widget scene", "[widget][multi]")
 {
     test_app_runtime_t runtime;
 
-    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime));
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, TEST_APP_ASSETS_PARTITION_DEFAULT));
     test_multi_obj_run(runtime.assets_handle);
     test_app_runtime_close(&runtime);
 }

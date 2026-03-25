@@ -42,9 +42,17 @@
     }
     button:hover { background: rgba(255,255,255,0.09); color: #e2e8f0; border-color: rgba(255,255,255,0.15); }
     button.active { background: rgba(59,130,246,0.25); border-color: #3b82f6; color: #93c5fd; }
+    
+    .base-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 400px; margin-top: 10px; }
+    .base-item { background: #111827; border-radius: 8px; padding: 4px; border: 1px solid #1f2937; cursor: pointer; transition: 0.2s; position: relative; }
+    .base-item:hover { border-color: #3b82f6; background: #1e293b; }
+    .base-item.active { border-color: #4ade80; background: rgba(74,222,128,0.05); }
+    .base-item-label { font-size: 9px; color: #64748b; text-align: center; margin-top: 2px; font-weight: 600; text-transform: uppercase; }
 
     .face-part { fill: none; stroke: #ffffff; stroke-linecap: round; stroke-linejoin: round; }
     .face-eye  { fill: #ffffff; stroke: none; }
+    .handle { fill: #4ade80; fill-opacity: 0.6; stroke: #fff; stroke-width: 1; cursor: move; }
+    .handle:hover { fill-opacity: 1; r: 5; }
   </style>
 </head>
 <body>
@@ -52,19 +60,53 @@
 <h1>Vivid Face Expression Library v2</h1>
 
 <div class="layout">
-  <div class="viewer">
-    <svg id="canvas" width="400" height="360" viewBox="0 0 320 288">
-      <g transform="translate(160, 170)">
-        <g id="g_l_brow" transform="translate(-40, -56)"><path id="l_brow" class="face-part" stroke-width="2.5" d="" /></g>
-        <g id="g_r_brow" transform="translate(40, -56) scale(-1, 1)"><path id="r_brow" class="face-part" stroke-width="2.5" d="" /></g>
-        <g id="g_l_eye"  transform="translate(-40, -40)"><path id="l_eye" class="face-eye" d="" /></g>
-        <g id="g_r_eye"  transform="translate( 40, -40) scale(-1, 1)"><path id="r_eye" class="face-eye" d="" /></g>
-        <g id="g_mouth"  transform="translate(0, 30)"><path id="mouth" class="face-part" stroke-width="3" d="" /></g>
-      </g>
-    </svg>
-    <div id="hud" style="position:absolute;bottom:38px;left:14px;font-size:12px;color:#475569;font-family:monospace;" ></div>
+  <div style="display:flex; flex-direction:column; gap:10px;">
+    <div class="viewer">
+      <svg id="canvas" width="400" height="360" viewBox="0 0 320 288">
+        <g transform="translate(160, 170)">
+          <g id="g_l_brow" transform="translate(-40, -56)"><path id="l_brow" class="face-part" stroke-width="2.5" d="" /></g>
+          <g id="g_r_brow" transform="translate(40, -56) scale(-1, 1)"><path id="r_brow" class="face-part" stroke-width="2.5" d="" /></g>
+          <g id="g_l_eye"  transform="translate(-40, -40)"><path id="l_eye" class="face-eye" d="" /></g>
+          <g id="g_r_eye"  transform="translate( 40, -40) scale(-1, 1)"><path id="r_eye" class="face-eye" d="" /></g>
+          <g id="g_mouth"  transform="translate(0, 30)"><path id="mouth" class="face-part" stroke-width="3" d="" /></g>
+          <g id="handles_layer"></g>
+        </g>
+      </svg>
+      <div id="hud" style="position:absolute;bottom:38px;left:14px;font-size:12px;color:#475569;font-family:monospace;" ></div>
+    </div>
+    <div class="base-grid" id="base-grid"></div>
   </div>
-  <div class="panel" id="panel"></div>
+  <div class="panel">
+    <div id="panel"></div>
+    <div class="panel-section">Base Geometry Editor</div>
+    <div style="display:flex; gap:5px; margin-bottom:8px;">
+      <select id="ed-cat" style="flex:1; background:#1e293b; color:#fff; border:1px solid #334155; border-radius:4px; padding:4px;">
+        <option value="M">Mouth [14]</option>
+        <option value="E">Eye [14]</option>
+        <option value="B">Brow [8]</option>
+      </select>
+      <select id="ed-idx" style="flex:1; background:#1e293b; color:#fff; border:1px solid #334155; border-radius:4px; padding:4px;">
+        <option value="0">0 neu</option>
+        <option value="1">1 sml</option>
+        <option value="2">2 hap</option>
+        <option value="3">3 sad</option>
+        <option value="4">4 sur</option>
+        <option value="5">5 ang</option>
+      </select>
+    </div>
+    <div id="ed-inputs" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:4px; margin-bottom:10px;"></div>
+    <div class="panel-section">Sync Tools</div>
+    <button onclick="exportCCode()" style="background:rgba(74,222,128,0.1); border-color:#4ade80; color:#4ade80;">Export .inc Code</button>
+  </div>
+</div>
+
+<!-- Modal / Textarea for export -->
+<div id="export-modal" style="display:none; position:fixed; top:10%; left:10%; width:80%; height:80%; background:#1a1e26; border:1px solid #334155; border-radius:12px; z-index:100; padding:20px; box-shadow:0 0 50px rgba(0,0,0,0.8);">
+  <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+    <h2 style="margin:0; font-size:16px;">Generated C Keyframes (.inc)</h2>
+    <button onclick="document.getElementById('export-modal').style.display='none'" style="width:auto; padding:4px 10px;">Close</button>
+  </div>
+  <textarea id="export-text" readonly style="width:100%; height:calc(100% - 40px); background:#0f172a; color:#94a3b8; font-family:monospace; font-size:12px; border:none; padding:10px; resize:none; outline:none;"></textarea>
 </div>
 
 <script>
@@ -207,9 +249,17 @@ function blend(baseList, e) {
 }
 
 function setEmotion(e) {
-  S_tgt.M  = blend(M_BASE, e);
-  S_tgt.E  = blend(E_BASE, e);
-  S_tgt.B  = blend(B_BASE, e);
+  if (selectedBaseIdx !== null) {
+    const cat = edCat.value;
+    // Focused preview: Use 100% of the selected base
+    if (cat === 'M') { S_tgt.M = [...M_BASE[selectedBaseIdx]]; S_tgt.E = blend(E_BASE, e); S_tgt.B = blend(B_BASE, e); }
+    else if (cat === 'E') { S_tgt.E = [...E_BASE[selectedBaseIdx]]; S_tgt.M = blend(M_BASE, e); S_tgt.B = blend(B_BASE, e); }
+    else { S_tgt.B = [...B_BASE[selectedBaseIdx]]; S_tgt.M = blend(M_BASE, e); S_tgt.E = blend(E_BASE, e); }
+  } else {
+    S_tgt.M  = blend(M_BASE, e);
+    S_tgt.E  = blend(E_BASE, e);
+    S_tgt.B  = blend(B_BASE, e);
+  }
   S_tgt.lx = e.lx || 0;
   S_tgt.ly = e.ly || 0;
 }
@@ -284,6 +334,148 @@ function restoreGaze() {
   S_tgt.lx = currentEmotion.lx || 0;
   S_tgt.ly = currentEmotion.ly || 0;
 }
+
+function exportCCode() {
+  const modal = document.getElementById('export-modal');
+  const txt = document.getElementById('export-text');
+  let out = "/* Generated from test_apps/face_expressions_vivid.html */\n";
+  out += "/* Paste into test_apps/main/test_mouth_model_keyframes.inc */\n\n";
+  const fmt = (arr) => arr.map(v => v.toString().padStart(3)).join(', ');
+
+  out += "static const gfx_face_emote_shape14_t s_ref_mouth[] = {\n";
+  M_BASE.forEach((b, i) => out += `    /* [${i}] */ { { ${fmt(b)} } },\n`);
+  out += "};\n\n";
+
+  out += "static const gfx_face_emote_shape14_t s_ref_eye[] = {\n";
+  E_BASE.forEach((b, i) => out += `    /* [${i}] */ { { ${fmt(b)} } },\n`);
+  out += "};\n\n";
+
+  out += "static const gfx_face_emote_shape8_t s_ref_brow[] = {\n";
+  B_BASE.forEach((b, i) => out += `    /* [${i}] */ { { ${fmt(b)} } },\n`);
+  out += "};\n\n";
+
+  out += "static const gfx_face_emote_expr_t s_face_sequence[] = {\n";
+  EXPRESSIONS.forEach((ex) => {
+    out += `    { "${ex.name.padEnd(12)}", "${ex.cn.padEnd(8)}", ${ex.sm.toString().padStart(3)}, ${ex.hp.toString().padStart(3)}, ${ex.sd.toString().padStart(3)}, ${ex.su.toString().padStart(3)}, ${ex.an.toString().padStart(3)}, ${ex.lx.toString().padStart(3)}, ${ex.ly.toString().padStart(3)}, 30U },\n`;
+  });
+  out += "};\n";
+
+  txt.value = out;
+  modal.style.display = 'block';
+}
+
+// ─── GEOMETRY EDITOR ────────────────────────────────────────────────────────
+const edCat = document.getElementById('ed-cat');
+const edInputs = document.getElementById('ed-inputs');
+const baseGrid = document.getElementById('base-grid');
+const handlesLayer = document.getElementById('handles_layer');
+
+let selectedBaseIdx = null; // Track active base
+
+function updateEditorUI() {
+  const cat = edCat.value;
+  const baseArr = (cat === 'M' ? M_BASE : (cat === 'E' ? E_BASE : B_BASE));
+  
+  if (selectedBaseIdx === null) {
+    edInputs.innerHTML = '<div style="grid-column:span(4); color:#475569; font-size:10px;text-align:center;padding:10px;">Select a base above to edit</div>';
+    renderBaseGrid();
+    renderHandles();
+    setEmotion(currentEmotion); 
+    return;
+  }
+
+  const idx = selectedBaseIdx;
+  const arr = baseArr[idx];
+  const labels = cat === 'B' ? ['P0','','C1','','C2','','P1',''] : ['P0','','C1','','C2','','P1','','C3','','C4','','P0',''];
+  
+  edInputs.innerHTML = '';
+  arr.forEach((val, i) => {
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.value = val;
+    input.title = labels[i] || `[${i}]`;
+    input.style = 'width:100%; background:#0f172a; color:#4ade80; border:1px solid #334155; border-radius:3px; padding:2px; font-size:11px; text-align:center;';
+    input.oninput = () => {
+      arr[i] = parseInt(input.value) || 0;
+      setEmotion(currentEmotion);
+      renderHandles();
+      renderBaseGrid();
+    };
+    edInputs.appendChild(input);
+  });
+  
+  renderBaseGrid();
+  renderHandles();
+  setEmotion(currentEmotion); 
+}
+
+function renderBaseGrid() {
+  const cat = edCat.value;
+  const baseArr = (cat === 'M' ? M_BASE : (cat === 'E' ? E_BASE : B_BASE));
+  const names = ['Neutral', 'Smile', 'Happy', 'Sad', 'Surprise', 'Angry'];
+  
+  baseGrid.innerHTML = '';
+  baseArr.forEach((arr, i) => {
+    const item = document.createElement('div');
+    item.className = `base-item ${selectedBaseIdx === i ? 'active' : ''}`;
+    item.onclick = () => { 
+      selectedBaseIdx = (selectedBaseIdx === i) ? null : i;
+      updateEditorUI(); 
+    };
+    
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "-45 -45 90 90");
+    svg.setAttribute("width", "100%"); svg.setAttribute("height", "50");
+    
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("fill", cat === 'E' ? "rgba(255,255,255,0.2)" : "none");
+    path.setAttribute("stroke", selectedBaseIdx === i ? "#4ade80" : "#475569");
+    path.setAttribute("stroke-width", "4");
+    
+    let d = (arr.length === 14) 
+      ? `M ${arr[0]} ${arr[1]} C ${arr[2]} ${arr[3]}, ${arr[4]} ${arr[5]}, ${arr[6]} ${arr[7]} C ${arr[8]} ${arr[9]}, ${arr[10]} ${arr[11]}, ${arr[12]} ${arr[13]} Z`
+      : `M ${arr[0]} ${arr[1]} C ${arr[2]} ${arr[3]}, ${arr[4]} ${arr[5]}, ${arr[6]} ${arr[7]}`;
+    path.setAttribute("d", d); svg.appendChild(path);
+    
+    const label = document.createElement('div');
+    label.className = 'base-item-label'; label.textContent = names[i];
+    item.appendChild(svg); item.appendChild(label);
+    baseGrid.appendChild(item);
+  });
+}
+
+function renderHandles() {
+  handlesLayer.innerHTML = '';
+  if (selectedBaseIdx === null) return;
+  const cat = edCat.value;
+  const idx = selectedBaseIdx;
+  const arr = (cat === 'M' ? M_BASE : (cat === 'E' ? E_BASE : B_BASE))[idx];
+  let tx = 0, ty = 0;
+  if (cat === 'M') { tx = 0; ty = 30; }
+  else if (cat === 'E') { tx = -40; ty = -40; }
+  else { tx = -40; ty = -56; }
+  handlesLayer.setAttribute("transform", `translate(${tx}, ${ty})`);
+  for (let i = 0; i < arr.length; i += 2) {
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", arr[i]); circle.setAttribute("cy", arr[i+1]);
+    circle.setAttribute("r", 4); circle.setAttribute("class", "handle");
+    circle.onpointerdown = (e) => {
+      e.stopPropagation(); circle.setPointerCapture(e.pointerId);
+      circle.onpointermove = (ev) => {
+        const pt = canvas.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+        const svgP = pt.matrixTransform(canvas.getScreenCTM().inverse());
+        arr[i] = Math.round(svgP.x - (160 + tx));
+        arr[i+1] = Math.round(svgP.y - (170 + ty));
+        updateEditorUI();
+      };
+      circle.onpointerup = () => { circle.releasePointerCapture(e.pointerId); circle.onpointermove = null; };
+    };
+    handlesLayer.appendChild(circle);
+  }
+}
+
+edCat.onchange = () => { selectedBaseIdx = null; updateEditorUI(); };
+updateEditorUI();
 
 // ─── LAUNCH ───────────────────────────────────────────────────────────────────
 requestAnimationFrame(tick);

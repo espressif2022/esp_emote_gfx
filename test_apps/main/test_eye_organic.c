@@ -202,7 +202,7 @@ static const test_eye_organic_key_t s_clip_curious_up[] = {
 static const test_eye_organic_key_t s_clip_scan_horizon[] = {
     {{0,    0,   0,  0,  0,  0,  0,  0,  25,  0},  1U, 10U, TEST_EYE_ORGANIC_EASING_SMOOTHSTEP},
     {{-60, -8,   0,  4,  0, 10, -3, -1,  15,  0}, 14U,  8U, TEST_EYE_ORGANIC_EASING_EASE_IN_OUT_CUBIC},
-    {{-80,-12,   0,  6,  0, 14, -4, -2,  10,  0},  8U, 10U, TEST_EYE_ORGANIC_EASING_EASE_OUT_CUBIC},
+    {{-80, -12,   0,  6,  0, 14, -4, -2,  10,  0},  8U, 10U, TEST_EYE_ORGANIC_EASING_EASE_OUT_CUBIC},
     {{0,    0,   0,  0,  4,  6,  0,  0,  25,  0}, 16U,  4U, TEST_EYE_ORGANIC_EASING_EASE_IN_OUT_CUBIC},
     {{60,   8,   0,  4,  0, 10,  3,  1,  15,  0}, 14U,  8U, TEST_EYE_ORGANIC_EASING_EASE_IN_OUT_CUBIC},
     {{80,  12,   0,  6,  0, 14,  4,  2,  10,  0},  8U, 10U, TEST_EYE_ORGANIC_EASING_EASE_OUT_CUBIC},
@@ -237,7 +237,7 @@ static const test_eye_organic_key_t s_clip_playful_wink[] = {
     {{16, -6,   0,  0, 12,  8,  1, -1,  60,  0},  8U,  6U, TEST_EYE_ORGANIC_EASING_EASE_OUT_CUBIC},
     {{20, -8, 100,  0, 10, 10,  1, -1,  75, 20},  3U,  2U, TEST_EYE_ORGANIC_EASING_EASE_IN_OUT_CUBIC},
     {{18, -6,   0,  0, 14,  8,  1, -1,  80,  0},  4U,  6U, TEST_EYE_ORGANIC_EASING_EASE_OUT_CUBIC},
-    {{24,-10,   0, 14,  8, 14,  2, -2,  85,  0},  8U, 12U, TEST_EYE_ORGANIC_EASING_EASE_OUT_CUBIC},
+    {{24, -10,   0, 14,  8, 14,  2, -2,  85,  0},  8U, 12U, TEST_EYE_ORGANIC_EASING_EASE_OUT_CUBIC},
     {{0,   0,   0,  0,  0,  0,  0,  0,  30,  0}, 12U, 12U, TEST_EYE_ORGANIC_EASING_SMOOTHSTEP},
 };
 
@@ -246,7 +246,7 @@ static const test_eye_organic_key_t s_clip_gentle_drift[] = {
     {{0,    0,   0,  0,  0,  0,  0,  0,  30,  0},  1U, 12U, TEST_EYE_ORGANIC_EASING_SMOOTHSTEP},
     {{-20, 10,   0,  6,  0, 12, -1,  1,  15,  0}, 16U, 14U, TEST_EYE_ORGANIC_EASING_EASE_IN_OUT_CUBIC},
     {{15,  -8,   0,  4,  4, 10,  1, -1,  45,  0}, 18U, 14U, TEST_EYE_ORGANIC_EASING_EASE_IN_OUT_CUBIC},
-    {{-10,-14,   0,  2,  8,  8, -1, -1,  20,  0}, 16U, 12U, TEST_EYE_ORGANIC_EASING_EASE_IN_OUT_CUBIC},
+    {{-10, -14,   0,  2,  8,  8, -1, -1,  20,  0}, 16U, 12U, TEST_EYE_ORGANIC_EASING_EASE_IN_OUT_CUBIC},
     {{10,   6, 100,  0,  0, 10,  1,  0,  25,  0},  4U,  2U, TEST_EYE_ORGANIC_EASING_EASE_IN_OUT_CUBIC},
     {{8,    4,  12,  4,  6, 10,  1,  0,  40,  0},  6U, 10U, TEST_EYE_ORGANIC_EASING_EASE_OUT_CUBIC},
     {{0,    0,   0,  0,  0,  0,  0,  0,  30,  0}, 14U, 10U, TEST_EYE_ORGANIC_EASING_SMOOTHSTEP},
@@ -279,7 +279,7 @@ static const gfx_image_dsc_t s_black_img = {
         .stride = 2,
     },
     .data_size = 2,
-    .data = (const uint8_t *)&s_black_pixel,
+    .data = (const uint8_t *) &s_black_pixel,
 };
 
 static const uint16_t s_white_pixel = 0xFFFF;
@@ -294,7 +294,7 @@ static const gfx_image_dsc_t s_white_img = {
         .stride = 2,
     },
     .data_size = 2,
-    .data = (const uint8_t *)&s_white_pixel,
+    .data = (const uint8_t *) &s_white_pixel,
 };
 
 static int32_t test_eye_organic_lerp_i32(int32_t from, int32_t to, uint16_t t_permille)
@@ -404,11 +404,11 @@ static test_eye_organic_pose_t test_eye_organic_ctrl_to_pose(const test_eye_orga
     pose.lid_tilt_permille = (int16_t)test_eye_organic_clamp_i32((look_x * 20) / 10, -240, 240);
 
     pose.mouth_curve = (int16_t)test_eye_organic_clamp_i32(
-        (test_eye_organic_clamp_i32(ctrl->mouth_smile, -100, 100) * TEST_FACE_MOUTH_SMILE_PX) / 100,
-        -TEST_FACE_MOUTH_SMILE_PX, TEST_FACE_MOUTH_SMILE_PX);
+                           (test_eye_organic_clamp_i32(ctrl->mouth_smile, -100, 100) * TEST_FACE_MOUTH_SMILE_PX) / 100,
+                           -TEST_FACE_MOUTH_SMILE_PX, TEST_FACE_MOUTH_SMILE_PX);
     pose.mouth_open_px = (int16_t)test_eye_organic_clamp_i32(
-        (test_eye_organic_clamp_i32(ctrl->mouth_open, 0, 100) * TEST_FACE_MOUTH_OPEN_PX) / 100,
-        0, TEST_FACE_MOUTH_OPEN_PX);
+                             (test_eye_organic_clamp_i32(ctrl->mouth_open, 0, 100) * TEST_FACE_MOUTH_OPEN_PX) / 100,
+                             0, TEST_FACE_MOUTH_OPEN_PX);
     return pose;
 }
 
@@ -520,12 +520,12 @@ static void test_eye_organic_set_quad(gfx_obj_t *obj,
 }
 
 static void test_eye_organic_apply_single_eye(test_eye_organic_scene_t *scene,
-                                               test_eye_organic_eye_t *eye,
-                                               const test_eye_organic_pose_t *pose,
-                                               int32_t socket_left,
-                                               int32_t socket_top,
-                                               int32_t organic_dx,
-                                               int32_t organic_dy)
+                                              test_eye_organic_eye_t *eye,
+                                              const test_eye_organic_pose_t *pose,
+                                              int32_t socket_left,
+                                              int32_t socket_top,
+                                              int32_t organic_dx,
+                                              int32_t organic_dy)
 {
     int32_t eye_left;
     int32_t eye_top;
@@ -627,11 +627,11 @@ static void test_eye_organic_apply_mouth(test_eye_organic_scene_t *scene,
         top_y_pt = (curve * cw) / 1000 - min_y;
         bot_y_pt = base_h + (curve * cw) / 1000 + (open * cw) / 1000 - min_y;
         TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_point(
-            scene->mouth_obj, i,
-            (gfx_coord_t)(i * seg), (gfx_coord_t)top_y_pt));
+                              scene->mouth_obj, i,
+                              (gfx_coord_t)(i * seg), (gfx_coord_t)top_y_pt));
         TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_point(
-            scene->mouth_obj, (cols + 1) + i,
-            (gfx_coord_t)(i * seg), (gfx_coord_t)bot_y_pt));
+                              scene->mouth_obj, (cols + 1) + i,
+                              (gfx_coord_t)(i * seg), (gfx_coord_t)bot_y_pt));
     }
 
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_pos(scene->mouth_obj,
@@ -879,7 +879,7 @@ void test_eye_organic_run_case(void)
 {
     test_app_runtime_t runtime;
 
-    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime));
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, TEST_APP_ASSETS_PARTITION_DEFAULT));
     test_eye_organic_run();
     test_app_runtime_close(&runtime);
 }

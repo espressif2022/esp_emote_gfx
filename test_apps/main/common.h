@@ -26,6 +26,9 @@ typedef void (*test_app_touch_event_cb_t)(gfx_touch_t *touch, const gfx_touch_ev
 
 #define TEST_APP_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
 
+/** Default mmap assets partition label (see CMake `spiffs_create_partition_assets`). */
+#define TEST_APP_ASSETS_PARTITION_DEFAULT "test_assets"
+
 /**********************
  *  EXTERNAL SYMBOLS
  **********************/
@@ -57,7 +60,7 @@ extern esp_lcd_panel_handle_t panel_handle;
  *   TEST SUPPORT API
  **********************/
 
-esp_err_t test_app_runtime_open(test_app_runtime_t *runtime);
+esp_err_t test_app_runtime_open(test_app_runtime_t *runtime, const char *partition_label);
 void test_app_runtime_close(test_app_runtime_t *runtime);
 esp_err_t test_app_lock(void);
 void test_app_unlock(void);

@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vivid Cat Face Rig v2</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+    body {
+      background: #0d0f14;
+      color: #e2e8f0;
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      padding: 24px;
+      gap: 20px;
+    }
+
+    h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #94a3b8;
+      margin: 0;
+      letter-spacing: 0.5px;
+    }
+
+    .layout {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    .viewer {
+      background: radial-gradient(ellipse at 50% 40%, #1e2636 0%, #080a0f 100%);
+      width: 400px;
+      height: 360px;
+      border-radius: 16px;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 20px 40px rgba(0, 0, 0, 0.7);
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+      cursor: crosshair;
+    }
+
+    .viewer::after {
+      content: '✦ drag to look';
+      position: absolute;
+      bottom: 12px;
+      right: 14px;
+      color: rgba(100, 116, 139, 0.4);
+      font-size: 11px;
+      pointer-events: none;
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 220px;
+      max-height: 480px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #2d3748 transparent;
+    }
+
+    .panel-section {
+      color: #facc15;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 4px 0 2px;
+      border-bottom: 1px solid rgba(250, 204, 21, 0.2);
+      margin-top: 4px;
+    }
+
+    .panel-section:first-child {
+      margin-top: 0;
+    }
+
+    button {
+      background: rgba(255, 255, 255, 0.04);
+      color: #94a3b8;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-size: 12px;
+      font-weight: 500;
+      text-align: left;
+      width: 100%;
+    }
+
+    button:hover {
+      background: rgba(255, 255, 255, 0.09);
+      color: #e2e8f0;
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    button.active {
+      background: rgba(250, 204, 21, 0.2);
+      border-color: #facc15;
+      color: #fde047;
+    }
+
+    .base-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      width: 400px;
+      margin-top: 10px;
+    }
+
+    .base-item {
+      background: #111827;
+      border-radius: 8px;
+      padding: 4px;
+      border: 1px solid #1f2937;
+      cursor: pointer;
+      transition: 0.2s;
+      position: relative;
+    }
+
+    .base-item:hover {
+      border-color: #3b82f6;
+      background: #1e293b;
+    }
+
+    .base-item.active {
+      border-color: #facc15;
+      background: rgba(250, 204, 21, 0.05);
+    }
+
+    .base-item-label {
+      font-size: 9px;
+      color: #64748b;
+      text-align: center;
+      margin-top: 2px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .face-part {
+      fill: none;
+      stroke: #ffffff;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .face-eye {
+      fill: #ffffff;
+      stroke: none;
+    }
+
+    .blush {
+      fill: #ff6b6b;
+      fill-opacity: 0;
+      transition: fill-opacity 0.3s;
+    }
+
+    .whisker {
+      stroke: #475569;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+    }
+
+    .handle {
+      fill: #facc15;
+      fill-opacity: 0.6;
+      stroke: #fff;
+      stroke-width: 1;
+      cursor: move;
+    }
+
+    .handle:hover {
+      fill-opacity: 1;
+      r: 5;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Vivid Cat Face Rig Prototype</h1>
+
+  <div class="layout">
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <div class="viewer">
+        <svg id="canvas" width="400" height="360" viewBox="0 0 320 288">
+          <g transform="translate(160, 170)">
+            <!-- Ears / Brows -->
+            <g id="g_l_brow" transform="translate(-45, -65)">
+              <path id="l_brow" class="face-part" stroke-width="2.5" d="" />
+            </g>
+            <g id="g_r_brow" transform="translate(45, -65) scale(-1, 1)">
+              <path id="r_brow" class="face-part" stroke-width="2.5" d="" />
+            </g>
+            <!-- Whiskers -->
+            <g id="g_whiskers">
+              <line class="whisker" x1="-40" y1="30" x2="-80" y2="25" />
+              <line class="whisker" x1="-40" y1="35" x2="-82" y2="35" />
+              <line class="whisker" x1="-40" y1="40" x2="-80" y2="45" />
+              <line class="whisker" x1="40" y1="30" x2="80" y2="25" />
+              <line class="whisker" x1="40" y1="35" x2="82" y2="35" />
+              <line class="whisker" x1="40" y1="40" x2="80" y2="45" />
+            </g>
+            <!-- Blush -->
+            <circle id="blush_l" class="blush" cx="-65" cy="5" r="10" />
+            <circle id="blush_r" class="blush" cx="65" cy="5" r="10" />
+            <!-- Sweat Drop -->
+            <path id="sweat" d="M 0 0 C -4 4, -4 8, 0 8 C 4 8, 4 4, 0 0 Z" fill="#60a5fa" fill-opacity="0"
+              transform="translate(68, -50)" />
+
+            <!-- Cat Eyes (Almond) -->
+            <g id="g_l_eye" transform="translate(-42, -45)">
+              <path id="l_eye" class="face-eye" d="" />
+            </g>
+            <g id="g_r_eye" transform="translate( 42, -45) scale(-1, 1)">
+              <path id="r_eye" class="face-eye" d="" />
+            </g>
+            <!-- Cat Mouth (W-Shape) -->
+            <g id="g_mouth" transform="translate(0, 35)">
+              <path id="mouth" class="face-part" stroke-width="2.5" d="" />
+            </g>
+            <g id="handles_layer"></g>
+          </g>
+        </svg>
+        <div id="hud"
+          style="position:absolute;bottom:38px;left:14px;font-size:12px;color:#475569;font-family:monospace;"></div>
+      </div>
+      <div class="base-grid" id="base-grid"></div>
+    </div>
+    <div class="panel">
+      <div id="panel"></div>
+      <div class="panel-section">Cat Anatomy Editor</div>
+      <div style="display:flex; gap:5px; margin-bottom:8px;">
+        <select id="ed-cat"
+          style="flex:1; background:#1e293b; color:#fff; border:1px solid #334155; border-radius:4px; padding:4px;">
+          <option value="M">Mouth [W-Shape]</option>
+          <option value="E">Eye [Almond]</option>
+          <option value="B">Ear/Brow [Triangle]</option>
+        </select>
+        <select id="ed-idx"
+          style="flex:1; background:#1e293b; color:#fff; border:1px solid #334155; border-radius:4px; padding:4px;">
+          <option value="0">0 neu</option>
+          <option value="1">1 purr</option>
+          <option value="2">2 happy</option>
+          <option value="3">3 sad</option>
+          <option value="4">4 alert</option>
+          <option value="5">5 hiss</option>
+        </select>
+      </div>
+      <div id="ed-inputs" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:4px; margin-bottom:10px;">
+      </div>
+      <div class="panel-section">Sync Tools</div>
+      <button onclick="exportCCode()"
+        style="background:rgba(250,204,21,0.1); border-color:#facc15; color:#facc15;">Export Cat .inc</button>
+    </div>
+  </div>
+
+  <!-- Modal / Textarea for export -->
+  <div id="export-modal"
+    style="display:none; position:fixed; top:10%; left:10%; width:80%; height:80%; background:#1a1e26; border:1px solid #334155; border-radius:12px; z-index:100; padding:20px; box-shadow:0 0 50px rgba(0,0,0,0.8);">
+    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+      <h2 style="margin:0; font-size:16px;">Generated Cat Keyframes (.inc)</h2>
+      <button onclick="document.getElementById('export-modal').style.display='none'"
+        style="width:auto; padding:4px 10px;">Close</button>
+    </div>
+    <textarea id="export-text" readonly
+      style="width:100%; height:calc(100% - 40px); background:#0f172a; color:#94a3b8; font-family:monospace; font-size:12px; border:none; padding:10px; resize:none; outline:none;"></textarea>
+  </div>
+
+  <script>
+    /**
+     * VIVID CAT FACE RIG PROTOTYPE
+     * Feline-specific Bezier geometries and expressions.
+     */
+
+    // ─── 6 BASE GEOMETRIES (CAT) ──────────────────────────────────────────────────
+
+    // Mouth: [x0,y0, cx1,cy1, cx2,cy2, x1,y1,  cx3,cy3, cx4,cy4, x0,y0]
+    // Note: Arranged to form W-shape via two segments.
+    const M_BASE = [
+  /* 0 neu (W) */[-24, 0, -15, 10, -5, 10, 0, 4, 5, 10, 15, 10, 24, 0],
+  /* 1 purr    */[-28, 4, -15, 12, -8, 12, 0, 6, 8, 12, 18, 12, 28, 4],
+  /* 2 happy   */[-30, 2, -18, 15, -10, 15, 0, 8, 10, 25, 20, 25, 30, 2],
+  /* 3 sad     */[-24, 8, -12, -5, -4, -5, 0, 0, 4, -5, 12, -5, 24, 8],
+  /* 4 alert   */[-18, 4, -12, 10, -6, 12, 0, 4, 6, 12, 12, 10, 18, 4],
+  /* 5 hiss    */[-32, -5, -15, -10, 15, -10, 32, -5, 25, 30, -25, 30, -32, -5],
+    ];
+
+    // Eye: Slit/Almond pupils simulation
+    const E_BASE = [
+  /* 0 neu */[-18, 0, -10, -12, 10, -12, 18, 0, 10, 12, -10, 12, -18, 0],
+  /* 1 purr */[-18, 2, -10, -4, 10, -4, 18, 2, 10, 4, -10, 4, -18, 2],
+  /* 2 heart*/[0, 14, -18, -15, -12, -28, 0, -12, 12, -28, 18, -15, 0, 14],
+  /* 3 sad */[-18, 6, -10, -8, 8, -15, 18, -4, 10, 12, -10, 14, -18, 6],
+  /* 4 alert */[-16, 0, -8, -24, 8, -24, 16, 0, 8, 24, -8, 24, -16, 0],
+  /* 5 hiss */[-18, -2, -8, 0, 8, -6, 18, 4, 8, 10, -8, 10, -18, -2],
+    ];
+
+    // Brow/Ear: Feline ear-flick muscle movement
+    const B_BASE = [
+  /* 0 neu */[-20, 0, -10, -15, 10, -15, 20, 0],
+  /* 1 purr */[-20, 2, -10, -10, 10, -10, 20, 2],
+  /* 2 happy */[-20, -5, -10, -20, 10, -20, 20, -5],
+  /* 3 sad */[-20, 5, -10, 0, 10, -15, 20, -10],
+  /* 4 alert */[-18, -15, -8, -35, 8, -35, 18, -15],
+  /* 5 hiss */[-22, 10, -10, 5, 10, 25, 22, 30],
+    ];
+
+    const EXPRESSIONS = [
+      { group: "🐱 Cat Moods  猫的情绪", name: "curious", cn: "好奇", sm: 0, hp: 0, sd: 0, su: 60, an: 0, lx: 15, ly: -15 },
+      { group: null, name: "purring", cn: "咕噜", sm: 80, hp: 0, sd: 0, su: 0, an: 0, lx: 0, ly: 10 },
+      { group: null, name: "hunting", cn: "狩猎", sm: 0, hp: 0, sd: 0, su: 100, an: 20, lx: 0, ly: -5 },
+      { group: null, name: "hissing", cn: "哈气", sm: 0, hp: 0, sd: 0, su: 20, an: 120, lx: 0, ly: 0 },
+      { group: null, name: "affection", cn: "撒娇", sm: 60, hp: 40, sd: 0, su: 0, an: 0, lx: 5, ly: 15 },
+      { group: null, name: "heart eyes", cn: "爱心眼", sm: 20, hp: 100, sd: 0, su: 0, an: 0, lx: 0, ly: -5 },
+      { group: null, name: "scaredy", cn: "炸毛", sm: 0, hp: 0, sd: 40, su: 120, an: 0, lx: -20, ly: -10 },
+      { group: null, name: "sleepy", cn: "困倦", sm: 30, hp: 0, sd: 0, su: 0, an: 0, lx: 0, ly: 20 },
+      { group: null, name: "zoomies", cn: "跑酷中", sm: 40, hp: 80, sd: 0, su: 50, an: 0, lx: 25, ly: -20 },
+    ];
+
+    // Combine with standard vivid list (adapted)
+    const BASE_VIVID = [
+      { group: "😌 Neutral & Look", name: "neutral", cn: "平静", sm: 0, hp: 0, sd: 0, su: 0, an: 0, lx: 0, ly: 0 },
+      { group: "😊 Happy", name: "soft smile", cn: "微笑", sm: 50, hp: 0, sd: 0, su: 0, an: 0, lx: 0, ly: 0 },
+      { group: null, name: "happy cat", cn: "开心", sm: 0, hp: 100, sd: 0, su: 0, an: 0, lx: 0, ly: 0 },
+      { group: "😢 Sad", name: "dejected", cn: "委屈", sm: 0, hp: 0, sd: 100, su: 0, an: 0, lx: 0, ly: 15 },
+      { group: "😠 Anger", name: "annoyed", cn: "厌烦", sm: 0, hp: 0, sd: 0, su: 0, an: 80, lx: 10, ly: 0 },
+    ];
+
+    EXPRESSIONS.push(...BASE_VIVID);
+
+    // ─── STATE & LOGIC ────────────────────────────────────────────────────────────
+    let S_cur = { M: [...M_BASE[0]], E: [...E_BASE[0]], B: [...B_BASE[0]], lx: 0, ly: 0 };
+    let S_tgt = { M: [...M_BASE[0]], E: [...E_BASE[0]], B: [...B_BASE[0]], lx: 0, ly: 0 };
+    let currentEmotion = EXPRESSIONS[0];
+
+    const canvas = document.getElementById('canvas');
+    const pathM = document.getElementById('mouth');
+    const pathE_L = document.getElementById('l_eye');
+    const pathE_R = document.getElementById('r_eye');
+    const pathB_L = document.getElementById('l_brow');
+    const pathB_R = document.getElementById('r_brow');
+    const hud = document.getElementById('hud');
+
+    function ease_arr(cur, tgt) {
+      for (let i = 0; i < cur.length; i++) {
+        let d = tgt[i] - cur[i];
+        cur[i] = Math.abs(d) > 0.05 ? cur[i] + d * 0.22 : tgt[i];
+      }
+    }
+
+    function blend(baseList, e) {
+      let len = baseList[0].length, res = new Array(len).fill(0);
+      for (let i = 0; i < len; i++) {
+        res[i] = baseList[0][i]
+          + (baseList[1][i] - baseList[0][i]) * e.sm / 100
+          + (baseList[2][i] - baseList[0][i]) * e.hp / 100
+          + (baseList[3][i] - baseList[0][i]) * e.sd / 100
+          + (baseList[4][i] - baseList[0][i]) * e.su / 100
+          + (baseList[5][i] - baseList[0][i]) * e.an / 100;
+      }
+      return res;
+    }
+
+    function setEmotion(e) {
+      if (selectedBaseIdx !== null) {
+        const cat = edCat.value;
+        // Focused preview: Use 100% of the selected base
+        if (cat === 'M') { S_tgt.M = [...M_BASE[selectedBaseIdx]]; S_tgt.E = blend(E_BASE, e); S_tgt.B = blend(B_BASE, e); }
+        else if (cat === 'E') { S_tgt.E = [...E_BASE[selectedBaseIdx]]; S_tgt.M = blend(M_BASE, e); S_tgt.B = blend(B_BASE, e); }
+        else { S_tgt.B = [...B_BASE[selectedBaseIdx]]; S_tgt.M = blend(M_BASE, e); S_tgt.E = blend(E_BASE, e); }
+      } else {
+        S_tgt.M = blend(M_BASE, e);
+        S_tgt.E = blend(E_BASE, e);
+        S_tgt.B = blend(B_BASE, e);
+      }
+      S_tgt.lx = e.lx || 0;
+      S_tgt.ly = e.ly || 0;
+    }
+
+    function tick() {
+      ease_arr(S_cur.M, S_tgt.M);
+      ease_arr(S_cur.E, S_tgt.E);
+      ease_arr(S_cur.B, S_tgt.B);
+      let dlx = S_tgt.lx - S_cur.lx, dly = S_tgt.ly - S_cur.ly;
+      S_cur.lx = Math.abs(dlx) > 0.05 ? S_cur.lx + dlx * 0.22 : S_tgt.lx;
+      S_cur.ly = Math.abs(dly) > 0.05 ? S_cur.ly + dly * 0.22 : S_tgt.ly;
+
+      const m = S_cur.M, e = S_cur.E, b = S_cur.B;
+      pathM.setAttribute('d', `M ${m[0]} ${m[1]} C ${m[2]} ${m[3]}, ${m[4]} ${m[5]}, ${m[6]} ${m[7]} C ${m[8]} ${m[9]}, ${m[10]} ${m[11]}, ${m[12]} ${m[13]} Z`);
+      const dE = `M ${e[0]} ${e[1]} C ${e[2]} ${e[3]}, ${e[4]} ${e[5]}, ${e[6]} ${e[7]} C ${e[8]} ${e[9]}, ${e[10]} ${e[11]}, ${e[12]} ${e[13]} Z`;
+      pathE_L.setAttribute('d', dE); pathE_R.setAttribute('d', dE);
+      const dB = `M ${b[0]} ${b[1]} C ${b[2]} ${b[3]}, ${b[4]} ${b[5]}, ${b[6]} ${b[7]}`;
+      pathB_L.setAttribute('d', dB); pathB_R.setAttribute('d', dB);
+
+      // Dynamic Blush based on Happy/Smile weights
+      const blushAlpha = Math.max(0, (S_cur.E[2] < 0 ? 0.8 : 0) + (S_cur.M[9] > 15 ? 0.6 : 0)); // Hacky check or just use currentEmotion
+      // Better: use direct weights if available, but S_cur is blended.
+      // Let's use simple logic: if mouth is very curved up or eyes are heart-y
+      const bA = Math.min(0.7, (currentEmotion.hp > 30 ? 0.6 : 0) + (currentEmotion.sm > 40 ? 0.2 : 0));
+      document.getElementById('blush_l').style.fillOpacity = bA;
+      document.getElementById('blush_r').style.fillOpacity = bA;
+
+      // Sweat Drop logic (Surprise / Scared)
+      const sweatA = (currentEmotion.su >= 100 || (currentEmotion.sd > 50 && currentEmotion.su > 50)) ? 0.8 : 0;
+      document.getElementById('sweat').style.fillOpacity = sweatA;
+
+      const lx = S_cur.lx, ly = S_cur.ly;
+      document.getElementById('g_l_brow').setAttribute('transform', `translate(${-45 + lx}, ${-65 + ly})`);
+      document.getElementById('g_r_brow').setAttribute('transform', `translate(${45 + lx}, ${-65 + ly}) scale(-1,1)`);
+      document.getElementById('g_l_eye').setAttribute('transform', `translate(${-42 + lx}, ${-45 + ly})`);
+      document.getElementById('g_r_eye').setAttribute('transform', `translate(${42 + lx}, ${-45 + ly}) scale(-1,1)`);
+      document.getElementById('g_mouth').setAttribute('transform', `translate(${lx * 0.5}, ${35 + ly * 0.5})`);
+
+      hud.textContent = `${currentEmotion.name}  lx:${lx.toFixed(0)} ly:${ly.toFixed(0)}`;
+      requestAnimationFrame(tick);
+    }
+
+    // ─── BUILD PANEL ──────────────────────────────────────────────────────────────
+    const panel = document.getElementById('panel');
+    let activeBtn = null;
+    EXPRESSIONS.forEach((ex) => {
+      if (ex.group !== null) {
+        const hdr = document.createElement('div');
+        hdr.className = 'panel-section';
+        hdr.textContent = ex.group;
+        panel.appendChild(hdr);
+      }
+      const btn = document.createElement('button');
+      btn.innerHTML = `${ex.name} <span style="color:#64748b;font-size:11px">${ex.cn || ''}</span>`;
+      btn.onclick = () => {
+        if (activeBtn) activeBtn.classList.remove('active');
+        btn.classList.add('active');
+        activeBtn = btn;
+        currentEmotion = ex;
+        setEmotion(ex);
+      };
+      panel.appendChild(btn);
+    });
+    panel.firstElementChild.nextElementSibling.click();
+
+    // ─── POINTER GAZE ─────────────────────────────────────────────────────────────
+    const viewer = document.querySelector('.viewer');
+    let isDragging = false;
+    viewer.onpointerdown = (e) => { isDragging = true; viewer.setPointerCapture(e.pointerId); handlePMove(e); };
+    viewer.onpointermove = (e) => { if (isDragging) handlePMove(e); };
+    viewer.onpointerup = (e) => { isDragging = false; restoreGaze(); };
+
+    function handlePMove(e) {
+      const r = viewer.getBoundingClientRect();
+      const cx = r.width / 2, cy = r.height / 2;
+      S_tgt.lx = Math.max(-60, Math.min(60, ((e.clientX - r.left) - cx) / cx * 60));
+      S_tgt.ly = Math.max(-60, Math.min(60, ((e.clientY - r.top) - cy) / cy * 60));
+    }
+    function restoreGaze() {
+      S_tgt.lx = currentEmotion.lx || 0;
+      S_tgt.ly = currentEmotion.ly || 0;
+    }
+
+    // ─── GEOMETRY EDITOR ────────────────────────────────────────────────────────
+    const edCat = document.getElementById('ed-cat');
+    const edInputs = document.getElementById('ed-inputs');
+    const baseGrid = document.getElementById('base-grid');
+    const handlesLayer = document.getElementById('handles_layer');
+
+    let selectedBaseIdx = null; // Track active base
+
+    function updateEditorUI() {
+      const cat = edCat.value;
+      const baseArr = (cat === 'M' ? M_BASE : (cat === 'E' ? E_BASE : B_BASE));
+
+      if (selectedBaseIdx === null) {
+        edInputs.innerHTML = '<div style="grid-column:span 4; color:#475569; font-size:10px;text-align:center;padding:10px;">Select a base above to edit</div>';
+        renderBaseGrid();
+        renderHandles();
+        setEmotion(currentEmotion);
+        return;
+      }
+
+      const idx = selectedBaseIdx;
+      const arr = baseArr[idx];
+      const labels = cat === 'B' ? ['P0', '', 'C1', '', 'C2', '', 'P1', ''] : ['P0', '', 'C1', '', 'C2', '', 'P1', '', 'C3', '', 'C4', '', 'P0', ''];
+
+      edInputs.innerHTML = '';
+      arr.forEach((val, i) => {
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.value = val;
+        input.title = labels[i] || `[${i}]`;
+        input.style = 'width:100%; background:#0f172a; color:#facc15; border:1px solid #334155; border-radius:3px; padding:2px; font-size:11px; text-align:center;';
+        input.oninput = () => {
+          arr[i] = parseInt(input.value) || 0;
+          setEmotion(currentEmotion);
+          renderHandles();
+          renderBaseGrid();
+        };
+        edInputs.appendChild(input);
+      });
+      renderBaseGrid();
+      renderHandles();
+      setEmotion(currentEmotion);
+    }
+
+    function renderBaseGrid() {
+      const cat = edCat.value;
+      const baseArr = (cat === 'M' ? M_BASE : (cat === 'E' ? E_BASE : B_BASE));
+      const names = ['Neu', 'Purr', 'Hap', 'Sad', 'Alert', 'Hiss'];
+      baseGrid.innerHTML = '';
+      baseArr.forEach((arr, i) => {
+        const item = document.createElement('div');
+        item.className = `base-item ${selectedBaseIdx === i ? 'active' : ''}`;
+        item.onclick = () => {
+          selectedBaseIdx = (selectedBaseIdx === i) ? null : i;
+          updateEditorUI();
+        };
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", "-45 -45 90 90");
+        svg.setAttribute("width", "100%"); svg.setAttribute("height", "45");
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("fill", cat === 'E' ? "rgba(250,204,21,0.2)" : "none");
+        path.setAttribute("stroke", selectedBaseIdx === i ? "#facc15" : "#475569");
+        path.setAttribute("stroke-width", "4");
+        let d = (arr.length === 14)
+          ? `M ${arr[0]} ${arr[1]} C ${arr[2]} ${arr[3]}, ${arr[4]} ${arr[5]}, ${arr[6]} ${arr[7]} C ${arr[8]} ${arr[9]}, ${arr[10]} ${arr[11]}, ${arr[12]} ${arr[13]} Z`
+          : `M ${arr[0]} ${arr[1]} C ${arr[2]} ${arr[3]}, ${arr[4]} ${arr[5]}, ${arr[6]} ${arr[7]}`;
+        path.setAttribute("d", d); svg.appendChild(path);
+        const label = document.createElement('div');
+        label.className = 'base-item-label'; label.textContent = names[i];
+        item.appendChild(svg); item.appendChild(label);
+        baseGrid.appendChild(item);
+      });
+    }
+
+    function renderHandles() {
+      handlesLayer.innerHTML = '';
+      if (selectedBaseIdx === null) return;
+      const cat = edCat.value;
+      const idx = selectedBaseIdx;
+      const arr = (cat === 'M' ? M_BASE : (cat === 'E' ? E_BASE : B_BASE))[idx];
+      let tx = 0, ty = 0;
+      if (cat === 'M') { tx = 0; ty = 35; }
+      else if (cat === 'E') { tx = -42; ty = -45; }
+      else { tx = -45; ty = -65; }
+      handlesLayer.setAttribute("transform", `translate(${tx}, ${ty})`);
+      for (let i = 0; i < arr.length; i += 2) {
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", arr[i]); circle.setAttribute("cy", arr[i + 1]);
+        circle.setAttribute("r", 4); circle.setAttribute("class", "handle");
+        circle.onpointerdown = (e) => {
+          e.stopPropagation(); circle.setPointerCapture(e.pointerId);
+          circle.onpointermove = (ev) => {
+            const pt = canvas.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+            const svgP = pt.matrixTransform(canvas.getScreenCTM().inverse());
+            arr[i] = Math.round(svgP.x - (160 + tx));
+            arr[i + 1] = Math.round(svgP.y - (170 + ty));
+            updateEditorUI(); setEmotion(currentEmotion);
+          };
+          circle.onpointerup = () => { circle.releasePointerCapture(e.pointerId); circle.onpointermove = null; };
+        };
+        handlesLayer.appendChild(circle);
+      }
+    }
+
+    function exportCCode() {
+      const modal = document.getElementById('export-modal');
+      const txt = document.getElementById('export-text');
+      let out = "/* Generated Cat Face Keyframes */\n\n";
+      const fmt = (arr) => arr.map(v => v.toString().padStart(3)).join(', ');
+      out += "static const face_mouth_kf_t s_ref_mouth[] = {\n";
+      M_BASE.forEach((b, i) => out += `    /* [${i}] */ { { ${fmt(b)} } },\n`);
+      out += "};\n\nstatic const face_eye_kf_t s_ref_eye[] = {\n";
+      E_BASE.forEach((b, i) => out += `    /* [${i}] */ { { ${fmt(b)} } },\n`);
+      out += "};\n\nstatic const face_brow_kf_t s_ref_brow[] = {\n";
+      B_BASE.forEach((b, i) => out += `    /* [${i}] */ { { ${fmt(b)} } },\n`);
+      out += "};\n\nstatic const face_emotion_t s_face_sequence[] = {\n";
+      EXPRESSIONS.forEach((ex) => {
+        out += `    { "${ex.name.padEnd(12)}", "${ex.cn.padEnd(8)}", ${ex.sm.toString().padStart(3)}, ${ex.hp.toString().padStart(3)}, ${ex.sd.toString().padStart(3)}, ${ex.su.toString().padStart(3)}, ${ex.an.toString().padStart(3)}, ${ex.lx.toString().padStart(3)}, ${ex.ly.toString().padStart(3)}, 30U },\n`;
+      });
+      out += "};\n";
+      txt.value = out; modal.style.display = 'block';
+    }
+
+    edCat.onchange = () => { selectedBaseIdx = null; updateEditorUI(); };
+    updateEditorUI();
+    requestAnimationFrame(tick);
+  </script>
+</body>
+
+</html>

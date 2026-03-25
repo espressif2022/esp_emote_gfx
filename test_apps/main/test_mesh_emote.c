@@ -360,8 +360,8 @@ static const test_mesh_emote_clip_t *test_mesh_emote_get_clip(size_t action_idx,
 }
 
 static test_mesh_emote_expr_t test_mesh_emote_lerp_expr(const test_mesh_emote_expr_t *from,
-                                                    const test_mesh_emote_expr_t *to,
-                                                    uint16_t t_permille)
+                                                        const test_mesh_emote_expr_t *to,
+                                                        uint16_t t_permille)
 {
     test_mesh_emote_expr_t expr = {0};
 
@@ -398,20 +398,20 @@ static test_mesh_emote_pose_t test_mesh_emote_expr_to_pose(const test_mesh_emote
     pose.gaze_y = test_mesh_emote_clamp_i16(expr->gaze_y, -180, 180);
 
     pose.stretch_x_permille = test_mesh_emote_clamp_i16((squint / 2) - (widen / 3) + (surprise / 4) + (smile / 5),
-                                                      -240, 240);
+                                                        -240, 240);
     pose.stretch_y_permille = test_mesh_emote_clamp_i16((widen / 2) + (surprise / 3) - blink - (sleepy / 2) - (squint / 3),
-                                                      -240, 240);
+                                                        -240, 240);
 
     pose.top_lid_y = test_mesh_emote_clamp_i16(blink + (sleepy / 2) + (sad / 2) + angry - (widen / 3) - (surprise / 3),
-                                             -48, 96);
+                                               -48, 96);
     pose.bottom_lid_y = test_mesh_emote_clamp_i16((blink * 3 / 4) + (smile / 2) + (squint / 2) + (sleepy / 5) + (angry / 4) - (widen / 5),
-                                                -48, 96);
+                                                  -48, 96);
     pose.side_inset_x = test_mesh_emote_clamp_i16((squint / 4) + (smile / 6) + (surprise / 8) + (angry / 4),
-                                                -48, 48);
+                                                  -48, 48);
     pose.tilt_y_permille = test_mesh_emote_clamp_i16((expr->gaze_x / 2) + (sad / 2) - (smile / 4) - angry,
-                                                   -120, 120);
+                                                     -120, 120);
     pose.center_lift_y = test_mesh_emote_clamp_i16(-(smile / 6) - (surprise / 10) - (sad / 3) + (sleepy / 5) - (expr->gaze_y / 16),
-                                                 -28, 28);
+                                                   -28, 28);
     return pose;
 }
 
@@ -436,7 +436,7 @@ static void test_mesh_emote_align_eye(test_mesh_emote_eye_t *eye)
 }
 
 static test_mesh_emote_pose_t test_mesh_emote_refine_pose_for_eye(const test_mesh_emote_eye_t *eye,
-                                                              const test_mesh_emote_pose_t *pose)
+                                                                  const test_mesh_emote_pose_t *pose)
 {
     test_mesh_emote_pose_t refined_pose;
     int32_t lateral_gaze;
@@ -463,18 +463,18 @@ static test_mesh_emote_pose_t test_mesh_emote_refine_pose_for_eye(const test_mes
     refined_pose.offset_x = test_mesh_emote_clamp_i16((int32_t)pose->offset_x + (eye_bias / 3), -40, 40);
 
     refined_pose.stretch_x_permille = test_mesh_emote_clamp_i16((int32_t)pose->stretch_x_permille + (lateral_focus / 2),
-                                                              -240, 240);
+                                                                -240, 240);
     refined_pose.side_inset_x = test_mesh_emote_clamp_i16((int32_t)pose->side_inset_x + (lateral_focus / 7) + (eye_bias / 2),
-                                                        -48, 48);
+                                                          -48, 48);
     refined_pose.tilt_y_permille = test_mesh_emote_clamp_i16((int32_t)pose->tilt_y_permille + ((lateral_gaze * eye->side_sign) / 6),
-                                                           -120, 120);
+                                                             -120, 120);
 
     refined_pose.top_lid_y = test_mesh_emote_clamp_i16((int32_t)pose->top_lid_y + (down_gaze / 3) - (up_gaze / 5) + (blink_bias / 2),
-                                                     -48, 96);
+                                                       -48, 96);
     refined_pose.bottom_lid_y = test_mesh_emote_clamp_i16((int32_t)pose->bottom_lid_y + (down_gaze / 5) - (up_gaze / 7) + (blink_bias / 3) + (lateral_focus / 12),
-                                                        -48, 96);
+                                                          -48, 96);
     refined_pose.center_lift_y = test_mesh_emote_clamp_i16((int32_t)pose->center_lift_y - (test_mesh_emote_abs_i32(vertical_gaze) / 8),
-                                                         -28, 28);
+                                                           -28, 28);
 
     return refined_pose;
 }
@@ -557,7 +557,7 @@ static esp_err_t test_mesh_emote_apply_pose_to_eye(test_mesh_emote_eye_t *eye, c
         dy += (rel_y * (int32_t)refined_pose.stretch_y_permille * center_x_weight) / 1000000;
 
         /* Radically decouple actual eyelid movements from base mesh geometry:
-           We allow a tiny 8% fleshy squash to sell the organic feel of the eye 
+           We allow a tiny 8% fleshy squash to sell the organic feel of the eye
            reacting to lid pressure, but the vector overlay handles 92% of the occlusion! */
         dy += (refined_pose.top_lid_y * top_weight * center_x_weight) / 12500000;
         dy -= (refined_pose.bottom_lid_y * bottom_weight * center_x_weight) / 12500000;
@@ -615,7 +615,7 @@ static int16_t test_mesh_emote_triangle_wave_i16(uint32_t tick, uint16_t period,
 }
 
 static test_mesh_emote_expr_t test_mesh_emote_apply_hold_motion(const test_mesh_emote_scene_t *scene,
-                                                            const test_mesh_emote_clip_t *clip)
+                                                                const test_mesh_emote_clip_t *clip)
 {
     test_mesh_emote_expr_t expr;
     int16_t primary_x;
@@ -627,11 +627,11 @@ static test_mesh_emote_expr_t test_mesh_emote_apply_hold_motion(const test_mesh_
 
     expr = clip->expr;
     primary_x = test_mesh_emote_triangle_wave_i16(scene->anim_tick, 42U,
-                                                (uint16_t)((scene->action_idx * 17U) + (scene->clip_idx * 5U)), 4);
+                                                  (uint16_t)((scene->action_idx * 17U) + (scene->clip_idx * 5U)), 4);
     primary_y = test_mesh_emote_triangle_wave_i16(scene->anim_tick, 56U,
-                                                (uint16_t)((scene->action_idx * 23U) + (scene->clip_idx * 7U)), 3);
+                                                  (uint16_t)((scene->action_idx * 23U) + (scene->clip_idx * 7U)), 3);
     secondary = test_mesh_emote_triangle_wave_i16(scene->anim_tick, 84U,
-                                                (uint16_t)((scene->action_idx * 31U) + (scene->clip_idx * 11U)), 12);
+                                                  (uint16_t)((scene->action_idx * 31U) + (scene->clip_idx * 11U)), 12);
 
     switch (clip->hold_motion_mode) {
     case TEST_MESH_EMOTE_EMOTE_HOLD_IDLE:
@@ -987,7 +987,7 @@ void test_mesh_emote_run_case(void)
 {
     test_app_runtime_t runtime;
 
-    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime));
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, TEST_APP_ASSETS_PARTITION_DEFAULT));
     test_mesh_emote_run();
     test_app_runtime_close(&runtime);
 }

@@ -151,7 +151,7 @@ static void test_timer_create_scene(test_timer_scene_t *scene)
 {
     const esp_timer_create_args_t ref_timer_args = {
         .callback = test_timer_ref_cb,
-        .arg = (void *)&scene->ref_counter,
+        .arg = (void *) &scene->ref_counter,
         .dispatch_method = ESP_TIMER_TASK,
         .name = "timer_ref",
         .skip_unhandled_events = false,
@@ -265,7 +265,7 @@ TEST_CASE("timer api", "[timer]")
 {
     test_app_runtime_t runtime;
 
-    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime));
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, TEST_APP_ASSETS_PARTITION_DEFAULT));
     test_timer_run();
     test_app_runtime_close(&runtime);
 }

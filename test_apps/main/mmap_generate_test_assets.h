@@ -14,7 +14,7 @@
 #include "esp_mmap_assets.h"
 
 #define MMAP_TEST_ASSETS_FILES           8
-#define MMAP_TEST_ASSETS_CHECKSUM        0x628B
+#define MMAP_TEST_ASSETS_CHECKSUM        0x22B9
 
 enum MMAP_TEST_ASSETS_LISTS {
     MMAP_TEST_ASSETS_ICON_RGB565_BIN = 0,        /*!< icon_rgb565.bin */
