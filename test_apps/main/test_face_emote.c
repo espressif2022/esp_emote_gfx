@@ -15,8 +15,11 @@
 
 static const char *TAG = "test_face_emote";
 
+// #define TEST_APP_FACE_EMOTE_LAYOUT_REF_X  ((BSP_LCD_H_RES) * 2 / 3)
+// #define TEST_APP_FACE_EMOTE_LAYOUT_REF_Y  ((BSP_LCD_V_RES) * 3 / 2)
+
 #define TEST_APP_FACE_EMOTE_LAYOUT_REF_X  ((BSP_LCD_H_RES) * 2 / 3)
-#define TEST_APP_FACE_EMOTE_LAYOUT_REF_Y  ((BSP_LCD_V_RES) * 3 / 2)
+#define TEST_APP_FACE_EMOTE_LAYOUT_REF_Y  ((BSP_LCD_V_RES) * 3 / 3)
 
 #include "face_emote_expr_assets.inc"
 

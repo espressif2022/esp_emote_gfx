@@ -446,69 +446,82 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
                 }
             }
 
+            /*
+             * Build the 4 quad corners: TL, TR, BR, BL.
+             * Then pick the shorter diagonal to avoid gaps when miter
+             * joins make the quad non-convex at sharp stroke corners.
+             */
+            gfx_sw_blend_img_vertex_t qv[4];
             gfx_sw_blend_img_vertex_t tri1[3];
             gfx_sw_blend_img_vertex_t tri2[3];
+            uint8_t ie1, ie2;
+            bool alt_diag;
+
+            qv[0].x = origin_x_q8 + mesh->points[idx00].x_q8;
+            qv[0].y = origin_y_q8 + mesh->points[idx00].y_q8;
+            qv[0].u = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx00].x_q8);
+            qv[0].v = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx00].y_q8);
+
+            qv[1].x = origin_x_q8 + mesh->points[idx10].x_q8;
+            qv[1].y = origin_y_q8 + mesh->points[idx10].y_q8;
+            qv[1].u = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx10].x_q8);
+            qv[1].v = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx10].y_q8);
+
+            qv[2].x = origin_x_q8 + mesh->points[idx11].x_q8;
+            qv[2].y = origin_y_q8 + mesh->points[idx11].y_q8;
+            qv[2].u = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx11].x_q8);
+            qv[2].v = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx11].y_q8);
+
+            qv[3].x = origin_x_q8 + mesh->points[idx01].x_q8;
+            qv[3].y = origin_y_q8 + mesh->points[idx01].y_q8;
+            qv[3].u = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx01].x_q8);
+            qv[3].v = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx01].y_q8);
+
+            {
+                int64_t dx1 = (int64_t)qv[0].x - qv[2].x;
+                int64_t dy1 = (int64_t)qv[0].y - qv[2].y;
+                int64_t dx2 = (int64_t)qv[1].x - qv[3].x;
+                int64_t dy2 = (int64_t)qv[1].y - qv[3].y;
+                alt_diag = (dx2 * dx2 + dy2 * dy2 < dx1 * dx1 + dy1 * dy1);
+            }
 
             /*
-             * Internal-edge masks: suppress AA on edges shared with a
+             * Internal-edge masks — suppress AA on edges shared with a
              * neighbouring triangle to prevent dark-seam artefacts.
              *
-             * Tri1 (v0=TL, v1=TR, v2=BR):
-             *   edge 0 (TR→BR) = right  — internal when col+1 < cols
-             *   edge 1 (BR→TL) = diag   — always internal
-             *   edge 2 (TL→TR) = top    — internal when row > 0
+             * Default diagonal TL→BR:
+             *   Tri1 (TL,TR,BR): e0=right, e1=diag, e2=top
+             *   Tri2 (TL,BR,BL): e0=bottom, e1=left, e2=diag
              *
-             * Tri2 (v0=TL, v1=BR, v2=BL):
-             *   edge 0 (BR→BL) = bottom — internal when row+1 < rows
-             *   edge 1 (BL→TL) = left   — internal when col > 0
-             *   edge 2 (TL→BR) = diag   — always internal
+             * Alt diagonal TR→BL:
+             *   Tri1 (TR,BL,TL): e0=left, e1=top, e2=diag
+             *   Tri2 (TR,BR,BL): e0=bottom, e1=diag, e2=right
              */
-            uint8_t ie1 = 0x02;
-            uint8_t ie2 = 0x04;
-            if (col + 1U < mesh->grid_cols || mesh->wrap_cols) { ie1 |= 0x01; }
-            if (row > 0U)                                      { ie1 |= 0x04; }
-            if (row + 1U < mesh->grid_rows)                    { ie2 |= 0x01; }
-            if (col > 0U || mesh->wrap_cols)                   { ie2 |= 0x02; }
+            if (!alt_diag) {
+                tri1[0] = qv[0]; tri1[1] = qv[1]; tri1[2] = qv[2];
+                tri2[0] = qv[0]; tri2[1] = qv[2]; tri2[2] = qv[3];
+                ie1 = 0x02;
+                ie2 = 0x04;
+                if (col + 1U < mesh->grid_cols || mesh->wrap_cols) { ie1 |= 0x01; }
+                if (row > 0U)                                      { ie1 |= 0x04; }
+                if (row + 1U < mesh->grid_rows)                    { ie2 |= 0x01; }
+                if (col > 0U || mesh->wrap_cols)                   { ie2 |= 0x02; }
+            } else {
+                tri1[0] = qv[1]; tri1[1] = qv[3]; tri1[2] = qv[0];
+                tri2[0] = qv[1]; tri2[1] = qv[2]; tri2[2] = qv[3];
+                ie1 = 0x04;
+                ie2 = 0x02;
+                if (col > 0U || mesh->wrap_cols)                   { ie1 |= 0x01; }
+                if (row > 0U)                                      { ie1 |= 0x02; }
+                if (row + 1U < mesh->grid_rows)                    { ie2 |= 0x01; }
+                if (col + 1U < mesh->grid_cols || mesh->wrap_cols) { ie2 |= 0x04; }
+            }
             if (mesh->aa_inward) { ie1 |= GFX_BLEND_TRI_AA_INWARD; ie2 |= GFX_BLEND_TRI_AA_INWARD; }
 
-            /* --------- Triangle 1 --------- */
-            tri1[0].x = origin_x_q8 + mesh->points[idx00].x_q8;
-            tri1[0].y = origin_y_q8 + mesh->points[idx00].y_q8;
-            tri1[0].u = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx00].x_q8);
-            tri1[0].v = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx00].y_q8);
-
-            tri1[1].x = origin_x_q8 + mesh->points[idx10].x_q8;
-            tri1[1].y = origin_y_q8 + mesh->points[idx10].y_q8;
-            tri1[1].u = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx10].x_q8);
-            tri1[1].v = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx10].y_q8);
-
-            tri1[2].x = origin_x_q8 + mesh->points[idx11].x_q8;
-            tri1[2].y = origin_y_q8 + mesh->points[idx11].y_q8;
-            tri1[2].u = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx11].x_q8);
-            tri1[2].v = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx11].y_q8);
-
-            /* --------- Triangle 2 --------- */
-            tri2[0].x = origin_x_q8 + mesh->points[idx00].x_q8;
-            tri2[0].y = origin_y_q8 + mesh->points[idx00].y_q8;
-            tri2[0].u = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx00].x_q8);
-            tri2[0].v = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx00].y_q8);
-
-            tri2[1].x = origin_x_q8 + mesh->points[idx11].x_q8;
-            tri2[1].y = origin_y_q8 + mesh->points[idx11].y_q8;
-            tri2[1].u = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx11].x_q8);
-            tri2[1].v = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx11].y_q8);
-
-            tri2[2].x = origin_x_q8 + mesh->points[idx01].x_q8;
-            tri2[2].y = origin_y_q8 + mesh->points[idx01].y_q8;
-            tri2[2].u = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx01].x_q8);
-            tri2[2].v = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx01].y_q8);
-
             /*
-             * For inward AA, each triangle needs extra edges from the sibling
-             * triangle's non-internal outer edges.  Without these, a pixel
-             * near the top edge that falls inside Tri2 won't fade (Tri2 has
-             * no knowledge of the top edge), producing visible diagonal-seam
-             * artifacts ("毛刺").
+             * Extra AA edges: each triangle receives the sibling's
+             * non-internal outer edges so inward AA fades correctly
+             * across the whole quad boundary.
              */
             gfx_sw_blend_aa_edge_t xaa1[GFX_BLEND_MAX_EXTRA_AA_EDGES];
             gfx_sw_blend_aa_edge_t xaa2[GFX_BLEND_MAX_EXTRA_AA_EDGES];
@@ -516,57 +529,81 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 
             if (mesh->aa_inward) {
                 int32_t ax, ay, bx, by, ea, eb;
-                /* Tri1 needs bottom edge (BR→BL) if it's non-internal */
-                if (!(ie2 & 0x01)) {
-                    ax = tri2[1].x; ay = tri2[1].y;
-                    bx = tri2[2].x; by = tri2[2].y;
-                    ea = by - ay; eb = ax - bx;
-                    xaa1[xaa1_n].a = ea;
-                    xaa1[xaa1_n].b = eb;
-                    xaa1[xaa1_n].len = gfx_mesh_img_isqrt64((uint64_t)((int64_t)ea * ea + (int64_t)eb * eb));
-                    if (xaa1[xaa1_n].len < 1) { xaa1[xaa1_n].len = 1; }
-                    xaa1[xaa1_n].vx = ax;
-                    xaa1[xaa1_n].vy = ay;
-                    xaa1_n++;
-                }
-                /* Tri1 needs left edge (BL→TL) if it's non-internal */
-                if (!(ie2 & 0x02) && xaa1_n < GFX_BLEND_MAX_EXTRA_AA_EDGES) {
-                    ax = tri2[2].x; ay = tri2[2].y;
-                    bx = tri2[0].x; by = tri2[0].y;
-                    ea = by - ay; eb = ax - bx;
-                    xaa1[xaa1_n].a = ea;
-                    xaa1[xaa1_n].b = eb;
-                    xaa1[xaa1_n].len = gfx_mesh_img_isqrt64((uint64_t)((int64_t)ea * ea + (int64_t)eb * eb));
-                    if (xaa1[xaa1_n].len < 1) { xaa1[xaa1_n].len = 1; }
-                    xaa1[xaa1_n].vx = ax;
-                    xaa1[xaa1_n].vy = ay;
-                    xaa1_n++;
-                }
-                /* Tri2 needs top edge (TL→TR) if it's non-internal */
-                if (!(ie1 & 0x04)) {
-                    ax = tri1[0].x; ay = tri1[0].y;
-                    bx = tri1[1].x; by = tri1[1].y;
-                    ea = by - ay; eb = ax - bx;
-                    xaa2[xaa2_n].a = ea;
-                    xaa2[xaa2_n].b = eb;
-                    xaa2[xaa2_n].len = gfx_mesh_img_isqrt64((uint64_t)((int64_t)ea * ea + (int64_t)eb * eb));
-                    if (xaa2[xaa2_n].len < 1) { xaa2[xaa2_n].len = 1; }
-                    xaa2[xaa2_n].vx = ax;
-                    xaa2[xaa2_n].vy = ay;
-                    xaa2_n++;
-                }
-                /* Tri2 needs right edge (TR→BR) if it's non-internal */
-                if (!(ie1 & 0x01) && xaa2_n < GFX_BLEND_MAX_EXTRA_AA_EDGES) {
-                    ax = tri1[1].x; ay = tri1[1].y;
-                    bx = tri1[2].x; by = tri1[2].y;
-                    ea = by - ay; eb = ax - bx;
-                    xaa2[xaa2_n].a = ea;
-                    xaa2[xaa2_n].b = eb;
-                    xaa2[xaa2_n].len = gfx_mesh_img_isqrt64((uint64_t)((int64_t)ea * ea + (int64_t)eb * eb));
-                    if (xaa2[xaa2_n].len < 1) { xaa2[xaa2_n].len = 1; }
-                    xaa2[xaa2_n].vx = ax;
-                    xaa2[xaa2_n].vy = ay;
-                    xaa2_n++;
+
+                if (!alt_diag) {
+                    if (!(ie2 & 0x01)) {
+                        ax = qv[2].x; ay = qv[2].y; bx = qv[3].x; by = qv[3].y;
+                        ea = by - ay; eb = ax - bx;
+                        xaa1[xaa1_n].a = ea; xaa1[xaa1_n].b = eb;
+                        xaa1[xaa1_n].len = gfx_mesh_img_isqrt64((uint64_t)((int64_t)ea * ea + (int64_t)eb * eb));
+                        if (xaa1[xaa1_n].len < 1) { xaa1[xaa1_n].len = 1; }
+                        xaa1[xaa1_n].vx = ax; xaa1[xaa1_n].vy = ay;
+                        xaa1_n++;
+                    }
+                    if (!(ie2 & 0x02) && xaa1_n < GFX_BLEND_MAX_EXTRA_AA_EDGES) {
+                        ax = qv[3].x; ay = qv[3].y; bx = qv[0].x; by = qv[0].y;
+                        ea = by - ay; eb = ax - bx;
+                        xaa1[xaa1_n].a = ea; xaa1[xaa1_n].b = eb;
+                        xaa1[xaa1_n].len = gfx_mesh_img_isqrt64((uint64_t)((int64_t)ea * ea + (int64_t)eb * eb));
+                        if (xaa1[xaa1_n].len < 1) { xaa1[xaa1_n].len = 1; }
+                        xaa1[xaa1_n].vx = ax; xaa1[xaa1_n].vy = ay;
+                        xaa1_n++;
+                    }
+                    if (!(ie1 & 0x04)) {
+                        ax = qv[0].x; ay = qv[0].y; bx = qv[1].x; by = qv[1].y;
+                        ea = by - ay; eb = ax - bx;
+                        xaa2[xaa2_n].a = ea; xaa2[xaa2_n].b = eb;
+                        xaa2[xaa2_n].len = gfx_mesh_img_isqrt64((uint64_t)((int64_t)ea * ea + (int64_t)eb * eb));
+                        if (xaa2[xaa2_n].len < 1) { xaa2[xaa2_n].len = 1; }
+                        xaa2[xaa2_n].vx = ax; xaa2[xaa2_n].vy = ay;
+                        xaa2_n++;
+                    }
+                    if (!(ie1 & 0x01) && xaa2_n < GFX_BLEND_MAX_EXTRA_AA_EDGES) {
+                        ax = qv[1].x; ay = qv[1].y; bx = qv[2].x; by = qv[2].y;
+                        ea = by - ay; eb = ax - bx;
+                        xaa2[xaa2_n].a = ea; xaa2[xaa2_n].b = eb;
+                        xaa2[xaa2_n].len = gfx_mesh_img_isqrt64((uint64_t)((int64_t)ea * ea + (int64_t)eb * eb));
+                        if (xaa2[xaa2_n].len < 1) { xaa2[xaa2_n].len = 1; }
+                        xaa2[xaa2_n].vx = ax; xaa2[xaa2_n].vy = ay;
+                        xaa2_n++;
+                    }
+                } else {
+                    if (!(ie2 & 0x01)) {
+                        ax = qv[2].x; ay = qv[2].y; bx = qv[3].x; by = qv[3].y;
+                        ea = by - ay; eb = ax - bx;
+                        xaa1[xaa1_n].a = ea; xaa1[xaa1_n].b = eb;
+                        xaa1[xaa1_n].len = gfx_mesh_img_isqrt64((uint64_t)((int64_t)ea * ea + (int64_t)eb * eb));
+                        if (xaa1[xaa1_n].len < 1) { xaa1[xaa1_n].len = 1; }
+                        xaa1[xaa1_n].vx = ax; xaa1[xaa1_n].vy = ay;
+                        xaa1_n++;
+                    }
+                    if (!(ie2 & 0x04) && xaa1_n < GFX_BLEND_MAX_EXTRA_AA_EDGES) {
+                        ax = qv[1].x; ay = qv[1].y; bx = qv[2].x; by = qv[2].y;
+                        ea = by - ay; eb = ax - bx;
+                        xaa1[xaa1_n].a = ea; xaa1[xaa1_n].b = eb;
+                        xaa1[xaa1_n].len = gfx_mesh_img_isqrt64((uint64_t)((int64_t)ea * ea + (int64_t)eb * eb));
+                        if (xaa1[xaa1_n].len < 1) { xaa1[xaa1_n].len = 1; }
+                        xaa1[xaa1_n].vx = ax; xaa1[xaa1_n].vy = ay;
+                        xaa1_n++;
+                    }
+                    if (!(ie1 & 0x01)) {
+                        ax = qv[3].x; ay = qv[3].y; bx = qv[0].x; by = qv[0].y;
+                        ea = by - ay; eb = ax - bx;
+                        xaa2[xaa2_n].a = ea; xaa2[xaa2_n].b = eb;
+                        xaa2[xaa2_n].len = gfx_mesh_img_isqrt64((uint64_t)((int64_t)ea * ea + (int64_t)eb * eb));
+                        if (xaa2[xaa2_n].len < 1) { xaa2[xaa2_n].len = 1; }
+                        xaa2[xaa2_n].vx = ax; xaa2[xaa2_n].vy = ay;
+                        xaa2_n++;
+                    }
+                    if (!(ie1 & 0x02) && xaa2_n < GFX_BLEND_MAX_EXTRA_AA_EDGES) {
+                        ax = qv[0].x; ay = qv[0].y; bx = qv[1].x; by = qv[1].y;
+                        ea = by - ay; eb = ax - bx;
+                        xaa2[xaa2_n].a = ea; xaa2[xaa2_n].b = eb;
+                        xaa2[xaa2_n].len = gfx_mesh_img_isqrt64((uint64_t)((int64_t)ea * ea + (int64_t)eb * eb));
+                        if (xaa2[xaa2_n].len < 1) { xaa2[xaa2_n].len = 1; }
+                        xaa2[xaa2_n].vx = ax; xaa2[xaa2_n].vy = ay;
+                        xaa2_n++;
+                    }
                 }
             }
 

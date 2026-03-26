@@ -361,6 +361,29 @@ static esp_err_t gfx_face_emote_apply_bezier_stroke(gfx_obj_t *obj,
                 if (denom == 0) { denom = 1; }
                 nx_q8 = (int32_t)(bis_x * thick_q8 / denom);
                 ny_q8 = (int32_t)(bis_y * thick_q8 / denom);
+
+                /* Near-180° corners collapse the bisector to near-zero.
+                 * Clamp the minimum offset magnitude to thick_q8 so the
+                 * stroke never shrinks below its specified width. */
+                {
+                    int64_t n_sq = (int64_t)nx_q8 * nx_q8 + (int64_t)ny_q8 * ny_q8;
+                    int64_t thick_sq = (int64_t)thick_q8 * thick_q8;
+                    if (n_sq < thick_sq) {
+                        if (n_sq > 0) {
+                            int32_t n_len = gfx_face_emote_isqrt_i64((uint64_t)n_sq);
+                            if (n_len > 0) {
+                                nx_q8 = (int32_t)((int64_t)nx_q8 * thick_q8 / n_len);
+                                ny_q8 = (int32_t)((int64_t)ny_q8 * thick_q8 / n_len);
+                            } else {
+                                nx_q8 = (int32_t)(-(int64_t)dy_in * thick_q8 / len_in);
+                                ny_q8 = (int32_t)( (int64_t)dx_in * thick_q8 / len_in);
+                            }
+                        } else {
+                            nx_q8 = (int32_t)(-(int64_t)dy_in * thick_q8 / len_in);
+                            ny_q8 = (int32_t)( (int64_t)dx_in * thick_q8 / len_in);
+                        }
+                    }
+                }
             } else if (len_in > 0) {
                 nx_q8 = (int32_t)(-(int64_t)dy_in * thick_q8 / len_in);
                 ny_q8 = (int32_t)( (int64_t)dx_in * thick_q8 / len_in);
@@ -764,9 +787,11 @@ gfx_obj_t *gfx_face_emote_create(gfx_disp_t *disp, uint16_t layout_ref_x, uint16
 
     {
         gfx_color_t white;
-        white.full = 0xFFFF;
-        gfx_mesh_img_set_scanline_fill(face->mouth_obj, true, white);
-        gfx_mesh_img_set_scanline_fill(face->left_brow_obj, true, white);
+        // white.full = 0xFFFF;
+        white.full = 0x001F;
+
+        gfx_mesh_img_set_scanline_fill(face->mouth_obj, false, white);
+        gfx_mesh_img_set_scanline_fill(face->left_brow_obj, false, white);
         gfx_mesh_img_set_scanline_fill(face->right_brow_obj, true, white);
     }
 
