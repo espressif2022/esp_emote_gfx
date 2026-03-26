@@ -101,7 +101,7 @@ esp_err_t gfx_anim_set_segments(gfx_obj_t *obj, const gfx_anim_segment_t *segmen
  * @return ESP_OK on success, ESP_ERR_NOT_FOUND if there is no remaining work,
  *         or another ESP_ERR_* code on failure
  */
-esp_err_t gfx_anim_drain_plan_blocking(gfx_obj_t *obj);
+esp_err_t gfx_anim_play_left_to_tail(gfx_obj_t *obj);
 
 /**
  * @brief Start the animation

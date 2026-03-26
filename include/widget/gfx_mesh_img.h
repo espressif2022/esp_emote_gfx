@@ -49,6 +49,40 @@ esp_err_t gfx_mesh_img_set_rest_points_q8(gfx_obj_t *obj, const gfx_mesh_img_poi
 esp_err_t gfx_mesh_img_reset_points(gfx_obj_t *obj);
 esp_err_t gfx_mesh_img_set_ctrl_points_visible(gfx_obj_t *obj, bool visible);
 
+/**
+ * @brief Enable inward-only edge anti-aliasing.
+ *
+ * When enabled, outer edges of this mesh fade from full opacity to transparent
+ * towards the geometric boundary (inside the triangle) instead of drawing
+ * semi-transparent pixels outside. Prevents visible "bleed" on thin strokes.
+ *
+ * @param obj   Mesh image object.
+ * @param inward true = inward AA (no outward bleed); false = default outward AA.
+ */
+esp_err_t gfx_mesh_img_set_aa_inward(gfx_obj_t *obj, bool inward);
+
+/**
+ * @brief Treat first and last grid columns as adjacent (closed strip).
+ *
+ * When enabled, the left edge of the first column and the right edge of the
+ * last column are marked as internal (shared), so edge AA does not fade them
+ * to transparent. Use for closed stroke paths where the strip endpoints
+ * coincide geometrically.
+ */
+esp_err_t gfx_mesh_img_set_wrap_cols(gfx_obj_t *obj, bool wrap);
+
+/**
+ * @brief Use scanline polygon fill instead of triangle rasterization.
+ *
+ * When enabled (grid_rows must be 1), the mesh outline is filled as a closed
+ * polygon using a scanline rasterizer with edge AA.  No texture mapping —
+ * fills with a solid color.  Avoids diagonal-seam artifacts inherent in
+ * per-triangle inward AA.
+ *
+ * @param fill_color  Solid fill color (typically white for strokes).
+ */
+esp_err_t gfx_mesh_img_set_scanline_fill(gfx_obj_t *obj, bool enable, gfx_color_t fill_color);
+
 #ifdef __cplusplus
 }
 #endif

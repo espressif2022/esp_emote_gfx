@@ -7,7 +7,9 @@ dependencies:
     override_path: ../../
 
   esp_mmap_assets:
-    version: 1.*
+    # version: 1.*
+    version: "*"
+    override_path: /home/xuxin/xuxin/esp-iot-solution-sensor-MR/components/display/tools/esp_mmap_assets
 
   # espressif/esp-box:
   espressif/esp_vocat:

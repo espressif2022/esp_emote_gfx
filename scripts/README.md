@@ -227,12 +227,12 @@ SPDX-License-Identifier: Apache-2.0
 1. 打开 `test_apps/face_expressions_vivid.html`
 2. 在页面里调整 base geometry 和 expression library
 3. 点击 `Export .inc Code`
-4. 将导出的内容覆盖到 `test_apps/main/test_mouth_model_keyframes.inc`
+4. 将导出的内容覆盖到 `test_apps/main/face_emote_expr_assets.inc`
 5. 重新编译 `test_apps`
 
 ### 导出目标
 
-- `test_apps/main/test_mouth_model_keyframes.inc`
+- `test_apps/main/face_emote_expr_assets.inc`
   - `s_ref_eye`
   - `s_ref_brow`
   - `s_ref_mouth`

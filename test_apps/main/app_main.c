@@ -47,6 +47,6 @@ void app_main(void)
     // test_benchmark_run_case();
 
     // test_mesh_bulge_run_case();
-    test_mesh_drag_run_case();
-    // test_face_emote_run_case();
+    // test_mesh_drag_run_case();
+    test_face_emote_run_case();
 }

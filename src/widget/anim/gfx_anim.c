@@ -1058,7 +1058,7 @@ esp_err_t gfx_anim_set_segments(gfx_obj_t *obj, const gfx_anim_segment_t *segmen
     return gfx_anim_apply_segment(obj, anim, &anim->segments[0], 0U);
 }
 
-esp_err_t gfx_anim_drain_plan_blocking(gfx_obj_t *obj)
+esp_err_t gfx_anim_play_left_to_tail(gfx_obj_t *obj)
 {
     EventBits_t bits;
     gfx_anim_t *anim;

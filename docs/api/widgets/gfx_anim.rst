@@ -96,14 +96,14 @@ Set a segment playback plan for an animation object
 
 * ESP_OK on success, error code otherwise
 
-gfx_anim_drain_plan_blocking()
+gfx_anim_play_left_to_tail()
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Drain the remaining segment plan and block until playback finishes
 
 .. code-block:: c
 
-   esp_err_t gfx_anim_drain_plan_blocking(gfx_obj_t *obj);
+   esp_err_t gfx_anim_play_left_to_tail(gfx_obj_t *obj);
 
 **Parameters:**
 

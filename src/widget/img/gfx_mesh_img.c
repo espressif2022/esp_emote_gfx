@@ -16,6 +16,7 @@
 #define GFX_LOG_MODULE GFX_LOG_MODULE_IMG
 #include "common/gfx_log_priv.h"
 #include "common/gfx_comm.h"
+#include "common/gfx_mesh_frac.h"
 #include "core/display/gfx_refr_priv.h"
 #include "core/draw/gfx_blend_priv.h"
 #include "core/draw/gfx_sw_draw_priv.h"
@@ -31,8 +32,8 @@
 #define GFX_MESH_IMG_DEFAULT_COLS      1U
 #define GFX_MESH_IMG_DEFAULT_ROWS      1U
 #define GFX_MESH_IMG_CTRL_POINT_RADIUS 2
-#define GFX_MESH_IMG_Q8_SHIFT          8
-#define GFX_MESH_IMG_Q8_ONE            (1 << GFX_MESH_IMG_Q8_SHIFT)
+#define GFX_MESH_IMG_Q8_SHIFT          GFX_MESH_FRAC_SHIFT
+#define GFX_MESH_IMG_Q8_ONE            GFX_MESH_FRAC_ONE
 
 /**********************
  *      TYPEDEFS
@@ -55,6 +56,10 @@ typedef struct {
     size_t point_count;
     gfx_mesh_img_point_q8_t *rest_points;
     gfx_mesh_img_point_q8_t *points;
+    bool aa_inward;
+    bool wrap_cols;
+    bool scanline_fill;
+    gfx_color_t scanline_color;
 } gfx_mesh_img_t;
 
 /**********************
@@ -113,6 +118,20 @@ static inline gfx_coord_t gfx_mesh_img_round_q8_to_coord(int32_t value_q8)
         return (gfx_coord_t)((value_q8 + (GFX_MESH_IMG_Q8_ONE / 2)) >> GFX_MESH_IMG_Q8_SHIFT);
     }
     return (gfx_coord_t)(-(((-value_q8) + (GFX_MESH_IMG_Q8_ONE / 2)) >> GFX_MESH_IMG_Q8_SHIFT));
+}
+
+static int32_t gfx_mesh_img_isqrt64(uint64_t value)
+{
+    uint64_t op, res, one;
+    if (value <= 1U) { return (int32_t)value; }
+    op = value; res = 0U; one = 1ULL << 62;
+    while (one > op) { one >>= 2; }
+    while (one != 0U) {
+        if (op >= res + one) { op -= res + one; res = (res >> 1) + one; }
+        else { res >>= 1; }
+        one >>= 2;
+    }
+    return (int32_t)res;
 }
 
 static void gfx_mesh_img_free_points(gfx_mesh_img_t *mesh)
@@ -375,6 +394,33 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
                                          (size_t)src_stride * src_height * GFX_PIXEL_SIZE_16BPP);
     }
 
+    if (mesh->scanline_fill && mesh->grid_rows == 1U && mesh->points != NULL) {
+        int cols = mesh->grid_cols;
+        int poly_n = (cols + 1) * 2;
+        int32_t pvx[512];
+        int32_t pvy[512];
+
+        if (poly_n <= 512) {
+            for (int c = 0; c <= cols; c++) {
+                pvx[c] = origin_x_q8 + mesh->points[c].x_q8;
+                pvy[c] = origin_y_q8 + mesh->points[c].y_q8;
+            }
+            for (int c = 0; c <= cols; c++) {
+                int src_idx = 2 * cols + 1 - c;
+                pvx[cols + 1 + c] = origin_x_q8 + mesh->points[src_idx].x_q8;
+                pvy[cols + 1 + c] = origin_y_q8 + mesh->points[src_idx].y_q8;
+            }
+            gfx_sw_blend_polygon_fill((gfx_color_t *)ctx->buf, ctx->stride,
+                                      &ctx->buf_area, &clip_area,
+                                      mesh->scanline_color,
+                                      pvx, pvy, poly_n, ctx->swap);
+        }
+
+        gfx_mesh_img_draw_ctrl_points(obj, ctx, mesh);
+        gfx_image_decoder_close(&decoder_dsc);
+        return ESP_OK;
+    }
+
     for (uint8_t row = 0; row < mesh->grid_rows; row++) {
         size_t row_offset = (size_t)row * (mesh->grid_cols + 1U);
 
@@ -419,10 +465,11 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
              */
             uint8_t ie1 = 0x02;
             uint8_t ie2 = 0x04;
-            if (col + 1U < mesh->grid_cols) { ie1 |= 0x01; }
-            if (row > 0U)                   { ie1 |= 0x04; }
-            if (row + 1U < mesh->grid_rows) { ie2 |= 0x01; }
-            if (col > 0U)                   { ie2 |= 0x02; }
+            if (col + 1U < mesh->grid_cols || mesh->wrap_cols) { ie1 |= 0x01; }
+            if (row > 0U)                                      { ie1 |= 0x04; }
+            if (row + 1U < mesh->grid_rows)                    { ie2 |= 0x01; }
+            if (col > 0U || mesh->wrap_cols)                   { ie2 |= 0x02; }
+            if (mesh->aa_inward) { ie1 |= GFX_BLEND_TRI_AA_INWARD; ie2 |= GFX_BLEND_TRI_AA_INWARD; }
 
             /* --------- Triangle 1 --------- */
             tri1[0].x = origin_x_q8 + mesh->points[idx00].x_q8;
@@ -456,18 +503,89 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
             tri2[2].u = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx01].x_q8);
             tri2[2].v = gfx_mesh_img_round_q8_to_coord(mesh->rest_points[idx01].y_q8);
 
+            /*
+             * For inward AA, each triangle needs extra edges from the sibling
+             * triangle's non-internal outer edges.  Without these, a pixel
+             * near the top edge that falls inside Tri2 won't fade (Tri2 has
+             * no knowledge of the top edge), producing visible diagonal-seam
+             * artifacts ("毛刺").
+             */
+            gfx_sw_blend_aa_edge_t xaa1[GFX_BLEND_MAX_EXTRA_AA_EDGES];
+            gfx_sw_blend_aa_edge_t xaa2[GFX_BLEND_MAX_EXTRA_AA_EDGES];
+            uint8_t xaa1_n = 0, xaa2_n = 0;
+
+            if (mesh->aa_inward) {
+                int32_t ax, ay, bx, by, ea, eb;
+                /* Tri1 needs bottom edge (BR→BL) if it's non-internal */
+                if (!(ie2 & 0x01)) {
+                    ax = tri2[1].x; ay = tri2[1].y;
+                    bx = tri2[2].x; by = tri2[2].y;
+                    ea = by - ay; eb = ax - bx;
+                    xaa1[xaa1_n].a = ea;
+                    xaa1[xaa1_n].b = eb;
+                    xaa1[xaa1_n].len = gfx_mesh_img_isqrt64((uint64_t)((int64_t)ea * ea + (int64_t)eb * eb));
+                    if (xaa1[xaa1_n].len < 1) { xaa1[xaa1_n].len = 1; }
+                    xaa1[xaa1_n].vx = ax;
+                    xaa1[xaa1_n].vy = ay;
+                    xaa1_n++;
+                }
+                /* Tri1 needs left edge (BL→TL) if it's non-internal */
+                if (!(ie2 & 0x02) && xaa1_n < GFX_BLEND_MAX_EXTRA_AA_EDGES) {
+                    ax = tri2[2].x; ay = tri2[2].y;
+                    bx = tri2[0].x; by = tri2[0].y;
+                    ea = by - ay; eb = ax - bx;
+                    xaa1[xaa1_n].a = ea;
+                    xaa1[xaa1_n].b = eb;
+                    xaa1[xaa1_n].len = gfx_mesh_img_isqrt64((uint64_t)((int64_t)ea * ea + (int64_t)eb * eb));
+                    if (xaa1[xaa1_n].len < 1) { xaa1[xaa1_n].len = 1; }
+                    xaa1[xaa1_n].vx = ax;
+                    xaa1[xaa1_n].vy = ay;
+                    xaa1_n++;
+                }
+                /* Tri2 needs top edge (TL→TR) if it's non-internal */
+                if (!(ie1 & 0x04)) {
+                    ax = tri1[0].x; ay = tri1[0].y;
+                    bx = tri1[1].x; by = tri1[1].y;
+                    ea = by - ay; eb = ax - bx;
+                    xaa2[xaa2_n].a = ea;
+                    xaa2[xaa2_n].b = eb;
+                    xaa2[xaa2_n].len = gfx_mesh_img_isqrt64((uint64_t)((int64_t)ea * ea + (int64_t)eb * eb));
+                    if (xaa2[xaa2_n].len < 1) { xaa2[xaa2_n].len = 1; }
+                    xaa2[xaa2_n].vx = ax;
+                    xaa2[xaa2_n].vy = ay;
+                    xaa2_n++;
+                }
+                /* Tri2 needs right edge (TR→BR) if it's non-internal */
+                if (!(ie1 & 0x01) && xaa2_n < GFX_BLEND_MAX_EXTRA_AA_EDGES) {
+                    ax = tri1[1].x; ay = tri1[1].y;
+                    bx = tri1[2].x; by = tri1[2].y;
+                    ea = by - ay; eb = ax - bx;
+                    xaa2[xaa2_n].a = ea;
+                    xaa2[xaa2_n].b = eb;
+                    xaa2[xaa2_n].len = gfx_mesh_img_isqrt64((uint64_t)((int64_t)ea * ea + (int64_t)eb * eb));
+                    if (xaa2[xaa2_n].len < 1) { xaa2[xaa2_n].len = 1; }
+                    xaa2[xaa2_n].vx = ax;
+                    xaa2[xaa2_n].vy = ay;
+                    xaa2_n++;
+                }
+            }
+
             gfx_sw_blend_img_triangle_draw((gfx_color_t *)ctx->buf, ctx->stride,
                                            &ctx->buf_area, &clip_area,
                                            src_pixels, src_stride, src_height,
                                            alpha_mask, alpha_mask ? src_stride : 0,
                                            &tri1[0], &tri1[1], &tri1[2],
-                                           ie1, ctx->swap);
+                                           ie1,
+                                           xaa1_n ? xaa1 : NULL, xaa1_n,
+                                           ctx->swap);
             gfx_sw_blend_img_triangle_draw((gfx_color_t *)ctx->buf, ctx->stride,
                                            &ctx->buf_area, &clip_area,
                                            src_pixels, src_stride, src_height,
                                            alpha_mask, alpha_mask ? src_stride : 0,
                                            &tri2[0], &tri2[1], &tri2[2],
-                                           ie2, ctx->swap);
+                                           ie2,
+                                           xaa2_n ? xaa2 : NULL, xaa2_n,
+                                           ctx->swap);
         }
     }
 
@@ -785,6 +903,46 @@ esp_err_t gfx_mesh_img_set_ctrl_points_visible(gfx_obj_t *obj, bool visible)
     ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh ctrl points visible: state is NULL");
 
     mesh->ctrl_points_visible = visible;
+    gfx_obj_invalidate(obj);
+    return ESP_OK;
+}
+
+esp_err_t gfx_mesh_img_set_aa_inward(gfx_obj_t *obj, bool inward)
+{
+    gfx_mesh_img_t *mesh;
+
+    CHECK_OBJ_TYPE_MESH_IMAGE(obj);
+    mesh = (gfx_mesh_img_t *)obj->src;
+    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh aa inward: state is NULL");
+
+    mesh->aa_inward = inward;
+    gfx_obj_invalidate(obj);
+    return ESP_OK;
+}
+
+esp_err_t gfx_mesh_img_set_wrap_cols(gfx_obj_t *obj, bool wrap)
+{
+    gfx_mesh_img_t *mesh;
+
+    CHECK_OBJ_TYPE_MESH_IMAGE(obj);
+    mesh = (gfx_mesh_img_t *)obj->src;
+    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh wrap cols: state is NULL");
+
+    mesh->wrap_cols = wrap;
+    gfx_obj_invalidate(obj);
+    return ESP_OK;
+}
+
+esp_err_t gfx_mesh_img_set_scanline_fill(gfx_obj_t *obj, bool enable, gfx_color_t fill_color)
+{
+    gfx_mesh_img_t *mesh;
+
+    CHECK_OBJ_TYPE_MESH_IMAGE(obj);
+    mesh = (gfx_mesh_img_t *)obj->src;
+    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set scanline fill: state is NULL");
+
+    mesh->scanline_fill = enable;
+    mesh->scanline_color = fill_color;
     gfx_obj_invalidate(obj);
     return ESP_OK;
 }

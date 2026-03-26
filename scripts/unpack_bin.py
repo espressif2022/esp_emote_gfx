@@ -5,10 +5,10 @@ import sys
 from pathlib import Path
 
 
-DEFAULT_NAME_LEN = 32
-HEADER_SIZE = 12
+HEADER_SIZE = 32
 ENTRY_META_SIZE = 12
 SIGNATURE = b"\x5a\x5a"
+MAGIC = b"MMAP"
 
 
 def parse_args() -> argparse.Namespace:
@@ -29,13 +29,6 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Output directory. Default: ./unpacked",
     )
-    parser.add_argument(
-        "-n",
-        "--name-len",
-        type=int,
-        default=DEFAULT_NAME_LEN,
-        help=f"File name byte length in mmap table. Default: {DEFAULT_NAME_LEN}",
-    )
     return parser.parse_args()
 
 
@@ -50,11 +43,6 @@ def main() -> int:
     args = parse_args()
     input_path: Path = args.input
     output_dir: Path = args.output
-    name_len: int = args.name_len
-
-    if name_len <= 0:
-        print("error: --name-len must be a positive integer.", file=sys.stderr)
-        return 2
     if not input_path.is_file():
         print(f"error: input file not found: {input_path}", file=sys.stderr)
         return 2
@@ -64,7 +52,24 @@ def main() -> int:
         print("error: file too small, missing header.", file=sys.stderr)
         return 2
 
-    file_count, stored_checksum, combined_len = struct.unpack_from("<III", blob, 0)
+    magic = blob[0:4]
+    if magic != MAGIC:
+        print(f"error: invalid magic: expected {MAGIC!r}, got {magic!r}", file=sys.stderr)
+        return 2
+
+    version, name_len, file_count, stored_checksum, combined_len = struct.unpack_from(
+        "<IIIII", blob, 4
+    )
+    if version != 0x00010000:
+        print(
+            f"error: unsupported version: 0x{version:08x} (expected 0x00010000)",
+            file=sys.stderr,
+        )
+        return 2
+    if name_len <= 0:
+        print("error: invalid name length in header.", file=sys.stderr)
+        return 2
+
     payload = blob[HEADER_SIZE:]
 
     if combined_len != len(payload):

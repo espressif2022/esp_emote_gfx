@@ -15,8 +15,6 @@
 #include "bsp/display.h"
 #include "driver/spi_common.h"
 
-#include "bsp/esp-bsp.h"
-#include "bsp/touch.h"
 #include "common.h"
 
 static const char *TAG = "common";

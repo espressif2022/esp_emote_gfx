@@ -195,7 +195,8 @@ static void test_anim_show_index_entry(mmap_assets_handle_t assets_handle, gfx_o
         segments[1].start = (uint32_t)item->loop_start;
         segments[1].end = (uint32_t)item->loop_end - 1;
         segments[1].fps = 50;
-        segments[1].play_count = 5;
+        // segments[1].play_count = 5;
+        segments[1].play_count = 0; //forever
         segments[1].end_action = GFX_ANIM_SEGMENT_ACTION_CONTINUE;
 
         segments[2].start = (uint32_t)item->loop_end;
@@ -258,8 +259,8 @@ static void test_anim_run(mmap_assets_handle_t assets_handle)
                                 pdFALSE,
                                 portMAX_DELAY);
 
-            if (gfx_anim_drain_plan_blocking(anim_obj) == ESP_OK) {
-                ESP_LOGI(TAG, "Play remaining done");
+            if (gfx_anim_play_left_to_tail(anim_obj) == ESP_OK) {
+                ESP_LOGI(TAG, "Remaining done");
             }
 
             case_index = (case_index + 1) % s_index_count;

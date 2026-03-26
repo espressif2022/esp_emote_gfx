@@ -81,7 +81,7 @@ static void test_anim_run(mmap_assets_handle_t assets_handle)
         const test_anim_case_t *c = &s_cases[case_index];
         test_anim_show_case(assets_handle, anim_obj, c);
         test_app_wait_for_observe(c->observe_ms);
-        if (gfx_anim_drain_plan_blocking(anim_obj) == ESP_OK) {
+        if (gfx_anim_play_left_to_tail(anim_obj) == ESP_OK) {
             ESP_LOGW(TAG, "Play remaining done");
         }
         case_index = (case_index + 1) % TEST_APP_ARRAY_SIZE(s_cases);

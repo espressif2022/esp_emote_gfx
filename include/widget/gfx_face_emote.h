@@ -77,9 +77,23 @@ typedef struct {
     int16_t mouth_thickness;
 } gfx_face_emote_cfg_t;
 
-void gfx_face_emote_cfg_init(gfx_face_emote_cfg_t *cfg);
+/**
+ * @brief Fill configuration from the widget (or screen) pixel size.
+ *
+ * @param cfg                 Output configuration
+ * @param display_w           Width in pixels (0 is clamped to 1)
+ * @param display_h           Height in pixels (0 is clamped to 1)
+ * @param layout_ref_x  Horizontal layout reference (e.g. BSP_LCD_H_RES × ratio). Must be > 0.
+ * @param layout_ref_y  Vertical layout reference (e.g. BSP_LCD_V_RES × ratio). Must be > 0.
+ */
+void gfx_face_emote_cfg_init(gfx_face_emote_cfg_t *cfg, uint16_t display_w, uint16_t display_h,
+                             uint16_t layout_ref_x, uint16_t layout_ref_y);
 
-gfx_obj_t *gfx_face_emote_create(gfx_disp_t *disp);
+/**
+ * @param layout_ref_x  Same as gfx_face_emote_cfg_init()
+ * @param layout_ref_y  Same as gfx_face_emote_cfg_init()
+ */
+gfx_obj_t *gfx_face_emote_create(gfx_disp_t *disp, uint16_t layout_ref_x, uint16_t layout_ref_y);
 esp_err_t gfx_face_emote_set_config(gfx_obj_t *obj, const gfx_face_emote_cfg_t *cfg);
 esp_err_t gfx_face_emote_set_assets(gfx_obj_t *obj, const gfx_face_emote_assets_t *assets);
 esp_err_t gfx_face_emote_set_expression_name(gfx_obj_t *obj, const char *name, bool snap_now);

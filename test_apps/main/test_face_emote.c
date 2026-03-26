@@ -10,9 +10,13 @@
 #include "esp_check.h"
 #include "esp_random.h"
 #include "unity.h"
+#include "core/gfx_disp.h"
 #include "common.h"
 
 static const char *TAG = "test_face_emote";
+
+#define TEST_APP_FACE_EMOTE_LAYOUT_REF_X  ((BSP_LCD_H_RES) * 2 / 3)
+#define TEST_APP_FACE_EMOTE_LAYOUT_REF_Y  ((BSP_LCD_V_RES) * 3 / 2)
 
 #include "face_emote_expr_assets.inc"
 
@@ -136,12 +140,19 @@ static void test_face_emote_run(void)
     TEST_ASSERT_NOT_NULL(disp_default);
     gfx_disp_set_bg_color(disp_default, GFX_COLOR_HEX(0x000000));
 
-    scene.face_obj = gfx_face_emote_create(disp_default);
+    scene.face_obj = gfx_face_emote_create(disp_default,
+                                           TEST_APP_FACE_EMOTE_LAYOUT_REF_X,
+                                           TEST_APP_FACE_EMOTE_LAYOUT_REF_Y);
     scene.title_label = gfx_label_create(disp_default);
     TEST_ASSERT_NOT_NULL(scene.face_obj);
     TEST_ASSERT_NOT_NULL(scene.title_label);
 
-    gfx_face_emote_cfg_init(&scene.cfg);
+    gfx_face_emote_cfg_init(&scene.cfg,BSP_LCD_H_RES,BSP_LCD_V_RES,
+                            TEST_APP_FACE_EMOTE_LAYOUT_REF_X,
+                            TEST_APP_FACE_EMOTE_LAYOUT_REF_Y);
+
+    ESP_LOGI(TAG, "layout_ref_x: %d, layout_ref_y: %d", TEST_APP_FACE_EMOTE_LAYOUT_REF_X, TEST_APP_FACE_EMOTE_LAYOUT_REF_Y);
+    ESP_LOGI(TAG, "display_w: %d, display_h: %d", BSP_LCD_H_RES, BSP_LCD_V_RES);
     scene.use_chinese = true;
 
     TEST_ASSERT_EQUAL(ESP_OK, gfx_face_emote_set_config(scene.face_obj, &scene.cfg));
@@ -180,7 +191,7 @@ void test_face_emote_run_case(void)
 {
     test_app_runtime_t runtime;
 
-    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, TEST_APP_ASSETS_PARTITION_DEFAULT));
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, "emote_gen"));
     test_face_emote_run();
     test_app_runtime_close(&runtime);
 }

@@ -19,6 +19,17 @@ extern "C" {
  *      DEFINES
  *********************/
 
+/**
+ * Bit flag OR-ed into the `internal_edges` parameter of
+ * gfx_sw_blend_img_triangle_draw to request inward-only edge AA.
+ * When set, the rasterizer fades pixels near non-internal outer edges
+ * from inside the triangle rather than drawing semi-transparent pixels
+ * outside it. This prevents visible "bleed" on thin strokes (eyebrows).
+ */
+#define GFX_BLEND_TRI_AA_INWARD 0x80
+
+#define GFX_BLEND_MAX_EXTRA_AA_EDGES 2
+
 /**********************
  *      TYPEDEFS
  **********************/
@@ -29,6 +40,18 @@ typedef struct {
     gfx_coord_t u;
     gfx_coord_t v;
 } gfx_sw_blend_img_vertex_t;
+
+/**
+ * Extra directed edge for cross-triangle inward AA.
+ * Represents edge A→B in mesh subpixel coordinates.
+ */
+typedef struct {
+    int32_t a;     /**< dy: B.y - A.y */
+    int32_t b;     /**< -dx: A.x - B.x */
+    int32_t len;   /**< sqrt(a² + b²) */
+    int32_t vx;    /**< reference vertex x (A.x, mesh subpixel) */
+    int32_t vy;    /**< reference vertex y (A.y, mesh subpixel) */
+} gfx_sw_blend_aa_edge_t;
 
 /**********************
  *      PRIVATE FUNCTIONS
@@ -108,6 +131,9 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
  *        Bit 0 = edge 0 (v1→v2), bit 1 = edge 1 (v2→v0), bit 2 = edge 2 (v0→v1).
  *        AA is suppressed on flagged edges to prevent dark-seam artifacts.
  *        Pass 0 for standalone triangles (full AA on all edges).
+ * @param extra_aa_edges  Optional array of extra directed edges for cross-triangle
+ *        inward AA distance (NULL when not needed).
+ * @param extra_aa_count  Number of entries in extra_aa_edges (0..MAX_EXTRA_AA_EDGES).
  */
 void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                                     const gfx_area_t *buf_area, const gfx_area_t *clip_area,
@@ -117,7 +143,25 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                                     const gfx_sw_blend_img_vertex_t *v1,
                                     const gfx_sw_blend_img_vertex_t *v2,
                                     uint8_t internal_edges,
+                                    const gfx_sw_blend_aa_edge_t *extra_aa_edges,
+                                    uint8_t extra_aa_count,
                                     bool swap);
+
+/**
+ * @brief Scanline polygon fill with edge anti-aliasing.
+ *
+ * Fills a closed polygon defined by vertex arrays with a solid color.
+ * Uses even-odd fill rule. Vertices are in mesh subpixel coordinates
+ * (same as gfx_sw_blend_img_vertex_t x/y).
+ *
+ * Designed for stroke outlines where no texture mapping is needed.
+ */
+void gfx_sw_blend_polygon_fill(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
+                               const gfx_area_t *buf_area, const gfx_area_t *clip_area,
+                               gfx_color_t color,
+                               const int32_t *vx, const int32_t *vy,
+                               int vertex_count,
+                               bool swap);
 
 void gfx_sw_blend_perf_reset(gfx_blend_perf_stats_t *stats);
 void gfx_sw_blend_perf_bind(gfx_blend_perf_stats_t *stats);

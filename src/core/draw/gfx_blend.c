@@ -14,6 +14,7 @@
 #include "esp_timer.h"
 
 #include "common/gfx_comm.h"
+#include "common/gfx_mesh_frac.h"
 #include "core/draw/gfx_blend_priv.h"
 
 /*********************
@@ -23,8 +24,6 @@
 #define OPA_MAX      253  /*Opacities above this will fully cover*/
 #define OPA_TRANSP   0
 #define OPA_COVER    0xFF
-/* Triangle edge AA tuning (distance unit is in Q8 geometry space) */
-#define GFX_TRI_EDGE_AA_RANGE        256  /* 1.0 px feather */
 
 #define FILL_NORMAL_MASK_PX(color, swap)                              \
     if(*mask == OPA_COVER) *dest_buf = color;                \
@@ -44,23 +43,6 @@ static gfx_blend_perf_stats_t *s_active_perf_stats = NULL;
 /**********************
  *   STATIC FUNCTIONS
  **********************/
-
-
-
-static int32_t gfx_sw_blend_isqrt(int32_t n)
-{
-    int32_t x, y;
-    if (n <= 1) {
-        return n;
-    }
-    x = n;
-    y = (x + 1) >> 1;
-    while (y < x) {
-        x = y;
-        y = (x + n / x) >> 1;
-    }
-    return x;
-}
 
 static int32_t gfx_sw_blend_isqrt_i64(uint64_t value)
 {
@@ -102,18 +84,24 @@ static inline int32_t gfx_sw_blend_clamp_coord(int32_t value, int32_t min_value,
 
 static inline int32_t gfx_sw_blend_floor_q8_to_int(int32_t value_q8)
 {
+    const int shift = GFX_MESH_FRAC_SHIFT;
+    const int32_t mask = GFX_MESH_FRAC_MASK;
+
     if (value_q8 >= 0) {
-        return value_q8 >> 8;
+        return value_q8 >> shift;
     }
-    return -(((-value_q8) + 255) >> 8);
+    return -(((-value_q8) + mask) >> shift);
 }
 
 static inline int32_t gfx_sw_blend_ceil_q8_to_int(int32_t value_q8)
 {
+    const int shift = GFX_MESH_FRAC_SHIFT;
+    const int32_t mask = GFX_MESH_FRAC_MASK;
+
     if (value_q8 >= 0) {
-        return (value_q8 + 255) >> 8;
+        return (value_q8 + mask) >> shift;
     }
-    return -((-value_q8) >> 8);
+    return -((-value_q8) >> shift);
 }
 
 static inline bool gfx_sw_blend_triangle_sample_inside(int64_t area_2x,
@@ -402,6 +390,8 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                                     const gfx_sw_blend_img_vertex_t *v1,
                                     const gfx_sw_blend_img_vertex_t *v2,
                                     uint8_t internal_edges,
+                                    const gfx_sw_blend_aa_edge_t *extra_aa_edges,
+                                    uint8_t extra_aa_count,
                                     bool swap)
 {
     /*
@@ -415,20 +405,19 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
      */
 #define FRAC_BITS     16
 #define FRAC_HALF     (1 << (FRAC_BITS - 1))
-#define XY_Q8_SHIFT   8
-#define XY_Q8_ONE     (1 << XY_Q8_SHIFT)
-#define XY_Q8_HALF    (1 << (XY_Q8_SHIFT - 1))
+#define XY_SUB_ONE    GFX_MESH_FRAC_ONE
+#define XY_SUB_HALF   GFX_MESH_FRAC_HALF
 
     int64_t area_2x;
     int32_t min_x, min_y, max_x, max_y;
     int64_t perf_start_us = 0;
     uint64_t perf_raster_pixels = 0;
 
-    /* Edge function step constants (Q8 geometry) */
+    /* Edge function step constants (mesh subpixel geometry) */
     int32_t e0_a, e0_b, e1_a, e1_b;
     int64_t e0_step_x, e0_step_y, e1_step_x, e1_step_y;
 
-    /* Edge anti-aliasing: edge lengths in Q8 geometry space */
+    /* Edge anti-aliasing: edge lengths in mesh fixed-point space */
     int32_t e0_len, e1_len, e2_len;
 
     /* UV interpolation gradients (fixed-point) */
@@ -488,10 +477,10 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
     e0_b = (int32_t)(v1->x - v2->x);
     e1_a = (int32_t)(v0->y - v2->y);
     e1_b = (int32_t)(v2->x - v0->x);
-    e0_step_x = (int64_t)e0_a * XY_Q8_ONE;
-    e0_step_y = (int64_t)e0_b * XY_Q8_ONE;
-    e1_step_x = (int64_t)e1_a * XY_Q8_ONE;
-    e1_step_y = (int64_t)e1_b * XY_Q8_ONE;
+    e0_step_x = (int64_t)e0_a * XY_SUB_ONE;
+    e0_step_y = (int64_t)e0_b * XY_SUB_ONE;
+    e1_step_x = (int64_t)e1_a * XY_SUB_ONE;
+    e1_step_y = (int64_t)e1_b * XY_SUB_ONE;
 
     {
         int32_t e2_a = -(e0_a + e1_a);
@@ -534,8 +523,8 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
      * Compute edge function values at the starting point (min_x, min_y).
      */
     {
-        int32_t sample_x_q8 = min_x * XY_Q8_ONE + XY_Q8_HALF;
-        int32_t sample_y_q8 = min_y * XY_Q8_ONE + XY_Q8_HALF;
+        int32_t sample_x_q8 = min_x * XY_SUB_ONE + XY_SUB_HALF;
+        int32_t sample_y_q8 = min_y * XY_SUB_ONE + XY_SUB_HALF;
         int64_t w0_row = (int64_t)(sample_x_q8 - v1->x) * e0_a + (int64_t)(sample_y_q8 - v1->y) * e0_b;
         int64_t w1_row = (int64_t)(sample_x_q8 - v2->x) * e1_a + (int64_t)(sample_y_q8 - v2->y) * e1_b;
 
@@ -547,11 +536,26 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
         int32_t u_row = (int32_t)((u_start_num << FRAC_BITS) / area_2x);
         int32_t v_row = (int32_t)((v_start_num << FRAC_BITS) / area_2x);
 
+        const bool inward = (internal_edges & GFX_BLEND_TRI_AA_INWARD) != 0;
+        uint8_t xaa_n = (inward && extra_aa_edges != NULL) ? extra_aa_count : 0;
+        if (xaa_n > GFX_BLEND_MAX_EXTRA_AA_EDGES) { xaa_n = GFX_BLEND_MAX_EXTRA_AA_EDGES; }
+        int64_t xaa_row[GFX_BLEND_MAX_EXTRA_AA_EDGES];
+        int64_t xaa_sx[GFX_BLEND_MAX_EXTRA_AA_EDGES];
+        int64_t xaa_sy[GFX_BLEND_MAX_EXTRA_AA_EDGES];
+        for (uint8_t ei = 0; ei < xaa_n; ei++) {
+            xaa_sx[ei] = (int64_t)extra_aa_edges[ei].a * XY_SUB_ONE;
+            xaa_sy[ei] = (int64_t)extra_aa_edges[ei].b * XY_SUB_ONE;
+            xaa_row[ei] = (int64_t)(sample_x_q8 - extra_aa_edges[ei].vx) * extra_aa_edges[ei].a
+                        + (int64_t)(sample_y_q8 - extra_aa_edges[ei].vy) * extra_aa_edges[ei].b;
+        }
+
         for (int32_t y = min_y; y <= max_y; y++) {
             int64_t w0 = w0_row;
             int64_t w1 = w1_row;
             int32_t u_cur = u_row;
             int32_t v_cur = v_row;
+            int64_t xaa[GFX_BLEND_MAX_EXTRA_AA_EDGES];
+            for (uint8_t ei = 0; ei < xaa_n; ei++) { xaa[ei] = xaa_row[ei]; }
             gfx_color_t *dst_row = dest_buf + (size_t)(y - buf_area->y1) * dest_stride
                                  + (size_t)(min_x - buf_area->x1);
 
@@ -559,36 +563,62 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                 int64_t w2 = area_2x - w0 - w1;
 
                 if (gfx_sw_blend_triangle_sample_inside(area_2x, w0, w1, w2)) {
-                    /* Inside triangle — full coverage */
+                    /* Inside triangle */
                     int32_t src_x = (u_cur + FRAC_HALF) >> FRAC_BITS;
                     int32_t src_y = (v_cur + FRAC_HALF) >> FRAC_BITS;
-
                     src_x = gfx_sw_blend_clamp_coord(src_x, 0, src_stride - 1);
                     src_y = gfx_sw_blend_clamp_coord(src_y, 0, src_height - 1);
-
                     gfx_color_t src_color = src_buf[(size_t)src_y * src_stride + (size_t)src_x];
+                    gfx_opa_t final_opa = OPA_COVER;
+
+                    /* Inward AA: fade pixels near non-internal outer edges */
+                    if (inward) {
+                        int32_t min_id = GFX_BLEND_TRI_EDGE_AA_RANGE;
+                        uint8_t emask = internal_edges & 0x07;
+                        if (area_2x > 0) {
+                            if (!(emask & 0x01)) { int32_t d = (int32_t)(w0 / e0_len); if (d < min_id) { min_id = d; } }
+                            if (!(emask & 0x02)) { int32_t d = (int32_t)(w1 / e1_len); if (d < min_id) { min_id = d; } }
+                            if (!(emask & 0x04)) { int32_t d = (int32_t)(w2 / e2_len); if (d < min_id) { min_id = d; } }
+                            for (uint8_t ei = 0; ei < xaa_n; ei++) {
+                                int32_t d = (int32_t)(xaa[ei] / extra_aa_edges[ei].len);
+                                if (d < min_id) { min_id = d; }
+                            }
+                        } else {
+                            if (!(emask & 0x01)) { int32_t d = (int32_t)((-w0) / e0_len); if (d < min_id) { min_id = d; } }
+                            if (!(emask & 0x02)) { int32_t d = (int32_t)((-w1) / e1_len); if (d < min_id) { min_id = d; } }
+                            if (!(emask & 0x04)) { int32_t d = (int32_t)((-w2) / e2_len); if (d < min_id) { min_id = d; } }
+                            for (uint8_t ei = 0; ei < xaa_n; ei++) {
+                                int32_t d = (int32_t)((-xaa[ei]) / extra_aa_edges[ei].len);
+                                if (d < min_id) { min_id = d; }
+                            }
+                        }
+                        if (min_id < GFX_BLEND_TRI_EDGE_AA_RANGE) {
+                            final_opa = (gfx_opa_t)((int32_t)min_id * 255 / GFX_BLEND_TRI_EDGE_AA_RANGE);
+                            if (final_opa == 0U) { goto next_pixel; }
+                        }
+                    }
 
                     if (mask != NULL) {
                         gfx_opa_t src_opa = mask[(size_t)src_y * mask_stride + (size_t)src_x];
-                        if (src_opa == 0U) {
-                            goto next_pixel;
-                        }
-                        if (src_opa >= OPA_COVER) {
-                            *dst_row = src_color;
-                        } else {
-                            *dst_row = gfx_blend_color_mix(src_color, *dst_row, src_opa, swap);
-                        }
-                    } else {
+                        final_opa = (gfx_opa_t)(((uint32_t)final_opa * src_opa + 128) >> 8);
+                    }
+                    if (final_opa == 0U) {
+                        goto next_pixel;
+                    } else if (final_opa >= OPA_COVER) {
                         *dst_row = src_color;
+                    } else {
+                        *dst_row = gfx_blend_color_mix(src_color, *dst_row, final_opa, swap);
                     }
                 } else {
-                    /* Outside triangle — edge AA: blend if within 1 px.
+                    /* Outside triangle */
+                    if (inward) {
+                        goto next_pixel;
+                    }
+                    /* Outward edge AA: blend if within 1 px.
                      * Skip distance for edges flagged as internal (shared
                      * with an adjacent triangle) to avoid dark-seam artifacts.
                      * Bit 0 = edge 0 (v1→v2), bit 1 = edge 1 (v2→v0),
-                     * bit 2 = edge 2 (v0→v1).
-                     * If only internal edges are violated max_od stays 0
-                     * and the existing threshold check drops the pixel. */
+                     * bit 2 = edge 2 (v0→v1). */
                     int32_t max_od = 0;
                     if (area_2x > 0) {
                         if (w0 < 0 && !(internal_edges & 0x01)) { int32_t d = (int32_t)((-w0) / e0_len); if (d > max_od) { max_od = d; } }
@@ -600,8 +630,8 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                         if (w2 > 0 && !(internal_edges & 0x04)) { int32_t d = (int32_t)(w2 / e2_len); if (d > max_od) { max_od = d; } }
                     }
 
-                    if (max_od > 0 && max_od < GFX_TRI_EDGE_AA_RANGE) {
-                        gfx_opa_t aa_opa = (gfx_opa_t)((GFX_TRI_EDGE_AA_RANGE - max_od) * 255 / GFX_TRI_EDGE_AA_RANGE);
+                    if (max_od > 0 && max_od < GFX_BLEND_TRI_EDGE_AA_RANGE) {
+                        gfx_opa_t aa_opa = (gfx_opa_t)((GFX_BLEND_TRI_EDGE_AA_RANGE - max_od) * 255 / GFX_BLEND_TRI_EDGE_AA_RANGE);
                         int32_t src_x = (u_cur + FRAC_HALF) >> FRAC_BITS;
                         int32_t src_y = (v_cur + FRAC_HALF) >> FRAC_BITS;
                         src_x = gfx_sw_blend_clamp_coord(src_x, 0, src_stride - 1);
@@ -622,6 +652,7 @@ next_pixel:
                 w1 += e1_step_x;
                 u_cur += du_dx;
                 v_cur += dv_dx;
+                for (uint8_t ei = 0; ei < xaa_n; ei++) { xaa[ei] += xaa_sx[ei]; }
                 dst_row++;
             }
 
@@ -629,6 +660,7 @@ next_pixel:
             w1_row += e1_step_y;
             u_row += du_dy;
             v_row += dv_dy;
+            for (uint8_t ei = 0; ei < xaa_n; ei++) { xaa_row[ei] += xaa_sy[ei]; }
         }
     }
 
@@ -640,4 +672,162 @@ next_pixel:
 
 #undef FRAC_BITS
 #undef FRAC_HALF
+#undef XY_SUB_ONE
+#undef XY_SUB_HALF
+}
+
+void gfx_sw_blend_polygon_fill(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
+                               const gfx_area_t *buf_area, const gfx_area_t *clip_area,
+                               gfx_color_t color,
+                               const int32_t *vx, const int32_t *vy,
+                               int vertex_count,
+                               bool swap)
+{
+#define POLY_FRAC   GFX_MESH_FRAC_SHIFT
+#define POLY_ONE    GFX_MESH_FRAC_ONE
+#define POLY_HALF   GFX_MESH_FRAC_HALF
+#define POLY_MASK   GFX_MESH_FRAC_MASK
+#define POLY_MAX_IX 32
+
+    int32_t min_yq, max_yq, y_start, y_end;
+    int32_t x_clip_lo, x_clip_hi;
+    int64_t perf_start_us = 0;
+    gfx_color_t fill;
+
+    if (dest_buf == NULL || buf_area == NULL || clip_area == NULL ||
+            vx == NULL || vy == NULL || vertex_count < 3) {
+        return;
+    }
+
+    if (s_active_perf_stats != NULL) {
+        perf_start_us = esp_timer_get_time();
+    }
+
+    fill = color;
+    if (swap) { fill.full = (uint16_t)(fill.full << 8 | fill.full >> 8); }
+
+    min_yq = vy[0]; max_yq = vy[0];
+    for (int i = 1; i < vertex_count; i++) {
+        if (vy[i] < min_yq) { min_yq = vy[i]; }
+        if (vy[i] > max_yq) { max_yq = vy[i]; }
+    }
+
+    y_start = (min_yq >= 0) ? (min_yq >> POLY_FRAC) : -(((-min_yq) + POLY_MASK) >> POLY_FRAC);
+    y_end   = (max_yq >= 0) ? ((max_yq + POLY_MASK) >> POLY_FRAC) : -((-max_yq) >> POLY_FRAC);
+
+    y_start = MAX(y_start, MAX(buf_area->y1, clip_area->y1));
+    y_end   = MIN(y_end,   MIN(buf_area->y2 - 1, clip_area->y2 - 1));
+    x_clip_lo = MAX(buf_area->x1, clip_area->x1);
+    x_clip_hi = MIN(buf_area->x2 - 1, clip_area->x2 - 1);
+
+    /* 8x Y sub-sampling for smooth AA on near-horizontal edges */
+#define POLY_SUB_SAMPLES 8
+#define POLY_COV_MAX_W   512
+
+    {
+        int32_t min_xq = vx[0], max_xq = vx[0];
+        for (int i = 1; i < vertex_count; i++) {
+            if (vx[i] < min_xq) { min_xq = vx[i]; }
+            if (vx[i] > max_xq) { max_xq = vx[i]; }
+        }
+
+        int32_t cov_x0 = (min_xq >= 0) ? (min_xq >> POLY_FRAC) : -(((-min_xq) + POLY_MASK) >> POLY_FRAC);
+        int32_t cov_x1 = (max_xq >= 0) ? ((max_xq + POLY_MASK) >> POLY_FRAC) : -((-max_xq) >> POLY_FRAC);
+        cov_x0 = MAX(cov_x0, x_clip_lo);
+        cov_x1 = MIN(cov_x1, x_clip_hi);
+        int32_t cov_w = cov_x1 - cov_x0 + 1;
+        if (cov_w <= 0 || cov_w > POLY_COV_MAX_W) { goto poly_done; }
+
+        uint16_t cov_buf[POLY_COV_MAX_W];
+
+        for (int32_t y = y_start; y <= y_end; y++) {
+            memset(cov_buf, 0, (size_t)cov_w * sizeof(uint16_t));
+
+            for (int s = 0; s < POLY_SUB_SAMPLES; s++) {
+                int32_t yc = y * POLY_ONE + (2 * s + 1) * POLY_ONE / (2 * POLY_SUB_SAMPLES);
+                int32_t ix[POLY_MAX_IX];
+                int ic = 0;
+
+                for (int e = 0; e < vertex_count; e++) {
+                    int en = (e + 1 < vertex_count) ? e + 1 : 0;
+                    int32_t y1 = vy[e], y2 = vy[en];
+                    if ((y1 <= yc && y2 > yc) || (y2 <= yc && y1 > yc)) {
+                        int32_t dy = y2 - y1;
+                        int32_t xi = (int32_t)((int64_t)vx[e] + (int64_t)(yc - y1) * (vx[en] - vx[e]) / dy);
+                        if (ic < POLY_MAX_IX) { ix[ic++] = xi; }
+                    }
+                }
+
+                if (ic < 2) { continue; }
+
+                for (int a = 1; a < ic; a++) {
+                    int32_t tmp = ix[a];
+                    int b = a - 1;
+                    while (b >= 0 && ix[b] > tmp) { ix[b + 1] = ix[b]; b--; }
+                    ix[b + 1] = tmp;
+                }
+
+                for (int p = 0; p + 1 < ic; p += 2) {
+                    int32_t xlq = ix[p];
+                    int32_t xrq = ix[p + 1];
+                    if (xlq >= xrq) { continue; }
+
+                    int32_t xl = (xlq >= 0) ? (xlq >> POLY_FRAC) : -(((-xlq) + POLY_MASK) >> POLY_FRAC);
+                    int32_t xr = (xrq >= 0) ? (xrq >> POLY_FRAC) : -(((-xrq) + POLY_MASK) >> POLY_FRAC);
+                    if (xr < cov_x0 || xl > cov_x1) { continue; }
+
+                    if (xl == xr) {
+                        if (xl >= cov_x0 && xl <= cov_x1) {
+                            cov_buf[xl - cov_x0] += (uint16_t)((xrq - xlq) * 255 / POLY_ONE);
+                        }
+                        continue;
+                    }
+
+                    if (xl >= cov_x0 && xl <= cov_x1) {
+                        int32_t frac = xlq & POLY_MASK;
+                        cov_buf[xl - cov_x0] += (uint16_t)((POLY_ONE - frac) * 255 / POLY_ONE);
+                    }
+                    {
+                        int32_t fs = MAX(xl + 1, cov_x0);
+                        int32_t fe = MIN(xr - 1, cov_x1);
+                        for (int32_t x = fs; x <= fe; x++) {
+                            cov_buf[x - cov_x0] += 255;
+                        }
+                    }
+                    if (xr >= cov_x0 && xr <= cov_x1) {
+                        int32_t frac = xrq & POLY_MASK;
+                        if (frac > 0) {
+                            cov_buf[xr - cov_x0] += (uint16_t)(frac * 255 / POLY_ONE);
+                        }
+                    }
+                }
+            }
+
+            gfx_color_t *row = dest_buf + (size_t)(y - buf_area->y1) * dest_stride;
+            for (int32_t x = cov_x0; x <= cov_x1; x++) {
+                uint16_t c = cov_buf[x - cov_x0];
+                if (c == 0) { continue; }
+                gfx_opa_t opa = (c >= POLY_SUB_SAMPLES * 255) ? 255 : (gfx_opa_t)(c / POLY_SUB_SAMPLES);
+                if (opa >= OPA_MAX) {
+                    row[x - buf_area->x1] = fill;
+                } else {
+                    row[x - buf_area->x1] = gfx_blend_color_mix(color, row[x - buf_area->x1], opa, swap);
+                }
+            }
+        }
+    }
+poly_done:
+
+    if (s_active_perf_stats != NULL) {
+        s_active_perf_stats->triangle_draw.calls++;
+        s_active_perf_stats->triangle_draw.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
+    }
+
+#undef POLY_FRAC
+#undef POLY_ONE
+#undef POLY_HALF
+#undef POLY_MASK
+#undef POLY_MAX_IX
+#undef POLY_SUB_SAMPLES
+#undef POLY_COV_MAX_W
 }
