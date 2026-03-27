@@ -114,7 +114,10 @@ void decode_jpeg_rgb565_from_memory(const unsigned char *jpeg_data, size_t jpeg_
     img_dec.data_size = width * height * 2; // RGB565 is 2 bytes per pixel
     img_dec.data = (const uint8_t *)output_buffer;
 
-    gfx_img_set_src(image, &img_dec);
+    gfx_img_set_src_desc(image, &(gfx_img_src_t) {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = &img_dec,
+    });
 
     start_time = esp_timer_get_time();
     gfx_refr_now(emote_handle);

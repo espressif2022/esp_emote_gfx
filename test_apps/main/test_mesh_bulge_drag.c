@@ -440,11 +440,15 @@ static void test_mesh_update_mode_ui(test_mesh_scene_t *scene)
     if (scene->mode == TEST_MESH_MODE_BULGE) {
         TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_text(scene->title_label, " Bulge "));
         TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_text(scene->hint_label, " strength:0 "));
-        TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_text(scene->mode_btn, "Mode: Drag"));
+        if (scene->mode_btn != NULL) {
+            TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_text(scene->mode_btn, "Mode: Drag"));
+        }
     } else {
         TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_text(scene->title_label, " Drag "));
         TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_text(scene->hint_label, " drag to pull + stretch "));
-        TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_text(scene->mode_btn, "Mode: Bulge"));
+        if (scene->mode_btn != NULL) {
+            TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_text(scene->mode_btn, "Mode: Bulge"));
+        }
     }
 }
 
@@ -489,7 +493,8 @@ static void test_mesh_rebuild_mesh(test_mesh_scene_t *scene, test_mesh_mode_t ne
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src_desc(scene->mesh_obj, &face_src));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(scene->mesh_obj, scene->grid_cols, scene->grid_rows));
     test_mesh_apply_dense_edge_grid(scene);
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(scene->mesh_obj, false));
+    // TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(scene->mesh_obj, false));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(scene->mesh_obj, true));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_touch_cb(scene->mesh_obj, test_mesh_mesh_touch_cb, scene));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene->mesh_obj, GFX_ALIGN_CENTER, 0, 0));
 
@@ -555,11 +560,11 @@ static void test_mesh_scene_cleanup(test_mesh_scene_t *scene)
     }
 }
 
-static void test_mesh_bulge_drag_run(void)
+static void test_mesh_bulge_drag_run(test_mesh_mode_t mode, bool show_btn)
 {
     test_mesh_scene_t scene = {0};
 
-    test_app_log_case(TAG, "Mesh bulge / drag (mode button)");
+    test_app_log_case(TAG, "Mesh bulge / drag (standalone)");
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     TEST_ASSERT_NOT_NULL(disp_default);
@@ -567,27 +572,33 @@ static void test_mesh_bulge_drag_run(void)
 
     scene.title_label = gfx_label_create(disp_default);
     scene.hint_label = gfx_label_create(disp_default);
-    scene.mode_btn = gfx_button_create(disp_default);
+    if (show_btn) {
+        scene.mode_btn = gfx_button_create(disp_default);
+    }
     TEST_ASSERT_NOT_NULL(scene.title_label);
     TEST_ASSERT_NOT_NULL(scene.hint_label);
-    TEST_ASSERT_NOT_NULL(scene.mode_btn);
+    if (show_btn) {
+        TEST_ASSERT_NOT_NULL(scene.mode_btn);
+    }
 
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_size(scene.title_label, 200, 24));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.title_label, GFX_ALIGN_TOP_MID, -70, 8));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.title_label, GFX_ALIGN_TOP_MID, show_btn ? -70 : 0, 8));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_font(scene.title_label, (gfx_font_t)&font_puhui_16_4));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_bg_enable(scene.title_label, true));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_bg_color(scene.title_label, GFX_COLOR_HEX(0x122544)));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_color(scene.title_label, GFX_COLOR_HEX(0xEAF1FF)));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_text_align(scene.title_label, GFX_TEXT_ALIGN_CENTER));
 
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_size(scene.mode_btn, 128, 36));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.mode_btn, GFX_ALIGN_TOP_MID, 90, 6));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_font(scene.mode_btn, (gfx_font_t)&font_puhui_16_4));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_bg_color(scene.mode_btn, GFX_COLOR_HEX(0x2A6DF4)));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_bg_color_pressed(scene.mode_btn, GFX_COLOR_HEX(0x163D87)));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_border_color(scene.mode_btn, GFX_COLOR_HEX(0xDCE8FF)));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_border_width(scene.mode_btn, 2));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_touch_cb(scene.mode_btn, test_mesh_mode_btn_cb, &scene));
+    if (show_btn) {
+        TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_size(scene.mode_btn, 128, 36));
+        TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.mode_btn, GFX_ALIGN_TOP_MID, 90, 6));
+        TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_font(scene.mode_btn, (gfx_font_t)&font_puhui_16_4));
+        TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_bg_color(scene.mode_btn, GFX_COLOR_HEX(0x2A6DF4)));
+        TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_bg_color_pressed(scene.mode_btn, GFX_COLOR_HEX(0x163D87)));
+        TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_border_color(scene.mode_btn, GFX_COLOR_HEX(0xDCE8FF)));
+        TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_border_width(scene.mode_btn, 2));
+        TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_touch_cb(scene.mode_btn, test_mesh_mode_btn_cb, &scene));
+    }
 
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_size(scene.hint_label, 280, 24));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.hint_label, GFX_ALIGN_BOTTOM_MID, 0, -10));
@@ -597,10 +608,15 @@ static void test_mesh_bulge_drag_run(void)
     TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_color(scene.hint_label, GFX_COLOR_HEX(0xC9D8FF)));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_text_align(scene.hint_label, GFX_TEXT_ALIGN_CENTER));
 
-    test_mesh_rebuild_mesh(&scene, TEST_MESH_MODE_BULGE);
+    test_mesh_rebuild_mesh(&scene, mode);
     test_app_unlock();
 
-    test_app_log_step(TAG, "Bulge: move center, drag up/down; Drag: pull/stretch. Tap Mode to switch.");
+    if (mode == TEST_MESH_MODE_BULGE) {
+        test_app_log_step(TAG, "Bulge: move center, drag up/down to adjust strength.");
+    } else {
+        test_app_log_step(TAG, "Drag: pull/stretch surface with movement.");
+    }
+
     test_app_wait_for_observe(1000 * 1000);
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
@@ -608,21 +624,21 @@ static void test_mesh_bulge_drag_run(void)
     test_app_unlock();
 }
 
-void test_mesh_bulge_drag_run_case(void)
+
+void test_mesh_bulge_run_case(void)
 {
     test_app_runtime_t runtime;
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, TEST_APP_ASSETS_PARTITION_DEFAULT));
-    test_mesh_bulge_drag_run();
+    test_mesh_bulge_drag_run(TEST_MESH_MODE_BULGE, false);
     test_app_runtime_close(&runtime);
-}
-
-void test_mesh_bulge_run_case(void)
-{
-    test_mesh_bulge_drag_run_case();
 }
 
 void test_mesh_drag_run_case(void)
 {
-    test_mesh_bulge_drag_run_case();
+    test_app_runtime_t runtime;
+
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, TEST_APP_ASSETS_PARTITION_DEFAULT));
+    test_mesh_bulge_drag_run(TEST_MESH_MODE_DRAG, false);
+    test_app_runtime_close(&runtime);
 }

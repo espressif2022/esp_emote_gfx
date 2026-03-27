@@ -8,11 +8,25 @@ else()
     file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS "src/*.c")
 endif()
 
+set(LIBTESS2_SRC_FILES
+    "components/libtess2/Source/bucketalloc.c"
+    "components/libtess2/Source/dict.c"
+    "components/libtess2/Source/geom.c"
+    "components/libtess2/Source/mesh.c"
+    "components/libtess2/Source/priorityq.c"
+    "components/libtess2/Source/sweep.c"
+    "components/libtess2/Source/tess.c"
+)
+
 idf_component_register(
-    SRCS ${SRC_FILES}
+    SRCS
+        ${SRC_FILES}
+        ${LIBTESS2_SRC_FILES}
     INCLUDE_DIRS
         "include"
     PRIV_INCLUDE_DIRS
         "src"
+        "components/libtess2/Include"
+        "components/libtess2/Source"
     REQUIRES esp_timer
 )

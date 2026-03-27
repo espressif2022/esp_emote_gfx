@@ -8,10 +8,12 @@
  *      INCLUDES
  *********************/
 
+#include <stdlib.h>
 #include <string.h>
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_timer.h"
+#include "tesselator.h"
 
 #include "common/gfx_comm.h"
 #include "common/gfx_mesh_frac.h"
@@ -116,6 +118,176 @@ static inline bool gfx_sw_blend_triangle_sample_inside(int64_t area_2x,
 static inline uint64_t gfx_blend_perf_elapsed_us(int64_t start_us)
 {
     return (uint64_t)(esp_timer_get_time() - start_us);
+}
+
+static inline int32_t gfx_sw_blend_round_tess_real_to_q8(TESSreal value)
+{
+    if (value >= 0.0f) {
+        return (int32_t)(value + 0.5f);
+    }
+    return (int32_t)(value - 0.5f);
+}
+
+static inline uint8_t gfx_sw_blend_tess_neighbors_to_internal_edges(const TESSindex *neighbors)
+{
+    uint8_t internal_edges = 0;
+
+    if (neighbors == NULL) {
+        return 0;
+    }
+
+    if (neighbors[0] != TESS_UNDEF) {
+        internal_edges |= 0x04;
+    }
+    if (neighbors[1] != TESS_UNDEF) {
+        internal_edges |= 0x01;
+    }
+    if (neighbors[2] != TESS_UNDEF) {
+        internal_edges |= 0x02;
+    }
+
+    return internal_edges;
+}
+
+static void gfx_sw_blend_polygon_fill_scanline_fallback(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
+                                                        const gfx_area_t *buf_area, const gfx_area_t *clip_area,
+                                                        gfx_color_t color,
+                                                        const int32_t *vx, const int32_t *vy,
+                                                        int vertex_count,
+                                                        bool swap)
+{
+#define POLY_FRAC   GFX_MESH_FRAC_SHIFT
+#define POLY_ONE    GFX_MESH_FRAC_ONE
+#define POLY_HALF   GFX_MESH_FRAC_HALF
+#define POLY_MASK   GFX_MESH_FRAC_MASK
+#define POLY_MAX_IX 32
+#define POLY_SUB_SAMPLES 8
+#define POLY_COV_MAX_W   512
+
+    int32_t min_yq, max_yq, y_start, y_end;
+    int32_t x_clip_lo, x_clip_hi;
+    gfx_color_t fill;
+
+    fill = color;
+    if (swap) {
+        fill.full = (uint16_t)(fill.full << 8 | fill.full >> 8);
+    }
+
+    min_yq = vy[0];
+    max_yq = vy[0];
+    for (int i = 1; i < vertex_count; i++) {
+        if (vy[i] < min_yq) { min_yq = vy[i]; }
+        if (vy[i] > max_yq) { max_yq = vy[i]; }
+    }
+
+    y_start = (min_yq >= 0) ? (min_yq >> POLY_FRAC) : -(((-min_yq) + POLY_MASK) >> POLY_FRAC);
+    y_end = (max_yq >= 0) ? ((max_yq + POLY_MASK) >> POLY_FRAC) : -((-max_yq) >> POLY_FRAC);
+
+    y_start = MAX(y_start, MAX(buf_area->y1, clip_area->y1));
+    y_end = MIN(y_end, MIN(buf_area->y2 - 1, clip_area->y2 - 1));
+    x_clip_lo = MAX(buf_area->x1, clip_area->x1);
+    x_clip_hi = MIN(buf_area->x2 - 1, clip_area->x2 - 1);
+
+    {
+        int32_t min_xq = vx[0], max_xq = vx[0];
+        for (int i = 1; i < vertex_count; i++) {
+            if (vx[i] < min_xq) { min_xq = vx[i]; }
+            if (vx[i] > max_xq) { max_xq = vx[i]; }
+        }
+
+        int32_t cov_x0 = (min_xq >= 0) ? (min_xq >> POLY_FRAC) : -(((-min_xq) + POLY_MASK) >> POLY_FRAC);
+        int32_t cov_x1 = (max_xq >= 0) ? ((max_xq + POLY_MASK) >> POLY_FRAC) : -((-max_xq) >> POLY_FRAC);
+        cov_x0 = MAX(cov_x0, x_clip_lo);
+        cov_x1 = MIN(cov_x1, x_clip_hi);
+        int32_t cov_w = cov_x1 - cov_x0 + 1;
+        if (cov_w <= 0 || cov_w > POLY_COV_MAX_W) { return; }
+
+        uint16_t cov_buf[POLY_COV_MAX_W];
+
+        for (int32_t y = y_start; y <= y_end; y++) {
+            memset(cov_buf, 0, (size_t)cov_w * sizeof(uint16_t));
+
+            for (int s = 0; s < POLY_SUB_SAMPLES; s++) {
+                int32_t yc = y * POLY_ONE + (2 * s + 1) * POLY_ONE / (2 * POLY_SUB_SAMPLES);
+                int32_t ix[POLY_MAX_IX];
+                int ic = 0;
+
+                for (int e = 0; e < vertex_count; e++) {
+                    int en = (e + 1 < vertex_count) ? e + 1 : 0;
+                    int32_t y1 = vy[e], y2 = vy[en];
+                    if ((y1 <= yc && y2 > yc) || (y2 <= yc && y1 > yc)) {
+                        int32_t dy = y2 - y1;
+                        int32_t xi = (int32_t)((int64_t)vx[e] + (int64_t)(yc - y1) * (vx[en] - vx[e]) / dy);
+                        if (ic < POLY_MAX_IX) { ix[ic++] = xi; }
+                    }
+                }
+
+                if (ic < 2) { continue; }
+
+                for (int a = 1; a < ic; a++) {
+                    int32_t tmp = ix[a];
+                    int b = a - 1;
+                    while (b >= 0 && ix[b] > tmp) { ix[b + 1] = ix[b]; b--; }
+                    ix[b + 1] = tmp;
+                }
+
+                for (int p = 0; p + 1 < ic; p += 2) {
+                    int32_t xlq = ix[p];
+                    int32_t xrq = ix[p + 1];
+                    if (xlq >= xrq) { continue; }
+
+                    int32_t xl = (xlq >= 0) ? (xlq >> POLY_FRAC) : -(((-xlq) + POLY_MASK) >> POLY_FRAC);
+                    int32_t xr = (xrq >= 0) ? (xrq >> POLY_FRAC) : -((-xrq) >> POLY_FRAC);
+                    if (xr < cov_x0 || xl > cov_x1) { continue; }
+
+                    if (xl == xr) {
+                        if (xl >= cov_x0 && xl <= cov_x1) {
+                            cov_buf[xl - cov_x0] += (uint16_t)((xrq - xlq) * 255 / POLY_ONE);
+                        }
+                        continue;
+                    }
+
+                    if (xl >= cov_x0 && xl <= cov_x1) {
+                        int32_t frac = xlq & POLY_MASK;
+                        cov_buf[xl - cov_x0] += (uint16_t)((POLY_ONE - frac) * 255 / POLY_ONE);
+                    }
+                    {
+                        int32_t fs = MAX(xl + 1, cov_x0);
+                        int32_t fe = MIN(xr - 1, cov_x1);
+                        for (int32_t x = fs; x <= fe; x++) {
+                            cov_buf[x - cov_x0] += 255;
+                        }
+                    }
+                    if (xr >= cov_x0 && xr <= cov_x1) {
+                        int32_t frac = xrq & POLY_MASK;
+                        if (frac > 0) {
+                            cov_buf[xr - cov_x0] += (uint16_t)(frac * 255 / POLY_ONE);
+                        }
+                    }
+                }
+            }
+
+            gfx_color_t *row = dest_buf + (size_t)(y - buf_area->y1) * dest_stride;
+            for (int32_t x = cov_x0; x <= cov_x1; x++) {
+                uint16_t c = cov_buf[x - cov_x0];
+                if (c == 0) { continue; }
+                gfx_opa_t opa = (c >= POLY_SUB_SAMPLES * 255) ? 255 : (gfx_opa_t)(c / POLY_SUB_SAMPLES);
+                if (opa >= OPA_MAX) {
+                    row[x - buf_area->x1] = fill;
+                } else {
+                    row[x - buf_area->x1] = gfx_blend_color_mix(color, row[x - buf_area->x1], opa, swap);
+                }
+            }
+        }
+    }
+
+#undef POLY_FRAC
+#undef POLY_ONE
+#undef POLY_HALF
+#undef POLY_MASK
+#undef POLY_MAX_IX
+#undef POLY_SUB_SAMPLES
+#undef POLY_COV_MAX_W
 }
 
 /**********************
@@ -684,16 +856,13 @@ void gfx_sw_blend_polygon_fill(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                                int vertex_count,
                                bool swap)
 {
-#define POLY_FRAC   GFX_MESH_FRAC_SHIFT
-#define POLY_ONE    GFX_MESH_FRAC_ONE
-#define POLY_HALF   GFX_MESH_FRAC_HALF
-#define POLY_MASK   GFX_MESH_FRAC_MASK
-#define POLY_MAX_IX 32
-
-    int32_t min_yq, max_yq, y_start, y_end;
-    int32_t x_clip_lo, x_clip_hi;
     int64_t perf_start_us = 0;
-    gfx_color_t fill;
+    TESStesselator *tess = NULL;
+    TESSreal *contour = NULL;
+    const TESSreal *verts;
+    const TESSindex *elems;
+    int nelems;
+    gfx_color_t solid_src[1];
 
     if (dest_buf == NULL || buf_area == NULL || clip_area == NULL ||
             vx == NULL || vy == NULL || vertex_count < 3) {
@@ -704,131 +873,84 @@ void gfx_sw_blend_polygon_fill(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
         perf_start_us = esp_timer_get_time();
     }
 
-    fill = color;
-    if (swap) { fill.full = (uint16_t)(fill.full << 8 | fill.full >> 8); }
-
-    min_yq = vy[0]; max_yq = vy[0];
-    for (int i = 1; i < vertex_count; i++) {
-        if (vy[i] < min_yq) { min_yq = vy[i]; }
-        if (vy[i] > max_yq) { max_yq = vy[i]; }
+    contour = malloc((size_t)vertex_count * 2U * sizeof(*contour));
+    if (contour == NULL) {
+        goto fallback;
+    }
+    for (int i = 0; i < vertex_count; i++) {
+        contour[i * 2] = (TESSreal)vx[i];
+        contour[i * 2 + 1] = (TESSreal)vy[i];
     }
 
-    y_start = (min_yq >= 0) ? (min_yq >> POLY_FRAC) : -(((-min_yq) + POLY_MASK) >> POLY_FRAC);
-    y_end   = (max_yq >= 0) ? ((max_yq + POLY_MASK) >> POLY_FRAC) : -((-max_yq) >> POLY_FRAC);
-
-    y_start = MAX(y_start, MAX(buf_area->y1, clip_area->y1));
-    y_end   = MIN(y_end,   MIN(buf_area->y2 - 1, clip_area->y2 - 1));
-    x_clip_lo = MAX(buf_area->x1, clip_area->x1);
-    x_clip_hi = MIN(buf_area->x2 - 1, clip_area->x2 - 1);
-
-    /* 8x Y sub-sampling for smooth AA on near-horizontal edges */
-#define POLY_SUB_SAMPLES 8
-#define POLY_COV_MAX_W   512
-
-    {
-        int32_t min_xq = vx[0], max_xq = vx[0];
-        for (int i = 1; i < vertex_count; i++) {
-            if (vx[i] < min_xq) { min_xq = vx[i]; }
-            if (vx[i] > max_xq) { max_xq = vx[i]; }
-        }
-
-        int32_t cov_x0 = (min_xq >= 0) ? (min_xq >> POLY_FRAC) : -(((-min_xq) + POLY_MASK) >> POLY_FRAC);
-        int32_t cov_x1 = (max_xq >= 0) ? ((max_xq + POLY_MASK) >> POLY_FRAC) : -((-max_xq) >> POLY_FRAC);
-        cov_x0 = MAX(cov_x0, x_clip_lo);
-        cov_x1 = MIN(cov_x1, x_clip_hi);
-        int32_t cov_w = cov_x1 - cov_x0 + 1;
-        if (cov_w <= 0 || cov_w > POLY_COV_MAX_W) { goto poly_done; }
-
-        uint16_t cov_buf[POLY_COV_MAX_W];
-
-        for (int32_t y = y_start; y <= y_end; y++) {
-            memset(cov_buf, 0, (size_t)cov_w * sizeof(uint16_t));
-
-            for (int s = 0; s < POLY_SUB_SAMPLES; s++) {
-                int32_t yc = y * POLY_ONE + (2 * s + 1) * POLY_ONE / (2 * POLY_SUB_SAMPLES);
-                int32_t ix[POLY_MAX_IX];
-                int ic = 0;
-
-                for (int e = 0; e < vertex_count; e++) {
-                    int en = (e + 1 < vertex_count) ? e + 1 : 0;
-                    int32_t y1 = vy[e], y2 = vy[en];
-                    if ((y1 <= yc && y2 > yc) || (y2 <= yc && y1 > yc)) {
-                        int32_t dy = y2 - y1;
-                        int32_t xi = (int32_t)((int64_t)vx[e] + (int64_t)(yc - y1) * (vx[en] - vx[e]) / dy);
-                        if (ic < POLY_MAX_IX) { ix[ic++] = xi; }
-                    }
-                }
-
-                if (ic < 2) { continue; }
-
-                for (int a = 1; a < ic; a++) {
-                    int32_t tmp = ix[a];
-                    int b = a - 1;
-                    while (b >= 0 && ix[b] > tmp) { ix[b + 1] = ix[b]; b--; }
-                    ix[b + 1] = tmp;
-                }
-
-                for (int p = 0; p + 1 < ic; p += 2) {
-                    int32_t xlq = ix[p];
-                    int32_t xrq = ix[p + 1];
-                    if (xlq >= xrq) { continue; }
-
-                    int32_t xl = (xlq >= 0) ? (xlq >> POLY_FRAC) : -(((-xlq) + POLY_MASK) >> POLY_FRAC);
-                    int32_t xr = (xrq >= 0) ? (xrq >> POLY_FRAC) : -(((-xrq) + POLY_MASK) >> POLY_FRAC);
-                    if (xr < cov_x0 || xl > cov_x1) { continue; }
-
-                    if (xl == xr) {
-                        if (xl >= cov_x0 && xl <= cov_x1) {
-                            cov_buf[xl - cov_x0] += (uint16_t)((xrq - xlq) * 255 / POLY_ONE);
-                        }
-                        continue;
-                    }
-
-                    if (xl >= cov_x0 && xl <= cov_x1) {
-                        int32_t frac = xlq & POLY_MASK;
-                        cov_buf[xl - cov_x0] += (uint16_t)((POLY_ONE - frac) * 255 / POLY_ONE);
-                    }
-                    {
-                        int32_t fs = MAX(xl + 1, cov_x0);
-                        int32_t fe = MIN(xr - 1, cov_x1);
-                        for (int32_t x = fs; x <= fe; x++) {
-                            cov_buf[x - cov_x0] += 255;
-                        }
-                    }
-                    if (xr >= cov_x0 && xr <= cov_x1) {
-                        int32_t frac = xrq & POLY_MASK;
-                        if (frac > 0) {
-                            cov_buf[xr - cov_x0] += (uint16_t)(frac * 255 / POLY_ONE);
-                        }
-                    }
-                }
-            }
-
-            gfx_color_t *row = dest_buf + (size_t)(y - buf_area->y1) * dest_stride;
-            for (int32_t x = cov_x0; x <= cov_x1; x++) {
-                uint16_t c = cov_buf[x - cov_x0];
-                if (c == 0) { continue; }
-                gfx_opa_t opa = (c >= POLY_SUB_SAMPLES * 255) ? 255 : (gfx_opa_t)(c / POLY_SUB_SAMPLES);
-                if (opa >= OPA_MAX) {
-                    row[x - buf_area->x1] = fill;
-                } else {
-                    row[x - buf_area->x1] = gfx_blend_color_mix(color, row[x - buf_area->x1], opa, swap);
-                }
-            }
-        }
+    tess = tessNewTess(NULL);
+    if (tess == NULL) {
+        goto fallback;
     }
+
+    tessSetOption(tess, TESS_CONSTRAINED_DELAUNAY_TRIANGULATION, 1);
+    tessAddContour(tess, 2, contour, (int)(sizeof(*contour) * 2U), vertex_count);
+    if (!tessTesselate(tess, TESS_WINDING_ODD, TESS_CONNECTED_POLYGONS, 3, 2, NULL)) {
+        goto fallback;
+    }
+
+    verts = tessGetVertices(tess);
+    elems = tessGetElements(tess);
+    nelems = tessGetElementCount(tess);
+    if (verts == NULL || elems == NULL || nelems <= 0) {
+        goto fallback;
+    }
+
+    solid_src[0] = color;
+    if (swap) {
+        solid_src[0].full = (uint16_t)(solid_src[0].full << 8 | solid_src[0].full >> 8);
+    }
+
+    for (int i = 0; i < nelems; i++) {
+        const TESSindex *poly = &elems[i * 6];
+        const TESSindex *neighbors = &poly[3];
+        gfx_sw_blend_img_vertex_t tri[3];
+        bool valid = true;
+
+        for (int j = 0; j < 3; j++) {
+            TESSindex idx = poly[j];
+            if (idx == TESS_UNDEF) {
+                valid = false;
+                break;
+            }
+            tri[j].x = gfx_sw_blend_round_tess_real_to_q8(verts[idx * 2]);
+            tri[j].y = gfx_sw_blend_round_tess_real_to_q8(verts[idx * 2 + 1]);
+            tri[j].u = 0;
+            tri[j].v = 0;
+        }
+
+        if (!valid) {
+            continue;
+        }
+
+        gfx_sw_blend_img_triangle_draw(dest_buf, dest_stride,
+                                       buf_area, clip_area,
+                                       solid_src, 1, 1,
+                                       NULL, 0,
+                                       &tri[0], &tri[1], &tri[2],
+                                       gfx_sw_blend_tess_neighbors_to_internal_edges(neighbors),
+                                       NULL, 0,
+                                       false);
+    }
+    goto poly_done;
+
+fallback:
+    gfx_sw_blend_polygon_fill_scanline_fallback(dest_buf, dest_stride,
+                                                buf_area, clip_area,
+                                                color, vx, vy, vertex_count, swap);
+
 poly_done:
+    if (tess != NULL) {
+        tessDeleteTess(tess);
+    }
+    free(contour);
 
     if (s_active_perf_stats != NULL) {
         s_active_perf_stats->triangle_draw.calls++;
         s_active_perf_stats->triangle_draw.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
     }
-
-#undef POLY_FRAC
-#undef POLY_ONE
-#undef POLY_HALF
-#undef POLY_MASK
-#undef POLY_MAX_IX
-#undef POLY_SUB_SAMPLES
-#undef POLY_COV_MAX_W
 }
