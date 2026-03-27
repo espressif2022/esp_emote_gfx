@@ -85,4 +85,90 @@ menu "ESP Emote Graphics Framework"
 
     endmenu
 
+    menu "Mesh & software triangle blend"
+
+        choice GFX_MESH_SUBPIXEL_PRECISION
+            prompt "Mesh / triangle vertex subpixel precision"
+            default GFX_MESH_SUBPIXEL_Q8
+            help
+                Fractional bits for mesh coordinates (x_q8/y_q8 fields) and for
+                gfx_sw_blend_img_triangle_draw. Q8 gives finer silhouettes; Q4
+                uses coarser subpixel steps. Must be consistent for the whole build.
+
+            config GFX_MESH_SUBPIXEL_Q4
+                bool "Q4 (4 fractional bits, 16 steps per pixel)"
+
+            config GFX_MESH_SUBPIXEL_Q8
+                bool "Q8 (8 fractional bits, 256 steps per pixel)"
+        endchoice
+
+        config GFX_BLEND_TRI_EDGE_AA_RANGE
+            int "Triangle edge AA range (subpixel units; 0 = one logical pixel)"
+            default 0
+            range 0 4096
+            help
+                Outer-edge anti-alias distance threshold in the same fixed-point
+                units as mesh vertices. 0 selects one logical pixel (1 << fractional bits).
+                Increase for a wider AA feather (softer edges, more outer pixels).
+
+    endmenu
+
+    menu "Face Emote"
+
+        config GFX_FACE_EMOTE_DEFAULT_TIMER_PERIOD_MS
+            int "Default animation timer period (ms)"
+            range 1 1000
+            default 33
+            help
+                Default timer period used by gfx_face_emote_cfg_init().
+                Smaller values animate more smoothly but wake the CPU more often.
+
+        config GFX_FACE_EMOTE_DEFAULT_EYE_SEGS
+            int "Default eye Bezier segments"
+            range 4 64
+            default 24
+            help
+                Default number of segments per eye cubic fill edge.
+                Increase for smoother contours at the cost of more mesh work.
+
+        config GFX_FACE_EMOTE_DEFAULT_BROW_SEGS
+            int "Default brow Bezier segments"
+            range 4 64
+            default 32
+            help
+                Default number of segments per eyebrow stroke.
+
+        config GFX_FACE_EMOTE_DEFAULT_MOUTH_SEGS
+            int "Default mouth Bezier segments"
+            range 4 64
+            default 32
+            help
+                Default number of segments per mouth cubic stroke half.
+
+        config GFX_FACE_EMOTE_CREATE_FALLBACK_RES
+            int "Fallback display resolution"
+            range 1 4096
+            default 360
+            help
+                Resolution used by gfx_face_emote_create() when the display
+                reports 0 for width or height.
+
+        config GFX_FACE_EMOTE_MAX_STROKE_SEGS
+            int "Maximum compiled stroke segments"
+            range 8 256
+            default 128
+            help
+                Upper bound for compiled stack buffers used by Bezier stroke
+                tessellation. Must be >= the largest runtime stroke segment count.
+
+        config GFX_FACE_EMOTE_MAX_FILL_SEGS
+            int "Maximum compiled fill segments"
+            range 8 128
+            default 64
+            help
+                Upper bound for compiled stack buffers used by Bezier fill
+                tessellation. Must be >= the largest runtime fill segment count.
+
+    endmenu
+
 endmenu

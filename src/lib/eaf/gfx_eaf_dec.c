@@ -327,9 +327,13 @@ bool eaf_dec_get_palette_color(const eaf_dec_header_t *header, uint8_t color_ind
         return true;
     }
 
-    uint16_t rgb565_value = swap_bytes ? __builtin_bswap16(((color_data[2] & 0xF8) << 8) | ((color_data[1] & 0xFC) << 3) | ((color_data[0] & 0xF8) >> 3)) : \
-                            ((color_data[2] & 0xF8) << 8) | ((color_data[1] & 0xFC) << 3) | ((color_data[0] & 0xF8) >> 3);
-    result->full = rgb565_value;
+    gfx_color_t color = {
+        .full = (uint16_t)(((color_data[2] & 0xF8) << 8) |
+                           ((color_data[1] & 0xFC) << 3) |
+                           ((color_data[0] & 0xF8) >> 3)),
+    };
+
+    result->full = gfx_color_to_native_u16(color, swap_bytes);
     return false;
 }
 

@@ -48,6 +48,15 @@ typedef struct {
     const void *reserved_2;     /**< Reserved field for future use */
 } gfx_image_dsc_t;
 
+typedef enum {
+    GFX_IMG_SRC_TYPE_IMAGE_DSC = 0, /**< In-memory gfx_image_dsc_t payload */
+} gfx_img_src_type_t;
+
+typedef struct {
+    gfx_img_src_type_t type;    /**< Source payload type */
+    const void *data;           /**< Type-specific payload pointer */
+} gfx_img_src_t;
+
 /**********************
  *   PUBLIC API
  **********************/
@@ -62,10 +71,19 @@ gfx_obj_t *gfx_img_create(gfx_disp_t *disp);
 /* Image setters */
 
 /**
+ * @brief Set the typed source descriptor for an image object
+ * @param obj Pointer to the image object
+ * @param src Pointer to the typed source descriptor
+ */
+esp_err_t gfx_img_set_src_desc(gfx_obj_t *obj, const gfx_img_src_t *src);
+
+/**
  * @brief Set the source data for an image object
+ *
+ * Compatibility wrapper for in-memory `gfx_image_dsc_t` payloads.
+ *
  * @param obj Pointer to the image object
  * @param src Pointer to the image source data
- * @return Pointer to the object
  */
 esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src);
 

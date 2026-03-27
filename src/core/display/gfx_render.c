@@ -161,7 +161,7 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
     }
 
     if (area->x2 < area->x1 || area->y2 < area->y1) {
-        GFX_LOGE(TAG, "Area[%d] invalid bounds (%d,%d)-(%d,%d)", area_idx,
+        GFX_LOGE(TAG, "render area[%d]: invalid bounds (%d,%d)-(%d,%d)", area_idx,
                  area->x1, area->y1, area->x2, area->y2);
         return;
     }
@@ -169,13 +169,13 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
     uint32_t area_w = (uint32_t)(area->x2 - area->x1 + 1);
     uint32_t row_h = disp->buf.buf_pixels / area_w;
     if (row_h == 0) {
-        GFX_LOGE(TAG, "Area[%d] width %" PRIu32 " exceeds buffer, skip", area_idx, area_w);
+        GFX_LOGE(TAG, "render area[%d]: width %" PRIu32 " exceeds buffer, skipping", area_idx, area_w);
         return;
     }
 
     gfx_disp_flush_cb_t flush_cb = disp->cb.flush_cb;
     if (flush_cb != NULL && disp->sync.event_group == NULL) {
-        GFX_LOGE(TAG, "Area[%d] flush_cb set but event_group NULL", area_idx);
+        GFX_LOGE(TAG, "render area[%d]: flush callback is set but event group is NULL", area_idx);
         return;
     }
 
@@ -221,7 +221,7 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
 
         render_start_us = esp_timer_get_time();
         if (disp->style.bg_enable) {
-            uint16_t bg = disp->flags.swap ? (uint16_t)__builtin_bswap16(disp->style.bg_color.full) : (uint16_t)disp->style.bg_color.full;
+            uint16_t bg = gfx_color_to_native_u16(disp->style.bg_color, disp->flags.swap);
             if (disp->flags.full_frame) {
                 gfx_area_t fill_area = { chunk_x1, chunk_y1, chunk_x2, chunk_y2 };  /* exclusive x2,y2 */
                 gfx_sw_blend_fill_area(buf, (gfx_coord_t)disp->res.h_res, &fill_area, bg);

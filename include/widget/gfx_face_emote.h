@@ -24,6 +24,11 @@ typedef struct {
     int16_t pts[8];
 } gfx_face_emote_shape8_t;
 
+/* Public semantic aliases. Keep the legacy numeric names for compatibility. */
+typedef gfx_face_emote_shape14_t gfx_face_emote_eye_shape_t;
+typedef gfx_face_emote_shape8_t gfx_face_emote_brow_shape_t;
+typedef gfx_face_emote_shape14_t gfx_face_emote_mouth_shape_t;
+
 typedef struct {
     const char *name;
     const char *name_cn;
@@ -48,11 +53,11 @@ typedef struct {
 } gfx_face_emote_mix_t;
 
 typedef struct {
-    const gfx_face_emote_shape14_t *ref_eye;
+    const gfx_face_emote_eye_shape_t *ref_eye;
     size_t ref_eye_count;
-    const gfx_face_emote_shape8_t *ref_brow;
+    const gfx_face_emote_brow_shape_t *ref_brow;
     size_t ref_brow_count;
-    const gfx_face_emote_shape14_t *ref_mouth;
+    const gfx_face_emote_mouth_shape_t *ref_mouth;
     size_t ref_mouth_count;
     const gfx_face_emote_expr_t *sequence;
     size_t sequence_count;
@@ -96,6 +101,7 @@ void gfx_face_emote_cfg_init(gfx_face_emote_cfg_t *cfg, uint16_t display_w, uint
 gfx_obj_t *gfx_face_emote_create(gfx_disp_t *disp, uint16_t layout_ref_x, uint16_t layout_ref_y);
 esp_err_t gfx_face_emote_set_config(gfx_obj_t *obj, const gfx_face_emote_cfg_t *cfg);
 esp_err_t gfx_face_emote_set_assets(gfx_obj_t *obj, const gfx_face_emote_assets_t *assets);
+esp_err_t gfx_face_emote_set_color(gfx_obj_t *obj, gfx_color_t color);
 esp_err_t gfx_face_emote_set_expression_name(gfx_obj_t *obj, const char *name, bool snap_now);
 esp_err_t gfx_face_emote_set_mix(gfx_obj_t *obj, const gfx_face_emote_mix_t *mix, bool snap_now);
 esp_err_t gfx_face_emote_set_manual_look(gfx_obj_t *obj, bool enabled, int16_t look_x, int16_t look_y);

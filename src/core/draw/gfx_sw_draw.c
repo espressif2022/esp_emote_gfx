@@ -57,9 +57,7 @@ void gfx_sw_draw_point(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
     }
 
     if (opa >= 0xFF) {
-        if (swap) {
-            draw_color.full = __builtin_bswap16(draw_color.full);
-        }
+        draw_color.full = gfx_color_to_native_u16(draw_color, swap);
         *pixel = draw_color;
     } else if (opa > 0) {
         *pixel = gfx_blend_color_mix(color, *pixel, opa, swap);
@@ -99,9 +97,7 @@ void gfx_sw_draw_hline(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
     size_t count = (size_t)(draw_x2 - draw_x1);
 
     if (opa >= 0xFF) {
-        if (swap) {
-            draw_color.full = __builtin_bswap16(draw_color.full);
-        }
+        draw_color.full = gfx_color_to_native_u16(draw_color, swap);
         gfx_sw_blend_fill((uint16_t *)pixel, draw_color.full, count);
     } else {
         for (size_t i = 0; i < count; ++i) {
@@ -143,9 +139,7 @@ void gfx_sw_draw_vline(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                          + (size_t)(x - buf_area->x1);
 
     if (opa >= 0xFF) {
-        if (swap) {
-            draw_color.full = __builtin_bswap16(draw_color.full);
-        }
+        draw_color.full = gfx_color_to_native_u16(draw_color, swap);
         for (gfx_coord_t row = draw_y1; row < draw_y2; ++row) {
             *pixel = draw_color;
             pixel += dest_stride;

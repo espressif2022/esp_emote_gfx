@@ -12,7 +12,6 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <inttypes.h>
-#include "esp_log.h"
 #include "esp_err.h"
 #include "esp_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_LABEL
@@ -60,7 +59,7 @@ esp_err_t gfx_label_set_font(gfx_obj_t *obj, gfx_font_t font)
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
                 gfx_font_ft_init_adapter(font_handle, font);
 #else
-                GFX_LOGW(TAG, "FreeType font detected but support is not enabled");
+                GFX_LOGW(TAG, "set label font: freetype support is not enabled");
                 free(font_handle);
                 font_handle = NULL;
 #endif
@@ -68,7 +67,7 @@ esp_err_t gfx_label_set_font(gfx_obj_t *obj, gfx_font_t font)
 
             label->font.handle = font_handle;
         } else {
-            GFX_LOGW(TAG, "Failed to allocate unified font interface");
+            GFX_LOGW(TAG, "set label font: allocate font adapter failed");
         }
     }
 

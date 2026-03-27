@@ -70,7 +70,7 @@ void gfx_sw_blend_fill(uint16_t *buf, uint16_t color, size_t pixels);
  * @param dest_buf Destination buffer (uint16_t)
  * @param dest_stride Row stride in pixels
  * @param area Area to fill (x1,y1,x2,y2 exclusive end)
- * @param color 16-bit color value (caller applies swap if needed)
+ * @param color 16-bit color value in native framebuffer byte order
  */
 void gfx_sw_blend_fill_area(uint16_t *dest_buf, gfx_coord_t dest_stride,
                             const gfx_area_t *area, uint16_t color);

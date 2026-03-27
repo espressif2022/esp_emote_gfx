@@ -56,7 +56,7 @@ static void *malloc_cpy(void *src, size_t sz)
 {
     void *p = malloc(sz);
     if (!p) {
-        GFX_LOGE(TAG, "Failed to allocate memory");
+        GFX_LOGE(TAG, "load lvgl font: allocate memory failed");
         return NULL;
     }
     memcpy(p, src, sz);
@@ -287,7 +287,7 @@ static int gfx_font_lv_adjust_baseline_offset(gfx_font_handle_t font_adapter, vo
 {
     const lv_font_t *lvgl_font = (const lv_font_t *)font_adapter->font;
     if (!lvgl_font) {
-        GFX_LOGE(TAG, "lvgl_font is NULL");
+        GFX_LOGE(TAG, "query lvgl font: lvgl font is NULL");
         return 0;
     }
 
@@ -364,7 +364,7 @@ void gfx_font_lv_init_adapter(gfx_font_handle_t font_adapter, const void *font)
 lv_font_t *gfx_font_lv_load_from_binary(uint8_t *bin_addr)
 {
     if (!bin_addr) {
-        GFX_LOGE(TAG, "bin_addr is NULL");
+        GFX_LOGE(TAG, "load lvgl font: binary address is NULL");
         return NULL;
     }
 
@@ -391,7 +391,7 @@ lv_font_t *gfx_font_lv_load_from_binary(uint8_t *bin_addr)
         uint8_t *cmaps_addr = bin_addr + (uintptr_t)dsc->cmaps;
         dsc->cmaps = (lv_font_fmt_txt_cmap_t *)malloc(sizeof(lv_font_fmt_txt_cmap_t) * dsc->cmap_num);
         if (!dsc->cmaps) {
-            GFX_LOGE(TAG, "Failed to allocate memory for cmaps");
+            GFX_LOGE(TAG, "load lvgl font: allocate cmaps failed");
             free(dsc);
             free(font);
             return NULL;

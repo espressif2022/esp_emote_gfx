@@ -9,6 +9,7 @@
 #include <stddef.h>
 
 #include "core/gfx_obj.h"
+#include "widget/gfx_img.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,6 +34,7 @@ typedef struct {
  **********************/
 
 gfx_obj_t *gfx_mesh_img_create(gfx_disp_t *disp);
+esp_err_t gfx_mesh_img_set_src_desc(gfx_obj_t *obj, const gfx_img_src_t *src);
 esp_err_t gfx_mesh_img_set_src(gfx_obj_t *obj, void *src);
 esp_err_t gfx_mesh_img_set_grid(gfx_obj_t *obj, uint8_t cols, uint8_t rows);
 size_t gfx_mesh_img_get_point_count(gfx_obj_t *obj);

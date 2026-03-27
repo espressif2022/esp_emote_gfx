@@ -97,6 +97,21 @@ typedef struct {
  */
 gfx_color_t gfx_color_hex(uint32_t c);
 
+/**
+ * @brief Convert a semantic gfx_color_t to native framebuffer order.
+ *
+ * Use this helper only when writing raw 16-bit pixels directly into a buffer
+ * or calling raw fill helpers that do not accept a separate `swap` argument.
+ *
+ * @param color Semantic RGB565 color value.
+ * @param swap Whether the target buffer expects swapped byte order.
+ * @return Native-order 16-bit pixel value for the target buffer.
+ */
+static inline uint16_t gfx_color_to_native_u16(gfx_color_t color, bool swap)
+{
+    return swap ? (uint16_t)__builtin_bswap16(color.full) : color.full;
+}
+
 #ifdef __cplusplus
 }
 #endif

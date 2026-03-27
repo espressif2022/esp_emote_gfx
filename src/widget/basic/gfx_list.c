@@ -363,8 +363,8 @@ static esp_err_t gfx_list_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
         return ESP_OK;
     }
 
-    bg_color_raw = ctx->swap ? (uint16_t)__builtin_bswap16(list->style.bg_color.full) : list->style.bg_color.full;
-    selected_bg_color_raw = ctx->swap ? (uint16_t)__builtin_bswap16(list->style.selected_bg_color.full) : list->style.selected_bg_color.full;
+    bg_color_raw = gfx_color_to_native_u16(list->style.bg_color, ctx->swap);
+    selected_bg_color_raw = gfx_color_to_native_u16(list->style.selected_bg_color, ctx->swap);
 
     fill_area.x1 = clip_area.x1 - ctx->buf_area.x1;
     fill_area.y1 = clip_area.y1 - ctx->buf_area.y1;
@@ -488,13 +488,13 @@ gfx_obj_t *gfx_list_create(gfx_disp_t *disp)
     gfx_list_t *list;
 
     if (disp == NULL) {
-        GFX_LOGE(TAG, "disp must be from gfx_emote_add_disp");
+        GFX_LOGE(TAG, "create list: display is NULL");
         return NULL;
     }
 
     list = calloc(1, sizeof(gfx_list_t));
     if (list == NULL) {
-        GFX_LOGE(TAG, "No mem for list object");
+        GFX_LOGE(TAG, "create list: no mem for state");
         return NULL;
     }
 
@@ -504,14 +504,17 @@ gfx_obj_t *gfx_list_create(gfx_disp_t *disp)
                                       list, GFX_LIST_DEFAULT_WIDTH, GFX_LIST_DEFAULT_HEIGHT,
                                       "gfx_list_create", &obj) != ESP_OK) {
         free(list);
+        GFX_LOGE(TAG, "create list: no mem for object");
         return NULL;
     }
 
     if (gfx_list_rebuild_text(obj, list) != ESP_OK) {
         gfx_obj_delete(obj);
+        GFX_LOGE(TAG, "create list: rebuild text failed");
         return NULL;
     }
 
+    GFX_LOGD(TAG, "create list: object created");
     return obj;
 }
 

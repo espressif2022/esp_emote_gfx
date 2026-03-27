@@ -9,7 +9,6 @@
  *********************/
 #include <stdlib.h>
 #include <string.h>
-#include "esp_log.h"
 #include "esp_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_LABEL_OBJ
 #include "common/gfx_log_priv.h"
@@ -88,25 +87,26 @@ gfx_obj_t *gfx_label_create(gfx_disp_t *disp)
     gfx_label_t *label = NULL;
 
     if (disp == NULL) {
-        GFX_LOGE(TAG, "disp must be from gfx_emote_add_disp");
+        GFX_LOGE(TAG, "create label: display is NULL");
         return NULL;
     }
 
     label = calloc(1, sizeof(gfx_label_t));
     if (label == NULL) {
-        GFX_LOGE(TAG, "Failed to allocate memory for label object");
+        GFX_LOGE(TAG, "create label: no mem for state");
         return NULL;
     }
 
     if (gfx_obj_create_class_instance(disp, &s_gfx_label_widget_class,
                                       label, 0, 0, "gfx_label_create", &obj) != ESP_OK) {
         free(label);
+        GFX_LOGE(TAG, "create label: no mem for object");
         return NULL;
     }
 
     gfx_label_init_default_state(label);
 
-    GFX_LOGD(TAG, "Created label object with default font config");
+    GFX_LOGD(TAG, "create label: object created");
     return obj;
 }
 

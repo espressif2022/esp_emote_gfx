@@ -44,8 +44,10 @@ typedef struct gfx_anim_decoder_ops {
     void (*free_frame_info)(gfx_anim_frame_desc_t *frame_desc);
     const uint8_t *(*get_frame_data)(void *handle, int frame_index);
     int (*get_frame_size)(void *handle, int frame_index);
+    /* decode_block writes RGB565 blocks in native framebuffer order when requested */
     esp_err_t (*decode_block)(const gfx_anim_frame_desc_t *frame_desc, const uint8_t *block_data,
                               int block_len, uint8_t *decode_buffer, bool swap_color);
+    /* get_palette_color returns a semantic/native RGB565 color for the target draw path */
     bool (*get_palette_color)(const gfx_anim_frame_desc_t *frame_desc, uint8_t color_index,
                               bool swap_bytes, gfx_color_t *result);
 } gfx_anim_decoder_ops_t;

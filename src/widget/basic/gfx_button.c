@@ -212,7 +212,7 @@ static esp_err_t gfx_button_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     }
 
     fill_color = button->state.pressed ? button->style.bg_color_pressed : button->style.bg_color;
-    fill_color_raw = ctx->swap ? (uint16_t)__builtin_bswap16(fill_color.full) : fill_color.full;
+    fill_color_raw = gfx_color_to_native_u16(fill_color, ctx->swap);
     gfx_color_t *dest_pixels = (gfx_color_t *)ctx->buf;
     fill_area.x1 = clip_area.x1 - ctx->buf_area.x1;
     fill_area.y1 = clip_area.y1 - ctx->buf_area.y1;
@@ -325,14 +325,13 @@ gfx_obj_t *gfx_button_create(gfx_disp_t *disp)
     gfx_button_t *button;
 
     if (disp == NULL) {
-        GFX_LOGE(TAG, "disp must be from gfx_emote_add_disp");
+        GFX_LOGE(TAG, "create button: display is NULL");
         return NULL;
     }
 
     button = calloc(1, sizeof(gfx_button_t));
     if (button == NULL) {
-        free(button);
-        GFX_LOGE(TAG, "No mem for button object");
+        GFX_LOGE(TAG, "create button: no mem for state");
         return NULL;
     }
 
@@ -342,9 +341,11 @@ gfx_obj_t *gfx_button_create(gfx_disp_t *disp)
                                       button, GFX_BUTTON_DEFAULT_WIDTH, GFX_BUTTON_DEFAULT_HEIGHT,
                                       "gfx_button_create", &obj) != ESP_OK) {
         free(button);
+        GFX_LOGE(TAG, "create button: no mem for object");
         return NULL;
     }
 
+    GFX_LOGD(TAG, "create button: object created");
     return obj;
 }
 
@@ -440,7 +441,7 @@ esp_err_t gfx_button_set_font(gfx_obj_t *obj, gfx_font_t font)
             gfx_font_ft_init_adapter(font_handle, font);
 #else
             free(font_handle);
-            GFX_LOGW(TAG, "FreeType font detected but support is not enabled");
+            GFX_LOGW(TAG, "set button font: freetype support is not enabled");
             return ESP_ERR_NOT_SUPPORTED;
 #endif
         }

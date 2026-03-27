@@ -1123,10 +1123,9 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     }
 
     if (label->style.bg_enable) {
-        gfx_color_t bg_color = label->style.bg_color;
-        if (ctx->swap) {
-            bg_color.full = __builtin_bswap16(bg_color.full);
-        }
+        gfx_color_t bg_color = {
+            .full = gfx_color_to_native_u16(label->style.bg_color, ctx->swap),
+        };
         for (int y = clip_area.y1; y < clip_area.y2; y++) {
             for (int x = clip_area.x1; x < clip_area.x2; x++) {
                 gfx_color_t *dest_pixels = GFX_DRAW_CTX_DEST_PTR(ctx, x, y);
@@ -1147,9 +1146,6 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
                       clip_area.x1 - obj->geometry.x);
 
     gfx_color_t color = label->style.color;
-    if (ctx->swap) {
-        color.full = __builtin_bswap16(color.full);
-    }
 
     gfx_sw_blend_draw(dest_pixels, ctx->stride, mask, mask_stride, &clip_area, color, label->style.opa, ctx->swap);
     return ESP_OK;

@@ -40,7 +40,7 @@
  **********************/
 
 typedef struct {
-    void *image_src;
+    gfx_img_src_t image_src;
     gfx_image_header_t header;
     uint8_t grid_cols;
     uint8_t grid_rows;
@@ -79,9 +79,10 @@ static esp_err_t gfx_mesh_img_alloc_points(gfx_mesh_img_t *mesh, uint8_t cols, u
 static void gfx_mesh_img_update_bounds(gfx_obj_t *obj, gfx_mesh_img_t *mesh);
 static void gfx_mesh_img_reset_rest_points(gfx_mesh_img_t *mesh);
 static void gfx_mesh_img_get_draw_origin_q8(gfx_obj_t *obj, const gfx_mesh_img_t *mesh, int32_t *x_q8, int32_t *y_q8);
-static esp_err_t gfx_mesh_img_load_header(void *src, gfx_image_header_t *header);
+static esp_err_t gfx_mesh_img_load_header(const gfx_img_src_t *src, gfx_image_header_t *header);
 static esp_err_t gfx_mesh_img_prepare_decoder(const gfx_mesh_img_t *mesh, gfx_image_decoder_dsc_t *decoder_dsc);
 static void gfx_mesh_img_draw_ctrl_points(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx, const gfx_mesh_img_t *mesh);
+static esp_err_t gfx_mesh_img_validate_src(const gfx_img_src_t *src);
 
 static const gfx_widget_class_t s_gfx_mesh_img_widget_class = {
     .type = GFX_OBJ_TYPE_MESH_IMAGE,
@@ -276,22 +277,36 @@ static void gfx_mesh_img_get_draw_origin_q8(gfx_obj_t *obj, const gfx_mesh_img_t
     *y_q8 = ((int32_t)obj->geometry.y << GFX_MESH_IMG_Q8_SHIFT) - mesh->bounds_min_y_q8;
 }
 
-static esp_err_t gfx_mesh_img_load_header(void *src, gfx_image_header_t *header)
+static esp_err_t gfx_mesh_img_load_header(const gfx_img_src_t *src, gfx_image_header_t *header)
 {
     gfx_image_decoder_dsc_t dsc = {
-        .src = src,
+        .src = *src,
     };
 
-    ESP_RETURN_ON_FALSE(src != NULL, ESP_ERR_INVALID_ARG, TAG, "source is NULL");
+    ESP_RETURN_ON_ERROR(gfx_mesh_img_validate_src(src), TAG, "load mesh image header: source descriptor is invalid");
     ESP_RETURN_ON_FALSE(header != NULL, ESP_ERR_INVALID_ARG, TAG, "header is NULL");
 
     return gfx_image_decoder_info(&dsc, header);
+}
+
+static esp_err_t gfx_mesh_img_validate_src(const gfx_img_src_t *src)
+{
+    ESP_RETURN_ON_FALSE(src != NULL, ESP_ERR_INVALID_ARG, TAG, "resolve mesh image src: descriptor is NULL");
+    ESP_RETURN_ON_FALSE(src->data != NULL, ESP_ERR_INVALID_ARG, TAG, "resolve mesh image src: payload is NULL");
+
+    switch (src->type) {
+    case GFX_IMG_SRC_TYPE_IMAGE_DSC:
+        return ESP_OK;
+    default:
+        return ESP_ERR_NOT_SUPPORTED;
+    }
 }
 
 static esp_err_t gfx_mesh_img_prepare_decoder(const gfx_mesh_img_t *mesh, gfx_image_decoder_dsc_t *decoder_dsc)
 {
     ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_ARG, TAG, "mesh state is NULL");
     ESP_RETURN_ON_FALSE(decoder_dsc != NULL, ESP_ERR_INVALID_ARG, TAG, "decoder desc is NULL");
+    ESP_RETURN_ON_ERROR(gfx_mesh_img_validate_src(&mesh->image_src), TAG, "prepare mesh image decoder: source descriptor is invalid");
 
     decoder_dsc->src = mesh->image_src;
     decoder_dsc->header = mesh->header;
@@ -356,7 +371,8 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     }
 
     mesh = (gfx_mesh_img_t *)obj->src;
-    if (mesh->image_src == NULL) {
+    if (mesh->image_src.data == NULL) {
+        GFX_LOGD(TAG, "draw mesh image: source descriptor has no payload");
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -369,6 +385,7 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     ESP_RETURN_ON_ERROR(gfx_mesh_img_prepare_decoder(mesh, &decoder_dsc), TAG, "draw mesh image: open decoder failed");
 
     if (decoder_dsc.data == NULL) {
+        GFX_LOGE(TAG, "draw mesh image: decoder returned no data");
         gfx_image_decoder_close(&decoder_dsc);
         return ESP_ERR_INVALID_STATE;
     }
@@ -679,16 +696,17 @@ gfx_obj_t *gfx_mesh_img_create(gfx_disp_t *disp)
         return NULL;
     }
 
+    GFX_LOGD(TAG, "create mesh image: object created");
     return obj;
 }
 
-esp_err_t gfx_mesh_img_set_src(gfx_obj_t *obj, void *src)
+esp_err_t gfx_mesh_img_set_src_desc(gfx_obj_t *obj, const gfx_img_src_t *src)
 {
     gfx_mesh_img_t *mesh;
     gfx_image_header_t header;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
-    ESP_RETURN_ON_FALSE(src != NULL, ESP_ERR_INVALID_ARG, TAG, "set mesh image src: source is NULL");
+    ESP_RETURN_ON_ERROR(gfx_mesh_img_validate_src(src), TAG, "set mesh image src: validate descriptor failed");
 
     mesh = (gfx_mesh_img_t *)obj->src;
     ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh image src: state is NULL");
@@ -699,7 +717,7 @@ esp_err_t gfx_mesh_img_set_src(gfx_obj_t *obj, void *src)
 
     gfx_obj_invalidate(obj);
 
-    mesh->image_src = src;
+    mesh->image_src = *src;
     mesh->header = header;
     gfx_mesh_img_reset_rest_points(mesh);
     gfx_mesh_img_update_bounds(obj, mesh);
@@ -709,6 +727,16 @@ esp_err_t gfx_mesh_img_set_src(gfx_obj_t *obj, void *src)
     GFX_LOGD(TAG, "set mesh image src: %ux%u grid=%ux%u",
              header.w, header.h, mesh->grid_cols, mesh->grid_rows);
     return ESP_OK;
+}
+
+esp_err_t gfx_mesh_img_set_src(gfx_obj_t *obj, void *src)
+{
+    const gfx_img_src_t compat_src = {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = src,
+    };
+
+    return gfx_mesh_img_set_src_desc(obj, &compat_src);
 }
 
 esp_err_t gfx_mesh_img_set_grid(gfx_obj_t *obj, uint8_t cols, uint8_t rows)

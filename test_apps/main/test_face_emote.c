@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <inttypes.h>
 
 #include "esp_check.h"
 #include "esp_random.h"
@@ -20,6 +21,7 @@ static const char *TAG = "test_face_emote";
 
 #define TEST_APP_FACE_EMOTE_LAYOUT_REF_X  ((BSP_LCD_H_RES) * 2 / 3)
 #define TEST_APP_FACE_EMOTE_LAYOUT_REF_Y  ((BSP_LCD_V_RES) * 3 / 3)
+#define TEST_APP_FACE_EMOTE_USE_RANDOM_MIX 0
 
 #include "face_emote_expr_assets.inc"
 
@@ -30,6 +32,9 @@ typedef struct {
     gfx_face_emote_cfg_t cfg;
     bool use_chinese;
     gfx_face_emote_mix_t current_mix;
+    gfx_color_t current_color;
+    uint32_t current_color_hex;
+    size_t current_expr_index;
 } test_face_emote_scene_t;
 
 static const gfx_face_emote_assets_t s_face_assets = {
@@ -43,6 +48,15 @@ static const gfx_face_emote_assets_t s_face_assets = {
     .sequence_count = TEST_APP_ARRAY_SIZE(s_face_sequence),
 };
 
+static const uint32_t s_face_color_palette[] = {
+    0x1D4ED8,
+    0xFF6B6B,
+    0x10B981,
+    0xF59E0B,
+    0xA855F7,
+    0xF8FAFC,
+};
+
 static int16_t test_face_emote_random_signed(int16_t limit)
 {
     uint32_t span = (uint32_t)(limit * 2) + 1U;
@@ -52,6 +66,44 @@ static int16_t test_face_emote_random_signed(int16_t limit)
 static int16_t test_face_emote_random_percent(void)
 {
     return (int16_t)(esp_random() % 101U);
+}
+
+static uint32_t test_face_emote_random_color_hex(void)
+{
+    size_t idx = esp_random() % TEST_APP_ARRAY_SIZE(s_face_color_palette);
+    return s_face_color_palette[idx];
+}
+
+static const char *test_face_emote_get_expr_name(const test_face_emote_scene_t *scene, size_t index)
+{
+    const gfx_face_emote_expr_t *expr;
+
+    if (scene == NULL || index >= s_face_assets.sequence_count) {
+        return "unknown";
+    }
+
+    expr = &s_face_assets.sequence[index];
+    if (scene->use_chinese && expr->name_cn != NULL) {
+        return expr->name_cn;
+    }
+    if (expr->name != NULL) {
+        return expr->name;
+    }
+    if (expr->name_cn != NULL) {
+        return expr->name_cn;
+    }
+    return "unknown";
+}
+
+static void test_face_emote_apply_color(test_face_emote_scene_t *scene)
+{
+    if (scene == NULL || scene->face_obj == NULL) {
+        return;
+    }
+
+    scene->current_color = GFX_COLOR_HEX(scene->current_color_hex);
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_face_emote_set_color(scene->face_obj, scene->current_color));
+    ESP_LOGI(TAG, "set color #%06" PRIX32, scene->current_color_hex);
 }
 
 static void test_face_emote_randomize_mix(gfx_face_emote_mix_t *mix)
@@ -89,9 +141,16 @@ static void test_face_emote_update_title(test_face_emote_scene_t *scene)
         return;
     }
 
-    gfx_label_set_text_fmt(scene->title_label, "  mix h%02d s%02d u%02d a%02d",
+#if TEST_APP_FACE_EMOTE_USE_RANDOM_MIX
+    gfx_label_set_text_fmt(scene->title_label, "mix h%02d s%02d u%02d a%02d  #%06" PRIX32,
                            scene->current_mix.w_happy, scene->current_mix.w_smile,
-                           scene->current_mix.w_surprise, scene->current_mix.w_angry);
+                           scene->current_mix.w_surprise, scene->current_mix.w_angry,
+                           scene->current_color_hex);
+#else
+    gfx_label_set_text_fmt(scene->title_label, "%s  #%06" PRIX32,
+                           test_face_emote_get_expr_name(scene, scene->current_expr_index),
+                           scene->current_color_hex);
+#endif
 }
 
 static void test_face_emote_expr_timer_cb(void *user_data)
@@ -102,8 +161,23 @@ static void test_face_emote_expr_timer_cb(void *user_data)
         return;
     }
 
+#if TEST_APP_FACE_EMOTE_USE_RANDOM_MIX
     test_face_emote_randomize_mix(&scene->current_mix);
+    scene->current_color_hex = test_face_emote_random_color_hex();
+    test_face_emote_apply_color(scene);
     test_face_emote_apply_mix(scene, false);
+#else
+    scene->current_expr_index = (scene->current_expr_index + 1U) % s_face_assets.sequence_count;
+    scene->current_color_hex = test_face_emote_random_color_hex();
+    test_face_emote_apply_color(scene);
+    TEST_ASSERT_EQUAL(ESP_OK,
+                      gfx_face_emote_set_expression_name(scene->face_obj,
+                                                         s_face_assets.sequence[scene->current_expr_index].name,
+                                                         false));
+    ESP_LOGI(TAG, "set expression %s (%s)",
+             s_face_assets.sequence[scene->current_expr_index].name,
+             test_face_emote_get_expr_name(scene, scene->current_expr_index));
+#endif
     test_face_emote_update_title(scene);
 }
 
@@ -123,7 +197,14 @@ static void test_face_emote_touch_event_cb(gfx_touch_t *touch, const gfx_touch_e
 
     if (event->type == GFX_TOUCH_EVENT_RELEASE) {
         gfx_face_emote_set_manual_look(scene->face_obj, false, 0, 0);
+#if TEST_APP_FACE_EMOTE_USE_RANDOM_MIX
         test_face_emote_apply_mix(scene, false);
+#else
+        TEST_ASSERT_EQUAL(ESP_OK,
+                          gfx_face_emote_set_expression_name(scene->face_obj,
+                                                             s_face_assets.sequence[scene->current_expr_index].name,
+                                                             false));
+#endif
         return;
     }
 
@@ -161,6 +242,8 @@ static void test_face_emote_run(void)
     TEST_ASSERT_EQUAL(ESP_OK, gfx_face_emote_set_config(scene.face_obj, &scene.cfg));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.face_obj, GFX_ALIGN_CENTER, 0, 0));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_face_emote_set_assets(scene.face_obj, &s_face_assets));
+    scene.current_color_hex = s_face_color_palette[0];
+    test_face_emote_apply_color(&scene);
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_size(scene.title_label, 306, 24));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(scene.title_label, GFX_ALIGN_TOP_MID, 0, 8));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_font(scene.title_label, (gfx_font_t)&font_puhui_16_4));
@@ -168,8 +251,17 @@ static void test_face_emote_run(void)
     TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_bg_color(scene.title_label, GFX_COLOR_HEX(0x122544)));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_color(scene.title_label, GFX_COLOR_HEX(0xEAF1FF)));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_label_set_text_align(scene.title_label, GFX_TEXT_ALIGN_CENTER));
+
+#if TEST_APP_FACE_EMOTE_USE_RANDOM_MIX
     test_face_emote_randomize_mix(&scene.current_mix);
     test_face_emote_apply_mix(&scene, true);
+#else
+    scene.current_expr_index = 0U;
+    TEST_ASSERT_EQUAL(ESP_OK,
+                      gfx_face_emote_set_expression_name(scene.face_obj,
+                                                         s_face_assets.sequence[scene.current_expr_index].name,
+                                                         true));
+#endif
     test_face_emote_update_title(&scene);
     scene.expr_timer = gfx_timer_create(emote_handle, test_face_emote_expr_timer_cb, 1000U, &scene);
     TEST_ASSERT_NOT_NULL(scene.expr_timer);
@@ -177,7 +269,7 @@ static void test_face_emote_run(void)
 
     test_app_unlock();
 
-    test_app_log_step(TAG, "Touch anywhere to steer gaze; random mix updates every 1 second");
+    test_app_log_step(TAG, "Touch anywhere to steer gaze; face color and pose update every 1 second");
     test_app_wait_for_observe(1000U * 10000U);
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());

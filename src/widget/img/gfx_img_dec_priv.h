@@ -28,9 +28,9 @@ typedef enum {
 } gfx_image_format_t;
 
 typedef struct {
-    const void *src;            /**< Image source: file name or variable */
+    gfx_img_src_t src;          /**< Typed image source descriptor */
     gfx_image_header_t header;  /**< Image header information */
-    const uint8_t *data;        /**< Decoded image data */
+    const uint8_t *data;        /**< Decoded/native image pixel data */
     uint32_t data_size;         /**< Size of decoded data */
     void *user_data;            /**< User data for decoder */
 } gfx_image_decoder_dsc_t;

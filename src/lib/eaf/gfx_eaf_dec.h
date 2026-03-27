@@ -144,8 +144,9 @@ void eaf_dec_calculate_offsets(const eaf_dec_header_t *header, uint32_t *offsets
  * @brief Get color from palette at specified index
  * @param header Pointer to the header structure containing palette
  * @param color_index Index in the palette
- * @param swap_bytes Whether to swap color bytes
- * @param result Output parameter for color value in RGB565 format
+ * @param swap_bytes Whether the returned RGB565 value should be converted to
+ *        native framebuffer byte order for the current draw target
+ * @param result Output parameter for semantic/native RGB565 color value
  * @return true if color is fully transparent (00 00 00 00), false otherwise
  */
 bool eaf_dec_get_palette_color(const eaf_dec_header_t *header, uint8_t color_index, bool swap_bytes, gfx_color_t *result);
@@ -176,7 +177,8 @@ esp_err_t eaf_dec_decode_rle(const uint8_t *in_data, size_t in_size,
  * @param in_size Size of input data
  * @param out_data Output buffer for decompressed data
  * @param out_size Size of output buffer
- * @param swap_color Whether to swap color bytes (unused)
+ * @param swap_color Whether decoded RGB565 data should be written in native
+ *        framebuffer byte order for the current draw target (unused here)
  * @return ESP_OK on success, ESP_FAIL on failure
  */
 esp_err_t eaf_dec_decode_huffman(const uint8_t *in_data, size_t in_size,
@@ -190,7 +192,8 @@ esp_err_t eaf_dec_decode_huffman(const uint8_t *in_data, size_t in_size,
  * @param in_size Size of input data
  * @param out_data Output buffer for decompressed data
  * @param out_size Size of output buffer
- * @param swap_color Whether to swap color bytes (unused)
+ * @param swap_color Whether decoded RGB565 data should be written in native
+ *        framebuffer byte order for the current draw target (unused here)
  * @return ESP_OK on success, ESP_FAIL on failure
  */
 esp_err_t eaf_dec_decode_heatshrink(const uint8_t *in_data, size_t in_size,
@@ -204,7 +207,8 @@ esp_err_t eaf_dec_decode_heatshrink(const uint8_t *in_data, size_t in_size,
  * @param in_size Size of input data
  * @param out_data Output buffer for data
  * @param out_size Size of output buffer
- * @param swap_color Whether to swap color bytes (unused)
+ * @param swap_color Whether decoded RGB565 data should be written in native
+ *        framebuffer byte order for the current draw target (unused here)
  * @return ESP_OK on success, ESP_FAIL on failure
  */
 esp_err_t eaf_dec_decode_raw(const uint8_t *in_data, size_t in_size,
@@ -218,7 +222,8 @@ esp_err_t eaf_dec_decode_raw(const uint8_t *in_data, size_t in_size,
  * @param in_size Size of input data
  * @param out_data Output buffer for decoded data
  * @param out_size Size of output buffer
- * @param swap_color Whether to swap color bytes
+ * @param swap_color Whether decoded RGB565 data should be written in native
+ *        framebuffer byte order for the current draw target
  * @return ESP_OK on success, ESP_FAIL on failure
  */
 esp_err_t eaf_dec_decode_jpeg(const uint8_t *in_data, size_t in_size,
@@ -235,7 +240,8 @@ esp_err_t eaf_dec_decode_jpeg(const uint8_t *in_data, size_t in_size,
  * @param block_data Pointer to the block data
  * @param block_len Length of the block
  * @param out_data Buffer to store decoded data
- * @param swap_color Whether to swap color bytes
+ * @param swap_color Whether decoded RGB565 data should be written in native
+ *        framebuffer byte order for the current draw target
  * @return ESP_OK on success, ESP_FAIL on failure
  */
 esp_err_t eaf_dec_decode_block(const eaf_dec_header_t *header, const uint8_t *block_data,

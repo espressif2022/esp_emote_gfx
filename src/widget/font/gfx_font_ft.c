@@ -75,7 +75,7 @@ static esp_err_t gfx_font_ft_lib_create_internal(void)
 
     error = FT_Init_FreeType(&s_library);
     if (error) {
-        GFX_LOGE(TAG, "error initializing FT library: %d", error);
+        GFX_LOGE(TAG, "init freetype library: error=%d", error);
         free(lib);
         return ESP_ERR_INVALID_STATE;
     }

@@ -7,6 +7,7 @@
 /*********************
  *      INCLUDES
  *********************/
+#include <stdlib.h>
 #include <string.h>
 #include "esp_err.h"
 #include "esp_log.h"
@@ -29,6 +30,10 @@
  *      TYPEDEFS
  **********************/
 
+typedef struct {
+    gfx_img_src_t src;
+} gfx_img_t;
+
 /**********************
  *  STATIC VARIABLES
  **********************/
@@ -39,6 +44,7 @@ static const char *TAG = "img";
  **********************/
 static esp_err_t gfx_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx);
 static esp_err_t gfx_img_delete_impl(gfx_obj_t *obj);
+static esp_err_t gfx_img_resolve_src_payload(const gfx_img_src_t *src, const void **out_payload);
 
 static const gfx_widget_class_t s_gfx_img_widget_class = {
     .type = GFX_OBJ_TYPE_IMAGE,
@@ -55,23 +61,34 @@ static const gfx_widget_class_t s_gfx_img_widget_class = {
 
 static esp_err_t gfx_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 {
+    gfx_img_t *image;
+    gfx_img_src_t src_desc;
+
     if (obj == NULL || obj->src == NULL || ctx == NULL) {
-        GFX_LOGD(TAG, "Invalid object or source");
+        GFX_LOGD(TAG, "draw image: object, state, or draw context is NULL");
         return ESP_ERR_INVALID_ARG;
     }
 
     if (obj->type != GFX_OBJ_TYPE_IMAGE) {
-        GFX_LOGW(TAG, "Object is not an image type");
+        GFX_LOGW(TAG, "draw image: object type is not image");
         return ESP_ERR_INVALID_ARG;
     }
 
+    image = (gfx_img_t *)obj->src;
+    if (image->src.data == NULL) {
+        GFX_LOGD(TAG, "draw image: source descriptor has no payload");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    src_desc = image->src;
+
     gfx_image_header_t header;
     gfx_image_decoder_dsc_t dsc = {
-        .src = obj->src,
+        .src = src_desc,
     };
     esp_err_t ret = gfx_image_decoder_info(&dsc, &header);
     if (ret != ESP_OK) {
-        GFX_LOGE(TAG, "Failed to get image info");
+        GFX_LOGE(TAG, "draw image: query header failed");
         return ret;
     }
 
@@ -80,12 +97,12 @@ static esp_err_t gfx_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     uint8_t color_format = header.cf;
 
     if (color_format != GFX_COLOR_FORMAT_RGB565 && color_format != GFX_COLOR_FORMAT_RGB565A8) {
-        GFX_LOGW(TAG, "Unsupported color format");
+        GFX_LOGW(TAG, "draw image: unsupported color format %u", color_format);
         return ESP_ERR_NOT_SUPPORTED;
     }
 
     gfx_image_decoder_dsc_t decoder_dsc = {
-        .src = obj->src,
+        .src = src_desc,
         .header = header,
         .data = NULL,
         .data_size = 0,
@@ -94,13 +111,13 @@ static esp_err_t gfx_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 
     ret = gfx_image_decoder_open(&decoder_dsc);
     if (ret != ESP_OK) {
-        GFX_LOGE(TAG, "Failed to open image decoder");
+        GFX_LOGE(TAG, "draw image: open decoder failed");
         return ret;
     }
 
     const uint8_t *image_data = decoder_dsc.data;
     if (image_data == NULL) {
-        GFX_LOGE(TAG, "No image data available");
+        GFX_LOGE(TAG, "draw image: decoder returned no data");
         gfx_image_decoder_close(&decoder_dsc);
         return ESP_ERR_INVALID_STATE;
     }
@@ -148,9 +165,31 @@ static esp_err_t gfx_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     return ESP_OK;
 }
 
+static esp_err_t gfx_img_resolve_src_payload(const gfx_img_src_t *src, const void **out_payload)
+{
+    ESP_RETURN_ON_FALSE(src != NULL, ESP_ERR_INVALID_ARG, TAG, "resolve image src: descriptor is NULL");
+    ESP_RETURN_ON_FALSE(out_payload != NULL, ESP_ERR_INVALID_ARG, TAG, "resolve image src: output is NULL");
+    ESP_RETURN_ON_FALSE(src->data != NULL, ESP_ERR_INVALID_ARG, TAG, "resolve image src: payload is NULL");
+
+    switch (src->type) {
+    case GFX_IMG_SRC_TYPE_IMAGE_DSC:
+        *out_payload = src->data;
+        return ESP_OK;
+    default:
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+}
+
 static esp_err_t gfx_img_delete_impl(gfx_obj_t *obj)
 {
+    gfx_img_t *image;
+
     CHECK_OBJ_TYPE_IMAGE(obj);
+    image = (gfx_img_t *)obj->src;
+    if (image != NULL) {
+        free(image);
+        obj->src = NULL;
+    }
 
     return ESP_OK;
 }
@@ -162,49 +201,69 @@ static esp_err_t gfx_img_delete_impl(gfx_obj_t *obj)
 gfx_obj_t *gfx_img_create(gfx_disp_t *disp)
 {
     gfx_obj_t *obj = NULL;
+    gfx_img_t *image = NULL;
 
     if (disp == NULL) {
-        GFX_LOGE(TAG, "disp must be from gfx_emote_add_disp");
+        GFX_LOGE(TAG, "create image: display is NULL");
+        return NULL;
+    }
+
+    image = calloc(1, sizeof(*image));
+    if (image == NULL) {
+        GFX_LOGE(TAG, "create image: no mem for state");
         return NULL;
     }
 
     if (gfx_obj_create_class_instance(disp, &s_gfx_img_widget_class,
-                                      NULL, 0, 0, "gfx_img_create", &obj) != ESP_OK) {
-        GFX_LOGE(TAG, "No mem for image object");
+                                      image, 0, 0, "gfx_img_create", &obj) != ESP_OK) {
+        free(image);
+        GFX_LOGE(TAG, "create image: no mem for object");
         return NULL;
     }
 
-    GFX_LOGD(TAG, "Created image object");
+    GFX_LOGD(TAG, "create image: object created");
     return obj;
 }
 
-esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src)
+esp_err_t gfx_img_set_src_desc(gfx_obj_t *obj, const gfx_img_src_t *src)
 {
+    gfx_img_t *image;
+    const void *payload = NULL;
     CHECK_OBJ_TYPE_IMAGE(obj);
+    ESP_RETURN_ON_ERROR(gfx_img_resolve_src_payload(src, &payload), TAG, "set image src: resolve descriptor failed");
+    (void)payload;
 
-    if (src == NULL) {
-        GFX_LOGE(TAG, "Source is NULL");
-        return ESP_ERR_INVALID_ARG;
-    }
+    image = (gfx_img_t *)obj->src;
+    ESP_RETURN_ON_FALSE(image != NULL, ESP_ERR_INVALID_STATE, TAG, "set image src: state is NULL");
 
     gfx_obj_invalidate(obj);
 
-    obj->src = src;
+    image->src = *src;
 
     gfx_image_header_t header;
     gfx_image_decoder_dsc_t dsc = {
-        .src = src,
+        .src = image->src,
     };
     esp_err_t ret = gfx_image_decoder_info(&dsc, &header);
     if (ret == ESP_OK) {
         obj->geometry.width = header.w;
         obj->geometry.height = header.h;
     } else {
-        GFX_LOGE(TAG, "Failed to get image info");
+        GFX_LOGE(TAG, "set image src: query header failed");
     }
 
     gfx_obj_update_layout(obj);
     gfx_obj_invalidate(obj);
 
     return ESP_OK;
+}
+
+esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src)
+{
+    const gfx_img_src_t compat_src = {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = src,
+    };
+
+    return gfx_img_set_src_desc(obj, &compat_src);
 }

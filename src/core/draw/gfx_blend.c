@@ -332,6 +332,7 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
     }
 
     if (mask == NULL) {
+        /* src_buf is expected to already be in native framebuffer order */
         size_t row_bytes = (size_t)w * sizeof(gfx_color_t);
         for (y = 0; y < h; y++) {
             memcpy(dest_buf, src_buf, row_bytes);
