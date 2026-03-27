@@ -33,6 +33,7 @@ static void test_anim_show_case(mmap_assets_handle_t assets_handle, gfx_obj_t *a
 {
     const void *anim_data = NULL;
     size_t anim_size = 0;
+    gfx_anim_src_t anim_src;
 
     test_app_log_step(TAG, test_case->name);
 
@@ -41,7 +42,10 @@ static void test_anim_show_case(mmap_assets_handle_t assets_handle, gfx_obj_t *a
 
     anim_data = mmap_assets_get_mem(assets_handle, test_case->asset_id);
     anim_size = mmap_assets_get_size(assets_handle, test_case->asset_id);
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src(anim_obj, anim_data, anim_size));
+    anim_src.type = GFX_ANIM_SRC_TYPE_MEMORY;
+    anim_src.data = anim_data;
+    anim_src.data_len = anim_size;
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src_desc(anim_obj, &anim_src));
     test_anim_apply_layout(anim_obj, test_case->name, test_case->auto_mirror);
 
     TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_segment(anim_obj, 0, 0xFFFFFFFF, 50, true));
@@ -82,7 +86,7 @@ static void test_anim_run(mmap_assets_handle_t assets_handle)
         test_anim_show_case(assets_handle, anim_obj, c);
         test_app_wait_for_observe(c->observe_ms);
         if (gfx_anim_play_left_to_tail(anim_obj) == ESP_OK) {
-            ESP_LOGW(TAG, "Play remaining done");
+            test_app_log_step(TAG, "drain remaining segments done");
         }
         case_index = (case_index + 1) % TEST_APP_ARRAY_SIZE(s_cases);
     }

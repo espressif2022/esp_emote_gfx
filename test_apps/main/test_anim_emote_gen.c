@@ -156,6 +156,7 @@ static void test_anim_show_index_entry(mmap_assets_handle_t assets_handle, gfx_o
 {
     const void *anim_data = NULL;
     size_t anim_size = 0;
+    gfx_anim_src_t anim_src;
     gfx_anim_segment_t segments[3];
 
     if (item == NULL) {
@@ -174,7 +175,10 @@ static void test_anim_show_index_entry(mmap_assets_handle_t assets_handle, gfx_o
 
     anim_data = mmap_assets_get_mem(assets_handle, item->asset_id);
     anim_size = (size_t)mmap_assets_get_size(assets_handle, item->asset_id);
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src(anim_obj, anim_data, anim_size));
+    anim_src.type = GFX_ANIM_SRC_TYPE_MEMORY;
+    anim_src.data = anim_data;
+    anim_src.data_len = anim_size;
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src_desc(anim_obj, &anim_src));
 
     gfx_obj_set_size(anim_obj, 200, 150);
     gfx_anim_set_auto_mirror(anim_obj, false);
@@ -260,7 +264,7 @@ static void test_anim_run(mmap_assets_handle_t assets_handle)
                                 portMAX_DELAY);
 
             if (gfx_anim_play_left_to_tail(anim_obj) == ESP_OK) {
-                ESP_LOGI(TAG, "Remaining done");
+                test_app_log_step(TAG, "drain remaining segments done");
             }
 
             case_index = (case_index + 1) % s_index_count;

@@ -8,6 +8,8 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "gfx.h"
+#include "bsp/esp-bsp.h"
+#include "bsp/touch.h"
 #include "mmap_generate_assets_test.h"
 
 #ifdef __cplusplus
@@ -27,7 +29,7 @@ typedef void (*test_app_touch_event_cb_t)(gfx_touch_t *touch, const gfx_touch_ev
 #define TEST_APP_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
 
 /** Default mmap assets partition label (see CMake `spiffs_create_partition_assets`). */
-#define TEST_APP_ASSETS_PARTITION_DEFAULT "test_assets"
+#define TEST_APP_ASSETS_PARTITION_DEFAULT "assets_test"
 
 /**********************
  *  EXTERNAL SYMBOLS

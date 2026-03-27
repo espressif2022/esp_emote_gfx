@@ -77,6 +77,7 @@ typedef struct {
     bool drain_remaining_segments;
     EventGroupHandle_t event_group;
     gfx_timer_handle_t timer;
+    gfx_anim_src_t src;
     const gfx_anim_decoder_ops_t *decoder;
     void *decoder_handle;
     gfx_anim_frame_info_t frame;
@@ -117,10 +118,11 @@ static esp_err_t gfx_anim_apply_segment(gfx_obj_t *obj, gfx_anim_t *anim, const 
 static esp_err_t gfx_anim_advance_segment(gfx_obj_t *obj, gfx_anim_t *anim);
 static void gfx_anim_signal_event(gfx_anim_t *anim, EventBits_t bits);
 static void gfx_anim_finish_plan(gfx_obj_t *obj, gfx_anim_t *anim);
-static gfx_anim_src_desc_t gfx_anim_make_memory_src_desc(const void *src_data, size_t src_len);
-static esp_err_t gfx_anim_set_src_desc_internal(gfx_obj_t *obj, const gfx_anim_src_desc_t *src_desc);
+static gfx_anim_src_t gfx_anim_make_memory_src_desc(const void *src_data, size_t src_len);
+static esp_err_t gfx_anim_validate_src_desc(const gfx_anim_src_t *src_desc);
+static esp_err_t gfx_anim_set_src_desc_internal(gfx_obj_t *obj, const gfx_anim_src_t *src_desc);
 static esp_err_t gfx_anim_set_src_desc_with_decoder_internal(gfx_obj_t *obj, const gfx_anim_decoder_ops_t *decoder,
-                                                             const gfx_anim_src_desc_t *src_desc);
+                                                             const gfx_anim_src_t *src_desc);
 static void gfx_anim_calculate_offsets(const gfx_anim_frame_desc_t *frame_desc, uint32_t *offsets);
 static size_t gfx_anim_get_pixel_buffer_size(const gfx_anim_frame_desc_t *frame_desc);
 static esp_err_t gfx_anim_init_palette_cache(gfx_obj_t *obj, gfx_anim_t *anim);
@@ -246,6 +248,7 @@ static void gfx_anim_release_source(gfx_anim_t *anim)
 
     anim->decoder = NULL;
     anim->decoder_handle = NULL;
+    memset(&anim->src, 0, sizeof(anim->src));
     anim->start_frame = 0;
     anim->end_frame = 0;
     anim->current_frame = 0;
@@ -265,14 +268,29 @@ static int gfx_anim_get_total_frames(const gfx_anim_t *anim)
     return anim->decoder->get_total_frames(anim->decoder_handle);
 }
 
-static gfx_anim_src_desc_t gfx_anim_make_memory_src_desc(const void *src_data, size_t src_len)
+static gfx_anim_src_t gfx_anim_make_memory_src_desc(const void *src_data, size_t src_len)
 {
-    gfx_anim_src_desc_t src_desc = {
+    gfx_anim_src_t src_desc = {
+        .type = GFX_ANIM_SRC_TYPE_MEMORY,
         .data = src_data,
         .data_len = src_len,
     };
 
     return src_desc;
+}
+
+static esp_err_t gfx_anim_validate_src_desc(const gfx_anim_src_t *src_desc)
+{
+    ESP_RETURN_ON_FALSE(src_desc != NULL, ESP_ERR_INVALID_ARG, TAG, "set animation source: source descriptor is NULL");
+    ESP_RETURN_ON_FALSE(src_desc->data != NULL, ESP_ERR_INVALID_ARG, TAG, "set animation source: source payload is NULL");
+
+    switch (src_desc->type) {
+    case GFX_ANIM_SRC_TYPE_MEMORY:
+        ESP_RETURN_ON_FALSE(src_desc->data_len > 0U, ESP_ERR_INVALID_ARG, TAG, "set animation source: source length must be greater than 0");
+        return ESP_OK;
+    default:
+        return ESP_ERR_NOT_SUPPORTED;
+    }
 }
 
 static esp_err_t gfx_anim_apply_segment(gfx_obj_t *obj, gfx_anim_t *anim, const gfx_anim_segment_t *segment, size_t segment_index)
@@ -950,27 +968,32 @@ gfx_obj_t *gfx_anim_create(gfx_disp_t *disp)
     return obj;
 }
 
+esp_err_t gfx_anim_set_src_desc(gfx_obj_t *obj, const gfx_anim_src_t *src)
+{
+    return gfx_anim_set_src_desc_internal(obj, src);
+}
+
 esp_err_t gfx_anim_set_src(gfx_obj_t *obj, const void *src_data, size_t src_len)
 {
-    gfx_anim_src_desc_t src_desc = gfx_anim_make_memory_src_desc(src_data, src_len);
+    gfx_anim_src_t src_desc = gfx_anim_make_memory_src_desc(src_data, src_len);
 
     return gfx_anim_set_src_desc_internal(obj, &src_desc);
 }
 
-static esp_err_t gfx_anim_set_src_desc_internal(gfx_obj_t *obj, const gfx_anim_src_desc_t *src_desc)
+static esp_err_t gfx_anim_set_src_desc_internal(gfx_obj_t *obj, const gfx_anim_src_t *src_desc)
 {
     const gfx_anim_decoder_ops_t *decoder;
 
     CHECK_OBJ_TYPE_ANIMATION(obj);
-    ESP_RETURN_ON_FALSE(src_desc != NULL, ESP_ERR_INVALID_ARG, TAG, "set source: source descriptor is NULL");
+    ESP_RETURN_ON_ERROR(gfx_anim_validate_src_desc(src_desc), TAG, "set animation source: validate descriptor failed");
 
     decoder = gfx_anim_decoder_find_for_source(src_desc);
-    ESP_RETURN_ON_FALSE(decoder != NULL, ESP_ERR_NOT_FOUND, TAG, "set source: no decoder can open this source");
+    ESP_RETURN_ON_FALSE(decoder != NULL, ESP_ERR_NOT_FOUND, TAG, "set animation source: no decoder can open this source");
     return gfx_anim_set_src_desc_with_decoder_internal(obj, decoder, src_desc);
 }
 
 static esp_err_t gfx_anim_set_src_desc_with_decoder_internal(gfx_obj_t *obj, const gfx_anim_decoder_ops_t *decoder,
-                                                             const gfx_anim_src_desc_t *src_desc)
+                                                             const gfx_anim_src_t *src_desc)
 {
     esp_err_t ret = ESP_OK;
     void *new_handle = NULL;
@@ -978,18 +1001,18 @@ static esp_err_t gfx_anim_set_src_desc_with_decoder_internal(gfx_obj_t *obj, con
     gfx_anim_t *anim;
 
     CHECK_OBJ_TYPE_ANIMATION(obj);
-    ESP_RETURN_ON_FALSE(decoder != NULL, ESP_ERR_INVALID_ARG, TAG, "set source: decoder is NULL");
-    ESP_RETURN_ON_FALSE(src_desc != NULL, ESP_ERR_INVALID_ARG, TAG, "set source: source descriptor is NULL");
+    ESP_RETURN_ON_FALSE(decoder != NULL, ESP_ERR_INVALID_ARG, TAG, "set animation source: decoder is NULL");
+    ESP_RETURN_ON_ERROR(gfx_anim_validate_src_desc(src_desc), TAG, "set animation source: validate descriptor failed");
 
     anim = (gfx_anim_t *)obj->src;
-    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "set source: animation context is NULL");
+    ESP_RETURN_ON_FALSE(anim != NULL, ESP_ERR_INVALID_STATE, TAG, "set animation source: animation context is NULL");
 
     if (anim->is_playing) {
         gfx_anim_stop(obj);
     }
 
-    ESP_RETURN_ON_ERROR(decoder->open(src_desc, &new_handle), TAG, "set source: failed to open animation source");
-    ESP_RETURN_ON_FALSE(new_handle != NULL, ESP_ERR_INVALID_STATE, TAG, "set source: decoder returned a NULL handle");
+    ESP_RETURN_ON_ERROR(decoder->open(src_desc, &new_handle), TAG, "set animation source: open animation source failed");
+    ESP_RETURN_ON_FALSE(new_handle != NULL, ESP_ERR_INVALID_STATE, TAG, "set animation source: decoder returned a NULL handle");
 
     total_frames = decoder->get_total_frames(new_handle);
     if (total_frames <= 0) {
@@ -1001,16 +1024,17 @@ static esp_err_t gfx_anim_set_src_desc_with_decoder_internal(gfx_obj_t *obj, con
     gfx_anim_release_source(anim);
     gfx_anim_reset_runtime_state(anim);
 
+    anim->src = *src_desc;
     anim->decoder = decoder;
     anim->decoder_handle = new_handle;
     anim->start_frame = 0;
     anim->current_frame = 0;
     anim->end_frame = total_frames - 1;
 
-    ESP_GOTO_ON_ERROR(gfx_anim_prepare_frame(obj), err, TAG, "set source: failed to prepare the first frame");
+    ESP_GOTO_ON_ERROR(gfx_anim_prepare_frame(obj), err, TAG, "set animation source: prepare the first frame failed");
 
     gfx_obj_invalidate(obj);
-    GFX_LOGD(TAG, "set source: decoder=%s, frames=%" PRIu32 "-%" PRIu32,
+    GFX_LOGD(TAG, "set animation source: decoder=%s frames=%" PRIu32 "-%" PRIu32,
              decoder->name ? decoder->name : "unknown", anim->start_frame, anim->end_frame);
     return ESP_OK;
 

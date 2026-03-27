@@ -452,6 +452,11 @@ static void test_mesh_mode_btn_cb(gfx_obj_t *obj, const gfx_touch_event_t *event
 
 static void test_mesh_rebuild_mesh(test_mesh_scene_t *scene, test_mesh_mode_t new_mode)
 {
+    const gfx_img_src_t face_src = {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = &simple_face,
+    };
+
     TEST_ASSERT_NOT_NULL(scene);
 
     if (scene->anim_timer != NULL) {
@@ -481,7 +486,7 @@ static void test_mesh_rebuild_mesh(test_mesh_scene_t *scene, test_mesh_mode_t ne
     scene->mesh_obj = gfx_mesh_img_create(disp_default);
     TEST_ASSERT_NOT_NULL(scene->mesh_obj);
 
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(scene->mesh_obj, (void *)&simple_face));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src_desc(scene->mesh_obj, &face_src));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(scene->mesh_obj, scene->grid_cols, scene->grid_rows));
     test_mesh_apply_dense_edge_grid(scene);
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_ctrl_points_visible(scene->mesh_obj, false));

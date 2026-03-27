@@ -32,6 +32,14 @@ static void test_image_scene_cleanup(test_image_scene_t *scene)
 static void test_image_run(mmap_assets_handle_t assets_handle)
 {
     gfx_image_dsc_t img_dsc = {0};
+    const gfx_img_src_t c_array_src = {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = &icon_rgb565,
+    };
+    const gfx_img_src_t c_array_a8_src = {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = &icon_rgb565A8,
+    };
     test_image_scene_t scene = {0};
 
     test_app_log_case(TAG, "Image widget validation");
@@ -41,7 +49,7 @@ static void test_image_run(mmap_assets_handle_t assets_handle)
 
     scene.img_primary = gfx_img_create(disp_default);
     TEST_ASSERT_NOT_NULL(scene.img_primary);
-    gfx_img_set_src(scene.img_primary, (void *)&icon_rgb565);
+    gfx_img_set_src_desc(scene.img_primary, &c_array_src);
     gfx_obj_set_pos(scene.img_primary, 100, 100);
     test_app_unlock();
 
@@ -67,7 +75,10 @@ static void test_image_run(mmap_assets_handle_t assets_handle)
     scene.img_primary = gfx_img_create(disp_default);
     TEST_ASSERT_NOT_NULL(scene.img_primary);
     TEST_ASSERT_EQUAL(ESP_OK, load_image(assets_handle, MMAP_ASSETS_TEST_ICON_RGB565A8_BIN, &img_dsc));
-    gfx_img_set_src(scene.img_primary, (void *)&img_dsc);
+    gfx_img_set_src_desc(scene.img_primary, &(gfx_img_src_t) {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = &img_dsc,
+    });
     gfx_obj_set_pos(scene.img_primary, 100, 160);
     test_app_unlock();
 
@@ -76,7 +87,10 @@ static void test_image_run(mmap_assets_handle_t assets_handle)
     test_app_log_step(TAG, "Reload mmap-backed source");
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     TEST_ASSERT_EQUAL(ESP_OK, load_image(assets_handle, MMAP_ASSETS_TEST_ICON_RGB565A8_BIN, &img_dsc));
-    gfx_img_set_src(scene.img_primary, (void *)&img_dsc);
+    gfx_img_set_src_desc(scene.img_primary, &(gfx_img_src_t) {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = &img_dsc,
+    });
     test_app_unlock();
 
     test_app_wait_for_observe(1800);
@@ -85,9 +99,12 @@ static void test_image_run(mmap_assets_handle_t assets_handle)
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     scene.img_secondary = gfx_img_create(disp_default);
     TEST_ASSERT_NOT_NULL(scene.img_secondary);
-    gfx_img_set_src(scene.img_primary, (void *)&icon_rgb565A8);
+    gfx_img_set_src_desc(scene.img_primary, &c_array_a8_src);
     TEST_ASSERT_EQUAL(ESP_OK, load_image(assets_handle, MMAP_ASSETS_TEST_ICON_RGB565_BIN, &img_dsc));
-    gfx_img_set_src(scene.img_secondary, (void *)&img_dsc);
+    gfx_img_set_src_desc(scene.img_secondary, &(gfx_img_src_t) {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = &img_dsc,
+    });
     gfx_obj_set_pos(scene.img_primary, 90, 90);
     gfx_obj_set_pos(scene.img_secondary, 90, 180);
     test_app_unlock();

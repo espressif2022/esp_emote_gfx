@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stickman Action Preview</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+    body {
+      background: #080b10; color: #e2e8f0;
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      display: flex; flex-direction: column; align-items: center;
+      margin: 0; padding: 24px; gap: 20px;
+    }
+    h1 { font-size: 18px; font-weight: 600; color: #94a3b8; margin: 0; letter-spacing: 0.5px; }
+    .layout { display: flex; gap: 20px; align-items: flex-start; }
+    .viewer {
+      background: radial-gradient(ellipse at 50% 40%, #1e2636 0%, #0d1118 100%);
+      width: 440px; height: 500px;
+      border-radius: 16px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 20px 40px rgba(0,0,0,0.7);
+      position: relative; overflow: hidden; flex-shrink: 0;
+    }
+    .panel {
+      display: flex; flex-direction: column; gap: 8px;
+      width: 200px;
+    }
+    .panel-section { color: #4ade80; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; padding: 4px 0 2px; border-bottom: 1px solid rgba(74,222,128,0.2); margin-bottom: 10px; }
+    button {
+      background: rgba(255,255,255,0.04); color: #94a3b8;
+      border: 1px solid rgba(255,255,255,0.07); padding: 8px 12px;
+      border-radius: 8px; cursor: pointer; transition: all 0.15s;
+      font-size: 13px; font-weight: 500; text-align: left; width: 100%;
+    }
+    button:hover { background: rgba(255,255,255,0.09); color: #e2e8f0; border-color: rgba(255,255,255,0.15); }
+    button.active { background: rgba(59,130,246,0.25); border-color: #3b82f6; color: #93c5fd; }
+    
+    .stick-part { fill: none; stroke: #ffffff; stroke-linecap: round; stroke-linejoin: round; transition: 0.05s linear; }
+    .head-fill { fill: #ffffff; stroke: none; }
+  </style>
+</head>
+<body>
+
+<h1>Stickman Action Animation Prototype</h1>
+
+<div class="layout">
+  <div class="viewer">
+    <svg id="canvas" width="440" height="500" viewBox="0 0 320 364">
+      <defs>
+         <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+           <feGaussianBlur stdDeviation="2" result="blur" />
+           <feComposite in="SourceGraphic" in2="blur" operator="over" />
+         </filter>
+      </defs>
+      
+      <!-- Stickman Main Group -->
+      <g id="stickman_base" transform="translate(160, 100)" filter="url(#glow)">
+        <!-- Skeleton -->
+        <g id="body_rig">
+           <!-- Spine -->
+           <line id="spine" class="stick-part" stroke-width="5" x1="0" y1="50" x2="0" y2="150" />
+           
+           <!-- Shoulder Area -->
+           <circle cx="0" cy="70" r="2" fill="#fff" />
+           <line id="l_arm_1" class="stick-part" stroke-width="4.5" x1="0" y1="70" x2="-30" y2="100" />
+           <line id="l_arm_2" class="stick-part" stroke-width="4" x1="-30" y1="100" x2="-45" y2="140" />
+           <line id="r_arm_1" class="stick-part" stroke-width="4.5" x1="0" y1="70" x2="30" y2="100" />
+           <line id="r_arm_2" class="stick-part" stroke-width="4" x1="30" y1="100" x2="45" y2="140" />
+
+           <!-- Hip Area -->
+           <circle cx="0" cy="150" r="2" fill="#fff" />
+           <line id="l_leg_1" class="stick-part" stroke-width="5" x1="0" y1="150" x2="-20" y2="200" />
+           <line id="l_leg_2" class="stick-part" stroke-width="4.5" x1="-20" y1="200" x2="-30" y2="250" />
+           <line id="r_leg_1" class="stick-part" stroke-width="5" x1="0" y1="150" x2="20" y2="200" />
+           <line id="r_leg_2" class="stick-part" stroke-width="4.5" x1="20" y1="200" x2="30" y2="250" />
+        </g>
+
+        <!-- Head -->
+        <g id="head_rig">
+           <circle id="head" class="head-fill" cx="0" cy="0" r="45" />
+        </g>
+      </g>
+    </svg>
+    <div id="action-label" style="position:absolute; bottom:15px; left:20px; font-family:monospace; color:#4ade80; font-size:12px; font-weight:bold;">ACTION: IDLE</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-section">Stickman Actions</div>
+    <button id="btn-idle" class="active">Idle (呼吸)</button>
+    <button id="btn-run">Run (奔跑)</button>
+    <button id="btn-squat">Squat (下蹲)</button>
+    <button id="btn-jump">Jump (纵跳)</button>
+    <button id="btn-walk">Walk (行走)</button>
+    <button id="btn-dash">Dash (冲刺)</button>
+  </div>
+</div>
+
+<script>
+/**
+ * STICKMAN ACTION PREVIEW
+ * Focusing on skeletal movement and predefined action keyframes/loops.
+ */
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+const lerp = (a, b, t) => a + (b - a) * t;
+const rotate = (ox, oy, x, y, angle) => {
+  const rad = (Math.PI / 180) * angle;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return {
+    x: cos * (x - ox) - sin * (y - oy) + ox,
+    y: sin * (x - ox) + cos * (y - oy) + oy
+  };
+};
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let currentAction = 'idle';
+let frameTime = 0;
+let rig = {
+  head_y: 0, body_y: 0, head_tilt: 0,
+  spine_angle: 0,
+  l_arm1_ang: 45, l_arm2_ang: 45,
+  r_arm1_ang: -45, r_arm2_ang: -45,
+  l_leg1_ang: 15, l_leg2_ang: 15,
+  r_leg1_ang: -15, r_leg2_ang: -15
+};
+
+// Target rig for interpolation
+let targetRig = { ...rig };
+
+const actions = {
+  idle: (t) => {
+    const breathe = Math.sin(t * 0.003) * 3;
+    return {
+      head_y: breathe, body_y: breathe * 0.5, head_tilt: 0,
+      spine_angle: 0,
+      l_arm1_ang: 40 + breathe, l_arm2_ang: 20,
+      r_arm1_ang: -40 - breathe, r_arm2_ang: -20,
+      l_leg1_ang: 10, l_leg2_ang: 5,
+      r_leg1_ang: -10, r_leg2_ang: -5
+    };
+  },
+  run: (t) => {
+    const phi = t * 0.012;
+    const s = Math.sin(phi);
+    const c = Math.cos(phi);
+    const tilt = s * 8;
+    return {
+      head_y: -Math.abs(c) * 10, body_y: -Math.abs(c) * 5, head_tilt: tilt,
+      spine_angle: 15,
+      l_arm1_ang: s * 60 - 20, l_arm2_ang: 80,
+      r_arm1_ang: -s * 60 - 20, r_arm2_ang: -80,
+      l_leg1_ang: -s * 50 + 20, l_leg2_ang: (s > 0 ? s * 80 : 10),
+      r_leg1_ang: s * 50 + 20, r_leg2_ang: (s < 0 ? -s * 80 : 10)
+    };
+  },
+  walk: (t) => {
+    const phi = t * 0.006;
+    const s = Math.sin(phi);
+    return {
+      head_y: -Math.abs(s) * 4, body_y: 0, head_tilt: s * 5,
+      spine_angle: 5,
+      l_arm1_ang: s * 30, l_arm2_ang: 20,
+      r_arm1_ang: -s * 30, r_arm2_ang: -20,
+      l_leg1_ang: -s * 30 + 10, l_leg2_ang: (s > 0 ? s * 40 : 10),
+      r_leg1_ang: s * 30 + 10, r_leg2_ang: (s < 0 ? -s * 40 : 10)
+    };
+  },
+  squat: (t) => {
+    return {
+      head_y: 70, body_y: 60, head_tilt: 10,
+      spine_angle: 20,
+      l_arm1_ang: 80, l_arm2_ang: 120,
+      r_arm1_ang: -80, r_arm2_ang: -120,
+      l_leg1_ang: 110, l_leg2_ang: -120,
+      r_leg1_ang: -110, r_leg2_ang: 120
+    };
+  },
+  jump: (t) => {
+    const cycle = (t * 0.004) % (Math.PI * 2);
+    const jumpVal = Math.max(0, Math.sin(cycle));
+    return {
+      head_y: -jumpVal * 80, body_y: -jumpVal * 80, head_tilt: 0,
+      spine_angle: -jumpVal * 10,
+      l_arm1_ang: jumpVal * -120 + 40, l_arm2_ang: 20,
+      r_arm1_ang: jumpVal * 120 - 40, r_arm2_ang: -20,
+      l_leg1_ang: jumpVal * -40 + 10, l_leg2_ang: jumpVal * -20 + 10,
+      r_leg1_ang: jumpVal * 40 - 10, r_leg2_ang: jumpVal * 20 - 10
+    };
+  },
+  dash: (t) => {
+    const phi = t * 0.02;
+    const s = Math.sin(phi);
+    return {
+      head_y: -5 + s * 2, body_y: 0, head_tilt: 15,
+      spine_angle: 45,
+      l_arm1_ang: s * 80 - 40, l_arm2_ang: 100,
+      r_arm1_ang: -s * 80 - 40, r_arm2_ang: -100,
+      l_leg1_ang: -s * 70 + 40, l_leg2_ang: (s > 0 ? s * 110 : 20),
+      r_leg1_ang: s * 70 + 40, r_leg2_ang: (s < 0 ? -s * 110 : 20)
+    };
+  }
+};
+
+function updateSymmetry() {
+  const ease = 0.25;
+  for (let key in rig) {
+    rig[key] = lerp(rig[key], targetRig[key], ease);
+  }
+}
+
+function render() {
+  const head = document.getElementById('head_rig');
+  const body = document.getElementById('body_rig');
+  
+  head.setAttribute('transform', `translate(0, ${rig.head_y}) rotate(${rig.head_tilt})`);
+  body.setAttribute('transform', `translate(0, ${rig.body_y})`);
+
+  // Update Spine based on spine_angle
+  const spineEnd = rotate(0, 70, 0, 150, rig.spine_angle);
+  document.getElementById('spine').setAttribute('x2', spineEnd.x);
+  document.getElementById('spine').setAttribute('y2', spineEnd.y);
+  
+  const hipX = spineEnd.x;
+  const hipY = spineEnd.y;
+  
+  // Arms (Starting from shoulder Fixed 0,70)
+  const l1 = rotate(0, 70, 0, 110, rig.l_arm1_ang);
+  const l2 = rotate(l1.x, l1.y, l1.x, l1.y + 40, rig.l_arm1_ang + rig.l_arm2_ang);
+  document.getElementById('l_arm_1').setAttribute('x2', l1.x);
+  document.getElementById('l_arm_1').setAttribute('y2', l1.y);
+  document.getElementById('l_arm_2').setAttribute('x1', l1.x);
+  document.getElementById('l_arm_2').setAttribute('y1', l1.y);
+  document.getElementById('l_arm_2').setAttribute('x2', l2.x);
+  document.getElementById('l_arm_2').setAttribute('y2', l2.y);
+
+  const r1 = rotate(0, 70, 0, 110, rig.r_arm1_ang);
+  const r2 = rotate(r1.x, r1.y, r1.x, r1.y + 40, rig.r_arm1_ang + rig.r_arm2_ang);
+  document.getElementById('r_arm_1').setAttribute('x2', r1.x);
+  document.getElementById('r_arm_1').setAttribute('y2', r1.y);
+  document.getElementById('r_arm_2').setAttribute('x1', r1.x);
+  document.getElementById('r_arm_2').setAttribute('y1', r1.y);
+  document.getElementById('r_arm_2').setAttribute('x2', r2.x);
+  document.getElementById('r_arm_2').setAttribute('y2', r2.y);
+
+  // Legs (Starting from Hip)
+  document.getElementById('l_leg_1').setAttribute('x1', hipX);
+  document.getElementById('l_leg_1').setAttribute('y1', hipY);
+  const ll1 = rotate(hipX, hipY, hipX, hipY + 50, rig.l_leg1_ang);
+  const ll2 = rotate(ll1.x, ll1.y, ll1.x, ll1.y + 50, rig.l_leg1_ang + rig.l_leg2_ang);
+  document.getElementById('l_leg_1').setAttribute('x2', ll1.x);
+  document.getElementById('l_leg_1').setAttribute('y2', ll1.y);
+  document.getElementById('l_leg_2').setAttribute('x1', ll1.x);
+  document.getElementById('l_leg_2').setAttribute('y1', ll1.y);
+  document.getElementById('l_leg_2').setAttribute('x2', ll2.x);
+  document.getElementById('l_leg_2').setAttribute('y2', ll2.y);
+
+  document.getElementById('r_leg_1').setAttribute('x1', hipX);
+  document.getElementById('r_leg_1').setAttribute('y1', hipY);
+  const rl1 = rotate(hipX, hipY, hipX, hipY + 50, rig.r_leg1_ang);
+  const rl2 = rotate(rl1.x, rl1.y, rl1.x, rl1.y + 50, rig.r_leg1_ang + rig.r_leg2_ang);
+  document.getElementById('r_leg_1').setAttribute('x2', rl1.x);
+  document.getElementById('r_leg_1').setAttribute('y2', rl1.y);
+  document.getElementById('r_leg_2').setAttribute('x1', rl1.x);
+  document.getElementById('r_leg_2').setAttribute('y1', rl1.y);
+  document.getElementById('r_leg_2').setAttribute('x2', rl2.x);
+  document.getElementById('r_leg_2').setAttribute('y2', rl2.y);
+}
+
+function tick(t) {
+  frameTime = t;
+  targetRig = actions[currentAction](t);
+  updateSymmetry();
+  render();
+  requestAnimationFrame(tick);
+}
+
+// ─── UI CONTROLS ──────────────────────────────────────────────────────────────
+const btns = document.querySelectorAll('button');
+btns.forEach(btn => {
+  btn.onclick = () => {
+    btns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentAction = btn.id.split('-')[1];
+    document.getElementById('action-label').innerText = `ACTION: ${currentAction.toUpperCase()}`;
+  };
+});
+
+// ─── START ───────────────────────────────────────────────────────────────────
+requestAnimationFrame(tick);
+
+</script>
+</body>
+</html>

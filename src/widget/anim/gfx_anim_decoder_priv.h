@@ -29,15 +29,10 @@ typedef struct {
     int num_colors;
 } gfx_anim_frame_desc_t;
 
-typedef struct {
-    const void *data;
-    size_t data_len;
-} gfx_anim_src_desc_t;
-
 typedef struct gfx_anim_decoder_ops {
     const char *name;
-    bool (*can_open)(const gfx_anim_src_desc_t *src_desc);
-    esp_err_t (*open)(const gfx_anim_src_desc_t *src_desc, void **out_handle);
+    bool (*can_open)(const gfx_anim_src_t *src_desc);
+    esp_err_t (*open)(const gfx_anim_src_t *src_desc, void **out_handle);
     void (*close)(void *handle);
     int (*get_total_frames)(void *handle);
     esp_err_t (*get_frame_info)(void *handle, int frame_index, gfx_anim_frame_desc_t *frame_desc);
@@ -57,7 +52,7 @@ typedef struct gfx_anim_decoder_ops {
  **********************/
 
 esp_err_t gfx_anim_decoder_registry_init(void);
-const gfx_anim_decoder_ops_t *gfx_anim_decoder_find_for_source(const gfx_anim_src_desc_t *src_desc);
+const gfx_anim_decoder_ops_t *gfx_anim_decoder_find_for_source(const gfx_anim_src_t *src_desc);
 const gfx_anim_decoder_ops_t *gfx_anim_decoder_get_eaf(void);
 
 #ifdef __cplusplus

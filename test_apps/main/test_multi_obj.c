@@ -72,6 +72,7 @@ static void test_multi_obj_run(mmap_assets_handle_t assets_handle)
     test_multi_obj_scene_t scene = {0};
     const void *anim_data = NULL;
     size_t anim_size = 0;
+    gfx_anim_src_t anim_src = {0};
 
     test_app_log_case(TAG, "Multi-widget scene validation");
 
@@ -90,7 +91,10 @@ static void test_multi_obj_run(mmap_assets_handle_t assets_handle)
 
     // anim_data = mmap_assets_get_mem(assets_handle, MMAP_ASSETS_TEST_MI_2_EYE_8BIT_AAF);
     // anim_size = mmap_assets_get_size(assets_handle, MMAP_ASSETS_TEST_MI_2_EYE_8BIT_AAF);
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src(scene.anim_obj, anim_data, anim_size));
+    anim_src.type = GFX_ANIM_SRC_TYPE_MEMORY;
+    anim_src.data = anim_data;
+    anim_src.data_len = anim_size;
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src_desc(scene.anim_obj, &anim_src));
     gfx_obj_align(scene.anim_obj, GFX_ALIGN_CENTER, 0, 0);
     gfx_anim_set_segment(scene.anim_obj, 0, 30, 15, true);
     TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_start(scene.anim_obj));
@@ -104,7 +108,10 @@ static void test_multi_obj_run(mmap_assets_handle_t assets_handle)
     gfx_obj_align(scene.label_obj, GFX_ALIGN_BOTTOM_MID, 0, -4);
 
     TEST_ASSERT_EQUAL(ESP_OK, load_image(assets_handle, MMAP_ASSETS_TEST_ICON_RGB565_BIN, &img_dsc));
-    gfx_img_set_src(scene.img_obj, (void *)&img_dsc);
+    gfx_img_set_src_desc(scene.img_obj, &(gfx_img_src_t) {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = &img_dsc,
+    });
     gfx_obj_align(scene.img_obj, GFX_ALIGN_TOP_MID, 0, 8);
     test_app_unlock();
 

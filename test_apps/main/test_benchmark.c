@@ -141,9 +141,13 @@ static void setup_img(gfx_disp_t *disp, void *user_data)
 {
     test_benchmark_scene_t *scene = (test_benchmark_scene_t *)user_data;
     gfx_obj_t *img_obj = gfx_img_create(disp);
+    const gfx_img_src_t face_src = {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = &simple_face,
+    };
     TEST_ASSERT_NOT_NULL(img_obj);
 
-    gfx_img_set_src(img_obj, (void *)&simple_face);
+    gfx_img_set_src_desc(img_obj, &face_src);
     gfx_obj_set_size(img_obj, gfx_disp_get_hor_res(disp), gfx_disp_get_ver_res(disp));
     gfx_obj_align(img_obj, GFX_ALIGN_CENTER, 0, 0);
     scene->objs[scene->obj_count++] = img_obj;
@@ -154,8 +158,12 @@ static void setup_mesh_4x4(gfx_disp_t *disp, void *user_data)
 {
     test_benchmark_scene_t *scene = (test_benchmark_scene_t *)user_data;
     gfx_obj_t *mesh = gfx_mesh_img_create(disp);
+    const gfx_img_src_t face_src = {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = &simple_face,
+    };
     TEST_ASSERT_NOT_NULL(mesh);
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(mesh, (void *)&simple_face));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src_desc(mesh, &face_src));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(mesh, 4, 4));
     gfx_obj_set_size(mesh, gfx_disp_get_hor_res(disp), gfx_disp_get_ver_res(disp));
     gfx_obj_align(mesh, GFX_ALIGN_CENTER, 0, 0);
@@ -173,8 +181,12 @@ static void setup_mesh_8x8(gfx_disp_t *disp, void *user_data)
 {
     test_benchmark_scene_t *scene = (test_benchmark_scene_t *)user_data;
     gfx_obj_t *mesh = gfx_mesh_img_create(disp);
+    const gfx_img_src_t face_src = {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = &simple_face,
+    };
     TEST_ASSERT_NOT_NULL(mesh);
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src(mesh, (void *)&simple_face));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_src_desc(mesh, &face_src));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_mesh_img_set_grid(mesh, 8, 8));
     gfx_obj_set_size(mesh, gfx_disp_get_hor_res(disp), gfx_disp_get_ver_res(disp));
     gfx_obj_align(mesh, GFX_ALIGN_CENTER, 0, 0);
@@ -296,6 +308,7 @@ static void setup_anim_single(gfx_disp_t *disp, void *user_data)
     gfx_obj_t *anim_obj;
     const void *anim_data;
     size_t anim_size;
+    gfx_anim_src_t anim_src;
 
     TEST_ASSERT_NOT_NULL(scene);
     anim_data = mmap_assets_get_mem(scene->assets_handle, MMAP_ASSETS_TEST_MI_1_EYE_8BIT_EAF);
@@ -305,7 +318,10 @@ static void setup_anim_single(gfx_disp_t *disp, void *user_data)
 
     anim_obj = gfx_anim_create(disp);
     TEST_ASSERT_NOT_NULL(anim_obj);
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src(anim_obj, anim_data, anim_size));
+    anim_src.type = GFX_ANIM_SRC_TYPE_MEMORY;
+    anim_src.data = anim_data;
+    anim_src.data_len = anim_size;
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src_desc(anim_obj, &anim_src));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_segment(anim_obj, 0, 0xFFFFFFFF, 50, true));
     gfx_obj_set_size(anim_obj, 200, 150);
     gfx_obj_align(anim_obj, GFX_ALIGN_CENTER, 0, 0);
@@ -320,6 +336,7 @@ static void setup_anim_dual(gfx_disp_t *disp, void *user_data)
     gfx_obj_t *anim_right;
     const void *anim_data;
     size_t anim_size;
+    gfx_anim_src_t anim_src;
 
     TEST_ASSERT_NOT_NULL(scene);
     anim_data = mmap_assets_get_mem(scene->assets_handle, MMAP_ASSETS_TEST_MI_2_EYE_8BIT_HUFF_EAF);
@@ -332,8 +349,11 @@ static void setup_anim_dual(gfx_disp_t *disp, void *user_data)
     TEST_ASSERT_NOT_NULL(anim_left);
     TEST_ASSERT_NOT_NULL(anim_right);
 
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src(anim_left, anim_data, anim_size));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src(anim_right, anim_data, anim_size));
+    anim_src.type = GFX_ANIM_SRC_TYPE_MEMORY;
+    anim_src.data = anim_data;
+    anim_src.data_len = anim_size;
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src_desc(anim_left, &anim_src));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src_desc(anim_right, &anim_src));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_segment(anim_left, 0, 0xFFFFFFFF, 45, true));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_segment(anim_right, 0, 0xFFFFFFFF, 45, true));
     gfx_obj_set_size(anim_left, 160, 120);

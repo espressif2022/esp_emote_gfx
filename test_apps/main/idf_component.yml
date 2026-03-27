@@ -11,8 +11,8 @@ dependencies:
     version: "*"
     override_path: /home/xuxin/xuxin/esp-iot-solution-sensor-MR/components/display/tools/esp_mmap_assets
 
-  # espressif/esp-box:
-  espressif/esp_vocat:
+  espressif/esp-box:
+  # espressif/esp_vocat:
     version: "*"
     rules:
     - if: "${IDF_TARGET} == esp32s3"

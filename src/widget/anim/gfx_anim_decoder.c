@@ -55,7 +55,7 @@ esp_err_t gfx_anim_decoder_registry_init(void)
     return gfx_anim_decoder_register_internal(gfx_anim_decoder_get_eaf());
 }
 
-const gfx_anim_decoder_ops_t *gfx_anim_decoder_find_for_source(const gfx_anim_src_desc_t *src_desc)
+const gfx_anim_decoder_ops_t *gfx_anim_decoder_find_for_source(const gfx_anim_src_t *src_desc)
 {
     if (src_desc == NULL) {
         return NULL;

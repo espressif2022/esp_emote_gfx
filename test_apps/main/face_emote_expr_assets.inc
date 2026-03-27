@@ -13,7 +13,7 @@
 #include <stdint.h>
 
 // Refined base geometries from face_expressions_vivid.html
-static const gfx_face_emote_shape14_t s_ref_mouth[] = {
+static const gfx_face_emote_mouth_shape_t s_ref_mouth[] = {
     /* [0] neutral */ { { -28,  0, -14, -1,  14, -1,  28,  0,  14,  1, -14,  1, -28,  0 } },
     /* [1] smile   */ { { -34, -5, -12, 18,  12, 18,  34, -5,  26, 30, -26, 30, -34, -5 } },
     /* [2] happy   */ { { -34,-15, -12,-12,  12,-12,  34,-15,  34, 40, -34, 40, -34,-15 } },
@@ -22,7 +22,7 @@ static const gfx_face_emote_shape14_t s_ref_mouth[] = {
     /* [5] angry   */ { { -30, 10, -12,-10,  12,-10,  30, 10,  12,-15, -12,-15, -30, 10 } },
 };
 
-static const gfx_face_emote_shape14_t s_ref_eye[] = {
+static const gfx_face_emote_eye_shape_t s_ref_eye[] = {
     /* [0] neutral */ { { -16,  0,  -8,-16,   8,-16,  16,  0,   8, 16,  -8, 16, -16,  0 } },
     /* [1] smile   */ { { -16,  4,  -8,-10,   8,-10,  16,  4,   8, -4,  -8, -4, -16,  4 } },
     /* [2] happy   */ { { -16,  4,  -8, -8,   8, -8,  16,  4,   8, -4,  -8, -4, -16,  4 } },
@@ -31,7 +31,7 @@ static const gfx_face_emote_shape14_t s_ref_eye[] = {
     /* [5] angry   */ { { -16, -2,  -8, -8,   8,-16,  16,  6,   8, 12,  -8, 12, -16, -2 } },
 };
 
-static const gfx_face_emote_shape8_t s_ref_brow[] = {
+static const gfx_face_emote_brow_shape_t s_ref_brow[] = {
     /* [0] neutral */ { { -16,  0,  -5, -6,   5, -6,  16,  0 } },
     /* [1] smile   */ { { -16,  2,  -5, -5,   5, -5,  16, -1 } },
     /* [2] happy   */ { { -16, -1,  -5, -8,   5, -8,  16, -1 } },

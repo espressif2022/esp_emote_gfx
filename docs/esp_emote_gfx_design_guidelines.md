@@ -61,7 +61,7 @@ Good:
 Needs improvement:
 
 - `gfx_obj_t` stores all widget-private state in a generic `void *src`, which keeps the core generic but weakens type boundaries across all widgets
-- `gfx_face_emote` private contracts are reasonable in `src/widget/face/gfx_face_emote_priv.h`; public aliases now exist for eye/brow/mouth shapes, but the legacy numeric names are still present and should be treated as compatibility names rather than preferred API vocabulary
+- `gfx_face_emote` private contracts are reasonable in `src/widget/face/gfx_face_emote_priv.h`; public shape naming is now semantic, which is easier for new users to understand than representation-sized names
 - `src/common/gfx_comm.h` acts like a broad internal policy bucket rather than a narrowly scoped helper header
 
 Evidence:
@@ -85,7 +85,7 @@ Mostly consistent:
 
 Inconsistencies:
 
-- `gfx_face_emote` now has public semantic aliases for eye/brow/mouth shapes, but the legacy `shape14` / `shape8` names still exist and remain easy to reach first when reading the header
+- `gfx_face_emote` public shape naming is now semantic (`eye_shape` / `brow_shape` / `mouth_shape`), which is clearer than representation-sized names
 - `obj->src` means very different things across modules: image source, widget state object, animation state, QR buffer owner
 - Variable naming around draw buffers alternates between `dest_pixels`, `dst`, `dest_buf`, `pixel_buf`, `src_pixels_16`, `color_palette`, which is understandable locally but not standardized project-wide
 
@@ -283,7 +283,7 @@ Conclusion:
 - Operation tables: `gfx_<module>_ops_t`
 - Descriptors for external payloads: `gfx_<module>_desc_t`
 - Fixed-point coordinate arrays: `*_points_q8`
-- Prefer semantic public aliases such as `gfx_face_emote_eye_shape_t` over legacy numeric names like `shape14`
+- Prefer semantic public names such as `gfx_face_emote_eye_shape_t` over representation-sized names
 
 ### Logging
 

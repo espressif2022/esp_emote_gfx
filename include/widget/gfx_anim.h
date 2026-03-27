@@ -27,6 +27,18 @@ typedef enum {
     GFX_ANIM_SEGMENT_ACTION_PAUSE,
 } gfx_anim_segment_action_t;
 
+/**
+ * @brief Playback description for one animation segment.
+ *
+ * A segment defines:
+ * - frame range
+ * - playback speed
+ * - total repeat count
+ * - what to do when the segment finishes
+ *
+ * Use `gfx_anim_set_segment()` for the simple single-segment case.
+ * Use `gfx_anim_set_segments()` when you need a playback plan.
+ */
 typedef struct {
     uint32_t start;      /* inclusive start frame */
     uint32_t end;        /* inclusive end frame */
@@ -34,6 +46,30 @@ typedef struct {
     uint32_t play_count; /* total plays for this segment, 0 means forever */
     gfx_anim_segment_action_t end_action; /* action after the last play finishes */
 } gfx_anim_segment_t;
+
+/**
+ * @brief Public animation source type.
+ *
+ * The current implementation supports in-memory animation payloads.
+ * The enum exists so future source types can be added without changing the
+ * source-setting API shape again.
+ */
+typedef enum {
+    GFX_ANIM_SRC_TYPE_MEMORY = 0, /**< In-memory animation payload */
+} gfx_anim_src_type_t;
+
+/**
+ * @brief Typed animation source descriptor.
+ *
+ * `gfx_anim_set_src_desc()` is the preferred source setter for new code.
+ * `gfx_anim_set_src()` remains as a compatibility wrapper for raw memory
+ * buffers and length pairs.
+ */
+typedef struct {
+    gfx_anim_src_type_t type; /**< Source payload type */
+    const void *data;         /**< Type-specific payload pointer */
+    size_t data_len;          /**< Payload length in bytes */
+} gfx_anim_src_t;
 
 /**********************
  *   PUBLIC API
@@ -49,7 +85,21 @@ gfx_obj_t *gfx_anim_create(gfx_disp_t *disp);
 /* Animation setters */
 
 /**
+ * @brief Set the typed source descriptor for an animation object
+ *
+ * This is the preferred source setter for new code.
+ *
+ * @param obj Pointer to the animation object
+ * @param src Pointer to the typed source descriptor
+ * @return ESP_OK on success, error code otherwise
+ */
+esp_err_t gfx_anim_set_src_desc(gfx_obj_t *obj, const gfx_anim_src_t *src);
+
+/**
  * @brief Set the source data for an animation object
+ *
+ * Compatibility wrapper for in-memory animation payloads.
+ *
  * @param obj Pointer to the animation object
  * @param src_data Source data
  * @param src_len Source data length
@@ -119,6 +169,11 @@ esp_err_t gfx_anim_stop(gfx_obj_t *obj);
 
 /**
  * @brief Set mirror display for an animation object
+ *
+ * Manual mirror duplicates the rendered image horizontally and inserts the
+ * provided offset between the original and mirrored copy.
+ * For display-width-aware mirroring, use `gfx_anim_set_auto_mirror()`.
+ *
  * @param obj Pointer to the animation object
  * @param enabled Whether to enable mirror display
  * @param offset Mirror offset in pixels
@@ -128,6 +183,10 @@ esp_err_t gfx_anim_set_mirror(gfx_obj_t *obj, bool enabled, int16_t offset);
 
 /**
  * @brief Set auto mirror alignment for animation object
+ *
+ * Auto mirror computes the mirror offset from the current display width.
+ * Compared with `gfx_anim_set_mirror()`, this mode is easier to use when the
+ * animation should mirror around the display center without a fixed offset.
  *
  * @param obj Animation object
  * @param enabled Whether to enable auto mirror alignment

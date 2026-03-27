@@ -23,13 +23,13 @@ typedef struct {
  *  STATIC PROTOTYPES
  **********************/
 
-static esp_err_t gfx_anim_src_get_size(const gfx_anim_src_desc_t *src_desc, size_t *out_size)
+static esp_err_t gfx_anim_src_get_size(const gfx_anim_src_t *src_desc, size_t *out_size)
 {
     if (src_desc == NULL || out_size == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    if (src_desc->data != NULL && src_desc->data_len > 0) {
+    if (src_desc->type == GFX_ANIM_SRC_TYPE_MEMORY && src_desc->data != NULL && src_desc->data_len > 0) {
         *out_size = src_desc->data_len;
         return ESP_OK;
     }
@@ -37,7 +37,7 @@ static esp_err_t gfx_anim_src_get_size(const gfx_anim_src_desc_t *src_desc, size
     return ESP_ERR_INVALID_SIZE;
 }
 
-static esp_err_t gfx_anim_src_peek(const gfx_anim_src_desc_t *src_desc, size_t offset, size_t len,
+static esp_err_t gfx_anim_src_peek(const gfx_anim_src_t *src_desc, size_t offset, size_t len,
                                    const uint8_t **out_data)
 {
     size_t total_size = 0;
@@ -54,7 +54,7 @@ static esp_err_t gfx_anim_src_peek(const gfx_anim_src_desc_t *src_desc, size_t o
     return ESP_OK;
 }
 
-static bool gfx_anim_eaf_can_open(const gfx_anim_src_desc_t *src_desc)
+static bool gfx_anim_eaf_can_open(const gfx_anim_src_t *src_desc)
 {
     const uint8_t *data = NULL;
 
@@ -74,7 +74,7 @@ static bool gfx_anim_eaf_can_open(const gfx_anim_src_desc_t *src_desc)
            (memcmp(data + EAF_STR_OFFSET, AAF_FORMAT_STR, 3) == 0);
 }
 
-static esp_err_t gfx_anim_eaf_open(const gfx_anim_src_desc_t *src_desc, void **out_handle)
+static esp_err_t gfx_anim_eaf_open(const gfx_anim_src_t *src_desc, void **out_handle)
 {
     gfx_anim_eaf_handle_t *handle = NULL;
     size_t data_len = 0;
