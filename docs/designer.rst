@@ -15,6 +15,8 @@ still library-centric:
 * Widget metadata is distributed across headers instead of being exposed as an editor-friendly schema.
 * There is no stable interchange format for layout, styling, and resource binding.
 * Designers and firmware developers cannot share a single source of truth for screen structure.
+* Runtime-specific widgets such as ``gfx_face_emote`` and ``gfx_mesh_img`` need
+  editor concepts that stay close to their real public setters.
 
 For a modern host-side editor, those are the biggest product gaps rather than low-level
 rendering limitations.
@@ -29,11 +31,16 @@ The web prototype focuses on the workflow that is currently missing:
 * Edit common and type-specific properties from an inspector.
 * Reorder layers without rewriting code.
 * Export a JSON scene description that can later drive code generation.
+* Keep higher-value GFX widgets first-class in the editor:
+  ``face_emote``, ``mesh_img``, ``anim``, ``qrcode``, ``button``, ``label``.
 
 The prototype is intentionally schema-first. It does not replace the embedded runtime.
 Instead, it prepares a configuration layer that can map cleanly onto the existing APIs
 such as ``gfx_obj_set_pos()``, ``gfx_obj_set_size()``, ``gfx_label_set_text()``,
-``gfx_button_set_bg_color()``, ``gfx_qrcode_set_data()``, and similar setters.
+``gfx_button_set_bg_color()``, ``gfx_qrcode_set_data()``,
+``gfx_mesh_img_set_grid()``, ``gfx_mesh_img_set_aa_inward()``,
+``gfx_anim_set_src_desc()``, ``gfx_anim_set_segment()``,
+``gfx_face_emote_set_expression_name()``, and similar setters.
 
 Scene schema
 ------------
@@ -101,7 +108,12 @@ The exported schema is designed so a future generator can keep the existing publ
 * ``visible`` maps to ``gfx_obj_set_visible()``.
 * Widget-specific ``props`` map to the already exposed widget setters.
 * ``type`` stays aligned with existing widget families:
-  ``label``, ``button``, ``list``, ``image``, ``qrcode``, ``anim``, ``mesh_img``.
+  ``label``, ``button``, ``list``, ``image``, ``qrcode``, ``anim``,
+  ``mesh_img``, ``face_emote``.
+* ``mesh_img`` props now include runtime-relevant toggles such as inward AA,
+  wrapped columns, and scanline fill.
+* ``face_emote`` props model the current widget more directly through expression
+  name, stroke color, manual look offsets, and segment density.
 
 This keeps firmware compatibility high and avoids introducing editor-only C interfaces.
 
@@ -139,4 +151,3 @@ After building the docs, open:
 
 * ``/designer/index.html`` for the interactive prototype
 * ``/index.html`` for the main documentation portal
-

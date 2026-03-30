@@ -13,7 +13,14 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_timer.h"
+
+#ifndef GFX_HAVE_LIBTESS2
+#define GFX_HAVE_LIBTESS2 0
+#endif
+
+#if GFX_HAVE_LIBTESS2
 #include "tesselator.h"
+#endif
 
 #include "common/gfx_comm.h"
 #include "common/gfx_mesh_frac.h"
@@ -120,6 +127,7 @@ static inline uint64_t gfx_blend_perf_elapsed_us(int64_t start_us)
     return (uint64_t)(esp_timer_get_time() - start_us);
 }
 
+#if GFX_HAVE_LIBTESS2
 static inline int32_t gfx_sw_blend_round_tess_real_to_q8(TESSreal value)
 {
     if (value >= 0.0f) {
@@ -148,6 +156,7 @@ static inline uint8_t gfx_sw_blend_tess_neighbors_to_internal_edges(const TESSin
 
     return internal_edges;
 }
+#endif
 
 static void gfx_sw_blend_polygon_fill_scanline_fallback(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                                                         const gfx_area_t *buf_area, const gfx_area_t *clip_area,
@@ -857,12 +866,14 @@ void gfx_sw_blend_polygon_fill(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                                bool swap)
 {
     int64_t perf_start_us = 0;
+#if GFX_HAVE_LIBTESS2
     TESStesselator *tess = NULL;
     TESSreal *contour = NULL;
     const TESSreal *verts;
     const TESSindex *elems;
     int nelems;
     gfx_color_t solid_src[1];
+#endif
 
     if (dest_buf == NULL || buf_area == NULL || clip_area == NULL ||
             vx == NULL || vy == NULL || vertex_count < 3) {
@@ -873,6 +884,7 @@ void gfx_sw_blend_polygon_fill(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
         perf_start_us = esp_timer_get_time();
     }
 
+#if GFX_HAVE_LIBTESS2
     contour = malloc((size_t)vertex_count * 2U * sizeof(*contour));
     if (contour == NULL) {
         goto fallback;
@@ -939,15 +951,18 @@ void gfx_sw_blend_polygon_fill(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
     goto poly_done;
 
 fallback:
+#endif
     gfx_sw_blend_polygon_fill_scanline_fallback(dest_buf, dest_stride,
                                                 buf_area, clip_area,
                                                 color, vx, vy, vertex_count, swap);
 
+#if GFX_HAVE_LIBTESS2
 poly_done:
     if (tess != NULL) {
         tessDeleteTess(tess);
     }
     free(contour);
+#endif
 
     if (s_active_perf_stats != NULL) {
         s_active_perf_stats->triangle_draw.calls++;

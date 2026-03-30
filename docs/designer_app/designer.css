@@ -356,6 +356,60 @@ textarea {
   font-weight: 600;
 }
 
+.widget-face {
+  position: relative;
+  width: min(86%, 120px);
+  height: min(78%, 108px);
+}
+
+.widget-face-eye,
+.widget-face-brow,
+.widget-face-mouth {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  background: currentColor;
+}
+
+.widget-face-eye {
+  top: 34px;
+  width: 20px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.widget-face-eye.left {
+  left: 34%;
+}
+
+.widget-face-eye.right {
+  left: 66%;
+}
+
+.widget-face-brow {
+  top: 20px;
+  width: 26px;
+  height: 4px;
+  border-radius: 999px;
+}
+
+.widget-face-brow.left {
+  left: 34%;
+  transform: translateX(-50%) rotate(-10deg);
+}
+
+.widget-face-brow.right {
+  left: 66%;
+  transform: translateX(-50%) rotate(10deg);
+}
+
+.widget-face-mouth {
+  bottom: 18px;
+  width: 52px;
+  height: 14px;
+  border-radius: 0 0 999px 999px;
+}
+
 .widget-list {
   width: 100%;
   display: grid;
@@ -411,6 +465,7 @@ textarea {
 .layer-meta {
   color: var(--text-muted);
   font-size: 12px;
+  font-family: var(--font-mono);
 }
 
 .empty-state {
@@ -464,4 +519,3 @@ textarea {
     min-height: 420px;
   }
 }
-

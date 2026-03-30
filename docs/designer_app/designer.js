@@ -1,16 +1,19 @@
 const widgetDefinitions = {
   label: {
     label: "Label",
+    api: "gfx_label_*",
     defaultSize: { w: 160, h: 52 },
     defaults: {
       text: "Status: Ready",
       textColor: "#e2e8f0",
       bgColor: "#1e293b",
       bgEnabled: true,
-      textAlign: "left"
+      textAlign: "left",
+      font: "font_puhui_16_4"
     },
     fields: [
       { key: "text", label: "Text", type: "text" },
+      { key: "font", label: "Font Symbol", type: "text" },
       { key: "textColor", label: "Text Color", type: "color" },
       { key: "bgColor", label: "Background", type: "color" },
       { key: "bgEnabled", label: "Background Enabled", type: "checkbox" },
@@ -24,6 +27,7 @@ const widgetDefinitions = {
   },
   button: {
     label: "Button",
+    api: "gfx_button_*",
     defaultSize: { w: 148, h: 44 },
     defaults: {
       text: "Apply",
@@ -51,6 +55,7 @@ const widgetDefinitions = {
   },
   list: {
     label: "List",
+    api: "gfx_list_*",
     defaultSize: { w: 180, h: 120 },
     defaults: {
       items: "Speed\nBrightness\nVolume",
@@ -75,15 +80,25 @@ const widgetDefinitions = {
   },
   image: {
     label: "Image",
+    api: "gfx_img_*",
     defaultSize: { w: 112, h: 112 },
     defaults: {
+      srcType: "image_dsc",
       src: "assets/icon.bin",
       fit: "contain",
-      tint: "#94a3b8"
+      tint: "#94a3b8",
+      opa: 255
     },
     fields: [
+      {
+        key: "srcType",
+        label: "Source Type",
+        type: "select",
+        options: ["image_dsc", "memory", "file"]
+      },
       { key: "src", label: "Source", type: "text" },
       { key: "tint", label: "Tint", type: "color" },
+      { key: "opa", label: "Opacity", type: "number", min: 0, max: 255 },
       {
         key: "fit",
         label: "Fit",
@@ -94,6 +109,7 @@ const widgetDefinitions = {
   },
   qrcode: {
     label: "QR Code",
+    api: "gfx_qrcode_*",
     defaultSize: { w: 132, h: 132 },
     defaults: {
       data: "https://espressif.com",
@@ -115,34 +131,92 @@ const widgetDefinitions = {
   },
   anim: {
     label: "Animation",
+    api: "gfx_anim_*",
     defaultSize: { w: 144, h: 128 },
     defaults: {
+      srcType: "memory",
       src: "assets/face.eaf",
       fps: 24,
       autoplay: true,
-      mirror: false
+      autoMirror: false,
+      playMode: "full",
+      loopCount: 0
     },
     fields: [
+      {
+        key: "srcType",
+        label: "Source Type",
+        type: "select",
+        options: ["memory", "file"]
+      },
       { key: "src", label: "Source", type: "text" },
       { key: "fps", label: "FPS", type: "number", min: 1, max: 120 },
       { key: "autoplay", label: "Autoplay", type: "checkbox" },
-      { key: "mirror", label: "Mirror", type: "checkbox" }
+      { key: "autoMirror", label: "Auto Mirror", type: "checkbox" },
+      {
+        key: "playMode",
+        label: "Segment Mode",
+        type: "select",
+        options: ["full", "segmented"]
+      },
+      { key: "loopCount", label: "Loop Count", type: "number", min: 0, max: 255 }
     ]
   },
   mesh_img: {
     label: "Mesh Image",
+    api: "gfx_mesh_img_*",
     defaultSize: { w: 152, h: 120 },
     defaults: {
+      srcType: "image_dsc",
       src: "assets/mesh.bin",
       cols: 4,
       rows: 4,
-      ctrlVisible: true
+      ctrlVisible: true,
+      aaInward: true,
+      wrapCols: false,
+      scanlineFill: false,
+      fillColor: "#0f172a"
     },
     fields: [
+      {
+        key: "srcType",
+        label: "Source Type",
+        type: "select",
+        options: ["image_dsc", "memory", "file"]
+      },
       { key: "src", label: "Source", type: "text" },
       { key: "cols", label: "Columns", type: "number", min: 2, max: 16 },
       { key: "rows", label: "Rows", type: "number", min: 2, max: 16 },
-      { key: "ctrlVisible", label: "Control Points Visible", type: "checkbox" }
+      { key: "ctrlVisible", label: "Control Points Visible", type: "checkbox" },
+      { key: "aaInward", label: "Inward AA", type: "checkbox" },
+      { key: "wrapCols", label: "Wrap Columns", type: "checkbox" },
+      { key: "scanlineFill", label: "Scanline Fill", type: "checkbox" },
+      { key: "fillColor", label: "Fill Color", type: "color" }
+    ]
+  },
+  face_emote: {
+    label: "Face Emote",
+    api: "gfx_face_emote_*",
+    defaultSize: { w: 176, h: 176 },
+    defaults: {
+      expressionName: "happy",
+      color: "#0f172a",
+      manualLook: false,
+      lookX: 0,
+      lookY: 0,
+      eyeSegs: 24,
+      browSegs: 16,
+      mouthSegs: 32
+    },
+    fields: [
+      { key: "expressionName", label: "Expression", type: "text" },
+      { key: "color", label: "Stroke Color", type: "color" },
+      { key: "manualLook", label: "Manual Look", type: "checkbox" },
+      { key: "lookX", label: "Look X", type: "number", min: -100, max: 100 },
+      { key: "lookY", label: "Look Y", type: "number", min: -100, max: 100 },
+      { key: "eyeSegs", label: "Eye Segments", type: "number", min: 4, max: 64 },
+      { key: "browSegs", label: "Brow Segments", type: "number", min: 4, max: 64 },
+      { key: "mouthSegs", label: "Mouth Segments", type: "number", min: 4, max: 128 }
     ]
   }
 };
@@ -201,41 +275,69 @@ function createSampleScene() {
   };
 
   const title = createWidget("label", initial, {
-    name: "Header",
+    name: "Screen Title",
     x: 20,
     y: 18,
-    w: 184,
-    h: 44,
+    w: 150,
+    h: 46,
     props: {
-      text: "Device Dashboard",
+      text: "Mood Console",
       textColor: "#eff6ff",
       bgColor: "#0f172a",
       bgEnabled: true,
       textAlign: "left"
     }
   });
+  const face = createWidget("face_emote", initial, {
+    name: "Assistant Face",
+    x: 182,
+    y: 24,
+    w: 118,
+    h: 152,
+    props: {
+      expressionName: "happy",
+      color: "#111827",
+      manualLook: true,
+      lookX: 18,
+      lookY: -8
+    }
+  });
   const list = createWidget("list", initial, {
-    name: "Menu",
+    name: "Preset List",
     x: 20,
     y: 78,
     w: 120,
-    h: 136
+    h: 136,
+    props: {
+      items: "happy\nsurprise\nsleepy\nangry",
+      selectedIndex: 0
+    }
   });
-  const qr = createWidget("qrcode", initial, {
-    name: "Bind QR",
-    x: 162,
-    y: 78,
-    w: 134,
-    h: 134
+  const mesh = createWidget("mesh_img", initial, {
+    name: "Mouth Mesh",
+    x: 152,
+    y: 188,
+    w: 148,
+    h: 34,
+    props: {
+      src: "assets/mouth_mask.bin",
+      cols: 8,
+      rows: 1,
+      aaInward: true,
+      wrapCols: true,
+      scanlineFill: true,
+      fillColor: "#111827",
+      ctrlVisible: false
+    }
   });
   const button = createWidget("button", initial, {
-    name: "Primary Action",
-    x: 162,
-    y: 24,
-    w: 134,
-    h: 40,
+    name: "Apply Expression",
+    x: 20,
+    y: 188,
+    w: 120,
+    h: 34,
     props: {
-      text: "Connect",
+      text: "Apply",
       textColor: "#eff6ff",
       bgColor: "#2563eb",
       bgColorPressed: "#1d4ed8",
@@ -245,8 +347,8 @@ function createSampleScene() {
     }
   });
 
-  initial.widgets.push(title, list, qr, button);
-  initial.selectedId = button.id;
+  initial.widgets.push(title, face, list, mesh, button);
+  initial.selectedId = face.id;
   return initial;
 }
 
@@ -275,7 +377,7 @@ function renderPalette() {
 
   Object.entries(widgetDefinitions).forEach(([type, def]) => {
     const node = tpl.content.firstElementChild.cloneNode(true);
-    node.innerHTML = `<strong>${def.label}</strong><br><span>${type}</span>`;
+    node.innerHTML = `<strong>${def.label}</strong><br><span>${def.api}</span>`;
     node.addEventListener("click", () => {
       const widget = createWidget(type, state, {
         x: 24 + (state.widgets.length % 4) * 18,
@@ -387,7 +489,7 @@ function renderWidgetBody(widget) {
   body.className = "widget-content";
   const meta = document.createElement("div");
   meta.className = "widget-meta";
-  meta.textContent = widget.type;
+  meta.textContent = widgetDefinitions[widget.type].api;
   body.appendChild(meta);
 
   if (widget.type === "list") {
@@ -414,6 +516,20 @@ function renderWidgetBody(widget) {
     qr.style.borderRadius = "12px";
     qr.style.border = "1px solid rgba(15, 23, 42, 0.15)";
     body.appendChild(qr);
+    return body;
+  }
+
+  if (widget.type === "face_emote") {
+    const face = document.createElement("div");
+    face.className = "widget-face";
+    face.innerHTML = `
+      <div class="widget-face-brow left"></div>
+      <div class="widget-face-brow right"></div>
+      <div class="widget-face-eye left"></div>
+      <div class="widget-face-eye right"></div>
+      <div class="widget-face-mouth"></div>
+    `;
+    body.appendChild(face);
     return body;
   }
 
@@ -468,8 +584,16 @@ function applyWidgetStyles(el, widget) {
   }
 
   if (widget.type === "mesh_img") {
-    el.style.background = "linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%)";
+    el.style.background = props.scanlineFill
+      ? `linear-gradient(135deg, ${props.fillColor} 0%, #93c5fd 100%)`
+      : "linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%)";
     el.style.color = "#082f49";
+    return;
+  }
+
+  if (widget.type === "face_emote") {
+    el.style.background = "linear-gradient(180deg, #ffffff 0%, #dbeafe 100%)";
+    el.style.color = props.color;
   }
 }
 
@@ -481,9 +605,11 @@ function getWidgetPreviewText(widget) {
     case "image":
       return "Image";
     case "anim":
-      return `Anim ${widget.props.fps} fps`;
+      return `${widget.props.playMode} · ${widget.props.fps} fps`;
     case "mesh_img":
-      return `${widget.props.cols}x${widget.props.rows} Mesh`;
+      return `${widget.props.cols}x${widget.props.rows} mesh`;
+    case "face_emote":
+      return widget.props.expressionName;
     default:
       return widget.name;
   }
@@ -507,7 +633,7 @@ function renderLayers() {
     .forEach((widget) => {
       const item = tpl.content.firstElementChild.cloneNode(true);
       item.querySelector(".layer-title").textContent = widget.name;
-      item.querySelector(".layer-meta").textContent = `${widget.type} · ${widget.w}x${widget.h}`;
+      item.querySelector(".layer-meta").textContent = `${widgetDefinitions[widget.type].api} · ${widget.w}x${widget.h}`;
       if (widget.id === state.selectedId) {
         item.classList.add("active");
       }

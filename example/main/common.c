@@ -11,6 +11,11 @@
 #include "esp_log.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
+#if CONFIG_IDF_TARGET_ESP32S3
+#include "esp_lcd_panel_rgb.h"
+#elif CONFIG_IDF_TARGET_ESP32P4
+#include "esp_lcd_mipi_dsi.h"
+#endif
 #include "bsp/display.h"
 #include "driver/spi_common.h"
 
@@ -189,7 +194,11 @@ esp_err_t display_and_graphics_init(const char *partition_label, uint32_t max_fi
     };
 
     uint16_t *buf1, *buf2;
+#if CONFIG_IDF_TARGET_ESP32S3
     esp_lcd_rgb_panel_get_frame_buffer(panel_handle, 2, (void *)&buf1, (void *)&buf2);
+#elif CONFIG_IDF_TARGET_ESP32P4
+    esp_lcd_dpi_panel_get_frame_buffer(panel_handle, 2, (void *)&buf1, (void *)&buf2);
+#endif
     ESP_LOGI(TAG, "get frame buffer: buf0: %p, buf1: %p", buf1, buf2);
     disp_cfg.buffers.buf1 = buf1;
     disp_cfg.buffers.buf2 = buf2;

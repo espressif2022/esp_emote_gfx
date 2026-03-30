@@ -57,17 +57,6 @@ static const uint32_t s_face_color_palette[] = {
     0xF8FAFC,
 };
 
-static int16_t test_face_emote_random_signed(int16_t limit)
-{
-    uint32_t span = (uint32_t)(limit * 2) + 1U;
-    return (int16_t)((int32_t)(esp_random() % span) - limit);
-}
-
-static int16_t test_face_emote_random_percent(void)
-{
-    return (int16_t)(esp_random() % 101U);
-}
-
 static uint32_t test_face_emote_random_color_hex(void)
 {
     size_t idx = esp_random() % TEST_APP_ARRAY_SIZE(s_face_color_palette);
@@ -106,6 +95,18 @@ static void test_face_emote_apply_color(test_face_emote_scene_t *scene)
     ESP_LOGI(TAG, "set color #%06" PRIX32, scene->current_color_hex);
 }
 
+#if TEST_APP_FACE_EMOTE_USE_RANDOM_MIX
+static int16_t test_face_emote_random_signed(int16_t limit)
+{
+    uint32_t span = (uint32_t)(limit * 2) + 1U;
+    return (int16_t)((int32_t)(esp_random() % span) - limit);
+}
+
+static int16_t test_face_emote_random_percent(void)
+{
+    return (int16_t)(esp_random() % 101U);
+}
+
 static void test_face_emote_randomize_mix(gfx_face_emote_mix_t *mix)
 {
     if (mix == NULL) {
@@ -134,6 +135,7 @@ static void test_face_emote_apply_mix(test_face_emote_scene_t *scene, bool snap_
              scene->current_mix.w_angry, scene->current_mix.look_x,
              scene->current_mix.look_y);
 }
+#endif
 
 static void test_face_emote_update_title(test_face_emote_scene_t *scene)
 {
