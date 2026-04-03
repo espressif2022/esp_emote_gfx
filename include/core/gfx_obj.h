@@ -28,6 +28,9 @@ extern "C" {
 #define GFX_OBJ_TYPE_MESH_IMAGE  0x06
 #define GFX_OBJ_TYPE_LIST        0x07
 #define GFX_OBJ_TYPE_FACE_EMOTE  0x08
+#define GFX_OBJ_TYPE_DRAGON_EMOTE 0x09
+#define GFX_OBJ_TYPE_LOBSTER_EMOTE 0x0A
+#define GFX_OBJ_TYPE_LOBSTER_FACE_EMOTE 0x0B
 
 /* Alignment constants (similar to LVGL) */
 #define GFX_ALIGN_DEFAULT         0x00
