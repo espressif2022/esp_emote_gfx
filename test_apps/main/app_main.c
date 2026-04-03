@@ -28,25 +28,25 @@ void tearDown(void)
     unity_utils_check_leak(before_free_32bit, after_free_32bit, "32BIT", TEST_MEMORY_LEAK_THRESHOLD);
 }
 
-extern void test_button_run_case(void);
 extern void test_anim_run_case_matrix(void);
-extern void test_anim_run_case_emote_gen(void);
+extern void test_eye_organic_run_case(void);
+extern void test_mesh_emote_run_case(void);
 extern void test_mesh_drag_run_case(void);
 extern void test_mesh_bulge_run_case(void);
-extern void test_face_emote_run_case(void);
 extern void test_list_run_case(void);
 extern void test_benchmark_run_case(void);
+extern void test_dragon_emote_run_case(void);
 
 void app_main(void)
 {
     // unity_run_menu();
     // test_anim_run_case_matrix();
-    // test_anim_run_case_emote_gen();
-    // test_list_run_case();
-    // test_button_run_case();
-    // test_benchmark_run_case();
-
+    // test_eye_organic_run_case();
+    // test_mesh_emote_run_case();
+    // test_mesh_drag_run_case();
     // test_mesh_bulge_run_case();
-    test_mesh_drag_run_case();
-    // test_face_emote_run_case();
+    // test_list_run_case();
+    // test_benchmark_run_case();
+    // test_mesh_bulge_run_case();
+    test_dragon_emote_run_case();
 }

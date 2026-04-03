@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vivid Lobster IP Motion Board</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+    :root {
+      --bg-0: #071018;
+      --bg-1: #091521;
+      --panel: rgba(12, 21, 33, 0.92);
+      --panel-soft: rgba(17, 28, 42, 0.88);
+      --line: rgba(255, 255, 255, 0.08);
+      --text: #e8eef6;
+      --muted: #7e91a7;
+      --accent: #ff7a5c;
+      --accent-soft: rgba(255, 122, 92, 0.18);
+      --cool: #7dd3fc;
+      --cool-soft: rgba(125, 211, 252, 0.18);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      background:
+        radial-gradient(circle at 20% 16%, rgba(74, 222, 128, 0.06), transparent 22%),
+        radial-gradient(circle at 78% 12%, rgba(125, 211, 252, 0.10), transparent 24%),
+        linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 100%);
+      color: var(--text);
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      color: #f4f7fb;
+    }
+
+    .intro {
+      margin: 0;
+      max-width: 760px;
+      text-align: center;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+
+    .layout {
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      width: min(980px, 100%);
+    }
+
+    .stage-column {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .viewer {
+      position: relative;
+      width: 440px;
+      max-width: 100%;
+      aspect-ratio: 11 / 10;
+      border-radius: 18px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 26% 22%, rgba(125, 211, 252, 0.12), transparent 25%),
+        radial-gradient(circle at 72% 18%, rgba(255, 122, 92, 0.11), transparent 26%),
+        linear-gradient(180deg, #0b1521 0%, #060a10 100%);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.05),
+        0 20px 36px rgba(0, 0, 0, 0.45);
+      cursor: crosshair;
+    }
+
+    .viewer::after {
+      content: 'drag to steer';
+      position: absolute;
+      right: 14px;
+      bottom: 12px;
+      font-size: 11px;
+      color: rgba(126, 145, 167, 0.66);
+      pointer-events: none;
+      letter-spacing: 0.4px;
+    }
+
+    .viewer svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #hud {
+      position: absolute;
+      left: 14px;
+      bottom: 34px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: rgba(125, 211, 252, 0.78);
+    }
+
+    .grid-caption {
+      font-size: 11px;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: #9fb2c6;
+      padding-left: 4px;
+    }
+
+    .base-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      width: 100%;
+    }
+
+    .base-item {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 8px 8px 10px;
+      cursor: pointer;
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+      min-height: 112px;
+    }
+
+    .base-item:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 122, 92, 0.32);
+      background: rgba(19, 31, 46, 0.96);
+    }
+
+    .base-item.active {
+      border-color: var(--card-accent, var(--accent));
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 122, 92, 0.05));
+      box-shadow: 0 0 0 1px rgba(255, 122, 92, 0.08) inset;
+    }
+
+    .base-item svg {
+      width: 100%;
+      height: 52px;
+      display: block;
+    }
+
+    .base-item-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      color: #d8e2ec;
+      margin-top: 4px;
+    }
+
+    .base-item-note {
+      margin-top: 4px;
+      font-size: 10px;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+
+    .panel {
+      width: 258px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-right: 2px;
+    }
+
+    .panel-section {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--accent);
+      padding: 4px 0 2px;
+      border-bottom: 1px solid rgba(255, 122, 92, 0.2);
+      margin-top: 4px;
+    }
+
+    .panel-section:first-child {
+      margin-top: 0;
+    }
+
+    .action-btn {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: var(--panel-soft);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 8px 10px;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .action-btn:hover {
+      border-color: rgba(255, 122, 92, 0.28);
+      background: rgba(22, 35, 52, 0.96);
+    }
+
+    .action-btn.active {
+      border-color: var(--accent);
+      background: linear-gradient(180deg, rgba(255, 122, 92, 0.16), rgba(20, 31, 46, 0.96));
+      box-shadow: 0 0 0 1px rgba(255, 122, 92, 0.08) inset;
+    }
+
+    .action-name {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .action-cn {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .info-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .info-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #f7fafc;
+    }
+
+    .info-subtitle {
+      font-size: 11px;
+      color: var(--cool);
+      letter-spacing: 0.4px;
+    }
+
+    .info-copy {
+      font-size: 12px;
+      line-height: 1.6;
+      color: #d7e0ea;
+    }
+
+    .info-note {
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      background: rgba(125, 211, 252, 0.10);
+      color: #bde7ff;
+      border: 1px solid rgba(125, 211, 252, 0.12);
+      letter-spacing: 0.25px;
+    }
+
+    .rig-part {
+      transition: opacity 0.2s ease, filter 0.2s ease;
+    }
+
+    .rig-part.is-muted {
+      opacity: 0.22;
+      filter: saturate(0.35);
+    }
+
+    .rig-part.is-focused {
+      filter: drop-shadow(0 0 10px rgba(125, 211, 252, 0.28));
+    }
+
+    .body-shell {
+      fill: url(#body-grad);
+    }
+
+    .body-sheen {
+      fill: rgba(255, 255, 255, 0.13);
+    }
+
+    .body-belly {
+      fill: rgba(255, 255, 255, 0.08);
+    }
+
+    .chin-shell {
+      fill: url(#curl-grad);
+    }
+
+    .head-cap {
+      fill: url(#head-grad);
+    }
+
+    .feeler {
+      fill: #0a0d13;
+      opacity: 0.98;
+    }
+
+    .eye-white {
+      fill: #ffffff;
+    }
+
+    .eye-pupil {
+      fill: #151922;
+    }
+
+    .eye-glint {
+      fill: rgba(255, 255, 255, 0.9);
+    }
+
+    .tail-link {
+      fill: none;
+      stroke: url(#tail-link-grad);
+      stroke-width: 24;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .tail-seg-a {
+      fill: url(#tail-base-grad);
+    }
+
+    .tail-seg-b {
+      fill: url(#tail-tip-grad);
+    }
+
+    .tail-stripe {
+      fill: rgba(211, 46, 52, 0.95);
+    }
+
+    .trail-dot {
+      fill: #ff5a49;
+    }
+
+    .leg {
+      fill: none;
+      stroke: #ff654d;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 8;
+    }
+
+    .leg-heavy {
+      stroke-width: 10;
+    }
+
+    .leg-light {
+      stroke-width: 6;
+    }
+
+    .claw-tip {
+      fill: none;
+      stroke: #f34237;
+      stroke-linecap: round;
+      stroke-width: 4;
+    }
+
+    @media (max-width: 920px) {
+      body {
+        padding: 18px;
+      }
+
+      .layout {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .stage-column,
+      .panel {
+        width: min(100%, 440px);
+      }
+
+      .base-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Vivid Lobster IP Motion Board</h1>
+  <p class="intro">参考 <code>IP.svg</code> 的圆润扁平造型，把龙虾先拆成 <code>body / head / eyes / tail / legs</code> 五层语义，再用动作库验证“游动、打量、招呼、蓄力”这些角色状态。</p>
+
+  <div class="layout">
+    <div class="stage-column">
+      <div class="viewer" id="viewer">
+        <svg id="canvas" viewBox="0 0 420 340" aria-label="Lobster IP rig">
+          <defs>
+            <linearGradient id="body-grad" x1="-70" y1="-40" x2="90" y2="120" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#ff5f4e"/>
+              <stop offset="0.55" stop-color="#f1453a"/>
+              <stop offset="1" stop-color="#e63a34"/>
+            </linearGradient>
+            <linearGradient id="head-grad" x1="-60" y1="-70" x2="90" y2="40" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#ff6b58"/>
+              <stop offset="1" stop-color="#f44639"/>
+            </linearGradient>
+            <linearGradient id="curl-grad" x1="-30" y1="-20" x2="90" y2="120" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#ff6f55"/>
+              <stop offset="1" stop-color="#f75a43"/>
+            </linearGradient>
+            <linearGradient id="tail-base-grad" x1="0" y1="-20" x2="96" y2="24" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#ff5d4a"/>
+              <stop offset="1" stop-color="#f34b3b"/>
+            </linearGradient>
+            <linearGradient id="tail-tip-grad" x1="0" y1="-24" x2="106" y2="28" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#ff6d53"/>
+              <stop offset="1" stop-color="#ff5542"/>
+            </linearGradient>
+            <linearGradient id="tail-link-grad" x1="56" y1="-40" x2="118" y2="-92" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#ff5b48"/>
+              <stop offset="1" stop-color="#f34a3b"/>
+            </linearGradient>
+          </defs>
+
+          <g opacity="0.35">
+            <circle cx="88" cy="64" r="28" fill="rgba(125, 211, 252, 0.12)"/>
+            <circle cx="330" cy="52" r="22" fill="rgba(255, 122, 92, 0.10)"/>
+            <circle cx="360" cy="250" r="18" fill="rgba(125, 211, 252, 0.08)"/>
+          </g>
+
+          <g id="lobster-root">
+            <ellipse id="shadow" cx="0" cy="120" rx="108" ry="20" fill="rgba(4, 9, 15, 0.48)"/>
+
+            <g id="body-frame">
+              <g id="tail-part" class="rig-part" data-part="tail">
+                <path id="tail-link" class="tail-link" d="" />
+                <g id="tail-base-wrap">
+                  <rect class="tail-seg-a" x="0" y="-23" width="96" height="46" rx="20" />
+                  <rect class="tail-stripe" x="34" y="-23" width="14" height="46" rx="6" />
+                </g>
+                <g id="tail-tip-wrap">
+                  <rect class="tail-seg-b" x="0" y="-25" width="106" height="50" rx="22" />
+                  <rect class="tail-stripe" x="40" y="-25" width="14" height="50" rx="6" />
+                </g>
+                <g id="trail-dots">
+                  <circle id="trail-1" class="trail-dot" cx="118" cy="52" r="14" />
+                  <circle id="trail-2" class="trail-dot" cx="144" cy="24" r="12" />
+                  <circle id="trail-3" class="trail-dot" cx="162" cy="-4" r="10" />
+                </g>
+              </g>
+
+              <g id="legs-part" class="rig-part" data-part="legs">
+                <path id="leg-front-left" class="leg leg-heavy" d="" />
+                <path id="leg-front-right" class="leg leg-heavy" d="" />
+                <path id="leg-mid-left" class="leg" d="" />
+                <path id="leg-mid-right" class="leg" d="" />
+                <path id="leg-rear-left" class="leg leg-light" d="" />
+                <path id="leg-rear-right" class="leg leg-light" d="" />
+                <path id="claw-left" class="claw-tip" d="" />
+                <path id="claw-right" class="claw-tip" d="" />
+              </g>
+
+              <g id="body-part" class="rig-part" data-part="body">
+                <ellipse id="body-shell" class="body-shell" cx="0" cy="10" rx="88" ry="94" />
+                <ellipse id="body-sheen" class="body-sheen" cx="-24" cy="-28" rx="34" ry="26" />
+                <path id="body-belly" class="body-belly" d="M -54 48 C -12 26, 42 30, 68 64 C 72 90, 62 108, 34 118 C -6 132, -52 120, -72 90 C -70 72, -64 58, -54 48 Z" />
+                <g id="chin-wrap">
+                  <path id="chin-shell" class="chin-shell" d="M -12 0 C 18 -22, 62 -18, 84 8 C 102 28, 106 60, 92 88 C 78 116, 50 132, 18 130 C -12 128, -38 112, -52 88 L -12 56 L -58 56 C -62 40, -56 18, -38 6 C -30 0, -22 -2, -12 0 Z" />
+                </g>
+              </g>
+
+              <g id="head-part" class="rig-part" data-part="head">
+                <path id="head-cap" class="head-cap" d="M -68 -42 C -46 -72, 10 -78, 54 -58 C 78 -46, 92 -26, 92 -2 C 86 24, 66 44, 36 54 C -4 66, -54 54, -78 24 C -90 8, -90 -18, -82 -32 C -78 -38, -74 -40, -68 -42 Z" />
+                <g id="feeler-left-wrap">
+                  <path class="feeler" d="M 0 0 C -12 -24, -12 -56, 10 -86 C 8 -58, 16 -26, 30 -2 C 20 8, 8 8, 0 0 Z" />
+                </g>
+                <g id="feeler-right-wrap">
+                  <path class="feeler" d="M 0 0 C -8 -22, -6 -54, 16 -82 C 16 -54, 24 -24, 38 0 C 26 10, 12 10, 0 0 Z" />
+                </g>
+              </g>
+
+              <g id="eyes-part" class="rig-part" data-part="eyes">
+                <g id="eye-left-wrap">
+                  <ellipse id="eye-left-white" class="eye-white" cx="0" cy="0" rx="28" ry="38" />
+                  <ellipse id="eye-left-pupil" class="eye-pupil" cx="0" cy="10" rx="13" ry="12" />
+                  <circle id="eye-left-glint" class="eye-glint" cx="-7" cy="-10" r="3" />
+                </g>
+                <g id="eye-right-wrap">
+                  <ellipse id="eye-right-white" class="eye-white" cx="0" cy="0" rx="28" ry="38" />
+                  <ellipse id="eye-right-pupil" class="eye-pupil" cx="0" cy="10" rx="13" ry="12" />
+                  <circle id="eye-right-glint" class="eye-glint" cx="-7" cy="-10" r="3" />
+                </g>
+              </g>
+            </g>
+          </g>
+        </svg>
+        <div id="hud"></div>
+      </div>
+
+      <div class="grid-caption">Base Anatomy Parts</div>
+      <div class="base-grid" id="part-grid"></div>
+    </div>
+
+    <div class="panel">
+      <div id="action-panel"></div>
+
+      <div class="panel-section">Action Detail</div>
+      <div class="info-card">
+        <div class="info-title" id="action-title"></div>
+        <div class="info-subtitle" id="action-subtitle"></div>
+        <div class="info-copy" id="action-desc"></div>
+        <div class="chip-row" id="action-chips"></div>
+        <div class="info-note" id="action-use"></div>
+      </div>
+
+      <div class="panel-section">Part Note</div>
+      <div class="info-card">
+        <div class="info-title" id="part-title">Rig Overview</div>
+        <div class="info-subtitle" id="part-subtitle">整体</div>
+        <div class="info-copy" id="part-desc">点击下方部件卡片高亮查看 body / head / eyes / tail / legs 的拆层。</div>
+        <div class="info-note" id="part-note">默认展示完整角色，用来先看整体节奏。</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const PARTS = [
+      {
+        id: 'body',
+        name: 'Body Shell',
+        cn: '身体',
+        note: '主躯干与重心，负责浮力、朝向和整体识别度。',
+        extra: '动作里最常变化的是上浮、转体和轻微 squash。',
+        accent: '#ff7a5c',
+        preview: `
+          <svg viewBox="0 0 120 90" aria-hidden="true">
+            <ellipse cx="54" cy="46" rx="30" ry="32" fill="#f1453a"></ellipse>
+            <ellipse cx="44" cy="34" rx="12" ry="10" fill="rgba(255,255,255,0.18)"></ellipse>
+            <path d="M 48 58 C 66 50, 88 54, 96 70 C 86 82, 66 84, 52 76 Z" fill="#ff6b58"></path>
+          </svg>
+        `
+      },
+      {
+        id: 'head',
+        name: 'Head Plate',
+        cn: '头部',
+        note: '头盖和触角提供方向感，适合做前探、缩头和情绪抬头。',
+        extra: '我把原图顶部的“黑触角”并入 head 层，便于统一控制。',
+        accent: '#7dd3fc',
+        preview: `
+          <svg viewBox="0 0 120 90" aria-hidden="true">
+            <path d="M 24 40 C 34 18, 74 10, 98 30 C 102 52, 90 66, 64 72 C 40 74, 24 62, 24 40 Z" fill="#ff644f"></path>
+            <path d="M 40 30 C 34 12, 36 0, 48 -14 C 52 2, 56 18, 60 30 C 54 34, 46 34, 40 30 Z" fill="#090c12"></path>
+            <path d="M 74 30 C 68 12, 70 0, 84 -12 C 88 4, 94 18, 100 32 C 92 36, 82 36, 74 30 Z" fill="#090c12"></path>
+          </svg>
+        `
+      },
+      {
+        id: 'eyes',
+        name: 'Eyes',
+        cn: '眼睛',
+        note: '视线、眨眼和惊讶都在这一层完成，是最直接的情绪入口。',
+        extra: '按钮动作里会频繁改变 eyeOpen 和 eyeLook。',
+        accent: '#bde7ff',
+        preview: `
+          <svg viewBox="0 0 120 90" aria-hidden="true">
+            <ellipse cx="40" cy="44" rx="16" ry="22" fill="#fff"></ellipse>
+            <ellipse cx="78" cy="44" rx="16" ry="22" fill="#fff"></ellipse>
+            <ellipse cx="40" cy="50" rx="7" ry="6" fill="#151922"></ellipse>
+            <ellipse cx="78" cy="50" rx="7" ry="6" fill="#151922"></ellipse>
+          </svg>
+        `
+      },
+      {
+        id: 'tail',
+        name: 'Tail',
+        cn: '尾巴',
+        note: '尾段是推进器，摆动幅度越大，越像“准备冲刺”或“开心摆尾”。',
+        extra: '同时保留了原图右侧的三颗节奏点作为拖尾动势。',
+        accent: '#ffa45f',
+        preview: `
+          <svg viewBox="0 0 120 90" aria-hidden="true">
+            <g transform="translate(24 56) rotate(-34)">
+              <rect x="0" y="-12" width="42" height="24" rx="10" fill="#f44a3b"></rect>
+              <rect x="16" y="-12" width="6" height="24" rx="3" fill="#d62f35"></rect>
+            </g>
+            <g transform="translate(54 28) rotate(-34)">
+              <rect x="0" y="-12" width="48" height="24" rx="10" fill="#ff664f"></rect>
+              <rect x="18" y="-12" width="6" height="24" rx="3" fill="#d62f35"></rect>
+            </g>
+          </svg>
+        `
+      },
+      {
+        id: 'legs',
+        name: 'Legs',
+        cn: '脚部',
+        note: '三对小腿负责游动节奏，前腿还带一点“招手”的钳形感觉。',
+        extra: '我把前脚做得更厚，方便在 welcome / wave 动作里读出来。',
+        accent: '#ff8b74',
+        preview: `
+          <svg viewBox="0 0 120 90" aria-hidden="true">
+            <path d="M 48 28 C 34 34, 24 48, 20 64" stroke="#ff654d" stroke-width="6" fill="none" stroke-linecap="round"></path>
+            <path d="M 72 28 C 86 34, 96 48, 100 64" stroke="#ff654d" stroke-width="6" fill="none" stroke-linecap="round"></path>
+            <path d="M 42 42 C 30 48, 24 58, 24 70" stroke="#ff654d" stroke-width="5" fill="none" stroke-linecap="round"></path>
+            <path d="M 78 42 C 90 48, 96 58, 96 70" stroke="#ff654d" stroke-width="5" fill="none" stroke-linecap="round"></path>
+          </svg>
+        `
+      }
+    ];
+
+    const ACTIONS = [
+      {
+        group: '🫧 Patrol 巡游',
+        name: 'idle drift',
+        cn: '漂浮待机',
+        desc: '身体缓慢起伏，尾巴只做小摆幅，脚部保持低频拨水，适合作为默认循环。',
+        beats: ['身体轻漂', '尾巴微摆', '脚部低频'],
+        use: '适合首页默认态或没有明显情绪时的主循环。',
+        pose: {
+          bodyY: 0, rootRot: -2, bodyScaleX: 1, bodyScaleY: 1,
+          headX: -2, headY: -4, headRot: -4, chinY: 0,
+          eyeOpen: 1.0, eyeWide: 0.04, eyeLookX: 0, eyeLookY: 0,
+          tailBase: 18, tailTip: 30, tailLift: -4, tailSplay: 0.24,
+          frontLeg: 16, midLeg: 12, rearLeg: 10, legLift: 0.18, legSpread: 4,
+          feelerSpread: 6, trail: 0.32
+        },
+        motion: {
+          speed: 0.82, floatAmp: 8, driftX: 6, driftY: 4,
+          swayAmp: 3.4, tailAmp: 8, frontAmp: 6, midAmp: 4, rearAmp: 3,
+          feelerAmp: 10, blinkDepth: 0.18
+        }
+      },
+      {
+        group: null,
+        name: 'curious peek',
+        cn: '探头观察',
+        desc: '头部前探一点，眼睛放大并把视线压向前方，尾巴收得更稳，像是发现了新东西。',
+        beats: ['头部前探', '眼睛放大', '尾巴压住'],
+        use: '适合提示“发现内容”或进入详情前的观察帧。',
+        pose: {
+          bodyY: -4, rootRot: -4, bodyScaleX: 1.01, bodyScaleY: 1.01,
+          headX: -10, headY: -8, headRot: -8, chinY: 2,
+          eyeOpen: 1.16, eyeWide: 0.18, eyeLookX: -10, eyeLookY: -4,
+          tailBase: 14, tailTip: 24, tailLift: -2, tailSplay: 0.18,
+          frontLeg: 14, midLeg: 10, rearLeg: 8, legLift: 0.12, legSpread: 0,
+          feelerSpread: 10, trail: 0.22
+        },
+        motion: {
+          speed: 0.75, floatAmp: 5, driftX: 4, driftY: 3,
+          swayAmp: 2.0, tailAmp: 5, frontAmp: 4, midAmp: 3, rearAmp: 2,
+          feelerAmp: 10, blinkDepth: 0.10
+        }
+      },
+      {
+        group: null,
+        name: 'side scan',
+        cn: '侧目巡查',
+        desc: '视线和头部一起偏向侧方，身体轻微转体，更像是在扫描周围环境。',
+        beats: ['侧向视线', '小幅转体', '尾巴跟随'],
+        use: '适合状态切换前、收听中或等待回应时的轻观察。',
+        pose: {
+          bodyY: -2, rootRot: 4, bodyScaleX: 1, bodyScaleY: 1,
+          headX: 6, headY: -6, headRot: 8, chinY: 1,
+          eyeOpen: 0.98, eyeWide: 0.06, eyeLookX: 14, eyeLookY: -2,
+          tailBase: 20, tailTip: 34, tailLift: -4, tailSplay: 0.28,
+          frontLeg: 15, midLeg: 12, rearLeg: 9, legLift: 0.16, legSpread: 2,
+          feelerSpread: 8, trail: 0.30
+        },
+        motion: {
+          speed: 0.92, floatAmp: 6, driftX: 5, driftY: 3,
+          swayAmp: 2.6, tailAmp: 6, frontAmp: 4, midAmp: 3, rearAmp: 2,
+          feelerAmp: 7, blinkDepth: 0.12
+        }
+      },
+      {
+        group: '👋 Social 互动',
+        name: 'wave hello',
+        cn: '热情招呼',
+        desc: '前脚抬起并带一点钳状开合，头轻抬，整体更像在朝用户打招呼。',
+        beats: ['前脚抬起', '头部抬高', '招呼节奏'],
+        use: '适合欢迎页、唤醒成功或连接建立完成的正反馈。',
+        pose: {
+          bodyY: -6, rootRot: 2, bodyScaleX: 1.02, bodyScaleY: 0.98,
+          headX: 0, headY: -8, headRot: 8, chinY: -2,
+          eyeOpen: 1.08, eyeWide: 0.08, eyeLookX: 4, eyeLookY: -1,
+          tailBase: 16, tailTip: 28, tailLift: -4, tailSplay: 0.34,
+          frontLeg: 28, midLeg: 12, rearLeg: 8, legLift: 0.44, legSpread: 14,
+          feelerSpread: 8, trail: 0.30
+        },
+        motion: {
+          speed: 1.12, floatAmp: 9, driftX: 6, driftY: 4,
+          swayAmp: 4.2, tailAmp: 9, frontAmp: 18, midAmp: 5, rearAmp: 3,
+          feelerAmp: 12, blinkDepth: 0.12
+        }
+      },
+      {
+        group: null,
+        name: 'happy wiggle',
+        cn: '开心摆尾',
+        desc: '身体更有弹性地左右摆，尾巴展开，脚部频率更高，整体更偏“高兴和活泼”。',
+        beats: ['身体摆动', '尾巴展开', '脚步提速'],
+        use: '适合收到好结果、播报完成或互动成功后的开心反馈。',
+        pose: {
+          bodyY: -4, rootRot: 2, bodyScaleX: 1.04, bodyScaleY: 0.96,
+          headX: 2, headY: -6, headRot: 4, chinY: -2,
+          eyeOpen: 1.06, eyeWide: 0.12, eyeLookX: 2, eyeLookY: -2,
+          tailBase: 24, tailTip: 44, tailLift: -8, tailSplay: 0.54,
+          frontLeg: 22, midLeg: 16, rearLeg: 12, legLift: 0.30, legSpread: 10,
+          feelerSpread: 14, trail: 0.48
+        },
+        motion: {
+          speed: 1.28, floatAmp: 12, driftX: 10, driftY: 5,
+          swayAmp: 5.2, tailAmp: 14, frontAmp: 12, midAmp: 10, rearAmp: 8,
+          feelerAmp: 14, blinkDepth: 0.10
+        }
+      },
+      {
+        group: null,
+        name: 'proud hover',
+        cn: '神气亮相',
+        desc: '身体整体上提，头部略抬，尾巴向后展开，姿态更像在“站住给你看”。',
+        beats: ['身体上提', '头部抬高', '尾巴外展'],
+        use: '适合品牌露出、结束定格或“我准备好了”的展示态。',
+        pose: {
+          bodyY: -10, rootRot: -8, bodyScaleX: 1.05, bodyScaleY: 1.02,
+          headX: -2, headY: -12, headRot: -8, chinY: -4,
+          eyeOpen: 1.10, eyeWide: 0.12, eyeLookX: 2, eyeLookY: -4,
+          tailBase: 30, tailTip: 54, tailLift: -10, tailSplay: 0.66,
+          frontLeg: 24, midLeg: 18, rearLeg: 12, legLift: 0.24, legSpread: 18,
+          feelerSpread: 12, trail: 0.34
+        },
+        motion: {
+          speed: 1.0, floatAmp: 7, driftX: 4, driftY: 3,
+          swayAmp: 3.2, tailAmp: 8, frontAmp: 6, midAmp: 4, rearAmp: 3,
+          feelerAmp: 9, blinkDepth: 0.08
+        }
+      },
+      {
+        group: '⚡ Reactivity 反应',
+        name: 'shy tuck',
+        cn: '害羞缩头',
+        desc: '头往回收，眼神往下走，脚部一起回缩，形成一种“被点到名时缩一下”的感觉。',
+        beats: ['头部回收', '视线下落', '脚部内收'],
+        use: '适合轻提醒、被打断、或者略显犹豫的回应。',
+        pose: {
+          bodyY: 8, rootRot: 6, bodyScaleX: 0.98, bodyScaleY: 1.04,
+          headX: 8, headY: 8, headRot: 12, chinY: 8,
+          eyeOpen: 0.62, eyeWide: 0.00, eyeLookX: -8, eyeLookY: 6,
+          tailBase: 8, tailTip: 6, tailLift: 4, tailSplay: 0.10,
+          frontLeg: 10, midLeg: 8, rearLeg: 6, legLift: 0.08, legSpread: -10,
+          feelerSpread: -6, trail: 0.14
+        },
+        motion: {
+          speed: 0.55, floatAmp: 3, driftX: 2, driftY: 2,
+          swayAmp: 1.2, tailAmp: 4, frontAmp: 3, midAmp: 2, rearAmp: 1.5,
+          feelerAmp: 4, blinkDepth: 0.10
+        }
+      },
+      {
+        group: null,
+        name: 'tail dash',
+        cn: '甩尾冲刺',
+        desc: '尾巴明显卷入准备推进，身体稍微前倾，脚部一起收紧，形成一个典型的“加速前一拍”。',
+        beats: ['尾巴蓄力', '身体前倾', '脚部收紧'],
+        use: '适合从静止切到快速移动，或者画面里需要明显发力感的瞬间。',
+        pose: {
+          bodyY: -2, rootRot: 10, bodyScaleX: 1.08, bodyScaleY: 0.92,
+          headX: -4, headY: 2, headRot: -2, chinY: -6,
+          eyeOpen: 0.94, eyeWide: 0.00, eyeLookX: 12, eyeLookY: -1,
+          tailBase: 42, tailTip: 84, tailLift: -16, tailSplay: 0.08,
+          frontLeg: 8, midLeg: 6, rearLeg: 4, legLift: 0.18, legSpread: -14,
+          feelerSpread: 2, trail: 0.72
+        },
+        motion: {
+          speed: 2.15, floatAmp: 4, driftX: 14, driftY: 2,
+          swayAmp: 2.0, tailAmp: 24, frontAmp: 4, midAmp: 3, rearAmp: 2,
+          feelerAmp: 6, blinkDepth: 0.06
+        }
+      },
+      {
+        group: null,
+        name: 'startled pop',
+        cn: '受惊弹起',
+        desc: '眼睛瞬间张大，身体上弹，尾巴与脚都一起打开，是偏夸张的“惊一下”动作。',
+        beats: ['眼睛张大', '身体上弹', '尾脚齐开'],
+        use: '适合警觉、突然提示、或者收到超预期信息时的反应帧。',
+        pose: {
+          bodyY: -12, rootRot: 8, bodyScaleX: 0.96, bodyScaleY: 1.06,
+          headX: -10, headY: -14, headRot: -14, chinY: -6,
+          eyeOpen: 1.32, eyeWide: 0.30, eyeLookX: 0, eyeLookY: -4,
+          tailBase: 34, tailTip: 92, tailLift: -14, tailSplay: 0.74,
+          frontLeg: 34, midLeg: 26, rearLeg: 18, legLift: 0.60, legSpread: 22,
+          feelerSpread: 20, trail: 0.52
+        },
+        motion: {
+          speed: 1.72, floatAmp: 10, driftX: 8, driftY: 6,
+          swayAmp: 6.2, tailAmp: 22, frontAmp: 20, midAmp: 14, rearAmp: 10,
+          feelerAmp: 18, blinkDepth: 0.04
+        }
+      }
+    ];
+
+    const POSE_DEFAULTS = {
+      bodyY: 0,
+      rootRot: 0,
+      bodyScaleX: 1,
+      bodyScaleY: 1,
+      headX: 0,
+      headY: 0,
+      headRot: 0,
+      chinY: 0,
+      eyeOpen: 1,
+      eyeWide: 0,
+      eyeLookX: 0,
+      eyeLookY: 0,
+      tailBase: 18,
+      tailTip: 30,
+      tailLift: 0,
+      tailSplay: 0.2,
+      frontLeg: 16,
+      midLeg: 12,
+      rearLeg: 10,
+      legLift: 0.2,
+      legSpread: 0,
+      feelerSpread: 0,
+      trail: 0.32
+    };
+
+    const MOTION_DEFAULTS = {
+      speed: 1,
+      floatAmp: 8,
+      driftX: 5,
+      driftY: 3,
+      swayAmp: 3,
+      tailAmp: 10,
+      frontAmp: 8,
+      midAmp: 6,
+      rearAmp: 5,
+      feelerAmp: 8,
+      blinkDepth: 0.16
+    };
+
+    const actionPanel = document.getElementById('action-panel');
+    const partGrid = document.getElementById('part-grid');
+    const viewer = document.getElementById('viewer');
+    const hud = document.getElementById('hud');
+
+    const actionTitle = document.getElementById('action-title');
+    const actionSubtitle = document.getElementById('action-subtitle');
+    const actionDesc = document.getElementById('action-desc');
+    const actionChips = document.getElementById('action-chips');
+    const actionUse = document.getElementById('action-use');
+
+    const partTitle = document.getElementById('part-title');
+    const partSubtitle = document.getElementById('part-subtitle');
+    const partDesc = document.getElementById('part-desc');
+    const partNote = document.getElementById('part-note');
+
+    const lobsterRoot = document.getElementById('lobster-root');
+    const shadow = document.getElementById('shadow');
+    const bodyFrame = document.getElementById('body-frame');
+    const bodySheen = document.getElementById('body-sheen');
+    const chinWrap = document.getElementById('chin-wrap');
+    const headPart = document.getElementById('head-part');
+    const eyesPart = document.getElementById('eyes-part');
+    const feelerLeftWrap = document.getElementById('feeler-left-wrap');
+    const feelerRightWrap = document.getElementById('feeler-right-wrap');
+    const tailLink = document.getElementById('tail-link');
+    const tailBaseWrap = document.getElementById('tail-base-wrap');
+    const tailTipWrap = document.getElementById('tail-tip-wrap');
+    const trail1 = document.getElementById('trail-1');
+    const trail2 = document.getElementById('trail-2');
+    const trail3 = document.getElementById('trail-3');
+
+    const eyeLeftWrap = document.getElementById('eye-left-wrap');
+    const eyeRightWrap = document.getElementById('eye-right-wrap');
+    const eyeLeftWhite = document.getElementById('eye-left-white');
+    const eyeLeftPupil = document.getElementById('eye-left-pupil');
+    const eyeLeftGlint = document.getElementById('eye-left-glint');
+    const eyeRightWhite = document.getElementById('eye-right-white');
+    const eyeRightPupil = document.getElementById('eye-right-pupil');
+    const eyeRightGlint = document.getElementById('eye-right-glint');
+
+    const legFrontLeft = document.getElementById('leg-front-left');
+    const legFrontRight = document.getElementById('leg-front-right');
+    const legMidLeft = document.getElementById('leg-mid-left');
+    const legMidRight = document.getElementById('leg-mid-right');
+    const legRearLeft = document.getElementById('leg-rear-left');
+    const legRearRight = document.getElementById('leg-rear-right');
+    const clawLeft = document.getElementById('claw-left');
+    const clawRight = document.getElementById('claw-right');
+
+    const ACTION_BUTTONS = new Map();
+    const PART_BUTTONS = new Map();
+    const rigParts = Array.from(document.querySelectorAll('.rig-part'));
+
+    let currentAction = ACTIONS[0];
+    let currentMotion = { ...MOTION_DEFAULTS, ...currentAction.motion };
+    let focusedPart = null;
+
+    let S_cur = { ...POSE_DEFAULTS, ...currentAction.pose };
+    let S_tgt = { ...POSE_DEFAULTS, ...currentAction.pose };
+
+    const steer = {
+      x: 0,
+      y: 0,
+      tx: 0,
+      ty: 0,
+      dragging: false
+    };
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function easePose(cur, tgt) {
+      Object.keys(tgt).forEach((key) => {
+        const delta = tgt[key] - cur[key];
+        cur[key] = Math.abs(delta) > 0.001 ? cur[key] + delta * 0.16 : tgt[key];
+      });
+    }
+
+    function updateActionInfo(action) {
+      actionTitle.textContent = action.name;
+      actionSubtitle.textContent = action.cn;
+      actionDesc.textContent = action.desc;
+      actionUse.textContent = action.use;
+      actionChips.innerHTML = action.beats.map((beat) => `<span class="chip">${beat}</span>`).join('');
+    }
+
+    function updatePartInfo() {
+      if (!focusedPart) {
+        partTitle.textContent = 'Rig Overview';
+        partSubtitle.textContent = '整体';
+        partDesc.textContent = '当前显示完整角色。下方的五个部件卡片用于查看 body / head / eyes / tail / legs 的拆层和职责。';
+        partNote.textContent = '建议先切动作，再点击某个部件看它在该动作里承担什么节奏。';
+        return;
+      }
+
+      const part = PARTS.find((entry) => entry.id === focusedPart);
+      partTitle.textContent = part.name;
+      partSubtitle.textContent = part.cn;
+      partDesc.textContent = part.note;
+      partNote.textContent = part.extra;
+    }
+
+    function syncFocusState() {
+      rigParts.forEach((node) => {
+        const isHit = focusedPart && node.dataset.part === focusedPart;
+        node.classList.toggle('is-focused', Boolean(isHit));
+        node.classList.toggle('is-muted', Boolean(focusedPart) && !isHit);
+      });
+
+      PART_BUTTONS.forEach((button, key) => {
+        button.classList.toggle('active', focusedPart === key);
+      });
+
+      updatePartInfo();
+    }
+
+    function setFocusedPart(partId) {
+      focusedPart = focusedPart === partId ? null : partId;
+      syncFocusState();
+    }
+
+    function setAction(action) {
+      currentAction = action;
+      currentMotion = { ...MOTION_DEFAULTS, ...action.motion };
+      S_tgt = { ...POSE_DEFAULTS, ...action.pose };
+      ACTION_BUTTONS.forEach((button, key) => {
+        button.classList.toggle('active', key === action.name);
+      });
+      updateActionInfo(action);
+    }
+
+    function buildActionPanel() {
+      ACTIONS.forEach((action) => {
+        if (action.group) {
+          const section = document.createElement('div');
+          section.className = 'panel-section';
+          section.textContent = action.group;
+          actionPanel.appendChild(section);
+        }
+
+        const button = document.createElement('button');
+        button.className = 'action-btn';
+        button.innerHTML = `<span class="action-name">${action.name}</span><span class="action-cn">${action.cn}</span>`;
+        button.addEventListener('click', () => setAction(action));
+        actionPanel.appendChild(button);
+        ACTION_BUTTONS.set(action.name, button);
+      });
+    }
+
+    function buildPartGrid() {
+      PARTS.forEach((part) => {
+        const card = document.createElement('div');
+        card.className = 'base-item';
+        card.style.setProperty('--card-accent', part.accent);
+        card.innerHTML = `
+          ${part.preview}
+          <div class="base-item-label">${part.name} / ${part.cn}</div>
+          <div class="base-item-note">${part.note}</div>
+        `;
+        card.addEventListener('click', () => setFocusedPart(part.id));
+        partGrid.appendChild(card);
+        PART_BUTTONS.set(part.id, card);
+      });
+    }
+
+    function makeLegPath(anchorX, anchorY, side, reach, lift, spread, drop) {
+      const x1 = anchorX + side * (8 + (reach + spread) * 0.35);
+      const y1 = anchorY + 10 - lift * 0.28;
+      const x2 = anchorX + side * (20 + (reach + spread) * 0.78);
+      const y2 = anchorY + 22 - lift * 0.12 + drop;
+      const endX = anchorX + side * (28 + reach + spread * 0.9);
+      const endY = anchorY + 38 - lift * 0.05 + drop;
+      return {
+        d: `M ${anchorX.toFixed(2)} ${anchorY.toFixed(2)} C ${x1.toFixed(2)} ${y1.toFixed(2)}, ${x2.toFixed(2)} ${y2.toFixed(2)}, ${endX.toFixed(2)} ${endY.toFixed(2)}`,
+        x: endX,
+        y: endY
+      };
+    }
+
+    function makeClawPath(x, y, side, open) {
+      const spread = 5 + open * 0.16;
+      const reach = 10 + open * 0.12;
+      return `M ${x.toFixed(2)} ${y.toFixed(2)} L ${(x + side * reach).toFixed(2)} ${(y - spread).toFixed(2)} M ${x.toFixed(2)} ${y.toFixed(2)} L ${(x + side * (reach + 1)).toFixed(2)} ${(y + spread).toFixed(2)}`;
+    }
+
+    function updateLegs(phase) {
+      const frontWave = Math.sin(phase * 2.9 + 0.3) * currentMotion.frontAmp;
+      const midWave = Math.sin(phase * 2.9 + 1.7) * currentMotion.midAmp;
+      const rearWave = Math.sin(phase * 2.9 + 3.1) * currentMotion.rearAmp;
+
+      const frontLift = S_cur.legLift * 44 + frontWave;
+      const midLift = S_cur.legLift * 30 + midWave;
+      const rearLift = S_cur.legLift * 18 + rearWave;
+
+      const frontL = makeLegPath(-42, 76, -1, S_cur.frontLeg, frontLift, S_cur.legSpread, 0);
+      const frontR = makeLegPath(42, 76, 1, S_cur.frontLeg, frontLift, S_cur.legSpread, 0);
+      const midL = makeLegPath(-58, 94, -1, S_cur.midLeg, midLift, S_cur.legSpread * 0.9, 6);
+      const midR = makeLegPath(58, 94, 1, S_cur.midLeg, midLift, S_cur.legSpread * 0.9, 6);
+      const rearL = makeLegPath(-72, 110, -1, S_cur.rearLeg, rearLift, S_cur.legSpread * 0.8, 10);
+      const rearR = makeLegPath(72, 110, 1, S_cur.rearLeg, rearLift, S_cur.legSpread * 0.8, 10);
+
+      legFrontLeft.setAttribute('d', frontL.d);
+      legFrontRight.setAttribute('d', frontR.d);
+      legMidLeft.setAttribute('d', midL.d);
+      legMidRight.setAttribute('d', midR.d);
+      legRearLeft.setAttribute('d', rearL.d);
+      legRearRight.setAttribute('d', rearR.d);
+
+      clawLeft.setAttribute('d', makeClawPath(frontL.x, frontL.y, -1, S_cur.frontLeg + Math.abs(frontWave)));
+      clawRight.setAttribute('d', makeClawPath(frontR.x, frontR.y, 1, S_cur.frontLeg + Math.abs(frontWave)));
+    }
+
+    function updateEye(white, pupil, glint, open, wide, lookX, lookY) {
+      const rx = 28 + wide * 12;
+      const ry = clamp(38 * open, 12, 48);
+      const pupilRx = clamp(13 + wide * 4, 10, 18);
+      const pupilRy = clamp(12 * open * 0.54, 6, 14);
+      const px = clamp(lookX * 0.38, -8, 8);
+      const py = clamp(10 + lookY * 0.32, -2, 15);
+
+      white.setAttribute('rx', rx.toFixed(2));
+      white.setAttribute('ry', ry.toFixed(2));
+      pupil.setAttribute('rx', pupilRx.toFixed(2));
+      pupil.setAttribute('ry', pupilRy.toFixed(2));
+      pupil.setAttribute('cx', px.toFixed(2));
+      pupil.setAttribute('cy', py.toFixed(2));
+      glint.setAttribute('cx', (-rx * 0.22).toFixed(2));
+      glint.setAttribute('cy', (-ry * 0.35).toFixed(2));
+    }
+
+    function updateEyes(phase) {
+      const blinkWave = Math.max(0, Math.sin(phase * 0.62 + 0.7));
+      const blink = Math.pow(blinkWave, 18) * currentMotion.blinkDepth;
+      const open = clamp(S_cur.eyeOpen - blink, 0.26, 1.38);
+      const lookX = S_cur.eyeLookX + steer.x * 0.42;
+      const lookY = S_cur.eyeLookY + steer.y * 0.28;
+
+      eyeLeftWrap.setAttribute('transform', 'translate(-34 -4)');
+      eyeRightWrap.setAttribute('transform', 'translate(26 -4)');
+
+      updateEye(eyeLeftWhite, eyeLeftPupil, eyeLeftGlint, open, S_cur.eyeWide, lookX, lookY);
+      updateEye(eyeRightWhite, eyeRightPupil, eyeRightGlint, open, S_cur.eyeWide, lookX, lookY);
+    }
+
+    function updateTrailDots(phase) {
+      const pulse = (Math.sin(phase * 2.2 + 0.8) + 1) * 0.5;
+      const spread = 16 + S_cur.trail * 34;
+      trail1.setAttribute('cx', (112 + spread * 0.3).toFixed(2));
+      trail1.setAttribute('cy', (48 - pulse * 4).toFixed(2));
+      trail1.setAttribute('r', (12 + pulse * 3).toFixed(2));
+
+      trail2.setAttribute('cx', (138 + spread * 0.48).toFixed(2));
+      trail2.setAttribute('cy', (20 - pulse * 7).toFixed(2));
+      trail2.setAttribute('r', (10 + pulse * 2.4).toFixed(2));
+
+      trail3.setAttribute('cx', (156 + spread * 0.62).toFixed(2));
+      trail3.setAttribute('cy', (-8 - pulse * 9).toFixed(2));
+      trail3.setAttribute('r', (8 + pulse * 2).toFixed(2));
+    }
+
+    function updatePointerTarget(event) {
+      const rect = viewer.getBoundingClientRect();
+      const nx = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+      const ny = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
+      steer.tx = clamp(nx * 18, -18, 18);
+      steer.ty = clamp(ny * 14, -14, 14);
+    }
+
+    viewer.addEventListener('pointerdown', (event) => {
+      steer.dragging = true;
+      viewer.setPointerCapture(event.pointerId);
+      updatePointerTarget(event);
+    });
+
+    viewer.addEventListener('pointermove', (event) => {
+      if (steer.dragging) {
+        updatePointerTarget(event);
+      }
+    });
+
+    viewer.addEventListener('pointerup', (event) => {
+      steer.dragging = false;
+      viewer.releasePointerCapture(event.pointerId);
+      steer.tx = 0;
+      steer.ty = 0;
+    });
+
+    viewer.addEventListener('pointercancel', () => {
+      steer.dragging = false;
+      steer.tx = 0;
+      steer.ty = 0;
+    });
+
+    function tick(now) {
+      const t = now / 1000;
+      const phase = t * currentMotion.speed;
+
+      easePose(S_cur, S_tgt);
+      steer.x += (steer.tx - steer.x) * 0.18;
+      steer.y += (steer.ty - steer.y) * 0.18;
+
+      const floatY = Math.sin(phase * 1.2) * currentMotion.floatAmp;
+      const driftX = Math.sin(phase * 0.58 + 0.8) * currentMotion.driftX + steer.x * 0.55;
+      const driftY = Math.cos(phase * 0.82 + 0.2) * currentMotion.driftY + steer.y * 0.24;
+      const sway = Math.sin(phase * 0.96 + 0.4) * currentMotion.swayAmp;
+      const feelerWave = Math.sin(phase * 1.6 + 0.5) * currentMotion.feelerAmp;
+      const headBob = Math.sin(phase * 1.45 + 1.1) * currentMotion.floatAmp * 0.12;
+
+      lobsterRoot.setAttribute(
+        'transform',
+        `translate(${(190 + driftX).toFixed(2)} ${(172 + S_cur.bodyY + floatY + driftY).toFixed(2)}) rotate(${(S_cur.rootRot + sway + steer.x * 0.12).toFixed(2)})`
+      );
+
+      shadow.setAttribute('rx', (108 + S_cur.trail * 14 - floatY * 0.15).toFixed(2));
+      shadow.setAttribute('ry', (20 - floatY * 0.03).toFixed(2));
+      shadow.setAttribute('opacity', clamp(0.28 + S_cur.trail * 0.28, 0.18, 0.62).toFixed(3));
+
+      bodyFrame.setAttribute('transform', `scale(${S_cur.bodyScaleX.toFixed(3)} ${S_cur.bodyScaleY.toFixed(3)})`);
+      bodySheen.setAttribute('opacity', clamp(0.10 + S_cur.trail * 0.14, 0.1, 0.22).toFixed(3));
+      chinWrap.setAttribute('transform', `translate(18 ${(90 + S_cur.chinY + Math.sin(phase * 1.4) * 1.2).toFixed(2)})`);
+
+      const headX = S_cur.headX + steer.x * 0.18;
+      const headY = -28 + S_cur.headY + headBob + steer.y * 0.08;
+      const headRot = S_cur.headRot + sway * 0.18;
+      headPart.setAttribute('transform', `translate(${headX.toFixed(2)} ${headY.toFixed(2)}) rotate(${headRot.toFixed(2)})`);
+      eyesPart.setAttribute('transform', `translate(${(headX * 0.5).toFixed(2)} ${(-8 + S_cur.headY * 0.32 + headBob * 0.2).toFixed(2)}) rotate(${(headRot * 0.28).toFixed(2)})`);
+
+      feelerLeftWrap.setAttribute('transform', `translate(-28 -58) rotate(${(-18 - S_cur.feelerSpread - feelerWave * 0.35 - steer.x * 0.18).toFixed(2)})`);
+      feelerRightWrap.setAttribute('transform', `translate(22 -60) rotate(${(10 + S_cur.feelerSpread + feelerWave * 0.28 - steer.x * 0.1).toFixed(2)})`);
+
+      const baseAngle = -40 + S_cur.tailBase + Math.sin(phase * 2.05 + 0.2) * currentMotion.tailAmp;
+      const baseX = 84;
+      const baseY = -74 + S_cur.tailLift + Math.cos(phase * 1.6 + 0.8) * 2;
+      tailBaseWrap.setAttribute('transform', `translate(${baseX.toFixed(2)} ${baseY.toFixed(2)}) rotate(${baseAngle.toFixed(2)})`);
+
+      const baseRad = baseAngle * Math.PI / 180;
+      const tipAnchorX = baseX + Math.cos(baseRad) * 58;
+      const tipAnchorY = baseY + Math.sin(baseRad) * 58;
+      const tipAngle = -42 + S_cur.tailTip + Math.sin(phase * 2.45 + 1.1) * currentMotion.tailAmp * 1.2;
+      const tipScaleX = 1 + S_cur.tailSplay * 0.18;
+      const tipScaleY = 1 + S_cur.tailSplay * 0.07;
+      tailTipWrap.setAttribute('transform', `translate(${tipAnchorX.toFixed(2)} ${tipAnchorY.toFixed(2)}) rotate(${tipAngle.toFixed(2)}) scale(${tipScaleX.toFixed(3)} ${tipScaleY.toFixed(3)})`);
+      tailLink.setAttribute('d', `M 58 -34 C 66 -48, ${(baseX - 12).toFixed(2)} ${(baseY + 10).toFixed(2)}, ${(baseX + 6).toFixed(2)} ${baseY.toFixed(2)}`);
+
+      updateTrailDots(phase);
+      updateLegs(phase);
+      updateEyes(phase);
+
+      hud.textContent = `${currentAction.name} | ${currentAction.cn} | focus:${focusedPart || 'all'} | steer:${steer.x.toFixed(0)},${steer.y.toFixed(0)}`;
+      requestAnimationFrame(tick);
+    }
+
+    buildActionPanel();
+    buildPartGrid();
+    updateActionInfo(currentAction);
+    updatePartInfo();
+    ACTION_BUTTONS.get(currentAction.name).classList.add('active');
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>
