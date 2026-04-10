@@ -34,6 +34,14 @@ static const gfx_image_dsc_t s_default_img = {
 static esp_err_t gfx_dragon_emote_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx);
 static esp_err_t gfx_dragon_emote_delete_impl(gfx_obj_t *obj);
 static void gfx_dragon_emote_anim_cb(void *user_data);
+static void gfx_dragon_emote_apply_pupil_shape(gfx_dragon_emote_t *dragon,
+                                               gfx_dragon_pupil_shape_t shape,
+                                               bool snap_now);
+static void gfx_dragon_emote_apply_pose_targets(gfx_dragon_emote_t *dragon,
+                                                const gfx_dragon_emote_pose_t *pose,
+                                                const gfx_dragon_transform_t *pupil_pose,
+                                                gfx_dragon_pupil_shape_t pupil_shape,
+                                                bool snap_now);
 
 static const gfx_widget_class_t s_gfx_dragon_emote_widget_class = {
     .type = GFX_OBJ_TYPE_DRAGON_EMOTE,
@@ -55,6 +63,74 @@ static void gfx_dragon_emote_anim_cb(void *user_data)
     gfx_dragon_emote_update_pose(obj, dragon);
 }
 
+static void gfx_dragon_emote_apply_pupil_shape(gfx_dragon_emote_t *dragon,
+                                               gfx_dragon_pupil_shape_t shape,
+                                               bool snap_now)
+{
+    const gfx_mesh_img_point_t *pts;
+    size_t count;
+
+    if (dragon == NULL) {
+        return;
+    }
+
+    pts = gfx_dragon_emote_get_pupil_shape_points(shape, &count);
+    dragon->pupil_shape.count = count;
+    for (size_t i = 0; i < count; i++) {
+        dragon->pupil_shape.tgt[i] = pts[i];
+        if (snap_now) {
+            dragon->pupil_shape.cur[i] = pts[i];
+        }
+    }
+}
+
+static void gfx_dragon_emote_apply_pose_targets(gfx_dragon_emote_t *dragon,
+                                                const gfx_dragon_emote_pose_t *pose,
+                                                const gfx_dragon_transform_t *pupil_pose,
+                                                gfx_dragon_pupil_shape_t pupil_shape,
+                                                bool snap_now)
+{
+    if (dragon == NULL || pose == NULL) {
+        return;
+    }
+
+    dragon->head.tgt = pose->head;
+    dragon->body.tgt = pose->body;
+    dragon->tail.tgt = pose->tail;
+    dragon->clawL.tgt = pose->clawL;
+    dragon->clawR.tgt = pose->clawR;
+    dragon->antenna.tgt = pose->antenna;
+    dragon->eyeL.tgt = pose->eyeL;
+    dragon->eyeR.tgt = pose->eyeR;
+    dragon->dots.tgt = pose->dots;
+
+    if (pupil_pose != NULL) {
+        dragon->pupilL.tgt = *pupil_pose;
+    } else {
+        dragon->pupilL.tgt.x = 0;
+        dragon->pupilL.tgt.y = 0;
+        dragon->pupilL.tgt.r = 0;
+        dragon->pupilL.tgt.s = 100;
+    }
+    dragon->pupilR.tgt = dragon->pupilL.tgt;
+
+    if (snap_now) {
+        dragon->head.cur = pose->head;
+        dragon->body.cur = pose->body;
+        dragon->tail.cur = pose->tail;
+        dragon->clawL.cur = pose->clawL;
+        dragon->clawR.cur = pose->clawR;
+        dragon->antenna.cur = pose->antenna;
+        dragon->eyeL.cur = pose->eyeL;
+        dragon->eyeR.cur = pose->eyeR;
+        dragon->dots.cur = pose->dots;
+        dragon->pupilL.cur = dragon->pupilL.tgt;
+        dragon->pupilR.cur = dragon->pupilR.tgt;
+    }
+
+    gfx_dragon_emote_apply_pupil_shape(dragon, pupil_shape, snap_now);
+}
+
 gfx_obj_t *gfx_dragon_emote_create(gfx_disp_t *disp, uint16_t w, uint16_t h)
 {
     gfx_obj_t *obj = NULL;
@@ -69,7 +145,7 @@ gfx_obj_t *gfx_dragon_emote_create(gfx_disp_t *disp, uint16_t w, uint16_t h)
     dragon->cfg.display_h = h;
     dragon->cfg.timer_period_ms = 40;
     dragon->cfg.damping_div = 8;
-    dragon->color.full = 0xFF6B4A; // Default accent
+    dragon->color = GFX_COLOR_HEX(0xFF6B4A); // Default accent
 
     dragon->solid_pixel = dragon->color.full;
     dragon->solid_img = s_default_img;
@@ -119,6 +195,8 @@ gfx_obj_t *gfx_dragon_emote_create(gfx_disp_t *disp, uint16_t w, uint16_t h)
     dragon->eyeL.tgt.s = 100;
     dragon->eyeR.tgt.s = 100;
     dragon->dots.tgt.s = 100;
+    dragon->pupilL.tgt.s = 100;
+    dragon->pupilR.tgt.s = 100;
     
     dragon->head.cur = dragon->head.tgt;
     dragon->body.cur = dragon->body.tgt;
@@ -129,6 +207,9 @@ gfx_obj_t *gfx_dragon_emote_create(gfx_disp_t *disp, uint16_t w, uint16_t h)
     dragon->eyeL.cur = dragon->eyeL.tgt;
     dragon->eyeR.cur = dragon->eyeR.tgt;
     dragon->dots.cur = dragon->dots.tgt;
+    dragon->pupilL.cur = dragon->pupilL.tgt;
+    dragon->pupilR.cur = dragon->pupilR.tgt;
+    gfx_dragon_emote_apply_pupil_shape(dragon, GFX_DRAGON_PUPIL_SHAPE_LINE, true);
 
     gfx_dragon_emote_set_color(obj, dragon->color);
 
@@ -165,6 +246,13 @@ esp_err_t gfx_dragon_emote_set_assets(gfx_obj_t *obj, const gfx_dragon_emote_ass
         if (assets->count_antenna) gfx_mesh_img_set_grid(dragon->antennaR_obj, (assets->count_antenna / 2) - 1, 1);
         if (assets->count_eyeL)    gfx_mesh_img_set_grid(dragon->eyeL_obj,    (assets->count_eyeL / 2) - 1,    1);
         if (assets->count_eyeR)    gfx_mesh_img_set_grid(dragon->eyeR_obj,    (assets->count_eyeR / 2) - 1,    1);
+
+        if (assets->expr_sequence != NULL && assets->expr_sequence_count > 0U) {
+            return gfx_dragon_emote_set_expression_name(obj, assets->expr_sequence[0].name, true);
+        }
+        if (assets->sequence != NULL && assets->sequence_count > 0U) {
+            return gfx_dragon_emote_set_pose_name(obj, assets->sequence[0].name, true);
+        }
     }
 
     return ESP_OK;
@@ -226,38 +314,65 @@ esp_err_t gfx_dragon_emote_set_pose_name(gfx_obj_t *obj, const char *name, bool 
     if (!dragon->assets) return ESP_ERR_INVALID_STATE;
 
     for (size_t i = 0; i < dragon->assets->sequence_count; i++) {
-        if (strcmp(dragon->assets->sequence[i].name, name) == 0) {
+        if (dragon->assets->sequence[i].name != NULL && strcmp(dragon->assets->sequence[i].name, name) == 0) {
             const gfx_dragon_emote_pose_t *p = &dragon->assets->sequence[i];
-            dragon->head.tgt = p->head;
-            dragon->body.tgt = p->body;
-            dragon->tail.tgt = p->tail;
-            dragon->clawL.tgt = p->clawL;
-            dragon->clawR.tgt = p->clawR;
-            dragon->antenna.tgt = p->antenna;
-            dragon->eyeL.tgt = p->eyeL;
-            dragon->eyeR.tgt = p->eyeR;
-            dragon->dots.tgt = p->dots;
-
-            if (snap_now) {
-                dragon->head.cur = p->head;
-                dragon->body.cur = p->body;
-                dragon->tail.cur = p->tail;
-                dragon->clawL.cur = p->clawL;
-                dragon->clawR.cur = p->clawR;
-                dragon->antenna.cur = p->antenna;
-                dragon->eyeL.cur = p->eyeL;
-                dragon->eyeR.cur = p->eyeR;
-                dragon->dots.cur = p->dots;
-            }
+            gfx_dragon_emote_apply_pose_targets(dragon, p, NULL, GFX_DRAGON_PUPIL_SHAPE_LINE, snap_now);
             dragon->pose_idx = i;
             return ESP_OK;
         }
     }
+
+    if (dragon->assets->expr_sequence != NULL) {
+        return gfx_dragon_emote_set_expression_name(obj, name, snap_now);
+    }
     return ESP_ERR_NOT_FOUND;
+}
+
+esp_err_t gfx_dragon_emote_set_expression_name(gfx_obj_t *obj, const char *name, bool snap_now)
+{
+    gfx_dragon_emote_t *dragon;
+    gfx_dragon_emote_mix_t mix;
+    gfx_dragon_emote_pose_t pose;
+    gfx_dragon_transform_t pupil_pose;
+    gfx_dragon_pupil_shape_t pupil_shape = GFX_DRAGON_PUPIL_SHAPE_LINE;
+    size_t index;
+
+    CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_DRAGON_EMOTE, TAG);
+    dragon = (gfx_dragon_emote_t *)obj->src;
+    ESP_RETURN_ON_FALSE(dragon != NULL && dragon->assets != NULL && dragon->assets->expr_sequence != NULL,
+                        ESP_ERR_INVALID_STATE, TAG, "dragon expression assets are not ready");
+    ESP_RETURN_ON_ERROR(gfx_dragon_emote_find_expr_index(dragon->assets, name, &index),
+                        TAG, "expression name not found");
+
+    gfx_dragon_emote_expr_to_mix(&dragon->assets->expr_sequence[index], &mix);
+    ESP_RETURN_ON_ERROR(gfx_dragon_emote_eval_mix(dragon->assets, &mix, &pose, &pupil_pose, &pupil_shape),
+                        TAG, "eval dragon expression failed");
+    gfx_dragon_emote_apply_pose_targets(dragon, &pose, &pupil_pose, pupil_shape, snap_now);
+    dragon->pose_idx = index;
+    return gfx_dragon_emote_update_pose(obj, dragon);
+}
+
+esp_err_t gfx_dragon_emote_set_mix(gfx_obj_t *obj, const gfx_dragon_emote_mix_t *mix, bool snap_now)
+{
+    gfx_dragon_emote_t *dragon;
+    gfx_dragon_emote_pose_t pose;
+    gfx_dragon_transform_t pupil_pose;
+    gfx_dragon_pupil_shape_t pupil_shape = GFX_DRAGON_PUPIL_SHAPE_LINE;
+
+    CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_DRAGON_EMOTE, TAG);
+    dragon = (gfx_dragon_emote_t *)obj->src;
+    ESP_RETURN_ON_FALSE(dragon != NULL && dragon->assets != NULL, ESP_ERR_INVALID_STATE, TAG, "dragon assets are not ready");
+    ESP_RETURN_ON_ERROR(gfx_dragon_emote_eval_mix(dragon->assets, mix, &pose, &pupil_pose, &pupil_shape),
+                        TAG, "eval dragon mix failed");
+
+    gfx_dragon_emote_apply_pose_targets(dragon, &pose, &pupil_pose, pupil_shape, snap_now);
+    return gfx_dragon_emote_update_pose(obj, dragon);
 }
 
 static esp_err_t gfx_dragon_emote_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 {
+    (void)obj;
+    (void)ctx;
     return ESP_OK;
 }
 

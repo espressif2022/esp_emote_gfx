@@ -27,6 +27,14 @@ typedef struct {
     int16_t s;
 } gfx_dragon_transform_t;
 
+typedef enum {
+    GFX_DRAGON_PUPIL_SHAPE_AUTO = 0,
+    GFX_DRAGON_PUPIL_SHAPE_O,
+    GFX_DRAGON_PUPIL_SHAPE_U,
+    GFX_DRAGON_PUPIL_SHAPE_N,
+    GFX_DRAGON_PUPIL_SHAPE_LINE,
+} gfx_dragon_pupil_shape_t;
+
 /**
  * @brief Holistic pose for the Dragon character
  */
@@ -44,6 +52,31 @@ typedef struct {
     gfx_dragon_transform_t dots;
     uint32_t hold_ticks;
 } gfx_dragon_emote_pose_t;
+
+typedef struct {
+    int16_t w_smile;
+    int16_t w_happy;
+    int16_t w_sad;
+    int16_t w_surprise;
+    int16_t w_angry;
+    int16_t look_x;
+    int16_t look_y;
+    gfx_dragon_pupil_shape_t pupil_shape;
+} gfx_dragon_emote_mix_t;
+
+typedef struct {
+    const char *name;
+    const char *name_cn;
+    int16_t w_smile;
+    int16_t w_happy;
+    int16_t w_sad;
+    int16_t w_surprise;
+    int16_t w_angry;
+    int16_t w_look_x;
+    int16_t w_look_y;
+    gfx_dragon_pupil_shape_t pupil_shape;
+    uint32_t hold_ticks;
+} gfx_dragon_emote_expr_t;
 
 typedef struct {
     const gfx_mesh_img_point_t *pts_head;
@@ -68,6 +101,8 @@ typedef struct {
 
     const gfx_dragon_emote_pose_t *sequence;
     size_t sequence_count;
+    const gfx_dragon_emote_expr_t *expr_sequence;
+    size_t expr_sequence_count;
 } gfx_dragon_emote_assets_t;
 
 typedef struct {
@@ -96,6 +131,16 @@ esp_err_t gfx_dragon_emote_set_color(gfx_obj_t *obj, gfx_color_t color);
  * @brief Switch to a named pose.
  */
 esp_err_t gfx_dragon_emote_set_pose_name(gfx_obj_t *obj, const char *name, bool snap_now);
+
+/**
+ * @brief Switch to a named expression from the current expression sequence.
+ */
+esp_err_t gfx_dragon_emote_set_expression_name(gfx_obj_t *obj, const char *name, bool snap_now);
+
+/**
+ * @brief Evaluate and apply one expression mix directly.
+ */
+esp_err_t gfx_dragon_emote_set_mix(gfx_obj_t *obj, const gfx_dragon_emote_mix_t *mix, bool snap_now);
 
 #ifdef __cplusplus
 }

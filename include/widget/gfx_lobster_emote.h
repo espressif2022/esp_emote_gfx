@@ -24,32 +24,84 @@ typedef struct {
     int16_t s;
 } gfx_lobster_transform_t;
 
+typedef enum {
+    GFX_LOBSTER_PUPIL_SHAPE_AUTO = 0,
+    GFX_LOBSTER_PUPIL_SHAPE_O,
+    GFX_LOBSTER_PUPIL_SHAPE_U,
+    GFX_LOBSTER_PUPIL_SHAPE_N,
+    GFX_LOBSTER_PUPIL_SHAPE_LINE,
+} gfx_lobster_pupil_shape_t;
+
 typedef struct {
     const char *name;
     const char *name_cn;
-    gfx_lobster_transform_t body;
-    gfx_lobster_transform_t tail;
-    gfx_lobster_transform_t claw_l;
-    gfx_lobster_transform_t claw_r;
-    int16_t eye_open;
-    int16_t eye_look_x;
-    int16_t eye_look_y;
+    int16_t w_smile;
+    int16_t w_happy;
+    int16_t w_sad;
+    int16_t w_surprise;
+    int16_t w_angry;
+    int16_t w_look_x;
+    int16_t w_look_y;
+    gfx_lobster_pupil_shape_t pupil_shape;
     uint32_t hold_ticks;
 } gfx_lobster_emote_state_t;
 
+#define GFX_LOBSTER_EMOTE_EXPORT_VERSION 1
+
 typedef struct {
+    uint32_t version;
+    int32_t design_viewbox_x;
+    int32_t design_viewbox_y;
+    int32_t design_viewbox_w;
+    int32_t design_viewbox_h;
+    int32_t export_width;
+    int32_t export_height;
+    float export_scale;
+    int32_t export_offset_x;
+    int32_t export_offset_y;
+} gfx_lobster_emote_export_meta_t;
+
+typedef struct {
+    int32_t eye_left_cx;
+    int32_t eye_left_cy;
+    int32_t eye_right_cx;
+    int32_t eye_right_cy;
+    int32_t pupil_left_cx;
+    int32_t pupil_left_cy;
+    int32_t pupil_right_cx;
+    int32_t pupil_right_cy;
+    int32_t mouth_cx;
+    int32_t mouth_cy;
+    int32_t antenna_left_cx;
+    int32_t antenna_left_cy;
+    int32_t antenna_right_cx;
+    int32_t antenna_right_cy;
+} gfx_lobster_emote_layout_t;
+
+typedef struct {
+    const gfx_mesh_img_point_t *pts_head;
     const gfx_mesh_img_point_t *pts_body;
     const gfx_mesh_img_point_t *pts_tail;
     const gfx_mesh_img_point_t *pts_claw_l;
     const gfx_mesh_img_point_t *pts_claw_r;
-    const gfx_mesh_img_point_t *pts_eye_white;
-    const gfx_mesh_img_point_t *pts_eye_pupil;
+    const gfx_mesh_img_point_t *pts_eye_l;
+    const gfx_mesh_img_point_t *pts_eye_r;
+    const gfx_mesh_img_point_t *pts_dots;
+    size_t count_head;
     size_t count_body;
     size_t count_tail;
     size_t count_claw_l;
     size_t count_claw_r;
-    size_t count_eye_white;
-    size_t count_eye_pupil;
+    size_t count_eye_l;
+    size_t count_eye_r;
+    size_t count_dots;
+    const int16_t (*eye_white_base)[14];
+    const int16_t (*pupil_base)[14];
+    const int16_t (*mouth_base)[14];
+    const int16_t (*antenna_left_base)[8];
+    const int16_t (*antenna_right_base)[8];
+    const gfx_lobster_emote_export_meta_t *export_meta;
+    const gfx_lobster_emote_layout_t *layout;
     const gfx_lobster_emote_state_t *sequence;
     size_t sequence_count;
 } gfx_lobster_emote_assets_t;
@@ -61,11 +113,18 @@ typedef struct {
     int16_t damping_div;
 } gfx_lobster_emote_cfg_t;
 
+#define GFX_LOBSTER_EMOTE_LAYER_ANTENNA (1U << 0)
+#define GFX_LOBSTER_EMOTE_LAYER_EYE_WHITE (1U << 1)
+#define GFX_LOBSTER_EMOTE_LAYER_PUPIL (1U << 2)
+#define GFX_LOBSTER_EMOTE_LAYER_MOUTH (1U << 3)
+#define GFX_LOBSTER_EMOTE_LAYER_ALL (GFX_LOBSTER_EMOTE_LAYER_ANTENNA | GFX_LOBSTER_EMOTE_LAYER_EYE_WHITE | GFX_LOBSTER_EMOTE_LAYER_PUPIL | GFX_LOBSTER_EMOTE_LAYER_MOUTH)
+
 gfx_obj_t *gfx_lobster_emote_create(gfx_disp_t *disp, uint16_t w, uint16_t h);
 esp_err_t gfx_lobster_emote_set_assets(gfx_obj_t *obj, const gfx_lobster_emote_assets_t *assets);
 esp_err_t gfx_lobster_emote_set_color(gfx_obj_t *obj, gfx_color_t color);
 esp_err_t gfx_lobster_emote_set_state_name(gfx_obj_t *obj, const char *name, bool snap_now);
 esp_err_t gfx_lobster_emote_set_manual_look(gfx_obj_t *obj, bool enabled, int16_t look_x, int16_t look_y);
+esp_err_t gfx_lobster_emote_set_layer_mask(gfx_obj_t *obj, uint32_t mask);
 
 #ifdef __cplusplus
 }

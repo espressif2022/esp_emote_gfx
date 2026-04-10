@@ -25,6 +25,7 @@ typedef struct {
 } test_app_runtime_t;
 
 typedef void (*test_app_touch_event_cb_t)(gfx_touch_t *touch, const gfx_touch_event_t *event, void *user_data);
+typedef void (*test_app_disp_update_cb_t)(gfx_disp_t *disp, gfx_disp_event_t event, const void *obj, void *user_data);
 
 #define TEST_APP_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
 
@@ -65,6 +66,7 @@ void test_app_wait_for_observe(uint32_t delay_ms);
 void test_app_log_case(const char *tag, const char *case_name);
 void test_app_log_step(const char *tag, const char *step_name);
 void test_app_set_touch_event_cb(test_app_touch_event_cb_t cb, void *user_data);
+void test_app_set_disp_update_cb(test_app_disp_update_cb_t cb, void *user_data);
 
 /**********************
  *   PLATFORM HELPERS

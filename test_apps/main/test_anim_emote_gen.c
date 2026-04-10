@@ -12,21 +12,71 @@
 #include "unity.h"
 #include "common.h"
 
-static const char *TAG = "test_anim_web";
+static const char *TAG = "anim_emote_gen";
 
 enum {
     TEST_ANIM_EVENT_NEXT = BIT0,
+    TEST_ANIM_EVENT_END  = BIT1,
 };
 
 static EventGroupHandle_t s_anim_events;
+static gfx_obj_t *s_anim_wait_obj;
 
-static void test_anim_next_btn_cb(gfx_obj_t *obj, const gfx_touch_event_t *event, void *user_data)
+static const char *test_anim_segment_action_str(gfx_anim_segment_action_t action)
 {
-    (void)obj;
+    switch (action) {
+    case GFX_ANIM_SEGMENT_ACTION_CONTINUE:
+        return "CONTINUE";
+    case GFX_ANIM_SEGMENT_ACTION_PAUSE:
+        return "PAUSE";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+static const char *test_anim_disp_event_str(gfx_disp_event_t event)
+{
+    switch (event) {
+    case GFX_DISP_EVENT_IDLE:
+        return "IDLE";
+    case GFX_DISP_EVENT_ONE_FRAME_DONE:
+        return "ONE_FRAME_DONE";
+    case GFX_DISP_EVENT_PART_DONE:
+        return "PART_DONE";
+    case GFX_DISP_EVENT_ALL_DONE:
+        return "ALL_DONE";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+static void test_anim_touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t *event, void *user_data)
+{
+    (void)touch;
     (void)user_data;
-    if (event != NULL && event->type == GFX_TOUCH_EVENT_RELEASE && s_anim_events != NULL) {
+    if (event != NULL && event->type == GFX_TOUCH_EVENT_PRESS && s_anim_events != NULL) {
         xEventGroupSetBits(s_anim_events, TEST_ANIM_EVENT_NEXT);
         ESP_LOGI(TAG, "Next");
+    }
+}
+
+static void test_anim_disp_update_cb(gfx_disp_t *disp, gfx_disp_event_t event, const void *obj, void *user_data)
+{
+    (void)disp;
+    (void)user_data;
+
+    if (s_anim_events == NULL || obj != s_anim_wait_obj) {
+        return;
+    }
+
+    if (event == GFX_DISP_EVENT_PART_DONE) {
+        ESP_LOGI("", "disp_update_cb(%p): event:%s", obj, test_anim_disp_event_str(event));
+        return;
+    }
+
+    if (event == GFX_DISP_EVENT_ALL_DONE) {
+        ESP_LOGI("", "disp_update_cb(%p): event:%s", obj, test_anim_disp_event_str(event));
+        xEventGroupSetBits(s_anim_events, TEST_ANIM_EVENT_END);
     }
 }
 
@@ -39,9 +89,11 @@ typedef struct {
     char file[TEST_ANIM_INDEX_STR_LEN];
     int x;
     int y;
+    int stop_frame;
     int loop_start;
     int loop_end;
-    bool has_loop;
+    bool has_stop_frame;
+    bool has_loop_range;
     int asset_id;
 } test_anim_index_item_t;
 
@@ -128,13 +180,17 @@ static void test_anim_index_load(mmap_assets_handle_t assets_handle)
         if (cJSON_IsNumber(jy)) {
             e->y = jy->valueint;
         }
-        if (cJSON_IsArray(jloop) && cJSON_GetArraySize(jloop) >= 2) {
+        if (cJSON_IsArray(jloop)) {
+            int loop_size = cJSON_GetArraySize(jloop);
             cJSON *a0 = cJSON_GetArrayItem(jloop, 0);
             cJSON *a1 = cJSON_GetArrayItem(jloop, 1);
-            if (cJSON_IsNumber(a0) && cJSON_IsNumber(a1)) {
+            if (loop_size == 1 && cJSON_IsNumber(a0)) {
+                e->stop_frame = a0->valueint;
+                e->has_stop_frame = true;
+            } else if (loop_size >= 2 && cJSON_IsNumber(a0) && cJSON_IsNumber(a1)) {
                 e->loop_start = a0->valueint;
                 e->loop_end = a1->valueint;
-                e->has_loop = true;
+                e->has_loop_range = true;
             }
         }
 
@@ -143,8 +199,16 @@ static void test_anim_index_load(mmap_assets_handle_t assets_handle)
             ESP_LOGW(TAG, "index: mmap has no file \"%s\" (name=%s)", e->file, e->name);
         }
 
-        ESP_LOGI(TAG, "index[%zu] asset_id=%d pos=(%d,%d) has_loop=%d loop=[%d,%d]",
-                 s_index_count, e->asset_id, e->x, e->y, (int)e->has_loop, e->loop_start, e->loop_end);
+        const char *asset_nm = NULL;
+        if (e->asset_id >= 0) {
+            asset_nm = mmap_assets_get_name(assets_handle, e->asset_id);
+        }
+        if (asset_nm == NULL || asset_nm[0] == '\0') {
+            asset_nm = (e->file[0] != '\0') ? e->file : "-";
+        }
+
+        ESP_LOGI("", "index[%2zu] name:%-20s pos:(%2d,%2d) stop:%3d has_loop:%d loop:[%3d,%3d]",
+                 s_index_count, e->name, e->x, e->y, e->stop_frame, (int)e->has_loop_range, e->loop_start, e->loop_end);
         s_index_count++;
     }
 
@@ -152,7 +216,7 @@ static void test_anim_index_load(mmap_assets_handle_t assets_handle)
     ESP_LOGI(TAG, "index.json: loaded %zu entries", s_index_count);
 }
 
-static void test_anim_show_index_entry(mmap_assets_handle_t assets_handle, gfx_obj_t *anim_obj, const test_anim_index_item_t *item)
+static bool test_anim_show_index_entry(mmap_assets_handle_t assets_handle, gfx_obj_t *anim_obj, const test_anim_index_item_t *item)
 {
     const void *anim_data = NULL;
     size_t anim_size = 0;
@@ -160,14 +224,14 @@ static void test_anim_show_index_entry(mmap_assets_handle_t assets_handle, gfx_o
     gfx_anim_segment_t segments[3];
 
     if (item == NULL) {
-        return;
+        return false;
     }
 
     test_app_log_step(TAG, item->name);
 
     if (item->asset_id < 0) {
         ESP_LOGW(TAG, "skip (no mmap file for \"%s\"): %s", item->file, item->name);
-        return;
+        return false;
     }
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
@@ -189,38 +253,67 @@ static void test_anim_show_index_entry(mmap_assets_handle_t assets_handle, gfx_o
         gfx_obj_set_pos(anim_obj, item->x, item->y);
     }
 
-    if (item->has_loop) {
+    if (item->has_loop_range) {
         segments[0].start = 0;
         segments[0].end = (uint32_t)item->loop_start - 1;
-        segments[0].fps = 50;
+        segments[0].fps = 25;
         segments[0].play_count = 1;
         segments[0].end_action = GFX_ANIM_SEGMENT_ACTION_CONTINUE;
 
         segments[1].start = (uint32_t)item->loop_start;
         segments[1].end = (uint32_t)item->loop_end - 1;
-        segments[1].fps = 50;
-        // segments[1].play_count = 5;
-        segments[1].play_count = 0; //forever
+        segments[1].fps = 25;
+        // segments[1].play_count = 0; // forever
+        segments[1].play_count = 2; // forever
         segments[1].end_action = GFX_ANIM_SEGMENT_ACTION_CONTINUE;
 
         segments[2].start = (uint32_t)item->loop_end;
         segments[2].end = 0xFFFFFFFF;
-        segments[2].fps = 50;
+        segments[2].fps = 25;
         segments[2].play_count = 1;
         segments[2].end_action = GFX_ANIM_SEGMENT_ACTION_CONTINUE;
 
-        ESP_LOGI("", "[0] segments: [%d, %d], (%d, %d)", segments[0].start, segments[0].end, segments[0].fps, segments[0].play_count);
-        ESP_LOGI("", "[1] segments: [%d, %d], (%d, %d)", segments[1].start, segments[1].end, segments[1].fps, segments[1].play_count);
-        ESP_LOGI("", "[2] segments: [%d, %d], (%d, %d)", segments[2].start, segments[2].end, segments[2].fps, segments[2].play_count);
+        ESP_LOGI("", "[0] segments: [%d, %d], (fps:%d, play_count:%d, action:%s)",
+                 segments[0].start, segments[0].end, segments[0].fps, segments[0].play_count,
+                 test_anim_segment_action_str(segments[0].end_action));
+        ESP_LOGI("", "[1] segments: [%d, %d], (fps:%d, play_count:%d, action:%s)",
+                 segments[1].start, segments[1].end, segments[1].fps, segments[1].play_count,
+                 test_anim_segment_action_str(segments[1].end_action));
+        ESP_LOGI("", "[2] segments: [%d, %d], (fps:%d, play_count:%d, action:%s)",
+                 segments[2].start, segments[2].end, segments[2].fps, segments[2].play_count,
+                 test_anim_segment_action_str(segments[2].end_action));
 
         TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_segments(anim_obj, segments, TEST_APP_ARRAY_SIZE(segments)));
+    } else if (item->has_stop_frame) {
+        segments[0].start = 0;
+        segments[0].end = (uint32_t)item->stop_frame;
+        segments[0].fps = 25;
+        segments[0].play_count = 1;
+        // segments[0].end_action = GFX_ANIM_SEGMENT_ACTION_PAUSE;
+        segments[0].end_action = GFX_ANIM_SEGMENT_ACTION_CONTINUE;
+
+        segments[1].start = (uint32_t)item->stop_frame;
+        segments[1].end = 0xFFFFFFFF;
+        segments[1].fps = 25;
+        segments[1].play_count = 1;
+        segments[1].end_action = GFX_ANIM_SEGMENT_ACTION_CONTINUE;
+
+        ESP_LOGI("", "[0] segments: [%d, %d], (fps:%d, play_count:%d, action:%s)",
+                 segments[0].start, segments[0].end, segments[0].fps, segments[0].play_count,
+                 test_anim_segment_action_str(segments[0].end_action));
+        ESP_LOGI("", "[1] segments: [%d, %d], (fps:%d, play_count:%d, action:%s)",
+                 segments[1].start, segments[1].end, segments[1].fps, segments[1].play_count,
+                 test_anim_segment_action_str(segments[1].end_action));
+
+        TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_segments(anim_obj, segments, 2));
     } else {
-        ESP_LOGI("", "[0] segments: [%d, %d], (%d, %d)", 0, 0xFFFFFFFF, 50, 1);
-        TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_segment(anim_obj, 0, 0xFFFFFFFF, 50, true));
+        ESP_LOGI("", "[0] segments: [%d, %d], (fps:%d, play_count:%d)", 0, 0xFFFFFFFF, 50, 1);
+        TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_segment(anim_obj, 0, 0xFFFFFFFF, 25, false));
     }
 
     TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_start(anim_obj));
     test_app_unlock();
+    return true;
 }
 
 static void test_anim_run(mmap_assets_handle_t assets_handle)
@@ -228,11 +321,13 @@ static void test_anim_run(mmap_assets_handle_t assets_handle)
     test_anim_index_load(assets_handle);
     TEST_ASSERT(s_index_count > 0);
 
-    size_t case_index = 1;
+    size_t case_index = 0;
 
     test_app_log_case(TAG, "Animation decoder validation (index.json)");
     s_anim_events = xEventGroupCreate();
     TEST_ASSERT_NOT_NULL(s_anim_events);
+    test_app_set_touch_event_cb(test_anim_touch_event_cb, NULL);
+    test_app_set_disp_update_cb(test_anim_disp_update_cb, NULL);
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     TEST_ASSERT_NOT_NULL(disp_default);
@@ -249,27 +344,31 @@ static void test_anim_run(mmap_assets_handle_t assets_handle)
     TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_bg_color_pressed(next_btn, GFX_COLOR_HEX(0x163D87)));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_border_color(next_btn, GFX_COLOR_HEX(0xDCE8FF)));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_border_width(next_btn, 2));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_touch_cb(next_btn, test_anim_next_btn_cb, NULL));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(next_btn, GFX_ALIGN_TOP_MID, 0, 0));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_visible(next_btn, false));
     test_app_unlock();
 
     while (1) {
-        test_anim_show_index_entry(assets_handle, anim_obj, &s_index_items[case_index % s_index_count]);
+        const test_anim_index_item_t *item = &s_index_items[case_index % s_index_count];
+        s_anim_wait_obj = anim_obj;
+        xEventGroupClearBits(s_anim_events, TEST_ANIM_EVENT_END | TEST_ANIM_EVENT_NEXT);
 
-        while (1) {
-            xEventGroupWaitBits(s_anim_events,
-                                TEST_ANIM_EVENT_NEXT,
-                                pdTRUE,
-                                pdFALSE,
-                                portMAX_DELAY);
-
-            if (gfx_anim_play_left_to_tail(anim_obj) == ESP_OK) {
-                test_app_log_step(TAG, "drain remaining segments done");
+        if (test_anim_show_index_entry(assets_handle, anim_obj, item)) {
+            EventBits_t bits = xEventGroupWaitBits(s_anim_events,
+                                                   TEST_ANIM_EVENT_END | TEST_ANIM_EVENT_NEXT,
+                                                   pdTRUE,
+                                                   pdFALSE,
+                                                   portMAX_DELAY);
+            if (bits & TEST_ANIM_EVENT_NEXT) {
+                if (gfx_anim_play_left_to_tail(anim_obj) != ESP_OK) {
+                    test_app_log_step(TAG, "drain remaining segments failed");
+                }
+            } else if (bits & TEST_ANIM_EVENT_END) {
+                test_app_log_step(TAG, "segment plan completed");
+                gfx_anim_stop(anim_obj);
             }
-
-            case_index = (case_index + 1) % s_index_count;
-            break;
         }
+        case_index = (case_index + 1) % s_index_count;
     }
 }
 

@@ -357,7 +357,7 @@ static void gfx_anim_finish_plan(gfx_obj_t *obj, gfx_anim_t *anim)
     gfx_anim_signal_event(anim, GFX_ANIM_EVENT_PLAN_DONE);
 
     if (obj != NULL && obj->disp != NULL && obj->disp->cb.update_cb != NULL) {
-        obj->disp->cb.update_cb(obj->disp, GFX_DISP_EVENT_ALL_FRAME_DONE, obj);
+        obj->disp->cb.update_cb(obj->disp, GFX_DISP_EVENT_ALL_DONE, obj);
     }
 }
 
@@ -880,7 +880,7 @@ static void gfx_anim_timer_callback(void *arg)
                 return;
             }
             if (obj->disp && obj->disp->cb.update_cb) {
-                obj->disp->cb.update_cb(obj->disp, GFX_DISP_EVENT_ALL_FRAME_DONE, obj);
+                obj->disp->cb.update_cb(obj->disp, GFX_DISP_EVENT_PART_DONE, obj);
             }
         } else if (has_next_segment && end_action == GFX_ANIM_SEGMENT_ACTION_PAUSE && !anim->drain_remaining_segments) {
             anim->is_playing = false;
@@ -889,12 +889,12 @@ static void gfx_anim_timer_callback(void *arg)
             GFX_LOGD(TAG, "timer: pausing after segment[%u]", (unsigned int)anim->segment_index);
             gfx_anim_signal_event(anim, GFX_ANIM_EVENT_SEGMENT_PAUSED);
             if (obj->disp && obj->disp->cb.update_cb) {
-                obj->disp->cb.update_cb(obj->disp, GFX_DISP_EVENT_ALL_FRAME_DONE, obj);
+                obj->disp->cb.update_cb(obj->disp, GFX_DISP_EVENT_PART_DONE, obj);
             }
             return;
         } else if (gfx_anim_advance_segment(obj, anim) == ESP_OK) {
             if (obj->disp && obj->disp->cb.update_cb) {
-                obj->disp->cb.update_cb(obj->disp, GFX_DISP_EVENT_ALL_FRAME_DONE, obj);
+                obj->disp->cb.update_cb(obj->disp, GFX_DISP_EVENT_PART_DONE, obj);
             }
         } else {
             GFX_LOGD(TAG, "timer: segment plan completed");

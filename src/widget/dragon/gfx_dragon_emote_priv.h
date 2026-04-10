@@ -24,6 +24,12 @@ typedef struct {
 } gfx_dragon_part_state_t;
 
 typedef struct {
+    gfx_mesh_img_point_t cur[22];
+    gfx_mesh_img_point_t tgt[22];
+    size_t count;
+} gfx_dragon_shape_state_t;
+
+typedef struct {
     uint16_t solid_pixel;
     gfx_image_dsc_t solid_img;
     gfx_color_t color;
@@ -57,17 +63,25 @@ typedef struct {
     gfx_dragon_part_state_t antenna;
     gfx_dragon_part_state_t eyeL;
     gfx_dragon_part_state_t eyeR;
+    gfx_dragon_part_state_t pupilL;
+    gfx_dragon_part_state_t pupilR;
     gfx_dragon_part_state_t dots;
+    gfx_dragon_shape_state_t pupil_shape;
 
     size_t pose_idx;
 } gfx_dragon_emote_t;
 
 // --- Internal Logic ---
 
+void gfx_dragon_emote_expr_to_mix(const gfx_dragon_emote_expr_t *expr, gfx_dragon_emote_mix_t *mix);
+const gfx_mesh_img_point_t *gfx_dragon_emote_get_pupil_shape_points(gfx_dragon_pupil_shape_t shape,
+                                                                    size_t *count_out);
+esp_err_t gfx_dragon_emote_find_expr_index(const gfx_dragon_emote_assets_t *assets,
+                                           const char *name,
+                                           size_t *index_out);
+esp_err_t gfx_dragon_emote_eval_mix(const gfx_dragon_emote_assets_t *assets,
+                                    const gfx_dragon_emote_mix_t *mix,
+                                    gfx_dragon_emote_pose_t *pose_out,
+                                    gfx_dragon_transform_t *pupil_out,
+                                    gfx_dragon_pupil_shape_t *pupil_shape_out);
 esp_err_t gfx_dragon_emote_update_pose(gfx_obj_t *obj, gfx_dragon_emote_t *dragon);
-
-esp_err_t gfx_dragon_emote_apply_part_transform(gfx_obj_t *part_obj, 
-                                               const gfx_mesh_img_point_t *base_pts, 
-                                               size_t pt_count,
-                                               int32_t anchor_x, int32_t anchor_y,
-                                               const gfx_dragon_transform_t *t);
