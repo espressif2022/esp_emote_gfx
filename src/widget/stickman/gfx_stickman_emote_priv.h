@@ -15,10 +15,12 @@
 
 #include "core/gfx_timer.h"
 #include "core/gfx_obj.h"
+#include "widget/gfx_mesh_img.h"
 #include "widget/gfx_stickman_emote.h"
 
 #define GFX_STICKMAN_DEFAULT_TIMER_PERIOD_MS 33U
 #define GFX_STICKMAN_DEFAULT_DAMPING_DIV 4
+#define GFX_STICKMAN_SEGMENT_COUNT 10U
 
 typedef struct {
     gfx_stickman_pose_t pose_cur;
@@ -26,7 +28,17 @@ typedef struct {
     gfx_timer_handle_t anim_timer;
     gfx_stickman_emote_cfg_t cfg;
     const gfx_stickman_export_t *export_data;
+    uint16_t solid_pixel;
+    gfx_image_dsc_t solid_img;
+    gfx_obj_t *head_obj;
+    gfx_obj_t *segment_objs[GFX_STICKMAN_SEGMENT_COUNT];
     gfx_color_t stroke_color;
+    gfx_coord_t last_root_x;
+    gfx_coord_t last_root_y;
+    uint16_t last_root_w;
+    uint16_t last_root_h;
+    uint8_t head_segs;
+    bool mesh_dirty;
     size_t action_idx;
 } gfx_stickman_emote_t;
 

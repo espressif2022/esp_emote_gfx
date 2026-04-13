@@ -246,19 +246,19 @@
       <div class="viewer" id="viewer">
         <svg id="preview-svg" viewBox="0 0 200 300" aria-label="Static stickman actions based on fireman.svg">
           <rect x="0" y="0" width="200" height="300" fill="#fbfbf9" rx="18"></rect>
-          <line class="ground-line" x1="26" y1="262" x2="174" y2="262"></line>
-          <ellipse id="shadow" class="shadow" cx="100" cy="262" rx="24" ry="6"></ellipse>
+          <line class="ground-line" x1="26" y1="238" x2="174" y2="238"></line>
+          <ellipse id="shadow" class="shadow" cx="100" cy="238" rx="24" ry="6"></ellipse>
 
           <circle id="head" class="paper-head" cx="100" cy="50" r="20"></circle>
-          <line id="spine" class="paper-stroke" x1="100" y1="70" x2="100" y2="170"></line>
-          <line id="arm-left-upper" class="paper-stroke" x1="100" y1="100" x2="80" y2="120"></line>
-          <line id="arm-left-lower" class="paper-stroke" x1="80" y1="120" x2="60" y2="140"></line>
-          <line id="arm-right-upper" class="paper-stroke" x1="100" y1="100" x2="120" y2="120"></line>
-          <line id="arm-right-lower" class="paper-stroke" x1="120" y1="120" x2="140" y2="140"></line>
-          <line id="leg-left-upper" class="paper-stroke" x1="100" y1="170" x2="85" y2="200"></line>
-          <line id="leg-left-lower" class="paper-stroke" x1="85" y1="200" x2="70" y2="230"></line>
-          <line id="leg-right-upper" class="paper-stroke" x1="100" y1="170" x2="115" y2="200"></line>
-          <line id="leg-right-lower" class="paper-stroke" x1="115" y1="200" x2="130" y2="230"></line>
+          <line id="spine" class="paper-stroke" x1="100" y1="70" x2="100" y2="162"></line>
+          <line id="arm-left-upper" class="paper-stroke" x1="100" y1="100" x2="80" y2="118"></line>
+          <line id="arm-left-lower" class="paper-stroke" x1="80" y1="118" x2="60" y2="135"></line>
+          <line id="arm-right-upper" class="paper-stroke" x1="100" y1="100" x2="120" y2="118"></line>
+          <line id="arm-right-lower" class="paper-stroke" x1="120" y1="118" x2="140" y2="135"></line>
+          <line id="leg-left-upper" class="paper-stroke" x1="100" y1="162" x2="85" y2="188"></line>
+          <line id="leg-left-lower" class="paper-stroke" x1="85" y1="188" x2="70" y2="214"></line>
+          <line id="leg-right-upper" class="paper-stroke" x1="100" y1="162" x2="115" y2="188"></line>
+          <line id="leg-right-lower" class="paper-stroke" x1="115" y1="188" x2="130" y2="214"></line>
         </svg>
         <div class="hud" id="hud"></div>
       </div>
@@ -320,7 +320,7 @@
       headRadius: 20,
       strokeWidth: 4,
       mirrorX: 100,
-      groundY: 262,
+      groundY: 238,
       timerPeriodMs: TIMER_PERIOD_MS,
       dampingDiv: DAMPING_DIV
     };
@@ -352,183 +352,183 @@
         headX: 100, headY: 50,
         neckX: 100, neckY: 70,
         shoulderX: 100, shoulderY: 100,
-        hipX: 100, hipY: 170,
-        elbowLX: 80, elbowLY: 120,
-        handLX: 60, handLY: 140,
-        elbowRX: 120, elbowRY: 120,
-        handRX: 140, handRY: 140,
-        kneeLX: 85, kneeLY: 200,
-        footLX: 70, footLY: 230,
-        kneeRX: 115, kneeRY: 200,
-        footRX: 130, footRY: 230
+        hipX: 100, hipY: 162,
+        elbowLX: 80, elbowLY: 118,
+        handLX: 60, handLY: 135,
+        elbowRX: 120, elbowRY: 118,
+        handRX: 140, handRY: 135,
+        kneeLX: 85, kneeLY: 188,
+        footLX: 70, footLY: 214,
+        kneeRX: 115, kneeRY: 188,
+        footRX: 130, footRY: 214
       },
       walk_step1: {
         headX: 100, headY: 50,
         neckX: 100, neckY: 70,
         shoulderX: 100, shoulderY: 100,
-        hipX: 100, hipY: 170,
-        elbowLX: 92, elbowLY: 120,
-        handLX: 86, handLY: 144,
-        elbowRX: 112, elbowRY: 114,
-        handRX: 126, handRY: 122,
-        kneeLX: 90, kneeLY: 198,
-        footLX: 76, footLY: 228,
-        kneeRX: 112, kneeRY: 194,
-        footRX: 126, footRY: 212
+        hipX: 100, hipY: 162,
+        elbowLX: 92, elbowLY: 118,
+        handLX: 86, handLY: 139,
+        elbowRX: 112, elbowRY: 112,
+        handRX: 126, handRY: 119,
+        kneeLX: 90, kneeLY: 186,
+        footLX: 76, footLY: 213,
+        kneeRX: 112, kneeRY: 183,
+        footRX: 126, footRY: 199
       },
       walk_step2: {
         headX: 100, headY: 50,
         neckX: 100, neckY: 70,
         shoulderX: 100, shoulderY: 100,
-        hipX: 100, hipY: 170,
-        elbowLX: 88, elbowLY: 114,
-        handLX: 74, handLY: 122,
-        elbowRX: 108, elbowRY: 120,
-        handRX: 114, handRY: 144,
-        kneeLX: 88, kneeLY: 194,
-        footLX: 74, footLY: 212,
-        kneeRX: 110, kneeRY: 198,
-        footRX: 124, footRY: 228
+        hipX: 100, hipY: 162,
+        elbowLX: 88, elbowLY: 112,
+        handLX: 74, handLY: 119,
+        elbowRX: 108, elbowRY: 118,
+        handRX: 114, handRY: 139,
+        kneeLX: 88, kneeLY: 183,
+        footLX: 74, footLY: 199,
+        kneeRX: 110, kneeRY: 186,
+        footRX: 124, footRY: 213
       },
       run_step1: {
         headX: 114, headY: 50,
         neckX: 108, neckY: 70,
         shoulderX: 104, shoulderY: 96,
-        hipX: 88, hipY: 166,
-        elbowLX: 82, elbowLY: 104,
-        handLX: 62, handLY: 122,
-        elbowRX: 116, elbowRY: 106,
+        hipX: 88, hipY: 158,
+        elbowLX: 82, elbowLY: 103,
+        handLX: 62, handLY: 119,
+        elbowRX: 116, elbowRY: 105,
         handRX: 132, handRY: 88,
-        kneeLX: 70, kneeLY: 194,
-        footLX: 50, footLY: 216,
-        kneeRX: 112, kneeRY: 188,
-        footRX: 128, footRY: 214
+        kneeLX: 70, kneeLY: 182,
+        footLX: 50, footLY: 202,
+        kneeRX: 112, kneeRY: 177,
+        footRX: 128, footRY: 200
       },
       run_step2: {
         headX: 114, headY: 50,
         neckX: 108, neckY: 70,
         shoulderX: 104, shoulderY: 96,
-        hipX: 86, hipY: 166,
+        hipX: 86, hipY: 158,
         elbowLX: 112, elbowLY: 106,
         handLX: 128, handLY: 88,
-        elbowRX: 78, elbowRY: 104,
-        handRX: 58, handRY: 122,
-        kneeLX: 108, kneeLY: 188,
-        footLX: 126, footLY: 214,
-        kneeRX: 72, kneeRY: 194,
-        footRX: 50, footRY: 216
+        elbowRX: 78, elbowRY: 103,
+        handRX: 58, handRY: 119,
+        kneeLX: 108, kneeLY: 177,
+        footLX: 126, footLY: 200,
+        kneeRX: 72, kneeRY: 182,
+        footRX: 50, footRY: 202
       },
       jump: {
         headX: 100, headY: 44,
         neckX: 100, neckY: 64,
         shoulderX: 100, shoulderY: 94,
-        hipX: 100, hipY: 154,
+        hipX: 100, hipY: 147,
         elbowLX: 84, elbowLY: 76,
         handLX: 66, handLY: 58,
         elbowRX: 116, elbowRY: 76,
         handRX: 134, handRY: 58,
-        kneeLX: 90, kneeLY: 182,
-        footLX: 106, footLY: 198,
-        kneeRX: 116, kneeRY: 176,
-        footRX: 132, footRY: 156
+        kneeLX: 90, kneeLY: 171,
+        footLX: 106, footLY: 186,
+        kneeRX: 116, kneeRY: 166,
+        footRX: 132, footRY: 149
       },
       wave: {
         headX: 100, headY: 50,
         neckX: 100, neckY: 70,
         shoulderX: 100, shoulderY: 100,
-        hipX: 100, hipY: 170,
-        elbowLX: 90, elbowLY: 122,
-        handLX: 80, handLY: 146,
+        hipX: 100, hipY: 162,
+        elbowLX: 90, elbowLY: 119,
+        handLX: 80, handLY: 140,
         elbowRX: 114, elbowRY: 84,
         handRX: 122, handRY: 54,
-        kneeLX: 90, kneeLY: 200,
-        footLX: 80, footLY: 230,
-        kneeRX: 110, kneeRY: 200,
-        footRX: 120, footRY: 230
+        kneeLX: 90, kneeLY: 188,
+        footLX: 80, footLY: 214,
+        kneeRX: 110, kneeRY: 188,
+        footRX: 120, footRY: 214
       },
       deep_squat_hold_head: {
         headX: 100, headY: 64,
         neckX: 100, neckY: 84,
         shoulderX: 100, shoulderY: 112,
-        hipX: 100, hipY: 184,
+        hipX: 100, hipY: 175,
         elbowLX: 80, elbowLY: 106,
         handLX: 88, handLY: 78,
         elbowRX: 120, elbowRY: 106,
         handRX: 112, handRY: 78,
-        kneeLX: 84, kneeLY: 214,
-        footLX: 66, footLY: 232,
-        kneeRX: 116, kneeRY: 214,
-        footRX: 134, footRY: 232
+        kneeLX: 84, kneeLY: 202,
+        footLX: 66, footLY: 218,
+        kneeRX: 116, kneeRY: 202,
+        footRX: 134, footRY: 218
       },
       half_squat: {
         headX: 100, headY: 60,
         neckX: 100, neckY: 80,
         shoulderX: 100, shoulderY: 110,
-        hipX: 100, hipY: 176,
-        elbowLX: 86, elbowLY: 128,
-        handLX: 72, handLY: 146,
-        elbowRX: 114, elbowRY: 128,
-        handRX: 128, handRY: 146,
-        kneeLX: 88, kneeLY: 204,
-        footLX: 74, footLY: 230,
-        kneeRX: 112, kneeRY: 204,
-        footRX: 126, footRY: 230
+        hipX: 100, hipY: 168,
+        elbowLX: 86, elbowLY: 126,
+        handLX: 72, handLY: 142,
+        elbowRX: 114, elbowRY: 126,
+        handRX: 128, handRY: 142,
+        kneeLX: 88, kneeLY: 193,
+        footLX: 74, footLY: 216,
+        kneeRX: 112, kneeRY: 193,
+        footRX: 126, footRY: 216
       },
       hands_on_head: {
         headX: 100, headY: 52,
         neckX: 100, neckY: 72,
         shoulderX: 100, shoulderY: 102,
-        hipX: 100, hipY: 172,
+        hipX: 100, hipY: 164,
         elbowLX: 82, elbowLY: 92,
         handLX: 86, handLY: 64,
         elbowRX: 118, elbowRY: 92,
         handRX: 114, handRY: 64,
-        kneeLX: 88, kneeLY: 202,
-        footLX: 76, footLY: 232,
-        kneeRX: 112, kneeRY: 202,
-        footRX: 124, footRY: 232
+        kneeLX: 88, kneeLY: 190,
+        footLX: 76, footLY: 216,
+        kneeRX: 112, kneeRY: 190,
+        footRX: 124, footRY: 216
       },
       cheer: {
         headX: 100, headY: 48,
         neckX: 100, neckY: 68,
         shoulderX: 100, shoulderY: 98,
-        hipX: 100, hipY: 168,
+        hipX: 100, hipY: 160,
         elbowLX: 86, elbowLY: 82,
         handLX: 70, handLY: 60,
         elbowRX: 114, elbowRY: 82,
         handRX: 130, handRY: 60,
-        kneeLX: 88, kneeLY: 198,
-        footLX: 76, footLY: 228,
-        kneeRX: 112, kneeRY: 198,
-        footRX: 124, footRY: 228
+        kneeLX: 88, kneeLY: 186,
+        footLX: 76, footLY: 212,
+        kneeRX: 112, kneeRY: 186,
+        footRX: 124, footRY: 212
       },
       point: {
         headX: 100, headY: 50,
         neckX: 100, neckY: 70,
         shoulderX: 100, shoulderY: 100,
-        hipX: 100, hipY: 170,
-        elbowLX: 88, elbowLY: 118,
-        handLX: 76, handLY: 144,
+        hipX: 100, hipY: 162,
+        elbowLX: 88, elbowLY: 116,
+        handLX: 76, handLY: 139,
         elbowRX: 122, elbowRY: 102,
         handRX: 148, handRY: 102,
-        kneeLX: 90, kneeLY: 200,
-        footLX: 78, footLY: 230,
-        kneeRX: 110, kneeRY: 200,
-        footRX: 122, footRY: 230
+        kneeLX: 90, kneeLY: 188,
+        footLX: 78, footLY: 214,
+        kneeRX: 110, kneeRY: 188,
+        footRX: 122, footRY: 214
       },
       akimbo: {
         headX: 100, headY: 50,
         neckX: 100, neckY: 70,
         shoulderX: 100, shoulderY: 100,
-        hipX: 100, hipY: 170,
-        elbowLX: 84, elbowLY: 114,
-        handLX: 92, handLY: 144,
-        elbowRX: 116, elbowRY: 114,
-        handRX: 108, handRY: 144,
-        kneeLX: 88, kneeLY: 200,
-        footLX: 76, footLY: 230,
-        kneeRX: 112, kneeRY: 200,
-        footRX: 124, footRY: 230
+        hipX: 100, hipY: 162,
+        elbowLX: 84, elbowLY: 112,
+        handLX: 92, handLY: 139,
+        elbowRX: 116, elbowRY: 112,
+        handRX: 108, handRY: 139,
+        kneeLX: 88, kneeLY: 188,
+        footLX: 76, footLY: 214,
+        kneeRX: 112, kneeRY: 188,
+        footRX: 124, footRY: 214
       }
     };
     const ACTIONS = [
