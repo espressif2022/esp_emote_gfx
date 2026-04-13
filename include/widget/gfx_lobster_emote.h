@@ -47,7 +47,6 @@ typedef struct {
 } gfx_lobster_emote_state_t;
 
 #define GFX_LOBSTER_EMOTE_EXPORT_VERSION 2
-#define GFX_LOBSTER_EMOTE_EXPORT_VERSION_LEGACY 1
 
 typedef struct {
     uint32_t version;

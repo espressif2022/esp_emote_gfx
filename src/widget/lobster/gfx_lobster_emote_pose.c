@@ -105,12 +105,6 @@ typedef struct {
     float look_bias_y;
 } gfx_lobster_emotion_axes_t;
 
-static const gfx_lobster_emote_axis_t s_default_axis_smile = { -0.10f, 0.10f, 0.80f, 0.0f, -2.0f, 0.92f, -0.10f, 0.10f, 0.12f, 0.22f, 0.18f, 0.0f, -0.04f };
-static const gfx_lobster_emote_axis_t s_default_axis_happy = { 0.06f, 0.22f, 1.00f, 0.0f, -6.0f, 0.84f, -0.14f, 0.32f, 0.30f, 0.46f, 0.30f, 0.0f, -0.12f };
-static const gfx_lobster_emote_axis_t s_default_axis_sad = { -0.24f, -0.12f, -0.10f, -8.0f, 8.0f, 1.05f, 1.00f, -0.20f, -0.12f, -0.24f, -0.18f, -0.18f, 0.22f };
-static const gfx_lobster_emote_axis_t s_default_axis_surprise = { 0.95f, 0.45f, 0.10f, 0.0f, -10.0f, 0.72f, -0.20f, 1.00f, 0.62f, 0.80f, 0.34f, 0.0f, -0.28f };
-static const gfx_lobster_emote_axis_t s_default_axis_angry = { -0.18f, 1.00f, -0.50f, 0.0f, -2.0f, 0.88f, 0.10f, 0.55f, 0.18f, 0.10f, 0.70f, 0.0f, 0.02f };
-
 static inline int16_t gfx_lobster_emote_ease(int16_t cur, int16_t tgt, int16_t div)
 {
     int32_t diff = (int32_t)tgt - (int32_t)cur;
@@ -122,83 +116,9 @@ static inline int16_t gfx_lobster_emote_ease(int16_t cur, int16_t tgt, int16_t d
     return (int16_t)((int32_t)cur + step);
 }
 
-static const gfx_lobster_emote_semantics_t s_default_semantics = {
-    .look_scale_x = GFX_LOBSTER_DEFAULT_LOOK_SCALE_X,
-    .look_scale_y = GFX_LOBSTER_DEFAULT_LOOK_SCALE_Y,
-    .eye_x_from_look = GFX_LOBSTER_DEFAULT_EYE_X_FROM_LOOK,
-    .eye_y_from_alert = GFX_LOBSTER_DEFAULT_EYE_Y_FROM_ALERT,
-    .eye_y_from_droop = GFX_LOBSTER_DEFAULT_EYE_Y_FROM_DROOP,
-    .eye_scale_base = GFX_LOBSTER_DEFAULT_EYE_SCALE_BASE,
-    .eye_scale_from_eye_open = GFX_LOBSTER_DEFAULT_EYE_SCALE_FROM_OPEN,
-    .eye_scale_from_droop = GFX_LOBSTER_DEFAULT_EYE_SCALE_FROM_DROOP,
-    .eye_rot_from_focus = GFX_LOBSTER_DEFAULT_EYE_ROT_FROM_FOCUS,
-    .eye_rot_from_soft = GFX_LOBSTER_DEFAULT_EYE_ROT_FROM_SOFT,
-    .pupil_x_from_look = GFX_LOBSTER_DEFAULT_PUPIL_X_FROM_LOOK,
-    .pupil_y_from_look = GFX_LOBSTER_DEFAULT_PUPIL_Y_FROM_LOOK,
-    .mouth_x_from_look = GFX_LOBSTER_DEFAULT_MOUTH_X_FROM_LOOK,
-    .mouth_y_from_look = GFX_LOBSTER_DEFAULT_MOUTH_Y_FROM_LOOK,
-    .antenna_x_from_look = GFX_LOBSTER_DEFAULT_ANTENNA_X_FROM_LOOK,
-    .antenna_y_from_lift = GFX_LOBSTER_DEFAULT_ANTENNA_Y_FROM_LIFT,
-    .antenna_y_from_droop = GFX_LOBSTER_DEFAULT_ANTENNA_Y_FROM_DROOP,
-    .antenna_rot_from_open = GFX_LOBSTER_DEFAULT_ANTENNA_ROT_FROM_OPEN,
-    .antenna_rot_from_curl = GFX_LOBSTER_DEFAULT_ANTENNA_ROT_FROM_CURL,
-    .antenna_rot_from_droop = GFX_LOBSTER_DEFAULT_ANTENNA_ROT_FROM_DROOP,
-    .antenna_scale_base = GFX_LOBSTER_DEFAULT_ANTENNA_SCALE_BASE,
-    .antenna_scale_from_alert = GFX_LOBSTER_DEFAULT_ANTENNA_SCALE_FROM_ALERT,
-    .antenna_scale_from_lift = GFX_LOBSTER_DEFAULT_ANTENNA_SCALE_FROM_LIFT,
-    .look_x_min = GFX_LOBSTER_DEFAULT_LOOK_X_MIN,
-    .look_x_max = GFX_LOBSTER_DEFAULT_LOOK_X_MAX,
-    .look_y_min = GFX_LOBSTER_DEFAULT_LOOK_Y_MIN,
-    .look_y_max = GFX_LOBSTER_DEFAULT_LOOK_Y_MAX,
-    .pupil_x_min = GFX_LOBSTER_DEFAULT_PUPIL_X_MIN,
-    .pupil_x_max = GFX_LOBSTER_DEFAULT_PUPIL_X_MAX,
-    .pupil_y_min = GFX_LOBSTER_DEFAULT_PUPIL_Y_MIN,
-    .pupil_y_max = GFX_LOBSTER_DEFAULT_PUPIL_Y_MAX,
-    .eye_scale_multiplier = GFX_LOBSTER_DEFAULT_EYE_SCALE_MULTIPLIER,
-    .antenna_thickness_base = GFX_LOBSTER_DEFAULT_ANTENNA_THICKNESS_BASE,
-    .timer_period_ms = GFX_LOBSTER_DEFAULT_TIMER_PERIOD_MS,
-    .damping_div = GFX_LOBSTER_DEFAULT_DAMPING_DIV,
-    .eye_segs = GFX_LOBSTER_DEFAULT_EYE_SEGS,
-    .pupil_segs = GFX_LOBSTER_DEFAULT_PUPIL_SEGS,
-    .antenna_segs = GFX_LOBSTER_DEFAULT_ANTENNA_SEGS,
-    .reserved = 0,
-    .smile = { -0.10f, 0.10f, 0.80f, 0.0f, -2.0f, 0.92f, -0.10f, 0.10f, 0.12f, 0.22f, 0.18f, 0.0f, -0.04f },
-    .happy = { 0.06f, 0.22f, 1.00f, 0.0f, -6.0f, 0.84f, -0.14f, 0.32f, 0.30f, 0.46f, 0.30f, 0.0f, -0.12f },
-    .sad = { -0.24f, -0.12f, -0.10f, -8.0f, 8.0f, 1.05f, 1.00f, -0.20f, -0.12f, -0.24f, -0.18f, -0.18f, 0.22f },
-    .surprise = { 0.95f, 0.45f, 0.10f, 0.0f, -10.0f, 0.72f, -0.20f, 1.00f, 0.62f, 0.80f, 0.34f, 0.0f, -0.28f },
-    .angry = { -0.18f, 1.00f, -0.50f, 0.0f, -2.0f, 0.88f, 0.10f, 0.55f, 0.18f, 0.10f, 0.70f, 0.0f, 0.02f },
-};
-
 const gfx_lobster_emote_semantics_t *gfx_lobster_emote_get_semantics(const gfx_lobster_emote_assets_t *assets)
 {
-    if (assets != NULL && assets->semantics != NULL) {
-        return assets->semantics;
-    }
-    return &s_default_semantics;
-}
-
-static const gfx_lobster_emote_axis_t *gfx_lobster_emote_get_axis(const gfx_lobster_emote_semantics_t *semantics,
-                                                                  const char *name)
-{
-    if (semantics == NULL || name == NULL) {
-        return NULL;
-    }
-    if (strcmp(name, "smile") == 0) {
-        return &semantics->smile;
-    }
-    if (strcmp(name, "happy") == 0) {
-        return &semantics->happy;
-    }
-    if (strcmp(name, "sad") == 0) {
-        return &semantics->sad;
-    }
-    if (strcmp(name, "surprise") == 0) {
-        return &semantics->surprise;
-    }
-    if (strcmp(name, "angry") == 0) {
-        return &semantics->angry;
-    }
-    return NULL;
+    return (assets != NULL) ? assets->semantics : NULL;
 }
 
 static void gfx_lobster_emote_accumulate_axis(gfx_lobster_emotion_axes_t *dst,
@@ -300,18 +220,15 @@ esp_err_t gfx_lobster_emote_validate_assets(const gfx_lobster_emote_assets_t *as
         return ESP_ERR_INVALID_STATE;
     }
 
-    if (assets->layout != NULL) {
-        if (assets->export_meta == NULL) {
-            return ESP_ERR_INVALID_STATE;
-        }
-        if (assets->export_meta->version != GFX_LOBSTER_EMOTE_EXPORT_VERSION &&
-                assets->export_meta->version != GFX_LOBSTER_EMOTE_EXPORT_VERSION_LEGACY) {
-            return ESP_ERR_INVALID_STATE;
-        }
-        if (assets->export_meta->export_width <= 0 || assets->export_meta->export_height <= 0 ||
-                assets->export_meta->design_viewbox_w <= 0 || assets->export_meta->design_viewbox_h <= 0) {
-            return ESP_ERR_INVALID_SIZE;
-        }
+    if (assets->export_meta == NULL || assets->layout == NULL || assets->semantics == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (assets->export_meta->version != GFX_LOBSTER_EMOTE_EXPORT_VERSION) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (assets->export_meta->export_width <= 0 || assets->export_meta->export_height <= 0 ||
+            assets->export_meta->design_viewbox_w <= 0 || assets->export_meta->design_viewbox_h <= 0) {
+        return ESP_ERR_INVALID_SIZE;
     }
 
     return ESP_OK;
@@ -369,11 +286,11 @@ esp_err_t gfx_lobster_emote_eval_state(const gfx_lobster_emote_assets_t *assets,
 {
     gfx_lobster_emotion_axes_t a = {0};
     const gfx_lobster_emote_semantics_t *semantics = gfx_lobster_emote_get_semantics(assets);
-    const gfx_lobster_emote_axis_t *axis_smile = (semantics != NULL) ? &semantics->smile : &s_default_axis_smile;
-    const gfx_lobster_emote_axis_t *axis_happy = (semantics != NULL) ? &semantics->happy : &s_default_axis_happy;
-    const gfx_lobster_emote_axis_t *axis_sad = (semantics != NULL) ? &semantics->sad : &s_default_axis_sad;
-    const gfx_lobster_emote_axis_t *axis_surprise = (semantics != NULL) ? &semantics->surprise : &s_default_axis_surprise;
-    const gfx_lobster_emote_axis_t *axis_angry = (semantics != NULL) ? &semantics->angry : &s_default_axis_angry;
+    const gfx_lobster_emote_axis_t *axis_smile;
+    const gfx_lobster_emote_axis_t *axis_happy;
+    const gfx_lobster_emote_axis_t *axis_sad;
+    const gfx_lobster_emote_axis_t *axis_surprise;
+    const gfx_lobster_emote_axis_t *axis_angry;
     const int16_t (*eye_white_base)[14] = (assets && assets->eye_white_base) ? assets->eye_white_base : s_eye_white_base;
     const int16_t (*pupil_base)[14] = (assets && assets->pupil_base) ? assets->pupil_base : NULL;
     const int16_t (*mouth_base)[14] = (assets && assets->mouth_base) ? assets->mouth_base : s_mouth_base;
@@ -381,6 +298,12 @@ esp_err_t gfx_lobster_emote_eval_state(const gfx_lobster_emote_assets_t *assets,
     const int16_t (*antenna_right_base)[8] = (assets && assets->antenna_right_base) ? assets->antenna_right_base : s_antenna_right_base;
     float sm, hp, sd, su, an, look_x, look_y;
     ESP_RETURN_ON_FALSE(state != NULL, ESP_ERR_INVALID_ARG, TAG, "state is NULL");
+    ESP_RETURN_ON_FALSE(semantics != NULL, ESP_ERR_INVALID_STATE, TAG, "lobster semantics not ready");
+    axis_smile = &semantics->smile;
+    axis_happy = &semantics->happy;
+    axis_sad = &semantics->sad;
+    axis_surprise = &semantics->surprise;
+    axis_angry = &semantics->angry;
 
     sm = (float)state->w_smile / 100.0f;
     hp = (float)state->w_happy / 100.0f;
@@ -469,14 +392,6 @@ static void update_part(gfx_lobster_part_state_t *ps, int16_t div)
     ps->cur.s = gfx_lobster_emote_ease(ps->cur.s, ps->tgt.s, div);
 }
 
-static void update_shape(gfx_lobster_shape_state_t *shape, int16_t div)
-{
-    for (size_t i = 0; i < shape->count; i++) {
-        shape->cur[i].x = gfx_lobster_emote_ease(shape->cur[i].x, shape->tgt[i].x, div);
-        shape->cur[i].y = gfx_lobster_emote_ease(shape->cur[i].y, shape->tgt[i].y, div);
-    }
-}
-
 static void ease_curve14(gfx_lobster_curve14_t *cur, const gfx_lobster_curve14_t *tgt, int16_t div)
 {
     for (int i = 0; i < 14; i++) {
@@ -523,6 +438,7 @@ esp_err_t gfx_lobster_emote_update_pose(gfx_obj_t *obj, gfx_lobster_emote_t *lob
 
     if (lobster == NULL || lobster->assets == NULL) return ESP_OK;
     semantics = gfx_lobster_emote_get_semantics(lobster->assets);
+    ESP_RETURN_ON_FALSE(semantics != NULL, ESP_ERR_INVALID_STATE, TAG, "lobster semantics not ready");
     div = lobster->cfg.damping_div;
     if (div < 1) div = 1;
     gfx_obj_calc_pos_in_parent(obj);

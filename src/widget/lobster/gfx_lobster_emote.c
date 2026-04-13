@@ -266,6 +266,7 @@ esp_err_t gfx_lobster_emote_set_assets(gfx_obj_t *obj, const gfx_lobster_emote_a
     ESP_RETURN_ON_ERROR(gfx_lobster_emote_validate_assets(assets), TAG, "invalid lobster assets");
     lobster->assets = assets;
     semantics = gfx_lobster_emote_get_semantics(assets);
+    ESP_RETURN_ON_FALSE(semantics != NULL, ESP_ERR_INVALID_STATE, TAG, "lobster semantics not ready");
     if (semantics != NULL) {
         lobster->cfg.timer_period_ms = (semantics->timer_period_ms > 0U) ? semantics->timer_period_ms : GFX_LOBSTER_DEFAULT_TIMER_PERIOD_MS;
         lobster->cfg.damping_div = (semantics->damping_div > 0) ? semantics->damping_div : GFX_LOBSTER_DEFAULT_DAMPING_DIV;

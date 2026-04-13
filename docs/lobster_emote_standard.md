@@ -16,7 +16,6 @@ follow the same semantic model.
 Current export version:
 
 - `GFX_LOBSTER_EMOTE_EXPORT_VERSION = 2`
-- legacy compatibility: `1`
 
 ## Asset Sections
 
@@ -81,8 +80,7 @@ It covers:
 Rules:
 
 - v2 exports must provide `s_lobster_export_semantics`
-- runtime should prefer exported semantics over hardcoded fallback values
-- legacy v1 exports may fall back to runtime defaults for compatibility
+- runtime requires exported semantics and does not keep legacy fallback behavior
 
 
 The following local curves are defined relative to their local anchor:
