@@ -736,6 +736,17 @@
         angry: EMOTION_AXES.angry
       }
     };
+    const DEVICE_PUPIL_CURVES = {
+      o: [-18, 0, -18, -14, 18, -14, 18, 0, 18, 14, -18, 14, -18, 0],
+      u: [-24, -2, -14, 22, 14, 22, 24, -2, 12, 10, -12, 10, -24, -2],
+      n: [-24, 2, -14, -22, 14, -22, 24, 2, 12, -10, -12, -10, -24, 2],
+      line: [-26, 0, -8, -2, 8, -2, 26, 0, 8, 2, -8, 2, -26, 0]
+    };
+    const EYE_WHITE_BASE_I = EYE_WHITE_BASE.map((pts) => pts.map((v) => toIntLiteral(v)));
+    const ANTENNA_LEFT_BASE_I = ANTENNA_LEFT_BASE.map((pts) => pts.map((v) => toIntLiteral(v)));
+    const ANTENNA_RIGHT_BASE_I = ANTENNA_RIGHT_BASE.map((pts) => pts.map((v) => toIntLiteral(v)));
+    const PUPIL_BASE_I = PUPIL_BASE.map((pts) => pts.map((v) => toIntLiteral(v)));
+    const MOUTH_BASE_I = MOUTH_BASE.map((pts) => pts.map((v) => toIntLiteral(v)));
     const STATIC_BG_SVG = `
 
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="120 150 1000 980">
@@ -750,33 +761,34 @@
 </svg>`;
 
     const current = {
-      root: { x: 0, y: 0, r: 0, s: 1 },
-      clawL: { x: 0, y: 0, r: 0, s: 1 },
-      clawR: { x: 0, y: 0, r: 0, s: 1 },
-      head: { x: 0, y: 0, r: 0, s: 1 },
-      body: { x: 0, y: 0, r: 0, s: 1 },
-      tail: { x: 0, y: 0, r: 0, s: 1 },
-      eyes: { x: 0, y: 0, r: 0, s: 1, lookX: 0, lookY: 0, pupilX: 0, pupilY: 0, pupilScale: 1, pupilShape: "o" },
-      antenna: { x: 0, y: 0, r: 0, s: 1 },
-      dots: { x: 0, y: 0, r: 0, s: 1 },
-      mouth: { x: 0, y: 0, r: 0, s: 1 }
+      root: { x: 0, y: 0, r: 0, s: 100 },
+      clawL: { x: 0, y: 0, r: 0, s: 100 },
+      clawR: { x: 0, y: 0, r: 0, s: 100 },
+      head: { x: 0, y: 0, r: 0, s: 100 },
+      body: { x: 0, y: 0, r: 0, s: 100 },
+      tail: { x: 0, y: 0, r: 0, s: 100 },
+      eyes: { x: 0, y: 0, r: 0, s: 100, lookX: 0, lookY: 0, pupilX: 0, pupilY: 0, pupilScale: 100, pupilShape: "o" },
+      antenna: { x: 0, y: 0, r: 0, s: 100 },
+      dots: { x: 0, y: 0, r: 0, s: 100 },
+      mouth: { x: 0, y: 0, r: 0, s: 100 }
     };
     const target = JSON.parse(JSON.stringify(current));
     const curveCurrent = {
-      eyeWhite: [...EYE_WHITE_BASE[0]],
-      antennaL: [...ANTENNA_LEFT_BASE[0]],
-      antennaR: [...ANTENNA_RIGHT_BASE[0]],
-      pupil: [...PUPIL_BASE[0]],
-      mouth: [...MOUTH_BASE[0]]
+      eyeWhite: [...EYE_WHITE_BASE_I[0]],
+      antennaL: [...ANTENNA_LEFT_BASE_I[0]],
+      antennaR: [...ANTENNA_RIGHT_BASE_I[0]],
+      pupil: [...DEVICE_PUPIL_CURVES.o],
+      mouth: [...MOUTH_BASE_I[0]]
     };
     const curveTarget = {
-      eyeWhite: [...EYE_WHITE_BASE[0]],
-      antennaL: [...ANTENNA_LEFT_BASE[0]],
-      antennaR: [...ANTENNA_RIGHT_BASE[0]],
-      pupil: [...PUPIL_BASE[0]],
-      mouth: [...MOUTH_BASE[0]]
+      eyeWhite: [...EYE_WHITE_BASE_I[0]],
+      antennaL: [...ANTENNA_LEFT_BASE_I[0]],
+      antennaR: [...ANTENNA_RIGHT_BASE_I[0]],
+      pupil: [...DEVICE_PUPIL_CURVES.o],
+      mouth: [...MOUTH_BASE_I[0]]
     };
     let renderScheduled = false;
+    let renderTimer = null;
     let activeMood = MOODS[0];
     let forcedPupilShape = null;
     let forcedAntennaShape = null;
@@ -785,16 +797,38 @@
     function scheduleRender() {
       if (renderScheduled) return;
       renderScheduled = true;
-      requestAnimationFrame(render);
+      renderTimer = window.setTimeout(render, Math.max(1, SEMANTIC_EXPORT.timerPeriodMs || 33));
+    }
+
+    function toIntLiteral(value) {
+      return Math.trunc(value);
+    }
+
+    function iroundf(value) {
+      return Math.round(value);
+    }
+
+    function clampfLocal(value, lo, hi) {
+      return Math.max(lo, Math.min(hi, value));
+    }
+
+    function lobsterEase(cur, tgt, div) {
+      const diff = tgt - cur;
+      let step;
+      if (diff === 0) return cur;
+      if (div < 1) div = 1;
+      step = Math.trunc(diff / div);
+      if (step === 0) step = diff > 0 ? 1 : -1;
+      return cur + step;
     }
 
     function easeArr(cur, tgt) {
       let changed = false;
+      const div = Math.max(1, SEMANTIC_EXPORT.dampingDiv || 1);
       if (cur.length !== tgt.length) return;
       for (let i = 0; i < cur.length; i++) {
-        const diff = tgt[i] - cur[i];
-        const next = Math.abs(diff) < 0.05 ? tgt[i] : cur[i] + diff * 0.18;
-        if (Math.abs(next - cur[i]) >= 0.001) changed = true;
+        const next = lobsterEase(cur[i], tgt[i], div);
+        if (next !== cur[i]) changed = true;
         cur[i] = next;
       }
       return changed;
@@ -803,12 +837,12 @@
     function blendCurve(baseList, weights) {
       const res = new Array(baseList[0].length).fill(0);
       for (let i = 0; i < baseList[0].length; i++) {
-        res[i] = baseList[0][i]
+        res[i] = iroundf(baseList[0][i]
           + (baseList[1][i] - baseList[0][i]) * weights.smile / 100
           + (baseList[2][i] - baseList[0][i]) * weights.happy / 100
           + (baseList[3][i] - baseList[0][i]) * weights.sad / 100
           + (baseList[4][i] - baseList[0][i]) * weights.surprise / 100
-          + (baseList[5][i] - baseList[0][i]) * weights.angry / 100;
+          + (baseList[5][i] - baseList[0][i]) * weights.angry / 100);
       }
       return res;
     }
@@ -1003,11 +1037,16 @@
       const { width, height } = getExportSize();
       const exportLayout = getExportLayout(width, height);
       const anchors = getReferenceLayout();
+      const eyeSegs = Math.max(1, SEMANTIC_EXPORT.eyeSegs || 18);
+      const pupilSegs = Math.max(1, SEMANTIC_EXPORT.pupilSegs || 14);
+      const antennaSegs = Math.max(1, SEMANTIC_EXPORT.antennaSegs || 18);
+      const rootX = current.root.x;
+      const rootY = current.root.y;
       const sc = exportLayout.scale;
-      const eyeScale = sc * current.eyes.s * 1.12;
-      const pupilScale = sc * current.eyes.pupilScale;
-      const antennaScale = sc * current.antenna.s;
-      const antennaThickness = Math.max(2, sc * 15);
+      const eyeScale = iroundf(sc * current.eyes.s * SEMANTIC_EXPORT.eyeScaleMultiplier) / 100;
+      const pupilScale = iroundf(sc * current.eyes.pupilScale) / 100;
+      const antennaScale = iroundf(sc * current.antenna.s) / 100;
+      const antennaThickness = Math.max(2, iroundf(sc * SEMANTIC_EXPORT.antennaThicknessBase));
 
       referenceCtx.clearRect(0, 0, referenceCanvas.width, referenceCanvas.height);
 
@@ -1015,51 +1054,51 @@
       referenceCtx.lineJoin = "round";
 
       referenceCtx.fillStyle = "#f46144";
-      traceRibbon(referenceCtx, buildStrokeRibbon(sampleCurve8(curveCurrent.antennaL, 18,
-        anchors.antL.x + current.antenna.x,
-        anchors.antL.y + current.antenna.y,
+      traceRibbon(referenceCtx, buildStrokeRibbon(sampleCurve8(curveCurrent.antennaL, antennaSegs,
+        anchors.antL.x + rootX + current.antenna.x,
+        anchors.antL.y + rootY + current.antenna.y,
         antennaScale), antennaThickness));
       referenceCtx.fill();
 
-      traceRibbon(referenceCtx, buildStrokeRibbon(sampleCurve8(curveCurrent.antennaR, 18,
-        anchors.antR.x + current.antenna.x,
-        anchors.antR.y + current.antenna.y,
+      traceRibbon(referenceCtx, buildStrokeRibbon(sampleCurve8(curveCurrent.antennaR, antennaSegs,
+        anchors.antR.x + rootX + current.antenna.x,
+        anchors.antR.y + rootY + current.antenna.y,
         antennaScale), antennaThickness));
       referenceCtx.fill();
 
       referenceCtx.fillStyle = "#ffffff";
-      traceSampledFill(referenceCtx, sampleCurve14(curveCurrent.eyeWhite, 18,
-        anchors.eyeL.x + current.eyes.x + current.eyes.lookX,
-        anchors.eyeL.y + current.eyes.y + current.eyes.lookY,
+      traceSampledFill(referenceCtx, sampleCurve14(curveCurrent.eyeWhite, eyeSegs,
+        anchors.eyeL.x + rootX + current.eyes.x + current.eyes.lookX,
+        anchors.eyeL.y + rootY + current.eyes.y + current.eyes.lookY,
         eyeScale, false));
       referenceCtx.fill();
-      traceSampledFill(referenceCtx, sampleCurve14(curveCurrent.eyeWhite, 18,
-        anchors.eyeR.x + current.eyes.x + current.eyes.lookX,
-        anchors.eyeR.y + current.eyes.y + current.eyes.lookY,
+      traceSampledFill(referenceCtx, sampleCurve14(curveCurrent.eyeWhite, eyeSegs,
+        anchors.eyeR.x + rootX + current.eyes.x + current.eyes.lookX,
+        anchors.eyeR.y + rootY + current.eyes.y + current.eyes.lookY,
         eyeScale, true));
       referenceCtx.fill();
 
       referenceCtx.fillStyle = "#191919";
-      traceSampledFill(referenceCtx, sampleCurve14(curveCurrent.pupil, 14,
-        anchors.pupilL.x + current.eyes.pupilX + current.eyes.lookX,
-        anchors.pupilL.y + current.eyes.pupilY + current.eyes.lookY,
+      traceSampledFill(referenceCtx, sampleCurve14(curveCurrent.pupil, pupilSegs,
+        anchors.pupilL.x + rootX + current.eyes.pupilX + current.eyes.lookX,
+        anchors.pupilL.y + rootY + current.eyes.pupilY + current.eyes.lookY,
         pupilScale, false));
       referenceCtx.fill();
-      traceSampledFill(referenceCtx, sampleCurve14(curveCurrent.pupil, 14,
-        anchors.pupilR.x + current.eyes.pupilX + current.eyes.lookX,
-        anchors.pupilR.y + current.eyes.pupilY + current.eyes.lookY,
+      traceSampledFill(referenceCtx, sampleCurve14(curveCurrent.pupil, pupilSegs,
+        anchors.pupilR.x + rootX + current.eyes.pupilX + current.eyes.lookX,
+        anchors.pupilR.y + rootY + current.eyes.pupilY + current.eyes.lookY,
         pupilScale, true));
       referenceCtx.fill();
 
-      traceSampledFill(referenceCtx, sampleCurve14(curveCurrent.mouth, 14,
-        anchors.mouth.x + current.mouth.x + current.eyes.lookX / 2,
-        anchors.mouth.y + current.mouth.y + current.eyes.lookY / 2,
+      traceSampledFill(referenceCtx, sampleCurve14(curveCurrent.mouth, pupilSegs,
+        anchors.mouth.x + rootX + current.mouth.x + Math.trunc(current.eyes.lookX / 2),
+        anchors.mouth.y + rootY + current.mouth.y + Math.trunc(current.eyes.lookY / 2),
         eyeScale, false));
       referenceCtx.fill();
     }
 
     function exportCurveC(name, curves) {
-      const rows = curves.map((pts) => `    { ${pts.join(", ")} }`).join(",\n");
+      const rows = curves.map((pts) => `    { ${pts.map((v) => toIntLiteral(v)).join(", ")} }`).join(",\n");
       return `static const int16_t ${name}[${curves.length}][${curves[0].length}] = {\n${rows}\n};\n`;
     }
 
@@ -1443,125 +1482,176 @@ static const gfx_lobster_emote_assets_t s_lobster_expr_assets = {
       alert("已导出到所选文件夹：\n- lobster_emote_export.inc\n- lobster_export_README.txt");
     }
 
-    function blendAxes(weights) {
-      const out = { ...EMOTION_AXES.neutral };
-      Object.keys(out).forEach((key) => {
-        let value = EMOTION_AXES.neutral[key];
-        BASE_KEYS.forEach((baseKey) => {
-          value += (EMOTION_AXES[baseKey][key] - EMOTION_AXES.neutral[key]) * weights[baseKey] / 100;
-        });
-        out[key] = value;
-      });
-      return out;
+    function resolvePupilShape(state) {
+      if (state.pupilShape && state.pupilShape !== "auto") return state.pupilShape;
+      if (state.wAngry >= state.wSurprise && state.wAngry >= state.wSad &&
+          state.wAngry >= state.wHappy && state.wAngry >= state.wSmile) {
+        return "line";
+      }
+      if (state.wSad >= state.wSurprise && state.wSad >= state.wHappy && state.wSad >= state.wSmile) {
+        return "n";
+      }
+      if (state.wHappy >= state.wSurprise || state.wSmile >= state.wSurprise) {
+        return "u";
+      }
+      return "o";
     }
 
-    function derivePose(axes) {
-      const lookX = axes.lookBiasX * 46;
-      const lookY = axes.lookBiasY * 34;
-      const root = {
-        x: 0,
-        y: 0,
-        r: 0,
-        s: 1
+    function createMoodState(mood) {
+      return {
+        wSmile: mood.weights.smile || 0,
+        wHappy: mood.weights.happy || 0,
+        wSad: mood.weights.sad || 0,
+        wSurprise: mood.weights.surprise || 0,
+        wAngry: mood.weights.angry || 0,
+        wLookX: toIntLiteral((mood.overrideEyes && mood.overrideEyes.lookX) || 0),
+        wLookY: toIntLiteral((mood.overrideEyes && mood.overrideEyes.lookY) || 0),
+        pupilShape: mood.pupilShape || "auto"
       };
-      const body = {
-        x: 0,
-        y: 0,
-        r: 0,
-        s: 1
-      };
-      const head = {
-        x: 0,
-        y: 0,
-        r: 0,
-        s: 1
-      };
-      const tail = {
-        x: 0,
-        y: 0,
-        r: 0,
-        s: 1
-      };
-      const clawL = {
-        x: 0,
-        y: 0,
-        r: 0,
-        s: 1
-      };
-      const clawR = {
-        x: 0,
-        y: 0,
-        r: 0,
-        s: 1
-      };
-      const eyes = {
-        x: lookX * 0.20,
-        y: -axes.alert * 2 + axes.droop * 3,
-        r: axes.eyeFocus * 2 - axes.eyeSoft * 1,
-        s: 1 + axes.eyeOpen * 0.16 - axes.droop * 0.05,
-        lookX,
-        lookY,
-        pupilX: axes.pupilX + lookX * 0.35,
-        pupilY: axes.pupilY + lookY * 0.35,
-        pupilScale: axes.pupilScale,
-        pupilShape: axes.pupilShape
-      };
-      const antenna = {
-        x: lookX * 0.10,
-        y: -axes.antennaLift * 8 + axes.droop * 2,
-        r: axes.antennaOpen * 12 + axes.antennaCurl * 18 - axes.droop * 6,
-        s: 1 + axes.alert * 0.05 + axes.antennaLift * 0.04
-      };
-      const dots = {
-        x: 0,
-        y: 0,
-        r: 0,
-        s: 1
-      };
-      const mouth = {
-        x: 0,
-        y: 0,
-        r: 0,
-        s: 1
-      };
-      return { root, clawL, clawR, head, body, tail, eyes, antenna, dots, mouth };
     }
 
-    function applyOverrides(obj, patch) {
-      if (!patch) return;
-      Object.keys(patch).forEach((k) => {
-        obj[k] = patch[k];
-      });
+    function accumulateAxis(out, axis, weight) {
+      if (!axis || weight === 0) return;
+      out.eyeOpen += axis.eyeOpen * weight;
+      out.eyeFocus += axis.eyeFocus * weight;
+      out.eyeSoft += axis.eyeSoft * weight;
+      out.pupilX += axis.pupilX * weight;
+      out.pupilY += axis.pupilY * weight;
+      out.pupilScale += (axis.pupilScale - 1) * weight;
+      out.droop += axis.droop * weight;
+      out.alert += axis.alert * weight;
+      out.antennaLift += axis.antennaLift * weight;
+      out.antennaOpen += axis.antennaOpen * weight;
+      out.antennaCurl += axis.antennaCurl * weight;
+      out.lookBiasX += axis.lookBiasX * weight;
+      out.lookBiasY += axis.lookBiasY * weight;
+    }
+
+    function makePart(x = 0, y = 0, r = 0, s = 100) {
+      return { x, y, r, s };
+    }
+
+    function evalMoodState(mood) {
+      const semantics = SEMANTIC_EXPORT;
+      const state = createMoodState(mood);
+      const axes = {
+        eyeOpen: 0,
+        eyeFocus: 0,
+        eyeSoft: 0,
+        pupilX: 0,
+        pupilY: 0,
+        pupilScale: 1,
+        droop: 0,
+        alert: 0,
+        antennaLift: 0,
+        antennaOpen: 0,
+        antennaCurl: 0,
+        lookBiasX: 0,
+        lookBiasY: 0
+      };
+      const weights = {
+        smile: state.wSmile,
+        happy: state.wHappy,
+        sad: state.wSad,
+        surprise: state.wSurprise,
+        angry: state.wAngry
+      };
+      const sm = state.wSmile / 100;
+      const hp = state.wHappy / 100;
+      const sd = state.wSad / 100;
+      const su = state.wSurprise / 100;
+      const an = state.wAngry / 100;
+      let lookX;
+      let lookY;
+      let pupilX;
+      let pupilY;
+      const pupilShape = resolvePupilShape(state);
+
+      accumulateAxis(axes, semantics.axes.smile, sm);
+      accumulateAxis(axes, semantics.axes.happy, hp);
+      accumulateAxis(axes, semantics.axes.sad, sd);
+      accumulateAxis(axes, semantics.axes.surprise, su);
+      accumulateAxis(axes, semantics.axes.angry, an);
+
+      lookX = clampfLocal(axes.lookBiasX * semantics.lookScaleX + state.wLookX, semantics.lookXMin, semantics.lookXMax);
+      lookY = clampfLocal(axes.lookBiasY * semantics.lookScaleY + state.wLookY, semantics.lookYMin, semantics.lookYMax);
+      pupilX = clampfLocal(axes.pupilX + lookX * semantics.pupilXFromLook, semantics.pupilXMin, semantics.pupilXMax);
+      pupilY = clampfLocal(axes.pupilY + lookY * semantics.pupilYFromLook, semantics.pupilYMin, semantics.pupilYMax);
+
+      return {
+        pose: {
+          clawL: makePart(),
+          clawR: makePart(),
+          head: makePart(),
+          body: makePart(),
+          tail: makePart(),
+          dots: makePart(),
+          eyes: {
+            x: iroundf(lookX * semantics.eyeXFromLook),
+            y: iroundf(axes.alert * semantics.eyeYFromAlert + axes.droop * semantics.eyeYFromDroop),
+            r: iroundf(axes.eyeFocus * semantics.eyeRotFromFocus + axes.eyeSoft * semantics.eyeRotFromSoft),
+            s: iroundf((semantics.eyeScaleBase + axes.eyeOpen * semantics.eyeScaleFromEyeOpen + axes.droop * semantics.eyeScaleFromDroop) * 100),
+            lookX: state.wLookX,
+            lookY: state.wLookY,
+            pupilX: iroundf(pupilX),
+            pupilY: iroundf(pupilY),
+            pupilScale: iroundf(axes.pupilScale * 100),
+            pupilShape
+          },
+          antenna: makePart(
+            iroundf(lookX * semantics.antennaXFromLook),
+            iroundf(axes.antennaLift * semantics.antennaYFromLift + axes.droop * semantics.antennaYFromDroop),
+            iroundf(axes.antennaOpen * semantics.antennaRotFromOpen + axes.antennaCurl * semantics.antennaRotFromCurl + axes.droop * semantics.antennaRotFromDroop),
+            iroundf((semantics.antennaScaleBase + axes.alert * semantics.antennaScaleFromAlert + axes.antennaLift * semantics.antennaScaleFromLift) * 100)
+          ),
+          mouth: makePart(
+            iroundf(lookX * semantics.mouthXFromLook),
+            iroundf(lookY * semantics.mouthYFromLook),
+            0,
+            100
+          )
+        },
+        curves: {
+          eyeWhite: blendCurve(EYE_WHITE_BASE_I, weights),
+          antennaL: blendCurve(ANTENNA_LEFT_BASE_I, weights),
+          antennaR: blendCurve(ANTENNA_RIGHT_BASE_I, weights),
+          mouth: blendCurve(MOUTH_BASE_I, weights),
+          pupil: [...(DEVICE_PUPIL_CURVES[pupilShape] || DEVICE_PUPIL_CURVES.o)]
+        }
+      };
     }
 
     function setMood(mood) {
+      const evaluated = evalMoodState(mood);
       activeMood = mood;
-      const axes = blendAxes(mood.weights);
-      const pose = derivePose(axes);
-      Object.keys(target).forEach((k) => {
-        target[k] = pose[k];
-      });
-      applyOverrides(target.eyes, mood.overrideEyes);
-      applyOverrides(target.head, mood.overrideHead);
-      curveTarget.eyeWhite = blendCurve(EYE_WHITE_BASE, mood.weights);
-      curveTarget.antennaL = blendCurve(ANTENNA_LEFT_BASE, mood.weights);
-      curveTarget.antennaR = blendCurve(ANTENNA_RIGHT_BASE, mood.weights);
-      curveTarget.mouth = blendCurve(MOUTH_BASE, mood.weights);
-      curveTarget.pupil = blendCurve(PUPIL_BASE, mood.weights);
+      target.clawL = evaluated.pose.clawL;
+      target.clawR = evaluated.pose.clawR;
+      target.head = evaluated.pose.head;
+      target.body = evaluated.pose.body;
+      target.tail = evaluated.pose.tail;
+      target.eyes = evaluated.pose.eyes;
+      target.antenna = evaluated.pose.antenna;
+      target.dots = evaluated.pose.dots;
+      target.mouth = evaluated.pose.mouth;
+      curveTarget.eyeWhite = evaluated.curves.eyeWhite;
+      curveTarget.antennaL = evaluated.curves.antennaL;
+      curveTarget.antennaR = evaluated.curves.antennaR;
+      curveTarget.mouth = evaluated.curves.mouth;
+      curveTarget.pupil = evaluated.curves.pupil;
       if (forcedPupilShape !== null) {
-        curveTarget.pupil = [...PUPIL_BASE[forcedPupilShape]];
+        curveTarget.pupil = [...PUPIL_BASE_I[forcedPupilShape]];
       }
       if (forcedAntennaShape !== null) {
-        curveTarget.antennaL = [...ANTENNA_LEFT_BASE[forcedAntennaShape]];
-        curveTarget.antennaR = [...ANTENNA_RIGHT_BASE[forcedAntennaShape]];
+        curveTarget.antennaL = [...ANTENNA_LEFT_BASE_I[forcedAntennaShape]];
+        curveTarget.antennaR = [...ANTENNA_RIGHT_BASE_I[forcedAntennaShape]];
       }
       if (forcedMouthShape !== null) {
-        curveTarget.mouth = [...MOUTH_BASE[forcedMouthShape]];
+        curveTarget.mouth = [...MOUTH_BASE_I[forcedMouthShape]];
       }
 
       moodName.textContent = `${mood.cn} / ${mood.name}`;
       moodDesc.textContent = mood.desc;
-      hud.textContent = `${mood.name}  sm:${mood.weights.smile} hp:${mood.weights.happy} sd:${mood.weights.sad} su:${mood.weights.surprise} an:${mood.weights.angry}${forcedPupilShape ? `  pupil:${forcedPupilShape}` : ""}`;
+      hud.textContent = `${mood.name}  sm:${mood.weights.smile} hp:${mood.weights.happy} sd:${mood.weights.sad} su:${mood.weights.surprise} an:${mood.weights.angry}${forcedPupilShape !== null ? `  pupil:${forcedPupilShape}` : ""}`;
 
       document.querySelectorAll(".bar-fill").forEach((el) => {
         const key = el.dataset.key;
@@ -1572,22 +1662,22 @@ static const gfx_lobster_emote_assets_t s_lobster_expr_assets = {
 
     function easeObj(cur, tgt) {
       let changed = false;
+      const div = Math.max(1, SEMANTIC_EXPORT.dampingDiv || 1);
       Object.keys(cur).forEach((key) => {
         if (typeof cur[key] !== "number" || typeof tgt[key] !== "number") {
           if (cur[key] !== tgt[key]) changed = true;
           cur[key] = tgt[key];
           return;
         }
-        const d = tgt[key] - cur[key];
-        const next = Math.abs(d) < 0.05 ? tgt[key] : cur[key] + d * 0.18;
-        if (Math.abs(next - cur[key]) >= 0.001) changed = true;
+        const next = lobsterEase(cur[key], tgt[key], div);
+        if (next !== cur[key]) changed = true;
         cur[key] = next;
       });
       return changed;
     }
 
     function tf(o) {
-      return `translate(${o.x.toFixed(2)}px, ${o.y.toFixed(2)}px) rotate(${o.r.toFixed(2)}deg) scale(${o.s.toFixed(3)})`;
+      return `translate(${o.x.toFixed(2)}px, ${o.y.toFixed(2)}px) rotate(${o.r.toFixed(2)}deg) scale(${(o.s / 100).toFixed(3)})`;
     }
 
     function pupilPath(cx, cy, scale, shapeKey) {
@@ -1609,7 +1699,12 @@ static const gfx_lobster_emote_assets_t s_lobster_expr_assets = {
     }
 
     function render() {
+      const eyeScaleFactor = ((current.eyes.s * SEMANTIC_EXPORT.eyeScaleMultiplier) / 100).toFixed(3);
+      const pupilScaleFactor = (current.eyes.pupilScale / 100).toFixed(3);
+      const antennaScaleFactor = (current.antenna.s / 100).toFixed(3);
+
       renderScheduled = false;
+      renderTimer = null;
       let needsMoreFrames = false;
       Object.keys(current).forEach((key) => {
         if (easeObj(current[key], target[key])) needsMoreFrames = true;
@@ -1634,28 +1729,29 @@ static const gfx_lobster_emote_assets_t s_lobster_expr_assets = {
 
       parts.dots.style.transform = tf(current.dots);
 
-      parts.antennaLRig.setAttribute("transform", `translate(${current.antenna.x.toFixed(2)} ${current.antenna.y.toFixed(2)}) scale(${current.antenna.s.toFixed(3)})`);
-      parts.antennaRRig.setAttribute("transform", `translate(${current.antenna.x.toFixed(2)} ${current.antenna.y.toFixed(2)}) scale(${current.antenna.s.toFixed(3)})`);
+      parts.antennaLRig.setAttribute("transform", `translate(${current.antenna.x.toFixed(2)} ${current.antenna.y.toFixed(2)}) scale(${antennaScaleFactor})`);
+      parts.antennaRRig.setAttribute("transform", `translate(${current.antenna.x.toFixed(2)} ${current.antenna.y.toFixed(2)}) scale(${antennaScaleFactor})`);
       parts.antennaL.setAttribute("d", openPath8(curveCurrent.antennaL));
       parts.antennaR.setAttribute("d", openPath8(curveCurrent.antennaR));
 
-      parts.eyeWrapL.setAttribute("transform", `translate(${(current.eyes.x + current.eyes.lookX).toFixed(2)} ${(current.eyes.y + current.eyes.lookY).toFixed(2)}) scale(${current.eyes.s.toFixed(3)})`);
-      parts.eyeWrapR.setAttribute("transform", `translate(${(current.eyes.x + current.eyes.lookX).toFixed(2)} ${(current.eyes.y + current.eyes.lookY).toFixed(2)}) scale(${current.eyes.s.toFixed(3)})`);
+      parts.eyeWrapL.setAttribute("transform", `translate(${(current.eyes.x + current.eyes.lookX).toFixed(2)} ${(current.eyes.y + current.eyes.lookY).toFixed(2)}) scale(${eyeScaleFactor})`);
+      parts.eyeWrapR.setAttribute("transform", `translate(${(current.eyes.x + current.eyes.lookX).toFixed(2)} ${(current.eyes.y + current.eyes.lookY).toFixed(2)}) scale(${eyeScaleFactor})`);
       parts.eyeWhiteL.setAttribute("d", closedPath14(curveCurrent.eyeWhite));
       parts.eyeWhiteR.setAttribute("d", closedPath14(curveCurrent.eyeWhite));
       parts.pupilWrapL.setAttribute("transform", `translate(${(current.eyes.pupilX + current.eyes.lookX).toFixed(2)} ${(
         13 + current.eyes.pupilY + current.eyes.lookY
-      ).toFixed(2)}) scale(${current.eyes.pupilScale.toFixed(3)})`);
+      ).toFixed(2)}) scale(${pupilScaleFactor})`);
       parts.pupilWrapR.setAttribute("transform", `translate(${(current.eyes.pupilX + current.eyes.lookX).toFixed(2)} ${(
         13 + current.eyes.pupilY + current.eyes.lookY
-      ).toFixed(2)}) scale(${current.eyes.pupilScale.toFixed(3)})`);
+      ).toFixed(2)}) scale(${pupilScaleFactor})`);
       parts.pupilL.setAttribute("d", closedPath14(curveCurrent.pupil));
       parts.pupilR.setAttribute("d", closedPath14(curveCurrent.pupil));
 
       parts.mouthWrap.setAttribute(
         "transform",
-        `translate(555 760) translate(${(current.mouth.x + current.eyes.lookX / 2).toFixed(2)} ${(current.mouth.y + current.eyes.lookY / 2).toFixed(2)})`
+        `translate(555 760) translate(${(current.mouth.x + Math.trunc(current.eyes.lookX / 2)).toFixed(2)} ${(current.mouth.y + Math.trunc(current.eyes.lookY / 2)).toFixed(2)})`
       );
+      parts.mouth.setAttribute("transform", `scale(${eyeScaleFactor})`);
       parts.mouth.setAttribute("d", closedPath14(curveCurrent.mouth));
       drawReferenceLayer();
 
@@ -1732,11 +1828,10 @@ static const gfx_lobster_emote_assets_t s_lobster_expr_assets = {
 
     function updateDrag(ev) {
       if (!dragging) return;
-      const rect = viewer.getBoundingClientRect();
-      const dx = ((ev.clientX - dragStartX) / rect.width) * VIEWBOX.w;
-      const dy = ((ev.clientY - dragStartY) / rect.height) * VIEWBOX.h;
-      target.root.x = Math.max(-220, Math.min(220, dragRootStartX + dx));
-      target.root.y = Math.max(-180, Math.min(180, dragRootStartY + dy));
+      const dx = ev.clientX - dragStartX;
+      const dy = ev.clientY - dragStartY;
+      target.root.x = Math.max(-220, Math.min(220, Math.round(dragRootStartX + dx)));
+      target.root.y = Math.max(-180, Math.min(180, Math.round(dragRootStartY + dy)));
       scheduleRender();
     }
 
