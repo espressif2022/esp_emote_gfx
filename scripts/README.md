@@ -52,6 +52,7 @@ python3 image_converter.py ./images/ --output ./converted/
 
 # 组合使用：RGB565 + 二进制 + 字节交换
 python3 image_converter.py icon.png --format rgb565 --bin --swap16
+
 ```
 
 ### 完整参数说明
@@ -63,6 +64,8 @@ python3 image_converter.py icon.png --format rgb565 --bin --swap16
 | `-f, --format`          | 输出格式：`rgb565` 或 `rgb565a8`        | `rgb565a8`  |
 | `--bin`                 | 生成二进制文件而不是 C 文件             | 关闭        |
 | `--swap16`              | 启用 RGB565 字节交换                    | 关闭        |
+| `--embed-into-inc`      | 将图片嵌入现有 `.inc` 文件              | 不启用      |
+| `--symbol`              | 指定导出的 C 符号名                     | 自动生成    |
 
 ## 输出示例
 
@@ -251,5 +254,81 @@ SPDX-License-Identifier: Apache-2.0
 
 如果后续重新引入脚本工具，应以网页导出的 `.inc` 结构为准，而不是再回到旧的
 JSON 为单一事实来源。
+
+### Lobster 单文件导出
+
+当前龙虾链路已经收敛为单一导出源：
+
+- `test_apps/main/lobster_emote_export.inc`
+
+该文件已经直接包含：
+
+- export meta
+- layout
+- 曲线基准数据
+- expression sequence
+- 静态几何点
+- 内嵌背景图 `gfx_image_dsc_t`
+
+因此当前推荐流程是：
+
+1. 在网页里直接导出 `lobster_emote_export.inc`
+2. 用 `validate_lobster_export.py` 校验
+3. 重新编译 `test_lobster_expr_emote`
+
+### Lobster 导出标准结构
+
+`lobster_emote_export.inc` 现在按下面的标准结构组织：
+
+- `s_lobster_export_meta`
+  - 导出版本
+  - 设计 viewBox
+  - 导出尺寸
+  - 导出 scale / offset
+- `s_lobster_export_layout`
+  - eye / pupil / mouth / antenna 的锚点坐标
+- `s_lobster_export_semantics`
+  - 运行时语义参数
+  - pose 推导系数
+  - mesh 分段与 timer/damping 默认值
+- `s_lobster_*_base`
+  - 局部曲线基准数据
+- `s_lobster_expr_sequence`
+  - 表情序列
+- 内嵌背景图块
+  - `LOBSTER_USE_EXPORTED_BG`
+  - `LOBSTER_EXPORTED_BG_SYMBOL`
+  - `gfx_image_dsc_t`
+
+运行时约束：
+
+- `layout` 负责锚点，不再混放导出元信息
+- `export_meta` 负责版本、坐标系和导出尺寸
+- 如果 `layout` 存在，则必须同时提供 `export_meta`
+- `v2` 导出必须带 `s_lobster_export_semantics`
+- 当前导出版本为 `2`
+
+### Lobster 导出校验
+
+导出完成后，可以用下面的脚本检查 `.inc` 是否满足当前龙虾标准结构：
+
+```bash
+python3 validate_lobster_export.py ../test_apps/main/lobster_emote_export.inc
+```
+
+会检查：
+
+- `s_lobster_export_meta`
+- `s_lobster_export_layout`
+- `s_lobster_export_semantics`（当版本为 `2`）
+- `s_lobster_expr_sequence`
+- 内嵌背景图尺寸是否等于 `export_meta.export_width/export_height`
+- 当前版本号是否受支持
+
+运行时容错：
+
+- 如果导出资产完整且合法，运行时直接使用导出布局
+- 如果导出资产非法，但基础 sequence 仍然存在，运行时会记录 warning，并回退到默认布局/缩放路径
+- 如果 sequence 本身缺失，运行时仍会报错拒绝加载
 
 Copyright 2025 Espressif Systems (Shanghai) CO LTD

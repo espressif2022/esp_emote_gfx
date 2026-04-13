@@ -14,45 +14,6 @@
 #include "core/object/gfx_obj_priv.h"
 #include "widget/lobster/gfx_lobster_emote_priv.h"
 
-#define GFX_LOBSTER_DEFAULT_LOOK_SCALE_X 46.0f
-#define GFX_LOBSTER_DEFAULT_LOOK_SCALE_Y 34.0f
-#define GFX_LOBSTER_DEFAULT_EYE_X_FROM_LOOK 0.20f
-#define GFX_LOBSTER_DEFAULT_EYE_Y_FROM_ALERT -2.0f
-#define GFX_LOBSTER_DEFAULT_EYE_Y_FROM_DROOP 3.0f
-#define GFX_LOBSTER_DEFAULT_EYE_SCALE_BASE 1.0f
-#define GFX_LOBSTER_DEFAULT_EYE_SCALE_FROM_OPEN 0.16f
-#define GFX_LOBSTER_DEFAULT_EYE_SCALE_FROM_DROOP -0.05f
-#define GFX_LOBSTER_DEFAULT_EYE_ROT_FROM_FOCUS 2.0f
-#define GFX_LOBSTER_DEFAULT_EYE_ROT_FROM_SOFT -1.0f
-#define GFX_LOBSTER_DEFAULT_PUPIL_X_FROM_LOOK 0.35f
-#define GFX_LOBSTER_DEFAULT_PUPIL_Y_FROM_LOOK 0.35f
-#define GFX_LOBSTER_DEFAULT_MOUTH_X_FROM_LOOK 0.10f
-#define GFX_LOBSTER_DEFAULT_MOUTH_Y_FROM_LOOK 0.10f
-#define GFX_LOBSTER_DEFAULT_ANTENNA_X_FROM_LOOK 0.10f
-#define GFX_LOBSTER_DEFAULT_ANTENNA_Y_FROM_LIFT -8.0f
-#define GFX_LOBSTER_DEFAULT_ANTENNA_Y_FROM_DROOP 2.0f
-#define GFX_LOBSTER_DEFAULT_ANTENNA_ROT_FROM_OPEN 12.0f
-#define GFX_LOBSTER_DEFAULT_ANTENNA_ROT_FROM_CURL 18.0f
-#define GFX_LOBSTER_DEFAULT_ANTENNA_ROT_FROM_DROOP -6.0f
-#define GFX_LOBSTER_DEFAULT_ANTENNA_SCALE_BASE 1.0f
-#define GFX_LOBSTER_DEFAULT_ANTENNA_SCALE_FROM_ALERT 0.05f
-#define GFX_LOBSTER_DEFAULT_ANTENNA_SCALE_FROM_LIFT 0.04f
-#define GFX_LOBSTER_DEFAULT_LOOK_X_MIN -22.0f
-#define GFX_LOBSTER_DEFAULT_LOOK_X_MAX 22.0f
-#define GFX_LOBSTER_DEFAULT_LOOK_Y_MIN -16.0f
-#define GFX_LOBSTER_DEFAULT_LOOK_Y_MAX 16.0f
-#define GFX_LOBSTER_DEFAULT_PUPIL_X_MIN -16.0f
-#define GFX_LOBSTER_DEFAULT_PUPIL_X_MAX 16.0f
-#define GFX_LOBSTER_DEFAULT_PUPIL_Y_MIN -18.0f
-#define GFX_LOBSTER_DEFAULT_PUPIL_Y_MAX 18.0f
-#define GFX_LOBSTER_DEFAULT_EYE_SCALE_MULTIPLIER 1.12f
-#define GFX_LOBSTER_DEFAULT_ANTENNA_THICKNESS_BASE 15.0f
-#define GFX_LOBSTER_DEFAULT_TIMER_PERIOD_MS 33U
-#define GFX_LOBSTER_DEFAULT_DAMPING_DIV 4
-#define GFX_LOBSTER_DEFAULT_EYE_SEGS 18U
-#define GFX_LOBSTER_DEFAULT_PUPIL_SEGS 14U
-#define GFX_LOBSTER_DEFAULT_ANTENNA_SEGS 18U
-
 static const char *TAG = "lobster_pose";
 
 extern esp_err_t gfx_face_emote_apply_bezier_stroke(gfx_obj_t *obj, const int16_t *pts, bool closed,
@@ -208,7 +169,7 @@ static const gfx_lobster_emote_semantics_t s_default_semantics = {
     .angry = { -0.18f, 1.00f, -0.50f, 0.0f, -2.0f, 0.88f, 0.10f, 0.55f, 0.18f, 0.10f, 0.70f, 0.0f, 0.02f },
 };
 
-static const gfx_lobster_emote_semantics_t *gfx_lobster_emote_get_semantics(const gfx_lobster_emote_assets_t *assets)
+const gfx_lobster_emote_semantics_t *gfx_lobster_emote_get_semantics(const gfx_lobster_emote_assets_t *assets)
 {
     if (assets != NULL && assets->semantics != NULL) {
         return assets->semantics;
@@ -552,6 +513,8 @@ esp_err_t gfx_lobster_emote_update_pose(gfx_obj_t *obj, gfx_lobster_emote_t *lob
     int32_t mouth_cy;
     int32_t antenna_left_cx;
     int32_t antenna_left_cy;
+    int32_t antenna_right_cx;
+    int32_t antenna_right_cy;
     int32_t eye_segs;
     int32_t pupil_segs;
     int32_t antenna_segs;

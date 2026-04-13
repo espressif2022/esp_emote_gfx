@@ -1,0 +1,4 @@
+interface:
+  display_name: "ESP Emote GFX Review"
+  short_description: "Audit esp_emote_gfx architecture, style, swap, and color consistency"
+  default_prompt: "Review esp_emote_gfx using the 7-dimension checklist, cite concrete file and line evidence, and finish with a repository-specific code standard and design principles."
