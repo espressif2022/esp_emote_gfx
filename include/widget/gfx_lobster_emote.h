@@ -46,7 +46,8 @@ typedef struct {
     uint32_t hold_ticks;
 } gfx_lobster_emote_state_t;
 
-#define GFX_LOBSTER_EMOTE_EXPORT_VERSION 1
+#define GFX_LOBSTER_EMOTE_EXPORT_VERSION 2
+#define GFX_LOBSTER_EMOTE_EXPORT_VERSION_LEGACY 1
 
 typedef struct {
     uint32_t version;
@@ -60,6 +61,69 @@ typedef struct {
     int32_t export_offset_x;
     int32_t export_offset_y;
 } gfx_lobster_emote_export_meta_t;
+
+typedef struct {
+    float eye_open;
+    float eye_focus;
+    float eye_soft;
+    float pupil_x;
+    float pupil_y;
+    float pupil_scale;
+    float droop;
+    float alert;
+    float antenna_lift;
+    float antenna_open;
+    float antenna_curl;
+    float look_bias_x;
+    float look_bias_y;
+} gfx_lobster_emote_axis_t;
+
+typedef struct {
+    float look_scale_x;
+    float look_scale_y;
+    float eye_x_from_look;
+    float eye_y_from_alert;
+    float eye_y_from_droop;
+    float eye_scale_base;
+    float eye_scale_from_eye_open;
+    float eye_scale_from_droop;
+    float eye_rot_from_focus;
+    float eye_rot_from_soft;
+    float pupil_x_from_look;
+    float pupil_y_from_look;
+    float mouth_x_from_look;
+    float mouth_y_from_look;
+    float antenna_x_from_look;
+    float antenna_y_from_lift;
+    float antenna_y_from_droop;
+    float antenna_rot_from_open;
+    float antenna_rot_from_curl;
+    float antenna_rot_from_droop;
+    float antenna_scale_base;
+    float antenna_scale_from_alert;
+    float antenna_scale_from_lift;
+    float look_x_min;
+    float look_x_max;
+    float look_y_min;
+    float look_y_max;
+    float pupil_x_min;
+    float pupil_x_max;
+    float pupil_y_min;
+    float pupil_y_max;
+    float eye_scale_multiplier;
+    float antenna_thickness_base;
+    uint16_t timer_period_ms;
+    int16_t damping_div;
+    uint8_t eye_segs;
+    uint8_t pupil_segs;
+    uint8_t antenna_segs;
+    uint8_t reserved;
+    gfx_lobster_emote_axis_t smile;
+    gfx_lobster_emote_axis_t happy;
+    gfx_lobster_emote_axis_t sad;
+    gfx_lobster_emote_axis_t surprise;
+    gfx_lobster_emote_axis_t angry;
+} gfx_lobster_emote_semantics_t;
 
 typedef struct {
     int32_t eye_left_cx;
@@ -102,6 +166,7 @@ typedef struct {
     const int16_t (*antenna_right_base)[8];
     const gfx_lobster_emote_export_meta_t *export_meta;
     const gfx_lobster_emote_layout_t *layout;
+    const gfx_lobster_emote_semantics_t *semantics;
     const gfx_lobster_emote_state_t *sequence;
     size_t sequence_count;
 } gfx_lobster_emote_assets_t;

@@ -104,6 +104,20 @@ static void test_lobster_expr_log_state_baseline(const gfx_lobster_emote_state_t
              state->hold_ticks);
 }
 
+static uint32_t test_lobster_expr_hold_to_ms(const gfx_lobster_emote_state_t *state)
+{
+    uint32_t hold_ticks = 30U;
+    uint32_t period_ms = 33U;
+
+    if (state != NULL && state->hold_ticks > 0U) {
+        hold_ticks = state->hold_ticks;
+    }
+    if (s_lobster_expr_assets.semantics != NULL && s_lobster_expr_assets.semantics->timer_period_ms > 0U) {
+        period_ms = s_lobster_expr_assets.semantics->timer_period_ms;
+    }
+    return hold_ticks * period_ms;
+}
+
 static void test_lobster_expr_apply_drag(test_lobster_expr_emote_scene_t *scene)
 {
     if (scene == NULL) {
@@ -169,6 +183,10 @@ static void test_lobster_expr_emote_timer_cb(void *user_data)
     }
 
     test_lobster_expr_log_state_baseline(state);
+    if (scene->pose_timer != NULL) {
+        gfx_timer_set_period(scene->pose_timer, test_lobster_expr_hold_to_ms(state));
+        gfx_timer_reset(scene->pose_timer);
+    }
     ESP_LOGI(TAG, "Switched lobster expression: %s", state->name);
 }
 
@@ -220,7 +238,8 @@ void test_lobster_expr_emote_run(void)
     test_lobster_expr_log_state_baseline(&s_lobster_expr_assets.sequence[0]);
     test_app_set_touch_event_cb(test_lobster_expr_touch_event_cb, &scene);
 
-    scene.pose_timer = gfx_timer_create(emote_handle, test_lobster_expr_emote_timer_cb, 2000, &scene);
+    scene.pose_timer = gfx_timer_create(emote_handle, test_lobster_expr_emote_timer_cb,
+                                        test_lobster_expr_hold_to_ms(&s_lobster_expr_assets.sequence[0]), &scene);
     
     test_app_unlock();
 

@@ -689,7 +689,55 @@
     const referenceCtx = referenceCanvas.getContext("2d");
 
     const VIEWBOX = { x: 120, y: 150, w: 1000, h: 980 };
+    const SEMANTIC_EXPORT = {
+      lookScaleX: 46,
+      lookScaleY: 34,
+      eyeXFromLook: 0.20,
+      eyeYFromAlert: -2.0,
+      eyeYFromDroop: 3.0,
+      eyeScaleBase: 1.0,
+      eyeScaleFromEyeOpen: 0.16,
+      eyeScaleFromDroop: -0.05,
+      eyeRotFromFocus: 2.0,
+      eyeRotFromSoft: -1.0,
+      pupilXFromLook: 0.35,
+      pupilYFromLook: 0.35,
+      mouthXFromLook: 0.10,
+      mouthYFromLook: 0.10,
+      antennaXFromLook: 0.10,
+      antennaYFromLift: -8.0,
+      antennaYFromDroop: 2.0,
+      antennaRotFromOpen: 12.0,
+      antennaRotFromCurl: 18.0,
+      antennaRotFromDroop: -6.0,
+      antennaScaleBase: 1.0,
+      antennaScaleFromAlert: 0.05,
+      antennaScaleFromLift: 0.04,
+      lookXMin: -22.0,
+      lookXMax: 22.0,
+      lookYMin: -16.0,
+      lookYMax: 16.0,
+      pupilXMin: -16.0,
+      pupilXMax: 16.0,
+      pupilYMin: -18.0,
+      pupilYMax: 18.0,
+      eyeScaleMultiplier: 1.12,
+      antennaThicknessBase: 15.0,
+      timerPeriodMs: 33,
+      dampingDiv: 4,
+      eyeSegs: 18,
+      pupilSegs: 14,
+      antennaSegs: 18,
+      axes: {
+        smile: EMOTION_AXES.smile,
+        happy: EMOTION_AXES.happy,
+        sad: EMOTION_AXES.sad,
+        surprise: EMOTION_AXES.surprise,
+        angry: EMOTION_AXES.angry
+      }
+    };
     const STATIC_BG_SVG = `
+
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="120 150 1000 980">
   <g id="rig-root">
     <g id="part-tail"><path fill="#f46144" d="M861,296.72c53.35,41.85,101.1,84.8,132.13,131.04,3.22,4.8,9.08,7.11,14.71,5.79l67.83-15.88c32.23-7.54,35.63-41.08,17.33-66.41-39.18-54.2-96.65-108.87-151.87-150.72-24.12-18.29-52.18-9.98-62.4,18.52l-22.24,62.02c-2.02,5.63-.21,11.93,4.5,15.62Z"/></g>
@@ -1023,6 +1071,80 @@
       return `static const gfx_lobster_emote_state_t s_lobster_expr_sequence[] = {\n${rows}\n};\n`;
     }
 
+    function exportSemanticsC() {
+      const axesOrder = ["smile", "happy", "sad", "surprise", "angry"];
+      const scalarFields = [
+        ["look_scale_x", SEMANTIC_EXPORT.lookScaleX],
+        ["look_scale_y", SEMANTIC_EXPORT.lookScaleY],
+        ["eye_x_from_look", SEMANTIC_EXPORT.eyeXFromLook],
+        ["eye_y_from_alert", SEMANTIC_EXPORT.eyeYFromAlert],
+        ["eye_y_from_droop", SEMANTIC_EXPORT.eyeYFromDroop],
+        ["eye_scale_base", SEMANTIC_EXPORT.eyeScaleBase],
+        ["eye_scale_from_eye_open", SEMANTIC_EXPORT.eyeScaleFromEyeOpen],
+        ["eye_scale_from_droop", SEMANTIC_EXPORT.eyeScaleFromDroop],
+        ["eye_rot_from_focus", SEMANTIC_EXPORT.eyeRotFromFocus],
+        ["eye_rot_from_soft", SEMANTIC_EXPORT.eyeRotFromSoft],
+        ["pupil_x_from_look", SEMANTIC_EXPORT.pupilXFromLook],
+        ["pupil_y_from_look", SEMANTIC_EXPORT.pupilYFromLook],
+        ["mouth_x_from_look", SEMANTIC_EXPORT.mouthXFromLook],
+        ["mouth_y_from_look", SEMANTIC_EXPORT.mouthYFromLook],
+        ["antenna_x_from_look", SEMANTIC_EXPORT.antennaXFromLook],
+        ["antenna_y_from_lift", SEMANTIC_EXPORT.antennaYFromLift],
+        ["antenna_y_from_droop", SEMANTIC_EXPORT.antennaYFromDroop],
+        ["antenna_rot_from_open", SEMANTIC_EXPORT.antennaRotFromOpen],
+        ["antenna_rot_from_curl", SEMANTIC_EXPORT.antennaRotFromCurl],
+        ["antenna_rot_from_droop", SEMANTIC_EXPORT.antennaRotFromDroop],
+        ["antenna_scale_base", SEMANTIC_EXPORT.antennaScaleBase],
+        ["antenna_scale_from_alert", SEMANTIC_EXPORT.antennaScaleFromAlert],
+        ["antenna_scale_from_lift", SEMANTIC_EXPORT.antennaScaleFromLift],
+        ["look_x_min", SEMANTIC_EXPORT.lookXMin],
+        ["look_x_max", SEMANTIC_EXPORT.lookXMax],
+        ["look_y_min", SEMANTIC_EXPORT.lookYMin],
+        ["look_y_max", SEMANTIC_EXPORT.lookYMax],
+        ["pupil_x_min", SEMANTIC_EXPORT.pupilXMin],
+        ["pupil_x_max", SEMANTIC_EXPORT.pupilXMax],
+        ["pupil_y_min", SEMANTIC_EXPORT.pupilYMin],
+        ["pupil_y_max", SEMANTIC_EXPORT.pupilYMax],
+        ["eye_scale_multiplier", SEMANTIC_EXPORT.eyeScaleMultiplier],
+        ["antenna_thickness_base", SEMANTIC_EXPORT.antennaThicknessBase]
+      ];
+      const intFields = [
+        ["timer_period_ms", SEMANTIC_EXPORT.timerPeriodMs],
+        ["damping_div", SEMANTIC_EXPORT.dampingDiv],
+        ["eye_segs", SEMANTIC_EXPORT.eyeSegs],
+        ["pupil_segs", SEMANTIC_EXPORT.pupilSegs],
+        ["antenna_segs", SEMANTIC_EXPORT.antennaSegs],
+        ["reserved", 0]
+      ];
+      const axisFields = ["eyeOpen", "eyeFocus", "eyeSoft", "pupilX", "pupilY", "pupilScale", "droop", "alert", "antennaLift", "antennaOpen", "antennaCurl", "lookBiasX", "lookBiasY"];
+      const axisMap = {
+        eyeOpen: "eye_open",
+        eyeFocus: "eye_focus",
+        eyeSoft: "eye_soft",
+        pupilX: "pupil_x",
+        pupilY: "pupil_y",
+        pupilScale: "pupil_scale",
+        droop: "droop",
+        alert: "alert",
+        antennaLift: "antenna_lift",
+        antennaOpen: "antenna_open",
+        antennaCurl: "antenna_curl",
+        lookBiasX: "look_bias_x",
+        lookBiasY: "look_bias_y"
+      };
+      const rows = [];
+      scalarFields.forEach(([field, value]) => rows.push(`    .${field} = ${Number(value).toFixed(6)}f,`));
+      intFields.forEach(([field, value]) => rows.push(`    .${field} = ${value},`));
+      axesOrder.forEach((axisKey) => {
+        rows.push(`    .${axisKey} = {`);
+        axisFields.forEach((field) => {
+          rows.push(`        .${axisMap[field]} = ${Number(SEMANTIC_EXPORT.axes[axisKey][field]).toFixed(6)}f,`);
+        });
+        rows.push("    },");
+      });
+      return `static const gfx_lobster_emote_semantics_t s_lobster_export_semantics = {\n${rows.join("\n")}\n};\n`;
+    }
+
     function exportStaticGeometryAndAssets() {
       return `
 static const gfx_mesh_img_point_t s_lobster_head_pts[] = {
@@ -1097,6 +1219,7 @@ static const gfx_lobster_emote_assets_t s_lobster_expr_assets = {
     .antenna_right_base = s_lobster_antenna_right_base,
     .export_meta = &s_lobster_export_meta,
     .layout = &s_lobster_export_layout,
+    .semantics = &s_lobster_export_semantics,
     .sequence = s_lobster_expr_sequence,
     .sequence_count = sizeof(s_lobster_expr_sequence) / sizeof(s_lobster_expr_sequence[0]),
 };
@@ -1168,7 +1291,7 @@ static const gfx_lobster_emote_assets_t s_lobster_expr_assets = {
         `#define LOBSTER_EXPORT_OFFSET_Y ${layout.offsetY}`,
         "",
         "static const gfx_lobster_emote_export_meta_t s_lobster_export_meta = {",
-        `    .version = ${1},`,
+        `    .version = ${2},`,
         `    .design_viewbox_x = ${VIEWBOX.x},`,
         `    .design_viewbox_y = ${VIEWBOX.y},`,
         `    .design_viewbox_w = ${VIEWBOX.w},`,
@@ -1185,6 +1308,8 @@ static const gfx_lobster_emote_assets_t s_lobster_expr_assets = {
         exportCurveC("s_lobster_mouth_base", MOUTH_BASE),
         exportCurveC("s_lobster_antenna_left_base", ANTENNA_LEFT_BASE),
         exportCurveC("s_lobster_antenna_right_base", ANTENNA_RIGHT_BASE),
+        "",
+        exportSemanticsC(),
         "",
         exportMoodSequence(),
         "",

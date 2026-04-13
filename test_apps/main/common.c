@@ -224,7 +224,7 @@ esp_err_t display_and_graphics_init(const char *partition_label, uint32_t max_fi
         .flags = {.mmap_enable = true, .full_check = true}
     };
     ret = mmap_assets_new(&asset_config, assets_handle);
-    ESP_RETURN_ON_ERROR(ret, TAG, "Failed to initialize assets");
+    // ESP_RETURN_ON_ERROR(ret, TAG, "Failed to initialize assets");
 #if CONFIG_IDF_TARGET_ESP32S3
     /* Initialize display and panel */
     const bsp_display_config_t bsp_disp_cfg = {

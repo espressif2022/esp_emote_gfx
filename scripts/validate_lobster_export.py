@@ -112,8 +112,10 @@ def main():
 
     if meta_values:
         version = re.sub(r"[^0-9]", "", meta_values["version"])
-        if version != "1":
+        if version not in {"1", "2"}:
             errors.append(f"unsupported export_meta.version: {meta_values['version']}")
+        if version == "2" and "static const gfx_lobster_emote_semantics_t s_lobster_export_semantics" not in text:
+            errors.append("missing s_lobster_export_semantics for export_meta.version 2")
 
     if errors:
         print(f"Validation failed for {path}:")

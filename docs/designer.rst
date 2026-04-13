@@ -42,6 +42,11 @@ such as ``gfx_obj_set_pos()``, ``gfx_obj_set_size()``, ``gfx_label_set_text()``,
 ``gfx_anim_set_src_desc()``, ``gfx_anim_set_segment()``,
 ``gfx_face_emote_set_expression_name()``, and similar setters.
 
+The same schema-first principle also applies to parametric character animation flows.
+For example, the lobster pipeline is evolving toward: host-side authoring schema ->
+compiled export asset -> embedded runtime consumption, instead of duplicating semantic
+animation rules separately in JavaScript and C.
+
 Scene schema
 ------------
 

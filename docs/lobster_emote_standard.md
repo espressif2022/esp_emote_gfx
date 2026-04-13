@@ -15,7 +15,8 @@ follow the same semantic model.
 
 Current export version:
 
-- `GFX_LOBSTER_EMOTE_EXPORT_VERSION = 1`
+- `GFX_LOBSTER_EMOTE_EXPORT_VERSION = 2`
+- legacy compatibility: `1`
 
 ## Asset Sections
 
@@ -23,9 +24,10 @@ A valid standardized export contains these sections:
 
 1. `s_lobster_export_meta`
 2. `s_lobster_export_layout`
-3. shape bases
-4. `s_lobster_expr_sequence`
-5. optional embedded background image
+3. `s_lobster_export_semantics` (required in v2)
+4. shape bases
+5. `s_lobster_expr_sequence`
+6. optional embedded background image
 
 ## Export Meta
 
@@ -63,7 +65,25 @@ Rules:
 - `layout` does not contain export metadata
 - if `layout` exists, `export_meta` must also exist
 
-## Shape Bases
+## Semantics
+
+`gfx_lobster_emote_semantics_t` contains the exported runtime semantic contract for parity-sensitive behavior.
+
+It covers:
+
+- emotion axis coefficients for `smile / happy / sad / surprise / angry`
+- pose derivation coefficients for eye / pupil / mouth / antenna transforms
+- look and pupil clamp ranges
+- render multipliers such as eye scale multiplier and antenna thickness base
+- widget timing defaults such as `timer_period_ms` and `damping_div`
+- preferred mesh segment counts for eye / pupil / antenna rendering
+
+Rules:
+
+- v2 exports must provide `s_lobster_export_semantics`
+- runtime should prefer exported semantics over hardcoded fallback values
+- legacy v1 exports may fall back to runtime defaults for compatibility
+
 
 The following local curves are defined relative to their local anchor:
 

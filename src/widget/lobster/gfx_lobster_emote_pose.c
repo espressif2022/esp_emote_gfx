@@ -14,6 +14,45 @@
 #include "core/object/gfx_obj_priv.h"
 #include "widget/lobster/gfx_lobster_emote_priv.h"
 
+#define GFX_LOBSTER_DEFAULT_LOOK_SCALE_X 46.0f
+#define GFX_LOBSTER_DEFAULT_LOOK_SCALE_Y 34.0f
+#define GFX_LOBSTER_DEFAULT_EYE_X_FROM_LOOK 0.20f
+#define GFX_LOBSTER_DEFAULT_EYE_Y_FROM_ALERT -2.0f
+#define GFX_LOBSTER_DEFAULT_EYE_Y_FROM_DROOP 3.0f
+#define GFX_LOBSTER_DEFAULT_EYE_SCALE_BASE 1.0f
+#define GFX_LOBSTER_DEFAULT_EYE_SCALE_FROM_OPEN 0.16f
+#define GFX_LOBSTER_DEFAULT_EYE_SCALE_FROM_DROOP -0.05f
+#define GFX_LOBSTER_DEFAULT_EYE_ROT_FROM_FOCUS 2.0f
+#define GFX_LOBSTER_DEFAULT_EYE_ROT_FROM_SOFT -1.0f
+#define GFX_LOBSTER_DEFAULT_PUPIL_X_FROM_LOOK 0.35f
+#define GFX_LOBSTER_DEFAULT_PUPIL_Y_FROM_LOOK 0.35f
+#define GFX_LOBSTER_DEFAULT_MOUTH_X_FROM_LOOK 0.10f
+#define GFX_LOBSTER_DEFAULT_MOUTH_Y_FROM_LOOK 0.10f
+#define GFX_LOBSTER_DEFAULT_ANTENNA_X_FROM_LOOK 0.10f
+#define GFX_LOBSTER_DEFAULT_ANTENNA_Y_FROM_LIFT -8.0f
+#define GFX_LOBSTER_DEFAULT_ANTENNA_Y_FROM_DROOP 2.0f
+#define GFX_LOBSTER_DEFAULT_ANTENNA_ROT_FROM_OPEN 12.0f
+#define GFX_LOBSTER_DEFAULT_ANTENNA_ROT_FROM_CURL 18.0f
+#define GFX_LOBSTER_DEFAULT_ANTENNA_ROT_FROM_DROOP -6.0f
+#define GFX_LOBSTER_DEFAULT_ANTENNA_SCALE_BASE 1.0f
+#define GFX_LOBSTER_DEFAULT_ANTENNA_SCALE_FROM_ALERT 0.05f
+#define GFX_LOBSTER_DEFAULT_ANTENNA_SCALE_FROM_LIFT 0.04f
+#define GFX_LOBSTER_DEFAULT_LOOK_X_MIN -22.0f
+#define GFX_LOBSTER_DEFAULT_LOOK_X_MAX 22.0f
+#define GFX_LOBSTER_DEFAULT_LOOK_Y_MIN -16.0f
+#define GFX_LOBSTER_DEFAULT_LOOK_Y_MAX 16.0f
+#define GFX_LOBSTER_DEFAULT_PUPIL_X_MIN -16.0f
+#define GFX_LOBSTER_DEFAULT_PUPIL_X_MAX 16.0f
+#define GFX_LOBSTER_DEFAULT_PUPIL_Y_MIN -18.0f
+#define GFX_LOBSTER_DEFAULT_PUPIL_Y_MAX 18.0f
+#define GFX_LOBSTER_DEFAULT_EYE_SCALE_MULTIPLIER 1.12f
+#define GFX_LOBSTER_DEFAULT_ANTENNA_THICKNESS_BASE 15.0f
+#define GFX_LOBSTER_DEFAULT_TIMER_PERIOD_MS 33U
+#define GFX_LOBSTER_DEFAULT_DAMPING_DIV 4
+#define GFX_LOBSTER_DEFAULT_EYE_SEGS 18U
+#define GFX_LOBSTER_DEFAULT_PUPIL_SEGS 14U
+#define GFX_LOBSTER_DEFAULT_ANTENNA_SEGS 18U
+
 static const char *TAG = "lobster_pose";
 
 extern esp_err_t gfx_face_emote_apply_bezier_stroke(gfx_obj_t *obj, const int16_t *pts, bool closed,
@@ -105,11 +144,11 @@ typedef struct {
     float look_bias_y;
 } gfx_lobster_emotion_axes_t;
 
-static const gfx_lobster_emotion_axes_t s_axes_smile = { -0.10f, 0.10f, 0.80f, 0.0f, -2.0f, 0.92f, -0.10f, 0.10f, 0.12f, 0.22f, 0.18f, 0.0f, -0.04f };
-static const gfx_lobster_emotion_axes_t s_axes_happy = { 0.06f, 0.22f, 1.00f, 0.0f, -6.0f, 0.84f, -0.14f, 0.32f, 0.30f, 0.46f, 0.30f, 0.0f, -0.12f };
-static const gfx_lobster_emotion_axes_t s_axes_sad = { -0.24f, -0.12f, -0.10f, -8.0f, 8.0f, 1.05f, 1.00f, -0.20f, -0.12f, -0.24f, -0.18f, -0.18f, 0.22f };
-static const gfx_lobster_emotion_axes_t s_axes_surprise = { 0.95f, 0.45f, 0.10f, 0.0f, -10.0f, 0.72f, -0.20f, 1.00f, 0.62f, 0.80f, 0.34f, 0.0f, -0.28f };
-static const gfx_lobster_emotion_axes_t s_axes_angry = { -0.18f, 1.00f, -0.50f, 0.0f, -2.0f, 0.88f, 0.10f, 0.55f, 0.18f, 0.10f, 0.70f, 0.0f, 0.02f };
+static const gfx_lobster_emote_axis_t s_default_axis_smile = { -0.10f, 0.10f, 0.80f, 0.0f, -2.0f, 0.92f, -0.10f, 0.10f, 0.12f, 0.22f, 0.18f, 0.0f, -0.04f };
+static const gfx_lobster_emote_axis_t s_default_axis_happy = { 0.06f, 0.22f, 1.00f, 0.0f, -6.0f, 0.84f, -0.14f, 0.32f, 0.30f, 0.46f, 0.30f, 0.0f, -0.12f };
+static const gfx_lobster_emote_axis_t s_default_axis_sad = { -0.24f, -0.12f, -0.10f, -8.0f, 8.0f, 1.05f, 1.00f, -0.20f, -0.12f, -0.24f, -0.18f, -0.18f, 0.22f };
+static const gfx_lobster_emote_axis_t s_default_axis_surprise = { 0.95f, 0.45f, 0.10f, 0.0f, -10.0f, 0.72f, -0.20f, 1.00f, 0.62f, 0.80f, 0.34f, 0.0f, -0.28f };
+static const gfx_lobster_emote_axis_t s_default_axis_angry = { -0.18f, 1.00f, -0.50f, 0.0f, -2.0f, 0.88f, 0.10f, 0.55f, 0.18f, 0.10f, 0.70f, 0.0f, 0.02f };
 
 static inline int16_t gfx_lobster_emote_ease(int16_t cur, int16_t tgt, int16_t div)
 {
@@ -120,6 +159,107 @@ static inline int16_t gfx_lobster_emote_ease(int16_t cur, int16_t tgt, int16_t d
     step = diff / div;
     if (step == 0) step = (diff > 0) ? 1 : -1;
     return (int16_t)((int32_t)cur + step);
+}
+
+static const gfx_lobster_emote_semantics_t s_default_semantics = {
+    .look_scale_x = GFX_LOBSTER_DEFAULT_LOOK_SCALE_X,
+    .look_scale_y = GFX_LOBSTER_DEFAULT_LOOK_SCALE_Y,
+    .eye_x_from_look = GFX_LOBSTER_DEFAULT_EYE_X_FROM_LOOK,
+    .eye_y_from_alert = GFX_LOBSTER_DEFAULT_EYE_Y_FROM_ALERT,
+    .eye_y_from_droop = GFX_LOBSTER_DEFAULT_EYE_Y_FROM_DROOP,
+    .eye_scale_base = GFX_LOBSTER_DEFAULT_EYE_SCALE_BASE,
+    .eye_scale_from_eye_open = GFX_LOBSTER_DEFAULT_EYE_SCALE_FROM_OPEN,
+    .eye_scale_from_droop = GFX_LOBSTER_DEFAULT_EYE_SCALE_FROM_DROOP,
+    .eye_rot_from_focus = GFX_LOBSTER_DEFAULT_EYE_ROT_FROM_FOCUS,
+    .eye_rot_from_soft = GFX_LOBSTER_DEFAULT_EYE_ROT_FROM_SOFT,
+    .pupil_x_from_look = GFX_LOBSTER_DEFAULT_PUPIL_X_FROM_LOOK,
+    .pupil_y_from_look = GFX_LOBSTER_DEFAULT_PUPIL_Y_FROM_LOOK,
+    .mouth_x_from_look = GFX_LOBSTER_DEFAULT_MOUTH_X_FROM_LOOK,
+    .mouth_y_from_look = GFX_LOBSTER_DEFAULT_MOUTH_Y_FROM_LOOK,
+    .antenna_x_from_look = GFX_LOBSTER_DEFAULT_ANTENNA_X_FROM_LOOK,
+    .antenna_y_from_lift = GFX_LOBSTER_DEFAULT_ANTENNA_Y_FROM_LIFT,
+    .antenna_y_from_droop = GFX_LOBSTER_DEFAULT_ANTENNA_Y_FROM_DROOP,
+    .antenna_rot_from_open = GFX_LOBSTER_DEFAULT_ANTENNA_ROT_FROM_OPEN,
+    .antenna_rot_from_curl = GFX_LOBSTER_DEFAULT_ANTENNA_ROT_FROM_CURL,
+    .antenna_rot_from_droop = GFX_LOBSTER_DEFAULT_ANTENNA_ROT_FROM_DROOP,
+    .antenna_scale_base = GFX_LOBSTER_DEFAULT_ANTENNA_SCALE_BASE,
+    .antenna_scale_from_alert = GFX_LOBSTER_DEFAULT_ANTENNA_SCALE_FROM_ALERT,
+    .antenna_scale_from_lift = GFX_LOBSTER_DEFAULT_ANTENNA_SCALE_FROM_LIFT,
+    .look_x_min = GFX_LOBSTER_DEFAULT_LOOK_X_MIN,
+    .look_x_max = GFX_LOBSTER_DEFAULT_LOOK_X_MAX,
+    .look_y_min = GFX_LOBSTER_DEFAULT_LOOK_Y_MIN,
+    .look_y_max = GFX_LOBSTER_DEFAULT_LOOK_Y_MAX,
+    .pupil_x_min = GFX_LOBSTER_DEFAULT_PUPIL_X_MIN,
+    .pupil_x_max = GFX_LOBSTER_DEFAULT_PUPIL_X_MAX,
+    .pupil_y_min = GFX_LOBSTER_DEFAULT_PUPIL_Y_MIN,
+    .pupil_y_max = GFX_LOBSTER_DEFAULT_PUPIL_Y_MAX,
+    .eye_scale_multiplier = GFX_LOBSTER_DEFAULT_EYE_SCALE_MULTIPLIER,
+    .antenna_thickness_base = GFX_LOBSTER_DEFAULT_ANTENNA_THICKNESS_BASE,
+    .timer_period_ms = GFX_LOBSTER_DEFAULT_TIMER_PERIOD_MS,
+    .damping_div = GFX_LOBSTER_DEFAULT_DAMPING_DIV,
+    .eye_segs = GFX_LOBSTER_DEFAULT_EYE_SEGS,
+    .pupil_segs = GFX_LOBSTER_DEFAULT_PUPIL_SEGS,
+    .antenna_segs = GFX_LOBSTER_DEFAULT_ANTENNA_SEGS,
+    .reserved = 0,
+    .smile = { -0.10f, 0.10f, 0.80f, 0.0f, -2.0f, 0.92f, -0.10f, 0.10f, 0.12f, 0.22f, 0.18f, 0.0f, -0.04f },
+    .happy = { 0.06f, 0.22f, 1.00f, 0.0f, -6.0f, 0.84f, -0.14f, 0.32f, 0.30f, 0.46f, 0.30f, 0.0f, -0.12f },
+    .sad = { -0.24f, -0.12f, -0.10f, -8.0f, 8.0f, 1.05f, 1.00f, -0.20f, -0.12f, -0.24f, -0.18f, -0.18f, 0.22f },
+    .surprise = { 0.95f, 0.45f, 0.10f, 0.0f, -10.0f, 0.72f, -0.20f, 1.00f, 0.62f, 0.80f, 0.34f, 0.0f, -0.28f },
+    .angry = { -0.18f, 1.00f, -0.50f, 0.0f, -2.0f, 0.88f, 0.10f, 0.55f, 0.18f, 0.10f, 0.70f, 0.0f, 0.02f },
+};
+
+static const gfx_lobster_emote_semantics_t *gfx_lobster_emote_get_semantics(const gfx_lobster_emote_assets_t *assets)
+{
+    if (assets != NULL && assets->semantics != NULL) {
+        return assets->semantics;
+    }
+    return &s_default_semantics;
+}
+
+static const gfx_lobster_emote_axis_t *gfx_lobster_emote_get_axis(const gfx_lobster_emote_semantics_t *semantics,
+                                                                  const char *name)
+{
+    if (semantics == NULL || name == NULL) {
+        return NULL;
+    }
+    if (strcmp(name, "smile") == 0) {
+        return &semantics->smile;
+    }
+    if (strcmp(name, "happy") == 0) {
+        return &semantics->happy;
+    }
+    if (strcmp(name, "sad") == 0) {
+        return &semantics->sad;
+    }
+    if (strcmp(name, "surprise") == 0) {
+        return &semantics->surprise;
+    }
+    if (strcmp(name, "angry") == 0) {
+        return &semantics->angry;
+    }
+    return NULL;
+}
+
+static void gfx_lobster_emote_accumulate_axis(gfx_lobster_emotion_axes_t *dst,
+                                              const gfx_lobster_emote_axis_t *axis,
+                                              float weight)
+{
+    if (dst == NULL || axis == NULL || weight == 0.0f) {
+        return;
+    }
+    dst->eye_open += axis->eye_open * weight;
+    dst->eye_focus += axis->eye_focus * weight;
+    dst->eye_soft += axis->eye_soft * weight;
+    dst->pupil_x += axis->pupil_x * weight;
+    dst->pupil_y += axis->pupil_y * weight;
+    dst->pupil_scale += (axis->pupil_scale - 1.0f) * weight;
+    dst->droop += axis->droop * weight;
+    dst->alert += axis->alert * weight;
+    dst->antenna_lift += axis->antenna_lift * weight;
+    dst->antenna_open += axis->antenna_open * weight;
+    dst->antenna_curl += axis->antenna_curl * weight;
+    dst->look_bias_x += axis->look_bias_x * weight;
+    dst->look_bias_y += axis->look_bias_y * weight;
 }
 
 const gfx_mesh_img_point_t *gfx_lobster_emote_get_pupil_shape_points(gfx_lobster_pupil_shape_t shape, size_t *count_out)
@@ -203,7 +343,8 @@ esp_err_t gfx_lobster_emote_validate_assets(const gfx_lobster_emote_assets_t *as
         if (assets->export_meta == NULL) {
             return ESP_ERR_INVALID_STATE;
         }
-        if (assets->export_meta->version != GFX_LOBSTER_EMOTE_EXPORT_VERSION) {
+        if (assets->export_meta->version != GFX_LOBSTER_EMOTE_EXPORT_VERSION &&
+                assets->export_meta->version != GFX_LOBSTER_EMOTE_EXPORT_VERSION_LEGACY) {
             return ESP_ERR_INVALID_STATE;
         }
         if (assets->export_meta->export_width <= 0 || assets->export_meta->export_height <= 0 ||
@@ -266,6 +407,12 @@ esp_err_t gfx_lobster_emote_eval_state(const gfx_lobster_emote_assets_t *assets,
                                        int16_t *look_y_out)
 {
     gfx_lobster_emotion_axes_t a = {0};
+    const gfx_lobster_emote_semantics_t *semantics = gfx_lobster_emote_get_semantics(assets);
+    const gfx_lobster_emote_axis_t *axis_smile = (semantics != NULL) ? &semantics->smile : &s_default_axis_smile;
+    const gfx_lobster_emote_axis_t *axis_happy = (semantics != NULL) ? &semantics->happy : &s_default_axis_happy;
+    const gfx_lobster_emote_axis_t *axis_sad = (semantics != NULL) ? &semantics->sad : &s_default_axis_sad;
+    const gfx_lobster_emote_axis_t *axis_surprise = (semantics != NULL) ? &semantics->surprise : &s_default_axis_surprise;
+    const gfx_lobster_emote_axis_t *axis_angry = (semantics != NULL) ? &semantics->angry : &s_default_axis_angry;
     const int16_t (*eye_white_base)[14] = (assets && assets->eye_white_base) ? assets->eye_white_base : s_eye_white_base;
     const int16_t (*pupil_base)[14] = (assets && assets->pupil_base) ? assets->pupil_base : NULL;
     const int16_t (*mouth_base)[14] = (assets && assets->mouth_base) ? assets->mouth_base : s_mouth_base;
@@ -280,24 +427,17 @@ esp_err_t gfx_lobster_emote_eval_state(const gfx_lobster_emote_assets_t *assets,
     su = (float)state->w_surprise / 100.0f;
     an = (float)state->w_angry / 100.0f;
 
-    a.eye_open = s_axes_smile.eye_open * sm + s_axes_happy.eye_open * hp + s_axes_sad.eye_open * sd + s_axes_surprise.eye_open * su + s_axes_angry.eye_open * an;
-    a.eye_focus = s_axes_smile.eye_focus * sm + s_axes_happy.eye_focus * hp + s_axes_sad.eye_focus * sd + s_axes_surprise.eye_focus * su + s_axes_angry.eye_focus * an;
-    a.eye_soft = s_axes_smile.eye_soft * sm + s_axes_happy.eye_soft * hp + s_axes_sad.eye_soft * sd + s_axes_surprise.eye_soft * su + s_axes_angry.eye_soft * an;
-    a.pupil_x = s_axes_smile.pupil_x * sm + s_axes_happy.pupil_x * hp + s_axes_sad.pupil_x * sd + s_axes_surprise.pupil_x * su + s_axes_angry.pupil_x * an;
-    a.pupil_y = s_axes_smile.pupil_y * sm + s_axes_happy.pupil_y * hp + s_axes_sad.pupil_y * sd + s_axes_surprise.pupil_y * su + s_axes_angry.pupil_y * an;
-    a.pupil_scale = 1.0f + (s_axes_smile.pupil_scale - 1.0f) * sm + (s_axes_happy.pupil_scale - 1.0f) * hp + (s_axes_sad.pupil_scale - 1.0f) * sd + (s_axes_surprise.pupil_scale - 1.0f) * su + (s_axes_angry.pupil_scale - 1.0f) * an;
-    a.droop = s_axes_smile.droop * sm + s_axes_happy.droop * hp + s_axes_sad.droop * sd + s_axes_surprise.droop * su + s_axes_angry.droop * an;
-    a.alert = s_axes_smile.alert * sm + s_axes_happy.alert * hp + s_axes_sad.alert * sd + s_axes_surprise.alert * su + s_axes_angry.alert * an;
-    a.antenna_lift = s_axes_smile.antenna_lift * sm + s_axes_happy.antenna_lift * hp + s_axes_sad.antenna_lift * sd + s_axes_surprise.antenna_lift * su + s_axes_angry.antenna_lift * an;
-    a.antenna_open = s_axes_smile.antenna_open * sm + s_axes_happy.antenna_open * hp + s_axes_sad.antenna_open * sd + s_axes_surprise.antenna_open * su + s_axes_angry.antenna_open * an;
-    a.antenna_curl = s_axes_smile.antenna_curl * sm + s_axes_happy.antenna_curl * hp + s_axes_sad.antenna_curl * sd + s_axes_surprise.antenna_curl * su + s_axes_angry.antenna_curl * an;
-    a.look_bias_x = s_axes_smile.look_bias_x * sm + s_axes_happy.look_bias_x * hp + s_axes_sad.look_bias_x * sd + s_axes_surprise.look_bias_x * su + s_axes_angry.look_bias_x * an;
-    a.look_bias_y = s_axes_smile.look_bias_y * sm + s_axes_happy.look_bias_y * hp + s_axes_sad.look_bias_y * sd + s_axes_surprise.look_bias_y * su + s_axes_angry.look_bias_y * an;
+    a.pupil_scale = 1.0f;
+    gfx_lobster_emote_accumulate_axis(&a, axis_smile, sm);
+    gfx_lobster_emote_accumulate_axis(&a, axis_happy, hp);
+    gfx_lobster_emote_accumulate_axis(&a, axis_sad, sd);
+    gfx_lobster_emote_accumulate_axis(&a, axis_surprise, su);
+    gfx_lobster_emote_accumulate_axis(&a, axis_angry, an);
 
-    look_x = a.look_bias_x * 46.0f + (float)state->w_look_x;
-    look_y = a.look_bias_y * 34.0f + (float)state->w_look_y;
-    look_x = clampf_local(look_x, -22.0f, 22.0f);
-    look_y = clampf_local(look_y, -16.0f, 16.0f);
+    look_x = a.look_bias_x * semantics->look_scale_x + (float)state->w_look_x;
+    look_y = a.look_bias_y * semantics->look_scale_y + (float)state->w_look_y;
+    look_x = clampf_local(look_x, semantics->look_x_min, semantics->look_x_max);
+    look_y = clampf_local(look_y, semantics->look_y_min, semantics->look_y_max);
 
     if (head_out) *head_out = (gfx_lobster_transform_t){ 0, 0, 0, 100 };
     if (body_out) *body_out = (gfx_lobster_transform_t){ 0, 0, 0, 100 };
@@ -306,27 +446,29 @@ esp_err_t gfx_lobster_emote_eval_state(const gfx_lobster_emote_assets_t *assets,
     if (claw_r_out) *claw_r_out = (gfx_lobster_transform_t){ 0, 0, 0, 100 };
     if (dots_out) *dots_out = (gfx_lobster_transform_t){ 0, 0, 0, 100 };
     if (eye_out) *eye_out = (gfx_lobster_transform_t){
-        iroundf(look_x * 0.20f), iroundf(-a.alert * 2.0f + a.droop * 3.0f),
-        iroundf(a.eye_focus * 2.0f - a.eye_soft),
-        iroundf((1.0f + a.eye_open * 0.16f - a.droop * 0.05f) * 100.0f)
+        iroundf(look_x * semantics->eye_x_from_look),
+        iroundf(a.alert * semantics->eye_y_from_alert + a.droop * semantics->eye_y_from_droop),
+        iroundf(a.eye_focus * semantics->eye_rot_from_focus + a.eye_soft * semantics->eye_rot_from_soft),
+        iroundf((semantics->eye_scale_base + a.eye_open * semantics->eye_scale_from_eye_open + a.droop * semantics->eye_scale_from_droop) * 100.0f)
     };
     if (pupil_out) {
-        float pupil_x = a.pupil_x + look_x * 0.35f;
-        float pupil_y = a.pupil_y + look_y * 0.35f;
-        pupil_x = clampf_local(pupil_x, -16.0f, 16.0f);
-        pupil_y = clampf_local(pupil_y, -18.0f, 18.0f);
+        float pupil_x = a.pupil_x + look_x * semantics->pupil_x_from_look;
+        float pupil_y = a.pupil_y + look_y * semantics->pupil_y_from_look;
+        pupil_x = clampf_local(pupil_x, semantics->pupil_x_min, semantics->pupil_x_max);
+        pupil_y = clampf_local(pupil_y, semantics->pupil_y_min, semantics->pupil_y_max);
         *pupil_out = (gfx_lobster_transform_t){
             iroundf(pupil_x), iroundf(pupil_y), 0,
             iroundf(a.pupil_scale * 100.0f)
         };
     }
     if (mouth_out) *mouth_out = (gfx_lobster_transform_t){
-        iroundf(look_x * 0.10f), iroundf(look_y * 0.10f), 0, 100
+        iroundf(look_x * semantics->mouth_x_from_look), iroundf(look_y * semantics->mouth_y_from_look), 0, 100
     };
     if (antenna_out) *antenna_out = (gfx_lobster_transform_t){
-        iroundf(look_x * 0.10f), iroundf(-a.antenna_lift * 8.0f + a.droop * 2.0f),
-        iroundf(a.antenna_open * 12.0f + a.antenna_curl * 18.0f - a.droop * 6.0f),
-        iroundf((1.0f + a.alert * 0.05f + a.antenna_lift * 0.04f) * 100.0f)
+        iroundf(look_x * semantics->antenna_x_from_look),
+        iroundf(a.antenna_lift * semantics->antenna_y_from_lift + a.droop * semantics->antenna_y_from_droop),
+        iroundf(a.antenna_open * semantics->antenna_rot_from_open + a.antenna_curl * semantics->antenna_rot_from_curl + a.droop * semantics->antenna_rot_from_droop),
+        iroundf((semantics->antenna_scale_base + a.alert * semantics->antenna_scale_from_alert + a.antenna_lift * semantics->antenna_scale_from_lift) * 100.0f)
     };
     if (eye_curve_out) {
         blend_curve14(eye_white_base, state, eye_curve_out);
@@ -410,11 +552,14 @@ esp_err_t gfx_lobster_emote_update_pose(gfx_obj_t *obj, gfx_lobster_emote_t *lob
     int32_t mouth_cy;
     int32_t antenna_left_cx;
     int32_t antenna_left_cy;
-    int32_t antenna_right_cx;
-    int32_t antenna_right_cy;
+    int32_t eye_segs;
+    int32_t pupil_segs;
+    int32_t antenna_segs;
+    const gfx_lobster_emote_semantics_t *semantics;
     float sc;
 
     if (lobster == NULL || lobster->assets == NULL) return ESP_OK;
+    semantics = gfx_lobster_emote_get_semantics(lobster->assets);
     div = lobster->cfg.damping_div;
     if (div < 1) div = 1;
     gfx_obj_calc_pos_in_parent(obj);
@@ -492,46 +637,49 @@ esp_err_t gfx_lobster_emote_update_pose(gfx_obj_t *obj, gfx_lobster_emote_t *lob
       antenna_right_cx = root_x + ox + iroundf((709.0f - LOBSTER_VIEWBOX_CX) * sc);
       antenna_right_cy = root_y + oy + iroundf((406.53f - LOBSTER_VIEWBOX_CY) * sc);
     }
-    eye_scale_percent = iroundf(sc * (float)lobster->eye_l.cur.s * 1.12f);
+    eye_segs = (semantics != NULL && semantics->eye_segs > 0) ? semantics->eye_segs : GFX_LOBSTER_DEFAULT_EYE_SEGS;
+    pupil_segs = (semantics != NULL && semantics->pupil_segs > 0) ? semantics->pupil_segs : GFX_LOBSTER_DEFAULT_PUPIL_SEGS;
+    antenna_segs = (semantics != NULL && semantics->antenna_segs > 0) ? semantics->antenna_segs : GFX_LOBSTER_DEFAULT_ANTENNA_SEGS;
+    eye_scale_percent = iroundf(sc * (float)lobster->eye_l.cur.s * semantics->eye_scale_multiplier);
     pupil_scale_percent = iroundf(sc * (float)lobster->pupil_l.cur.s);
     antenna_scale_percent = iroundf(sc * (float)lobster->antenna.cur.s);
-    antenna_thickness = iroundf(sc * 30.0f * 0.5f);
+    antenna_thickness = iroundf(sc * semantics->antenna_thickness_base);
     if (antenna_thickness < 2) antenna_thickness = 2;
 
     ESP_RETURN_ON_ERROR(gfx_face_emote_apply_bezier_stroke(lobster->antenna_l_obj, lobster->antenna_curve_l_cur.pts, false,
                                                            antenna_left_cx + lobster->antenna.cur.x,
                                                            antenna_left_cy + lobster->antenna.cur.y,
-                                                           antenna_scale_percent, antenna_thickness, false, 18),
+                                                           antenna_scale_percent, antenna_thickness, false, antenna_segs),
                         TAG, "apply left antenna failed");
     ESP_RETURN_ON_ERROR(gfx_face_emote_apply_bezier_stroke(lobster->antenna_r_obj, lobster->antenna_curve_r_cur.pts, false,
                                                            antenna_right_cx + lobster->antenna.cur.x,
                                                            antenna_right_cy + lobster->antenna.cur.y,
-                                                           antenna_scale_percent, antenna_thickness, false, 18),
+                                                           antenna_scale_percent, antenna_thickness, false, antenna_segs),
                         TAG, "apply right antenna failed");
     ESP_RETURN_ON_ERROR(gfx_face_emote_apply_bezier_fill(lobster->eye_l_obj, lobster->eye_white_cur.pts,
                                                          eye_left_cx + lobster->eye_l.cur.x + lobster->look_x_cur,
                                                          eye_left_cy + lobster->eye_l.cur.y + lobster->look_y_cur,
-                                                         eye_scale_percent, false, 18),
+                                                         eye_scale_percent, false, eye_segs),
                         TAG, "apply left eye failed");
     ESP_RETURN_ON_ERROR(gfx_face_emote_apply_bezier_fill(lobster->eye_r_obj, lobster->eye_white_cur.pts,
                                                          eye_right_cx + lobster->eye_r.cur.x + lobster->look_x_cur,
                                                          eye_right_cy + lobster->eye_r.cur.y + lobster->look_y_cur,
-                                                         eye_scale_percent, true, 18),
+                                                         eye_scale_percent, true, eye_segs),
                         TAG, "apply right eye failed");
     ESP_RETURN_ON_ERROR(gfx_face_emote_apply_bezier_fill(lobster->pupil_l_obj, lobster->pupil_cur.pts,
                                                          pupil_left_cx + lobster->pupil_l.cur.x + lobster->look_x_cur,
                                                          pupil_left_cy + lobster->pupil_l.cur.y + lobster->look_y_cur,
-                                                         pupil_scale_percent, false, 14),
+                                                         pupil_scale_percent, false, pupil_segs),
                         TAG, "apply left pupil failed");
     ESP_RETURN_ON_ERROR(gfx_face_emote_apply_bezier_fill(lobster->pupil_r_obj, lobster->pupil_cur.pts,
                                                          pupil_right_cx + lobster->pupil_r.cur.x + lobster->look_x_cur,
                                                          pupil_right_cy + lobster->pupil_r.cur.y + lobster->look_y_cur,
-                                                         pupil_scale_percent, true, 14),
+                                                         pupil_scale_percent, true, pupil_segs),
                         TAG, "apply right pupil failed");
     ESP_RETURN_ON_ERROR(gfx_face_emote_apply_bezier_fill(lobster->mouth_obj, lobster->mouth_cur.pts,
                                                          mouth_cx + lobster->mouth.cur.x + lobster->look_x_cur / 2,
                                                          mouth_cy + lobster->mouth.cur.y + lobster->look_y_cur / 2,
-                                                         eye_scale_percent, false, 14),
+                                                         eye_scale_percent, false, pupil_segs),
                         TAG, "apply mouth failed");
     return ESP_OK;
 }

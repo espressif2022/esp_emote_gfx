@@ -138,7 +138,7 @@ static esp_err_t gfx_lobster_emote_apply_color(gfx_lobster_emote_t *lobster)
                         ESP_ERR_INVALID_STATE, TAG, "lobster display is not ready");
 
     swap = lobster->antenna_l_obj->disp->flags.swap;
-    lobster->accent_pixel = gfx_color_to_native_u16(GFX_COLOR_HEX(0xF46144), swap);
+    lobster->accent_pixel = gfx_color_to_native_u16(lobster->color, swap);
     lobster->eye_white_pixel = gfx_color_to_native_u16(GFX_COLOR_HEX(0xFFFFFF), swap);
     lobster->pupil_pixel = gfx_color_to_native_u16(GFX_COLOR_HEX(0x191919), swap);
 
@@ -184,8 +184,8 @@ gfx_obj_t *gfx_lobster_emote_create(gfx_disp_t *disp, uint16_t w, uint16_t h)
 
     lobster->cfg.display_w = w;
     lobster->cfg.display_h = h;
-    lobster->cfg.timer_period_ms = 33;
-    lobster->cfg.damping_div = 4;
+    lobster->cfg.timer_period_ms = GFX_LOBSTER_DEFAULT_TIMER_PERIOD_MS;
+    lobster->cfg.damping_div = GFX_LOBSTER_DEFAULT_DAMPING_DIV;
     lobster->color = GFX_COLOR_HEX(0xF46144);
     lobster->accent_img = s_default_img;
     lobster->eye_white_img = s_default_img;
@@ -259,10 +259,27 @@ esp_err_t gfx_lobster_emote_set_assets(gfx_obj_t *obj, const gfx_lobster_emote_a
 {
     gfx_lobster_emote_t *lobster;
 
+    const gfx_lobster_emote_semantics_t *semantics = NULL;
+
     CHECK_OBJ_TYPE_LOBSTER_EMOTE(obj);
     lobster = (gfx_lobster_emote_t *)obj->src;
     ESP_RETURN_ON_ERROR(gfx_lobster_emote_validate_assets(assets), TAG, "invalid lobster assets");
     lobster->assets = assets;
+    semantics = gfx_lobster_emote_get_semantics(assets);
+    if (semantics != NULL) {
+        lobster->cfg.timer_period_ms = (semantics->timer_period_ms > 0U) ? semantics->timer_period_ms : GFX_LOBSTER_DEFAULT_TIMER_PERIOD_MS;
+        lobster->cfg.damping_div = (semantics->damping_div > 0) ? semantics->damping_div : GFX_LOBSTER_DEFAULT_DAMPING_DIV;
+        if (lobster->anim_timer != NULL) {
+            gfx_timer_set_period(lobster->anim_timer, lobster->cfg.timer_period_ms);
+        }
+        gfx_mesh_img_set_grid(lobster->antenna_l_obj, (semantics->antenna_segs > 0U) ? semantics->antenna_segs : GFX_LOBSTER_DEFAULT_ANTENNA_SEGS, 1U);
+        gfx_mesh_img_set_grid(lobster->antenna_r_obj, (semantics->antenna_segs > 0U) ? semantics->antenna_segs : GFX_LOBSTER_DEFAULT_ANTENNA_SEGS, 1U);
+        gfx_mesh_img_set_grid(lobster->eye_l_obj, (semantics->eye_segs > 0U) ? semantics->eye_segs : GFX_LOBSTER_DEFAULT_EYE_SEGS, 1U);
+        gfx_mesh_img_set_grid(lobster->eye_r_obj, (semantics->eye_segs > 0U) ? semantics->eye_segs : GFX_LOBSTER_DEFAULT_EYE_SEGS, 1U);
+        gfx_mesh_img_set_grid(lobster->pupil_l_obj, (semantics->pupil_segs > 0U) ? semantics->pupil_segs : GFX_LOBSTER_DEFAULT_PUPIL_SEGS, 1U);
+        gfx_mesh_img_set_grid(lobster->pupil_r_obj, (semantics->pupil_segs > 0U) ? semantics->pupil_segs : GFX_LOBSTER_DEFAULT_PUPIL_SEGS, 1U);
+        gfx_mesh_img_set_grid(lobster->mouth_obj, (semantics->pupil_segs > 0U) ? semantics->pupil_segs : GFX_LOBSTER_DEFAULT_PUPIL_SEGS, 1U);
+    }
 
     if (lobster->assets != NULL) {
         if (lobster->assets->sequence != NULL && lobster->assets->sequence_count > 0U) {
