@@ -192,30 +192,25 @@ static const gfx_lobster_emote_state_t s_lobster_expr_sequence[] = {
     { "02 look dwn", "02 下看", 0, 0, 0, 0, 0, 0, 20, GFX_LOBSTER_PUPIL_SHAPE_O, 30 },
     { "03 look lft", "03 左看", 0, 0, 0, 0, 0, -20, 0, GFX_LOBSTER_PUPIL_SHAPE_O, 30 },
     { "04 look rgt", "04 右看", 0, 0, 0, 0, 0, 20, 0, GFX_LOBSTER_PUPIL_SHAPE_O, 30 },
-    { "05 neutral", "05 平静", 0, 0, 0, 0, 0, 0, 0, GFX_LOBSTER_PUPIL_SHAPE_O, 30 },
     { "06 smile", "06 微笑", 100, 0, 0, 0, 0, 0, 0, GFX_LOBSTER_PUPIL_SHAPE_U, 30 },
     { "07 happy", "07 开心", 0, 100, 0, 0, 0, 0, 0, GFX_LOBSTER_PUPIL_SHAPE_U, 30 },
     { "08 grinning", "08 咧嘴乐", 50, 100, 0, 0, 0, 0, 0, GFX_LOBSTER_PUPIL_SHAPE_U, 30 },
     { "09 loving", "09 喜爱", 80, 20, 0, 0, 0, 0, -20, GFX_LOBSTER_PUPIL_SHAPE_U, 30 },
-    { "10 neutral", "10 平静", 0, 0, 0, 0, 0, 0, 0, GFX_LOBSTER_PUPIL_SHAPE_O, 30 },
     { "11 sad", "11 难过", 0, 0, 100, 0, 0, 0, 20, GFX_LOBSTER_PUPIL_SHAPE_N, 30 },
     { "12 crying", "12 哭泣", 0, 0, 100, 0, 0, 0, 0, GFX_LOBSTER_PUPIL_SHAPE_N, 30 },
     { "13 sobbing", "13 嚎哭", 0, 0, 120, 0, 0, 0, 0, GFX_LOBSTER_PUPIL_SHAPE_N, 30 },
     { "14 horrified", "14 惊恐", 0, 0, 60, 100, 0, 0, 0, GFX_LOBSTER_PUPIL_SHAPE_O, 30 },
-    { "15 neutral", "15 平静", 0, 0, 0, 0, 0, 0, 0, GFX_LOBSTER_PUPIL_SHAPE_O, 30 },
     { "16 surprise", "16 惊讶", 0, 0, 0, 100, 0, 0, -25, GFX_LOBSTER_PUPIL_SHAPE_O, 30 },
     { "17 shocked", "17 震惊", 0, 0, 0, 120, 0, 0, 0, GFX_LOBSTER_PUPIL_SHAPE_O, 30 },
     { "18 excited", "18 激动", 60, 100, 0, 50, 0, 0, 0, GFX_LOBSTER_PUPIL_SHAPE_O, 30 },
     { "19 laughing", "19 大笑", 20, 100, 0, 40, 0, 0, 0, GFX_LOBSTER_PUPIL_SHAPE_U, 30 },
-    { "20 neutral", "20 平静", 0, 0, 0, 0, 0, 0, 0, GFX_LOBSTER_PUPIL_SHAPE_O, 30 },
     { "21 angry", "21 生气", 0, 0, 0, 0, 100, 0, 0, GFX_LOBSTER_PUPIL_SHAPE_LINE, 30 },
     { "22 thinking", "22 思考", 0, 0, 20, 0, 30, 20, -15, GFX_LOBSTER_PUPIL_SHAPE_LINE, 30 },
     { "23 confused", "23 困惑", 0, 0, 30, 20, 20, -20, 10, GFX_LOBSTER_PUPIL_SHAPE_O, 30 },
     { "24 sympathet", "24 共情", 30, 0, 50, 0, 0, 0, 10, GFX_LOBSTER_PUPIL_SHAPE_N, 30 },
     { "25 sheepish", "25 腼腆", 50, 0, 30, 0, 0, 15, 15, GFX_LOBSTER_PUPIL_SHAPE_U, 30 },
     { "26 amused", "26 逗乐", 60, 0, 0, 30, 0, 0, 0, GFX_LOBSTER_PUPIL_SHAPE_U, 30 },
-    { "27 relaxed", "27 放松", 40, 0, 0, 0, 0, 0, 0, GFX_LOBSTER_PUPIL_SHAPE_U, 30 },
-    { "28 neutral", "28 平静", 0, 0, 0, 0, 0, 0, 0, GFX_LOBSTER_PUPIL_SHAPE_O, 30 }
+    { "27 relaxed", "27 放松", 40, 0, 0, 0, 0, 0, 0, GFX_LOBSTER_PUPIL_SHAPE_U, 30 }
 };
 
 
@@ -3338,5 +3333,4 @@ static const gfx_image_dsc_t s_lobster_bg_embedded = {
     .data = s_lobster_bg_embedded_map,
 };
 /* END GENERATED IMAGE ASSET: s_lobster_bg_embedded */
-
 

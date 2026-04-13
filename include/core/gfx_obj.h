@@ -31,6 +31,7 @@ extern "C" {
 /* 0x09 reserved for removed dragon emote */
 #define GFX_OBJ_TYPE_LOBSTER_EMOTE 0x0A
 /* 0x0B reserved for removed lobster face emote */
+#define GFX_OBJ_TYPE_STICKMAN_EMOTE 0x0C
 
 /* Alignment constants (similar to LVGL) */
 #define GFX_ALIGN_DEFAULT         0x00

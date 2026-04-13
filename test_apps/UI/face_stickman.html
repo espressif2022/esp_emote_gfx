@@ -3,292 +3,1219 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stickman Action Preview</title>
+  <title>Stickman Static Action Board</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+    :root {
+      --bg: #101a24;
+      --panel: rgba(13, 24, 36, 0.95);
+      --line: rgba(255, 255, 255, 0.08);
+      --text: #eef4fb;
+      --muted: #96a8bc;
+      --accent: #111111;
+      --paper: #fbfbf9;
+      --preview-w: 360px;
+      --preview-h: 360px;
+    }
+
+    * { box-sizing: border-box; }
+
     body {
-      background: #080b10; color: #e2e8f0;
-      font-family: 'Inter', 'Segoe UI', sans-serif;
-      display: flex; flex-direction: column; align-items: center;
-      margin: 0; padding: 24px; gap: 20px;
+      margin: 0;
+      padding: 20px;
+      color: var(--text);
+      font-family: "Avenir Next", "Noto Sans SC", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 18% 14%, rgba(255, 255, 255, 0.05), transparent 20%),
+        radial-gradient(circle at 82% 12%, rgba(255, 255, 255, 0.04), transparent 22%),
+        linear-gradient(180deg, #152434 0%, var(--bg) 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
     }
-    h1 { font-size: 18px; font-weight: 600; color: #94a3b8; margin: 0; letter-spacing: 0.5px; }
-    .layout { display: flex; gap: 20px; align-items: flex-start; }
-    .viewer {
-      background: radial-gradient(ellipse at 50% 40%, #1e2636 0%, #0d1118 100%);
-      width: 440px; height: 500px;
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: 0.4px;
+    }
+
+    .intro {
+      margin: 0;
+      max-width: 980px;
+      text-align: center;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .layout {
+      width: min(1140px, 100%);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .stage, .sidebar, .actions, .rules {
+      background: var(--panel);
+      border: 1px solid var(--line);
       border-radius: 16px;
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 20px 40px rgba(0,0,0,0.7);
-      position: relative; overflow: hidden; flex-shrink: 0;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
     }
-    .panel {
-      display: flex; flex-direction: column; gap: 8px;
-      width: 200px;
+
+    .stage { padding: 14px; }
+    .sidebar { padding: 14px; display: grid; gap: 12px; }
+    .actions, .rules { width: min(1140px, 100%); padding: 14px 16px; }
+
+    .viewer {
+      position: relative;
+      width: var(--preview-w);
+      height: var(--preview-h);
+      max-width: 100%;
+      max-height: 82vh;
+      overflow: hidden;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fefefb 0%, #f7f7f3 100%);
+      box-shadow:
+        inset 0 0 0 1px rgba(17, 17, 17, 0.08),
+        0 12px 30px rgba(0, 0, 0, 0.18);
     }
-    .panel-section { color: #4ade80; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; padding: 4px 0 2px; border-bottom: 1px solid rgba(74,222,128,0.2); margin-bottom: 10px; }
+
+    .viewer svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .hud {
+      position: absolute;
+      left: 12px;
+      bottom: 10px;
+      color: rgba(17, 17, 17, 0.58);
+      font: 12px ui-monospace, monospace;
+      white-space: pre;
+    }
+
+    .title {
+      font-size: 12px;
+      letter-spacing: 1px;
+      color: #90b4d8;
+      text-transform: uppercase;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .card h2 {
+      margin: 0;
+      font-size: 15px;
+    }
+
+    .card p {
+      margin: 6px 0 0;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+
+    .btns {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
     button {
-      background: rgba(255,255,255,0.04); color: #94a3b8;
-      border: 1px solid rgba(255,255,255,0.07); padding: 8px 12px;
-      border-radius: 8px; cursor: pointer; transition: all 0.15s;
-      font-size: 13px; font-weight: 500; text-align: left; width: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: #1a2a3b;
+      color: #e7eef8;
+      border-radius: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
     }
-    button:hover { background: rgba(255,255,255,0.09); color: #e2e8f0; border-color: rgba(255,255,255,0.15); }
-    button.active { background: rgba(59,130,246,0.25); border-color: #3b82f6; color: #93c5fd; }
-    
-    .stick-part { fill: none; stroke: #ffffff; stroke-linecap: round; stroke-linejoin: round; transition: 0.05s linear; }
-    .head-fill { fill: #ffffff; stroke: none; }
+
+    button.active {
+      background: #f4f4f4;
+      color: #111111;
+      border-color: #ffffff;
+    }
+
+    .export-bar {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .export-bar label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .export-bar input {
+      width: 88px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: #152233;
+      color: #dfe9f7;
+      border-radius: 8px;
+      padding: 6px 8px;
+    }
+
+    .grid {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .item-title {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .item-sub {
+      margin-top: 6px;
+      font-size: 11px;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+
+    .action-meta {
+      margin-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .paper-stroke {
+      fill: none;
+      stroke: #111111;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .paper-head {
+      fill: none;
+      stroke: #111111;
+      stroke-width: 4;
+    }
+
+    .ground-line {
+      stroke: rgba(17, 17, 17, 0.16);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-dasharray: 6 6;
+    }
+
+    .shadow {
+      fill: rgba(17, 17, 17, 0.10);
+    }
+
+    @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
   </style>
 </head>
 <body>
+  <h1>Stickman Static Action Board</h1>
+  <p class="intro">
+    这个页面直接以 <code>fireman.svg</code> 的火柴人比例为基础，只保留圆头和直线四肢的读形。
+    每个动作都是单个静态目标姿态，不自动循环；只有在你点击动作按钮时，才会从当前姿态缓动切到下一个姿态。
+    现在走路和跑步已经拆成左右各 <code>step1 / step2</code> 两组，导出时会带上分组和步序信息，方便你在设备端循环切换。
+  </p>
 
-<h1>Stickman Action Animation Prototype</h1>
+  <div class="layout">
+    <section class="stage">
+      <div class="viewer" id="viewer">
+        <svg id="preview-svg" viewBox="0 0 200 300" aria-label="Static stickman actions based on fireman.svg">
+          <rect x="0" y="0" width="200" height="300" fill="#fbfbf9" rx="18"></rect>
+          <line class="ground-line" x1="26" y1="262" x2="174" y2="262"></line>
+          <ellipse id="shadow" class="shadow" cx="100" cy="262" rx="24" ry="6"></ellipse>
 
-<div class="layout">
-  <div class="viewer">
-    <svg id="canvas" width="440" height="500" viewBox="0 0 320 364">
-      <defs>
-         <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-           <feGaussianBlur stdDeviation="2" result="blur" />
-           <feComposite in="SourceGraphic" in2="blur" operator="over" />
-         </filter>
-      </defs>
-      
-      <!-- Stickman Main Group -->
-      <g id="stickman_base" transform="translate(160, 100)" filter="url(#glow)">
-        <!-- Skeleton -->
-        <g id="body_rig">
-           <!-- Spine -->
-           <line id="spine" class="stick-part" stroke-width="5" x1="0" y1="50" x2="0" y2="150" />
-           
-           <!-- Shoulder Area -->
-           <circle cx="0" cy="70" r="2" fill="#fff" />
-           <line id="l_arm_1" class="stick-part" stroke-width="4.5" x1="0" y1="70" x2="-30" y2="100" />
-           <line id="l_arm_2" class="stick-part" stroke-width="4" x1="-30" y1="100" x2="-45" y2="140" />
-           <line id="r_arm_1" class="stick-part" stroke-width="4.5" x1="0" y1="70" x2="30" y2="100" />
-           <line id="r_arm_2" class="stick-part" stroke-width="4" x1="30" y1="100" x2="45" y2="140" />
+          <circle id="head" class="paper-head" cx="100" cy="50" r="20"></circle>
+          <line id="spine" class="paper-stroke" x1="100" y1="70" x2="100" y2="170"></line>
+          <line id="arm-left-upper" class="paper-stroke" x1="100" y1="100" x2="80" y2="120"></line>
+          <line id="arm-left-lower" class="paper-stroke" x1="80" y1="120" x2="60" y2="140"></line>
+          <line id="arm-right-upper" class="paper-stroke" x1="100" y1="100" x2="120" y2="120"></line>
+          <line id="arm-right-lower" class="paper-stroke" x1="120" y1="120" x2="140" y2="140"></line>
+          <line id="leg-left-upper" class="paper-stroke" x1="100" y1="170" x2="85" y2="200"></line>
+          <line id="leg-left-lower" class="paper-stroke" x1="85" y1="200" x2="70" y2="230"></line>
+          <line id="leg-right-upper" class="paper-stroke" x1="100" y1="170" x2="115" y2="200"></line>
+          <line id="leg-right-lower" class="paper-stroke" x1="115" y1="200" x2="130" y2="230"></line>
+        </svg>
+        <div class="hud" id="hud"></div>
+      </div>
+      <div class="btns" id="btns"></div>
+      <div class="export-bar">
+        <label>宽 <input id="export-width" type="number" min="64" step="1" value="360"></label>
+        <label>高 <input id="export-height" type="number" min="64" step="1" value="360"></label>
+        <button id="export-inc-btn">导出控件 INC</button>
+        <button id="export-folder-btn">导出到文件夹</button>
+      </div>
+    </section>
 
-           <!-- Hip Area -->
-           <circle cx="0" cy="150" r="2" fill="#fff" />
-           <line id="l_leg_1" class="stick-part" stroke-width="5" x1="0" y1="150" x2="-20" y2="200" />
-           <line id="l_leg_2" class="stick-part" stroke-width="4.5" x1="-20" y1="200" x2="-30" y2="250" />
-           <line id="r_leg_1" class="stick-part" stroke-width="5" x1="0" y1="150" x2="20" y2="200" />
-           <line id="r_leg_2" class="stick-part" stroke-width="4.5" x1="20" y1="200" x2="30" y2="250" />
-        </g>
-
-        <!-- Head -->
-        <g id="head_rig">
-           <circle id="head" class="head-fill" cx="0" cy="0" r="45" />
-        </g>
-      </g>
-    </svg>
-    <div id="action-label" style="position:absolute; bottom:15px; left:20px; font-family:monospace; color:#4ade80; font-size:12px; font-weight:bold;">ACTION: IDLE</div>
+    <aside class="sidebar">
+      <div class="card">
+        <div class="title">Current Action</div>
+        <h2 id="action-name"></h2>
+        <p id="action-desc"></p>
+      </div>
+      <div class="card">
+        <div class="title">Shape Rule</div>
+        <p>头保持圆形，身体、手臂、双腿都只用直线。走、跑、跳、挥手、坐下只通过肢体角度和端点变化来表达，不额外加表情或装饰。</p>
+      </div>
+      <div class="card">
+        <div class="title">Transition Rule</div>
+        <p>页面默认停在当前动作，不会自己播。点击另一个动作后，用和设备侧一致的阻尼参数把当前姿态推向目标姿态。</p>
+      </div>
+    </aside>
   </div>
 
-  <div class="panel">
-    <div class="panel-section">Stickman Actions</div>
-    <button id="btn-idle" class="active">Idle (呼吸)</button>
-    <button id="btn-run">Run (奔跑)</button>
-    <button id="btn-squat">Squat (下蹲)</button>
-    <button id="btn-jump">Jump (纵跳)</button>
-    <button id="btn-walk">Walk (行走)</button>
-    <button id="btn-dash">Dash (冲刺)</button>
-  </div>
-</div>
+  <section class="actions">
+    <div class="title">Action Overview</div>
+    <div class="grid" id="action-grid"></div>
+  </section>
 
-<script>
-/**
- * STICKMAN ACTION PREVIEW
- * Focusing on skeletal movement and predefined action keyframes/loops.
- */
+  <section class="rules">
+    <div class="title">Skeleton Notes</div>
+    <div class="grid" id="rule-grid"></div>
+  </section>
 
-// ─── UTILS ───────────────────────────────────────────────────────────────────
-const lerp = (a, b, t) => a + (b - a) * t;
-const rotate = (ox, oy, x, y, angle) => {
-  const rad = (Math.PI / 180) * angle;
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
-  return {
-    x: cos * (x - ox) - sin * (y - oy) + ox,
-    y: sin * (x - ox) + cos * (y - oy) + oy
-  };
-};
-
-// ─── STATE ───────────────────────────────────────────────────────────────────
-let currentAction = 'idle';
-let frameTime = 0;
-let rig = {
-  head_y: 0, body_y: 0, head_tilt: 0,
-  spine_angle: 0,
-  l_arm1_ang: 45, l_arm2_ang: 45,
-  r_arm1_ang: -45, r_arm2_ang: -45,
-  l_leg1_ang: 15, l_leg2_ang: 15,
-  r_leg1_ang: -15, r_leg2_ang: -15
-};
-
-// Target rig for interpolation
-let targetRig = { ...rig };
-
-const actions = {
-  idle: (t) => {
-    const breathe = Math.sin(t * 0.003) * 3;
-    return {
-      head_y: breathe, body_y: breathe * 0.5, head_tilt: 0,
-      spine_angle: 0,
-      l_arm1_ang: 40 + breathe, l_arm2_ang: 20,
-      r_arm1_ang: -40 - breathe, r_arm2_ang: -20,
-      l_leg1_ang: 10, l_leg2_ang: 5,
-      r_leg1_ang: -10, r_leg2_ang: -5
+  <script>
+    const VIEWBOX = { x: 0, y: 0, w: 200, h: 300 };
+    const TIMER_PERIOD_MS = 33;
+    const DAMPING_DIV = 4;
+    const POSE_KEYS = [
+      "headX", "headY",
+      "neckX", "neckY",
+      "shoulderX", "shoulderY",
+      "hipX", "hipY",
+      "elbowLX", "elbowLY",
+      "handLX", "handLY",
+      "elbowRX", "elbowRY",
+      "handRX", "handRY",
+      "kneeLX", "kneeLY",
+      "footLX", "footLY",
+      "kneeRX", "kneeRY",
+      "footRX", "footRY"
+    ];
+    const STICKMAN_LAYOUT = {
+      headRadius: 20,
+      strokeWidth: 4,
+      mirrorX: 100,
+      groundY: 262,
+      timerPeriodMs: TIMER_PERIOD_MS,
+      dampingDiv: DAMPING_DIV
     };
-  },
-  run: (t) => {
-    const phi = t * 0.012;
-    const s = Math.sin(phi);
-    const c = Math.cos(phi);
-    const tilt = s * 8;
-    return {
-      head_y: -Math.abs(c) * 10, body_y: -Math.abs(c) * 5, head_tilt: tilt,
-      spine_angle: 15,
-      l_arm1_ang: s * 60 - 20, l_arm2_ang: 80,
-      r_arm1_ang: -s * 60 - 20, r_arm2_ang: -80,
-      l_leg1_ang: -s * 50 + 20, l_leg2_ang: (s > 0 ? s * 80 : 10),
-      r_leg1_ang: s * 50 + 20, r_leg2_ang: (s < 0 ? -s * 80 : 10)
+    const RULES = [
+      { title: "基础比例", note: "平静姿态严格贴 fireman.svg：圆头、直躯干、双臂斜下、双腿斜下。" },
+      { title: "动作方式", note: "每个动作只保留一个关键姿态，不在页面里自动做 walk cycle 或 loop。" },
+      { title: "步态拆分", note: "走路和跑步拆成左右各 step1 / step2，两帧来回切换就能形成基础运动感。" },
+      { title: "左右方向", note: "走左和跑左继续复用右向姿态做镜像，保证导出格式更稳定。" },
+      { title: "固定点位", note: "所有动作都严格使用同一套 12 个关键点：头心、脖颈、肩、髋、左右肘手、左右膝脚。" },
+      { title: "设备契约", note: "导出的是固定 schema 的静态 pose、动作分组、step 序号和阻尼参数，设备端只需要做插值和画线。" }
+    ];
+    const POSE_ORDER = [
+      "calm",
+      "walk_step1",
+      "walk_step2",
+      "run_step1",
+      "run_step2",
+      "jump",
+      "wave",
+      "deep_squat_hold_head",
+      "half_squat",
+      "hands_on_head",
+      "cheer",
+      "point",
+      "akimbo"
+    ];
+    const POSE_LIBRARY = {
+      calm: {
+        headX: 100, headY: 50,
+        neckX: 100, neckY: 70,
+        shoulderX: 100, shoulderY: 100,
+        hipX: 100, hipY: 170,
+        elbowLX: 80, elbowLY: 120,
+        handLX: 60, handLY: 140,
+        elbowRX: 120, elbowRY: 120,
+        handRX: 140, handRY: 140,
+        kneeLX: 85, kneeLY: 200,
+        footLX: 70, footLY: 230,
+        kneeRX: 115, kneeRY: 200,
+        footRX: 130, footRY: 230
+      },
+      walk_step1: {
+        headX: 100, headY: 50,
+        neckX: 100, neckY: 70,
+        shoulderX: 100, shoulderY: 100,
+        hipX: 100, hipY: 170,
+        elbowLX: 92, elbowLY: 120,
+        handLX: 86, handLY: 144,
+        elbowRX: 112, elbowRY: 114,
+        handRX: 126, handRY: 122,
+        kneeLX: 90, kneeLY: 198,
+        footLX: 76, footLY: 228,
+        kneeRX: 112, kneeRY: 194,
+        footRX: 126, footRY: 212
+      },
+      walk_step2: {
+        headX: 100, headY: 50,
+        neckX: 100, neckY: 70,
+        shoulderX: 100, shoulderY: 100,
+        hipX: 100, hipY: 170,
+        elbowLX: 88, elbowLY: 114,
+        handLX: 74, handLY: 122,
+        elbowRX: 108, elbowRY: 120,
+        handRX: 114, handRY: 144,
+        kneeLX: 88, kneeLY: 194,
+        footLX: 74, footLY: 212,
+        kneeRX: 110, kneeRY: 198,
+        footRX: 124, footRY: 228
+      },
+      run_step1: {
+        headX: 114, headY: 50,
+        neckX: 108, neckY: 70,
+        shoulderX: 104, shoulderY: 96,
+        hipX: 88, hipY: 166,
+        elbowLX: 82, elbowLY: 104,
+        handLX: 62, handLY: 122,
+        elbowRX: 116, elbowRY: 106,
+        handRX: 132, handRY: 88,
+        kneeLX: 70, kneeLY: 194,
+        footLX: 50, footLY: 216,
+        kneeRX: 112, kneeRY: 188,
+        footRX: 128, footRY: 214
+      },
+      run_step2: {
+        headX: 114, headY: 50,
+        neckX: 108, neckY: 70,
+        shoulderX: 104, shoulderY: 96,
+        hipX: 86, hipY: 166,
+        elbowLX: 112, elbowLY: 106,
+        handLX: 128, handLY: 88,
+        elbowRX: 78, elbowRY: 104,
+        handRX: 58, handRY: 122,
+        kneeLX: 108, kneeLY: 188,
+        footLX: 126, footLY: 214,
+        kneeRX: 72, kneeRY: 194,
+        footRX: 50, footRY: 216
+      },
+      jump: {
+        headX: 100, headY: 44,
+        neckX: 100, neckY: 64,
+        shoulderX: 100, shoulderY: 94,
+        hipX: 100, hipY: 154,
+        elbowLX: 84, elbowLY: 76,
+        handLX: 66, handLY: 58,
+        elbowRX: 116, elbowRY: 76,
+        handRX: 134, handRY: 58,
+        kneeLX: 90, kneeLY: 182,
+        footLX: 106, footLY: 198,
+        kneeRX: 116, kneeRY: 176,
+        footRX: 132, footRY: 156
+      },
+      wave: {
+        headX: 100, headY: 50,
+        neckX: 100, neckY: 70,
+        shoulderX: 100, shoulderY: 100,
+        hipX: 100, hipY: 170,
+        elbowLX: 90, elbowLY: 122,
+        handLX: 80, handLY: 146,
+        elbowRX: 114, elbowRY: 84,
+        handRX: 122, handRY: 54,
+        kneeLX: 90, kneeLY: 200,
+        footLX: 80, footLY: 230,
+        kneeRX: 110, kneeRY: 200,
+        footRX: 120, footRY: 230
+      },
+      deep_squat_hold_head: {
+        headX: 100, headY: 64,
+        neckX: 100, neckY: 84,
+        shoulderX: 100, shoulderY: 112,
+        hipX: 100, hipY: 184,
+        elbowLX: 80, elbowLY: 106,
+        handLX: 88, handLY: 78,
+        elbowRX: 120, elbowRY: 106,
+        handRX: 112, handRY: 78,
+        kneeLX: 84, kneeLY: 214,
+        footLX: 66, footLY: 232,
+        kneeRX: 116, kneeRY: 214,
+        footRX: 134, footRY: 232
+      },
+      half_squat: {
+        headX: 100, headY: 60,
+        neckX: 100, neckY: 80,
+        shoulderX: 100, shoulderY: 110,
+        hipX: 100, hipY: 176,
+        elbowLX: 86, elbowLY: 128,
+        handLX: 72, handLY: 146,
+        elbowRX: 114, elbowRY: 128,
+        handRX: 128, handRY: 146,
+        kneeLX: 88, kneeLY: 204,
+        footLX: 74, footLY: 230,
+        kneeRX: 112, kneeRY: 204,
+        footRX: 126, footRY: 230
+      },
+      hands_on_head: {
+        headX: 100, headY: 52,
+        neckX: 100, neckY: 72,
+        shoulderX: 100, shoulderY: 102,
+        hipX: 100, hipY: 172,
+        elbowLX: 82, elbowLY: 92,
+        handLX: 86, handLY: 64,
+        elbowRX: 118, elbowRY: 92,
+        handRX: 114, handRY: 64,
+        kneeLX: 88, kneeLY: 202,
+        footLX: 76, footLY: 232,
+        kneeRX: 112, kneeRY: 202,
+        footRX: 124, footRY: 232
+      },
+      cheer: {
+        headX: 100, headY: 48,
+        neckX: 100, neckY: 68,
+        shoulderX: 100, shoulderY: 98,
+        hipX: 100, hipY: 168,
+        elbowLX: 86, elbowLY: 82,
+        handLX: 70, handLY: 60,
+        elbowRX: 114, elbowRY: 82,
+        handRX: 130, handRY: 60,
+        kneeLX: 88, kneeLY: 198,
+        footLX: 76, footLY: 228,
+        kneeRX: 112, kneeRY: 198,
+        footRX: 124, footRY: 228
+      },
+      point: {
+        headX: 100, headY: 50,
+        neckX: 100, neckY: 70,
+        shoulderX: 100, shoulderY: 100,
+        hipX: 100, hipY: 170,
+        elbowLX: 88, elbowLY: 118,
+        handLX: 76, handLY: 144,
+        elbowRX: 122, elbowRY: 102,
+        handRX: 148, handRY: 102,
+        kneeLX: 90, kneeLY: 200,
+        footLX: 78, footLY: 230,
+        kneeRX: 110, kneeRY: 200,
+        footRX: 122, footRY: 230
+      },
+      akimbo: {
+        headX: 100, headY: 50,
+        neckX: 100, neckY: 70,
+        shoulderX: 100, shoulderY: 100,
+        hipX: 100, hipY: 170,
+        elbowLX: 84, elbowLY: 114,
+        handLX: 92, handLY: 144,
+        elbowRX: 116, elbowRY: 114,
+        handRX: 108, handRY: 144,
+        kneeLX: 88, kneeLY: 200,
+        footLX: 76, footLY: 230,
+        kneeRX: 112, kneeRY: 200,
+        footRX: 124, footRY: 230
+      }
     };
-  },
-  walk: (t) => {
-    const phi = t * 0.006;
-    const s = Math.sin(phi);
-    return {
-      head_y: -Math.abs(s) * 4, body_y: 0, head_tilt: s * 5,
-      spine_angle: 5,
-      l_arm1_ang: s * 30, l_arm2_ang: 20,
-      r_arm1_ang: -s * 30, r_arm2_ang: -20,
-      l_leg1_ang: -s * 30 + 10, l_leg2_ang: (s > 0 ? s * 40 : 10),
-      r_leg1_ang: s * 30 + 10, r_leg2_ang: (s < 0 ? -s * 40 : 10)
+    const ACTIONS = [
+      {
+        name: "00 calm",
+        cn: "00 平静",
+        poseId: "calm",
+        group: "calm",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 6,
+        desc: "正面基础站姿，直接对齐 fireman.svg 的标准比例。"
+      },
+      {
+        name: "01 walk_r_s1",
+        cn: "01 走右 1",
+        poseId: "walk_step1",
+        group: "walk_r",
+        stepIndex: 1,
+        stepCount: 2,
+        facing: 1,
+        transitionTicks: 7,
+        desc: "走右 step1，按你给的经典走路剪影收成直立身体、前脚抬起、前臂轻轻前送。"
+      },
+      {
+        name: "02 walk_r_s2",
+        cn: "02 走右 2",
+        poseId: "walk_step2",
+        group: "walk_r",
+        stepIndex: 2,
+        stepCount: 2,
+        facing: 1,
+        transitionTicks: 7,
+        desc: "走右 step2，把 step1 的手脚前后关系对换，来回切换后更像经典火柴人行走。"
+      },
+      {
+        name: "03 walk_l_s1",
+        cn: "03 走左 1",
+        poseId: "walk_step1",
+        group: "walk_l",
+        stepIndex: 1,
+        stepCount: 2,
+        facing: -1,
+        transitionTicks: 7,
+        desc: "走左 step1，复用走右 step1 做镜像。"
+      },
+      {
+        name: "04 walk_l_s2",
+        cn: "04 走左 2",
+        poseId: "walk_step2",
+        group: "walk_l",
+        stepIndex: 2,
+        stepCount: 2,
+        facing: -1,
+        transitionTicks: 7,
+        desc: "走左 step2，复用走右 step2 做镜像。"
+      },
+      {
+        name: "05 run_r_s1",
+        cn: "05 跑右 1",
+        poseId: "run_step1",
+        group: "run_r",
+        stepIndex: 1,
+        stepCount: 2,
+        facing: 1,
+        transitionTicks: 7,
+        desc: "跑右 step1，按你给的经典跑步剪影收成身体前倾、后臂下压、前臂上挑。"
+      },
+      {
+        name: "06 run_r_s2",
+        cn: "06 跑右 2",
+        poseId: "run_step2",
+        group: "run_r",
+        stepIndex: 2,
+        stepCount: 2,
+        facing: 1,
+        transitionTicks: 7,
+        desc: "跑右 step2，把 step1 的摆臂摆腿关系完全对换，交替切换后更接近经典跑步图示。"
+      },
+      {
+        name: "07 run_l_s1",
+        cn: "07 跑左 1",
+        poseId: "run_step1",
+        group: "run_l",
+        stepIndex: 1,
+        stepCount: 2,
+        facing: -1,
+        transitionTicks: 7,
+        desc: "跑左 step1，复用跑右 step1 做镜像，保持同样的前倾和上下前臂关系。"
+      },
+      {
+        name: "08 run_l_s2",
+        cn: "08 跑左 2",
+        poseId: "run_step2",
+        group: "run_l",
+        stepIndex: 2,
+        stepCount: 2,
+        facing: -1,
+        transitionTicks: 7,
+        desc: "跑左 step2，复用跑右 step2 做镜像，和左 step1 成对切换。"
+      },
+      {
+        name: "09 jump",
+        cn: "09 跳跃",
+        poseId: "jump",
+        group: "jump",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 8,
+        desc: "双臂上举，一侧腿提起，停在参考图里的腾空关键姿态。"
+      },
+      {
+        name: "10 wave",
+        cn: "10 挥手",
+        poseId: "wave",
+        group: "wave",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 7,
+        desc: "站姿不变，只把右臂抬到头侧上方，形成经典挥手轮廓。"
+      },
+      {
+        name: "11 deep_squat_hold_head",
+        cn: "11 深蹲抱头",
+        poseId: "deep_squat_hold_head",
+        group: "deep_squat_hold_head",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 9,
+        desc: "把原来的坐下改成深蹲抱头：重心深压、膝盖外开、双手贴近头两侧。"
+      },
+      {
+        name: "12 half_squat",
+        cn: "12 半蹲",
+        poseId: "half_squat",
+        group: "half_squat",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 7,
+        desc: "身体整体下沉一小段，膝盖明显弯折，适合做准备或戒备姿态。"
+      },
+      {
+        name: "13 hands_on_head",
+        cn: "13 抱头",
+        poseId: "hands_on_head",
+        group: "hands_on_head",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 7,
+        desc: "双肘抬开、双手靠头两侧，是很典型的抱头或紧张姿态。"
+      },
+      {
+        name: "14 cheer",
+        cn: "14 欢呼",
+        poseId: "cheer",
+        group: "cheer",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 7,
+        desc: "双手上举成 V 字，双腿略打开，是很常见的火柴人庆祝姿态。"
+      },
+      {
+        name: "15 point_r",
+        cn: "15 指向右",
+        poseId: "point",
+        group: "point_r",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 6,
+        desc: "右臂平直指向前方，适合做提示或讲解类动作。"
+      },
+      {
+        name: "16 akimbo",
+        cn: "16 叉腰",
+        poseId: "akimbo",
+        group: "akimbo",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 6,
+        desc: "双臂弯折靠近腰部，整体是一个很经典的站姿变体。"
+      }
+    ];
+    const FIXED_POINT_LABELS = [
+      ["headX/headY", "头心"],
+      ["neckX/neckY", "脖颈"],
+      ["shoulderX/shoulderY", "肩点"],
+      ["hipX/hipY", "髋点"],
+      ["elbowLX/elbowLY", "左肘"],
+      ["handLX/handLY", "左手"],
+      ["elbowRX/elbowRY", "右肘"],
+      ["handRX/handRY", "右手"],
+      ["kneeLX/kneeLY", "左膝"],
+      ["footLX/footLY", "左脚"],
+      ["kneeRX/kneeRY", "右膝"],
+      ["footRX/footRY", "右脚"]
+    ];
+
+    const parts = {
+      head: document.getElementById("head"),
+      spine: document.getElementById("spine"),
+      armLU: document.getElementById("arm-left-upper"),
+      armLL: document.getElementById("arm-left-lower"),
+      armRU: document.getElementById("arm-right-upper"),
+      armRL: document.getElementById("arm-right-lower"),
+      legLU: document.getElementById("leg-left-upper"),
+      legLL: document.getElementById("leg-left-lower"),
+      legRU: document.getElementById("leg-right-upper"),
+      legRL: document.getElementById("leg-right-lower"),
+      shadow: document.getElementById("shadow")
     };
-  },
-  squat: (t) => {
-    return {
-      head_y: 70, body_y: 60, head_tilt: 10,
-      spine_angle: 20,
-      l_arm1_ang: 80, l_arm2_ang: 120,
-      r_arm1_ang: -80, r_arm2_ang: -120,
-      l_leg1_ang: 110, l_leg2_ang: -120,
-      r_leg1_ang: -110, r_leg2_ang: 120
-    };
-  },
-  jump: (t) => {
-    const cycle = (t * 0.004) % (Math.PI * 2);
-    const jumpVal = Math.max(0, Math.sin(cycle));
-    return {
-      head_y: -jumpVal * 80, body_y: -jumpVal * 80, head_tilt: 0,
-      spine_angle: -jumpVal * 10,
-      l_arm1_ang: jumpVal * -120 + 40, l_arm2_ang: 20,
-      r_arm1_ang: jumpVal * 120 - 40, r_arm2_ang: -20,
-      l_leg1_ang: jumpVal * -40 + 10, l_leg2_ang: jumpVal * -20 + 10,
-      r_leg1_ang: jumpVal * 40 - 10, r_leg2_ang: jumpVal * 20 - 10
-    };
-  },
-  dash: (t) => {
-    const phi = t * 0.02;
-    const s = Math.sin(phi);
-    return {
-      head_y: -5 + s * 2, body_y: 0, head_tilt: 15,
-      spine_angle: 45,
-      l_arm1_ang: s * 80 - 40, l_arm2_ang: 100,
-      r_arm1_ang: -s * 80 - 40, r_arm2_ang: -100,
-      l_leg1_ang: -s * 70 + 40, l_leg2_ang: (s > 0 ? s * 110 : 20),
-      r_leg1_ang: s * 70 + 40, r_leg2_ang: (s < 0 ? -s * 110 : 20)
-    };
-  }
-};
 
-function updateSymmetry() {
-  const ease = 0.25;
-  for (let key in rig) {
-    rig[key] = lerp(rig[key], targetRig[key], ease);
-  }
-}
+    const btns = document.getElementById("btns");
+    const hud = document.getElementById("hud");
+    const actionName = document.getElementById("action-name");
+    const actionDesc = document.getElementById("action-desc");
+    const actionGrid = document.getElementById("action-grid");
+    const ruleGrid = document.getElementById("rule-grid");
+    const previewSvg = document.getElementById("preview-svg");
+    const exportWidthInput = document.getElementById("export-width");
+    const exportHeightInput = document.getElementById("export-height");
+    const exportIncBtn = document.getElementById("export-inc-btn");
+    const exportFolderBtn = document.getElementById("export-folder-btn");
 
-function render() {
-  const head = document.getElementById('head_rig');
-  const body = document.getElementById('body_rig');
-  
-  head.setAttribute('transform', `translate(0, ${rig.head_y}) rotate(${rig.head_tilt})`);
-  body.setAttribute('transform', `translate(0, ${rig.body_y})`);
+    let activeAction = ACTIONS[0];
+    let currentPose = null;
+    let targetPose = null;
+    let rafHandle = 0;
 
-  // Update Spine based on spine_angle
-  const spineEnd = rotate(0, 70, 0, 150, rig.spine_angle);
-  document.getElementById('spine').setAttribute('x2', spineEnd.x);
-  document.getElementById('spine').setAttribute('y2', spineEnd.y);
-  
-  const hipX = spineEnd.x;
-  const hipY = spineEnd.y;
-  
-  // Arms (Starting from shoulder Fixed 0,70)
-  const l1 = rotate(0, 70, 0, 110, rig.l_arm1_ang);
-  const l2 = rotate(l1.x, l1.y, l1.x, l1.y + 40, rig.l_arm1_ang + rig.l_arm2_ang);
-  document.getElementById('l_arm_1').setAttribute('x2', l1.x);
-  document.getElementById('l_arm_1').setAttribute('y2', l1.y);
-  document.getElementById('l_arm_2').setAttribute('x1', l1.x);
-  document.getElementById('l_arm_2').setAttribute('y1', l1.y);
-  document.getElementById('l_arm_2').setAttribute('x2', l2.x);
-  document.getElementById('l_arm_2').setAttribute('y2', l2.y);
+    function validatePoseLibrary() {
+      const allowedKeys = new Set(POSE_KEYS);
+      POSE_ORDER.forEach((poseId) => {
+        const pose = POSE_LIBRARY[poseId];
+        if (!pose) {
+          throw new Error(`missing pose: ${poseId}`);
+        }
+        const poseKeys = Object.keys(pose);
+        POSE_KEYS.forEach((key) => {
+          if (!(key in pose)) {
+            throw new Error(`pose ${poseId} missing key ${key}`);
+          }
+          if (typeof pose[key] !== "number" || Number.isNaN(pose[key])) {
+            throw new Error(`pose ${poseId} has invalid number for ${key}`);
+          }
+        });
+        poseKeys.forEach((key) => {
+          if (!allowedKeys.has(key)) {
+            throw new Error(`pose ${poseId} has unexpected key ${key}`);
+          }
+        });
+      });
+    }
 
-  const r1 = rotate(0, 70, 0, 110, rig.r_arm1_ang);
-  const r2 = rotate(r1.x, r1.y, r1.x, r1.y + 40, rig.r_arm1_ang + rig.r_arm2_ang);
-  document.getElementById('r_arm_1').setAttribute('x2', r1.x);
-  document.getElementById('r_arm_1').setAttribute('y2', r1.y);
-  document.getElementById('r_arm_2').setAttribute('x1', r1.x);
-  document.getElementById('r_arm_2').setAttribute('y1', r1.y);
-  document.getElementById('r_arm_2').setAttribute('x2', r2.x);
-  document.getElementById('r_arm_2').setAttribute('y2', r2.y);
+    function validateActions() {
+      const groups = new Map();
+      ACTIONS.forEach((action) => {
+        if (!POSE_LIBRARY[action.poseId]) {
+          throw new Error(`action ${action.name} references missing pose ${action.poseId}`);
+        }
+        if (!Number.isInteger(action.stepIndex) || !Number.isInteger(action.stepCount)) {
+          throw new Error(`action ${action.name} has invalid step metadata`);
+        }
+        if (action.stepIndex < 1 || action.stepIndex > action.stepCount) {
+          throw new Error(`action ${action.name} has out-of-range step index`);
+        }
+        if (!groups.has(action.group)) groups.set(action.group, []);
+        groups.get(action.group).push(action);
+      });
 
-  // Legs (Starting from Hip)
-  document.getElementById('l_leg_1').setAttribute('x1', hipX);
-  document.getElementById('l_leg_1').setAttribute('y1', hipY);
-  const ll1 = rotate(hipX, hipY, hipX, hipY + 50, rig.l_leg1_ang);
-  const ll2 = rotate(ll1.x, ll1.y, ll1.x, ll1.y + 50, rig.l_leg1_ang + rig.l_leg2_ang);
-  document.getElementById('l_leg_1').setAttribute('x2', ll1.x);
-  document.getElementById('l_leg_1').setAttribute('y2', ll1.y);
-  document.getElementById('l_leg_2').setAttribute('x1', ll1.x);
-  document.getElementById('l_leg_2').setAttribute('y1', ll1.y);
-  document.getElementById('l_leg_2').setAttribute('x2', ll2.x);
-  document.getElementById('l_leg_2').setAttribute('y2', ll2.y);
+      groups.forEach((items, groupName) => {
+        const declaredCount = items[0].stepCount;
+        if (items.some((item) => item.stepCount !== declaredCount)) {
+          throw new Error(`group ${groupName} has inconsistent step_count`);
+        }
+        if (items.length !== declaredCount) {
+          throw new Error(`group ${groupName} expected ${declaredCount} actions but got ${items.length}`);
+        }
+        const sortedSteps = items.map((item) => item.stepIndex).sort((a, b) => a - b);
+        sortedSteps.forEach((step, index) => {
+          if (step !== index + 1) {
+            throw new Error(`group ${groupName} missing step ${index + 1}`);
+          }
+        });
+      });
+    }
 
-  document.getElementById('r_leg_1').setAttribute('x1', hipX);
-  document.getElementById('r_leg_1').setAttribute('y1', hipY);
-  const rl1 = rotate(hipX, hipY, hipX, hipY + 50, rig.r_leg1_ang);
-  const rl2 = rotate(rl1.x, rl1.y, rl1.x, rl1.y + 50, rig.r_leg1_ang + rig.r_leg2_ang);
-  document.getElementById('r_leg_1').setAttribute('x2', rl1.x);
-  document.getElementById('r_leg_1').setAttribute('y2', rl1.y);
-  document.getElementById('r_leg_2').setAttribute('x1', rl1.x);
-  document.getElementById('r_leg_2').setAttribute('y1', rl1.y);
-  document.getElementById('r_leg_2').setAttribute('x2', rl2.x);
-  document.getElementById('r_leg_2').setAttribute('y2', rl2.y);
-}
+    function validateStickmanData() {
+      validatePoseLibrary();
+      validateActions();
+    }
 
-function tick(t) {
-  frameTime = t;
-  targetRig = actions[currentAction](t);
-  updateSymmetry();
-  render();
-  requestAnimationFrame(tick);
-}
+    function clonePose(pose) {
+      const out = {};
+      POSE_KEYS.forEach((key) => {
+        out[key] = pose[key];
+      });
+      return out;
+    }
 
-// ─── UI CONTROLS ──────────────────────────────────────────────────────────────
-const btns = document.querySelectorAll('button');
-btns.forEach(btn => {
-  btn.onclick = () => {
-    btns.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentAction = btn.id.split('-')[1];
-    document.getElementById('action-label').innerText = `ACTION: ${currentAction.toUpperCase()}`;
-  };
-});
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
 
-// ─── START ───────────────────────────────────────────────────────────────────
-requestAnimationFrame(tick);
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
 
-</script>
+    function mirrorX(value, facing) {
+      if (facing >= 0) return value;
+      return (STICKMAN_LAYOUT.mirrorX * 2) - value;
+    }
+
+    function resolveActionPose(action) {
+      const source = POSE_LIBRARY[action.poseId];
+      const resolved = {};
+      POSE_KEYS.forEach((key) => {
+        if (key.endsWith("X")) {
+          resolved[key] = mirrorX(source[key], action.facing);
+        } else {
+          resolved[key] = source[key];
+        }
+      });
+      return resolved;
+    }
+
+    function easeValue(cur, tgt, div) {
+      const diff = tgt - cur;
+      if (Math.abs(diff) < 0.2) return tgt;
+      return cur + (diff / Math.max(1, div));
+    }
+
+    function easePose(cur, tgt, div) {
+      let moving = false;
+      POSE_KEYS.forEach((key) => {
+        cur[key] = easeValue(cur[key], tgt[key], div);
+        if (Math.abs(cur[key] - tgt[key]) >= 0.2) moving = true;
+      });
+      return moving;
+    }
+
+    function point(pose, xKey, yKey) {
+      return { x: pose[xKey], y: pose[yKey] };
+    }
+
+    function setLine(el, p0, p1) {
+      el.setAttribute("x1", p0.x.toFixed(2));
+      el.setAttribute("y1", p0.y.toFixed(2));
+      el.setAttribute("x2", p1.x.toFixed(2));
+      el.setAttribute("y2", p1.y.toFixed(2));
+    }
+
+    function renderPose(pose, action) {
+      const head = point(pose, "headX", "headY");
+      const neck = point(pose, "neckX", "neckY");
+      const shoulder = point(pose, "shoulderX", "shoulderY");
+      const hip = point(pose, "hipX", "hipY");
+      const elbowL = point(pose, "elbowLX", "elbowLY");
+      const handL = point(pose, "handLX", "handLY");
+      const elbowR = point(pose, "elbowRX", "elbowRY");
+      const handR = point(pose, "handRX", "handRY");
+      const kneeL = point(pose, "kneeLX", "kneeLY");
+      const footL = point(pose, "footLX", "footLY");
+      const kneeR = point(pose, "kneeRX", "kneeRY");
+      const footR = point(pose, "footRX", "footRY");
+
+      parts.head.setAttribute("cx", head.x.toFixed(2));
+      parts.head.setAttribute("cy", head.y.toFixed(2));
+      parts.head.setAttribute("r", String(STICKMAN_LAYOUT.headRadius));
+
+      setLine(parts.spine, neck, hip);
+      setLine(parts.armLU, shoulder, elbowL);
+      setLine(parts.armLL, elbowL, handL);
+      setLine(parts.armRU, shoulder, elbowR);
+      setLine(parts.armRL, elbowR, handR);
+      setLine(parts.legLU, hip, kneeL);
+      setLine(parts.legLL, kneeL, footL);
+      setLine(parts.legRU, hip, kneeR);
+      setLine(parts.legRL, kneeR, footR);
+
+      const lowestFoot = Math.max(footL.y, footR.y);
+      const lift = clamp((STICKMAN_LAYOUT.groundY - lowestFoot) / 48, 0, 1);
+      const shadowRx = lerp(24, 14, lift);
+      const shadowRy = lerp(6, 3.5, lift);
+      const shadowOpacity = lerp(0.10, 0.05, lift);
+      const shadowCx = lerp((footL.x + footR.x) / 2, hip.x, 0.35);
+
+      parts.shadow.setAttribute("cx", shadowCx.toFixed(2));
+      parts.shadow.setAttribute("rx", shadowRx.toFixed(2));
+      parts.shadow.setAttribute("ry", shadowRy.toFixed(2));
+      parts.shadow.setAttribute("fill", `rgba(17, 17, 17, ${shadowOpacity.toFixed(3)})`);
+
+      hud.textContent =
+        `${action.name}\n` +
+        `group:${action.group} step:${action.stepIndex}/${action.stepCount} face:${action.facing > 0 ? "R" : "L"}\n` +
+        `hip:${hip.x.toFixed(1)},${hip.y.toFixed(1)}`;
+    }
+
+    function tick() {
+      if (!currentPose || !targetPose) {
+        rafHandle = 0;
+        return;
+      }
+      const moving = easePose(currentPose, targetPose, STICKMAN_LAYOUT.dampingDiv);
+      renderPose(currentPose, activeAction);
+      if (moving) {
+        rafHandle = requestAnimationFrame(tick);
+      } else {
+        rafHandle = 0;
+      }
+    }
+
+    function ensureAnimation() {
+      if (rafHandle !== 0) return;
+      rafHandle = requestAnimationFrame(tick);
+    }
+
+    function setAction(action) {
+      activeAction = action;
+      actionName.textContent = `${action.cn} / ${action.name}`;
+      actionDesc.textContent = action.desc;
+      document.querySelectorAll("#btns button").forEach((el) => {
+        el.classList.toggle("active", el.dataset.action === action.name);
+      });
+      const encoded = encodeURIComponent(action.name);
+      try {
+        if (location.hash !== `#${encoded}`) {
+          history.replaceState(null, "", `#${encoded}`);
+        }
+      } catch (err) {
+        console.warn("hash update skipped", err);
+      }
+
+      targetPose = resolveActionPose(action);
+      if (!currentPose) {
+        currentPose = clonePose(targetPose);
+        renderPose(currentPose, activeAction);
+        return;
+      }
+      ensureAnimation();
+    }
+
+    function updatePreviewResolution() {
+      const width = Math.max(64, Number(exportWidthInput.value) || 360);
+      const height = Math.max(64, Number(exportHeightInput.value) || 360);
+      document.documentElement.style.setProperty("--preview-w", `${width}px`);
+      document.documentElement.style.setProperty("--preview-h", `${height}px`);
+      previewSvg.setAttribute("width", width);
+      previewSvg.setAttribute("height", height);
+    }
+
+    function getExportSize() {
+      return {
+        width: Math.max(64, Number(exportWidthInput.value) || 360),
+        height: Math.max(64, Number(exportHeightInput.value) || 360)
+      };
+    }
+
+    function getExportLayout(width, height) {
+      const scale = Math.min(width / VIEWBOX.w, height / VIEWBOX.h);
+      const renderW = Math.round(VIEWBOX.w * scale);
+      const renderH = Math.round(VIEWBOX.h * scale);
+      const offsetX = Math.floor((width - renderW) / 2);
+      const offsetY = Math.floor((height - renderH) / 2);
+      return { scale, offsetX, offsetY };
+    }
+
+    function exportPointC(x, y) {
+      return `{ ${Math.round(x)}, ${Math.round(y)} }`;
+    }
+
+    function exportPoseC(pose) {
+      return [
+        "    {",
+        `        .head_center = ${exportPointC(pose.headX, pose.headY)},`,
+        `        .neck = ${exportPointC(pose.neckX, pose.neckY)},`,
+        `        .shoulder = ${exportPointC(pose.shoulderX, pose.shoulderY)},`,
+        `        .hip = ${exportPointC(pose.hipX, pose.hipY)},`,
+        `        .elbow_l = ${exportPointC(pose.elbowLX, pose.elbowLY)},`,
+        `        .hand_l = ${exportPointC(pose.handLX, pose.handLY)},`,
+        `        .elbow_r = ${exportPointC(pose.elbowRX, pose.elbowRY)},`,
+        `        .hand_r = ${exportPointC(pose.handRX, pose.handRY)},`,
+        `        .knee_l = ${exportPointC(pose.kneeLX, pose.kneeLY)},`,
+        `        .foot_l = ${exportPointC(pose.footLX, pose.footLY)},`,
+        `        .knee_r = ${exportPointC(pose.kneeRX, pose.kneeRY)},`,
+        `        .foot_r = ${exportPointC(pose.footRX, pose.footRY)},`,
+        "    }"
+      ].join("\n");
+    }
+
+    function buildIncText() {
+      const { width, height } = getExportSize();
+      const layout = getExportLayout(width, height);
+      const poseIndexMap = Object.fromEntries(POSE_ORDER.map((key, index) => [key, index]));
+      const poseRows = POSE_ORDER.map((key) => exportPoseC(POSE_LIBRARY[key])).join(",\n");
+      const actionRows = ACTIONS.map((action) => {
+        return `    { "${action.name}", "${action.cn}", "${action.group}", ${poseIndexMap[action.poseId]}, ${action.stepIndex}, ${action.stepCount}, ${action.facing}, ${action.transitionTicks} }`;
+      }).join(",\n");
+      const sequenceRows = ACTIONS.map((_, index) => `    ${index}`).join(",\n");
+
+      return [
+        "/* Auto-generated from face_stickman.html */",
+        "#pragma once",
+        '#include "widget/gfx_stickman_emote.h"',
+        "",
+        "static const gfx_parametric_export_meta_t s_stickman_export_meta = {",
+        `    .version = ${3},`,
+        `    .design_viewbox_x = ${VIEWBOX.x},`,
+        `    .design_viewbox_y = ${VIEWBOX.y},`,
+        `    .design_viewbox_w = ${VIEWBOX.w},`,
+        `    .design_viewbox_h = ${VIEWBOX.h},`,
+        `    .export_width = ${width},`,
+        `    .export_height = ${height},`,
+        `    .export_scale = ${layout.scale.toFixed(6)}f,`,
+        `    .export_offset_x = ${layout.offsetX},`,
+        `    .export_offset_y = ${layout.offsetY},`,
+        "};",
+        "",
+        "static const gfx_stickman_layout_t s_stickman_layout = {",
+        `    .head_radius = ${STICKMAN_LAYOUT.headRadius},`,
+        `    .stroke_width = ${STICKMAN_LAYOUT.strokeWidth},`,
+        `    .mirror_x = ${STICKMAN_LAYOUT.mirrorX},`,
+        `    .ground_y = ${STICKMAN_LAYOUT.groundY},`,
+        `    .timer_period_ms = ${STICKMAN_LAYOUT.timerPeriodMs},`,
+        `    .damping_div = ${STICKMAN_LAYOUT.dampingDiv},`,
+        "};",
+        "",
+        "static const gfx_stickman_pose_t s_stickman_poses[] = {",
+        poseRows,
+        "};",
+        "",
+        "static const gfx_stickman_action_t s_stickman_actions[] = {",
+        actionRows,
+        "};",
+        "",
+        "static const uint16_t s_stickman_sequence[] = {",
+        sequenceRows,
+        "};",
+        "",
+        "static const gfx_stickman_export_t s_stickman_export = {",
+        "    .meta = &s_stickman_export_meta,",
+        "    .layout = &s_stickman_layout,",
+        "    .poses = s_stickman_poses,",
+        "    .pose_count = sizeof(s_stickman_poses) / sizeof(s_stickman_poses[0]),",
+        "    .actions = s_stickman_actions,",
+        "    .action_count = sizeof(s_stickman_actions) / sizeof(s_stickman_actions[0]),",
+        "    .sequence = s_stickman_sequence,",
+        "    .sequence_count = sizeof(s_stickman_sequence) / sizeof(s_stickman_sequence[0]),",
+        "};",
+        "",
+        ""
+      ].join("\n");
+    }
+
+    function downloadTextFile(filename, text) {
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function buildReadmeText() {
+      const schemaText = FIXED_POINT_LABELS.map(([keys, label]) => `${label}:${keys}`).join(" / ");
+      return [
+        "Auto-generated from face_stickman.html",
+        "",
+        "Files:",
+        "- stickman_fireman_export.inc",
+        "",
+        "Schema contents:",
+        "- gfx_parametric_export_meta_t compatible meta block",
+        "- static pose library",
+        "- action descriptors with group + step info",
+        "- playback sequence",
+        "- damping parameters for device-side interpolation",
+        "- fixed 12-point schema",
+        "",
+        `Fixed points: ${schemaText}`,
+        "",
+        "Page behavior:",
+        "- every action is static",
+        "- pose only changes when a new action is selected",
+        "- walk/run are split into step1 and step2 pairs",
+        "- device side should blend current pose to target pose"
+      ].join("\n");
+    }
+
+    async function writeFile(handle, data) {
+      const writable = await handle.createWritable();
+      await writable.write(data);
+      await writable.close();
+    }
+
+    async function exportToFolder() {
+      const incText = buildIncText();
+      const readmeText = buildReadmeText();
+
+      if (!window.showDirectoryPicker) {
+        downloadTextFile("stickman_fireman_export.inc", incText);
+        downloadTextFile("stickman_fireman_README.txt", readmeText);
+        alert("当前浏览器不支持目录写入，已退回为单文件下载。");
+        return;
+      }
+
+      const dir = await window.showDirectoryPicker({ mode: "readwrite" });
+      const incHandle = await dir.getFileHandle("stickman_fireman_export.inc", { create: true });
+      const readmeHandle = await dir.getFileHandle("stickman_fireman_README.txt", { create: true });
+      await writeFile(incHandle, incText);
+      await writeFile(readmeHandle, readmeText);
+      alert("已导出到所选文件夹：\n- stickman_fireman_export.inc\n- stickman_fireman_README.txt");
+    }
+
+    function buildUI() {
+      btns.innerHTML = "";
+      ACTIONS.forEach((action, index) => {
+        const btn = document.createElement("button");
+        btn.dataset.action = action.name;
+        btn.textContent = action.cn;
+        if (index === 0) btn.classList.add("active");
+        btn.onclick = () => setAction(action);
+        btns.appendChild(btn);
+      });
+
+      actionGrid.innerHTML = ACTIONS.map((action) => `
+        <div class="item">
+          <div class="item-title">${action.cn}</div>
+          <div class="item-sub">${action.desc}</div>
+          <div class="action-meta">
+            <span>${action.group} ${action.stepCount > 1 ? `s${action.stepIndex}/${action.stepCount}` : "single"}</span>
+            <span>${action.transitionTicks} ticks</span>
+          </div>
+        </div>
+      `).join("");
+
+      const pointSchemaCard = `
+        <div class="item">
+          <div class="item-title">固定 12 点</div>
+          <div class="item-sub">${FIXED_POINT_LABELS.map(([_, label]) => label).join(" / ")}</div>
+        </div>
+      `;
+
+      ruleGrid.innerHTML = RULES.map((rule) => `
+        <div class="item">
+          <div class="item-title">${rule.title}</div>
+          <div class="item-sub">${rule.note}</div>
+        </div>
+      `).join("") + pointSchemaCard;
+    }
+
+    function getInitialAction() {
+      const raw = decodeURIComponent(location.hash.replace(/^#/, "")).trim();
+      if (!raw) return ACTIONS[0];
+      return ACTIONS.find((action) => (
+        action.name === raw ||
+        action.cn === raw ||
+        action.poseId === raw
+      )) || ACTIONS[0];
+    }
+
+    validateStickmanData();
+    buildUI();
+    updatePreviewResolution();
+    setAction(getInitialAction());
+
+    exportIncBtn.onclick = () => downloadTextFile("stickman_fireman_export.inc", buildIncText());
+    exportFolderBtn.onclick = () => exportToFolder().catch((err) => {
+      console.error(err);
+      alert(`导出文件夹失败: ${err.message || err}`);
+    });
+    exportWidthInput.addEventListener("input", updatePreviewResolution);
+    exportHeightInput.addEventListener("input", updatePreviewResolution);
+    window.addEventListener("hashchange", () => {
+      const nextAction = getInitialAction();
+      if (nextAction.name !== activeAction.name) {
+        setAction(nextAction);
+      }
+    });
+  </script>
 </body>
 </html>

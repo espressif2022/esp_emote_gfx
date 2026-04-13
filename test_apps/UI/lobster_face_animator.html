@@ -467,13 +467,6 @@
         overrideEyes: { lookX: 20, lookY: 0 }
       },
       {
-        name: "05 neutral",
-        cn: "05 平静",
-        desc: "回到中性圆眼，触角也自然归位。",
-        weights: { smile: 0, happy: 0, sad: 0, surprise: 0, angry: 0 },
-        pupilShape: "o"
-      },
-      {
         name: "06 smile",
         cn: "06 微笑",
         desc: "u 形眼柔和抬起，触角轻轻打开，像友好地笑一下。",
@@ -501,13 +494,6 @@
         weights: { smile: 80, happy: 20, sad: 0, surprise: 0, angry: 0 },
         pupilShape: "u",
         overrideEyes: { lookX: 0, lookY: -20 }
-      },
-      {
-        name: "10 neutral",
-        cn: "10 平静",
-        desc: "回到默认中性状态，方便过渡到下一段情绪。",
-        weights: { smile: 0, happy: 0, sad: 0, surprise: 0, angry: 0 },
-        pupilShape: "o"
       },
       {
         name: "11 sad",
@@ -539,13 +525,6 @@
         pupilShape: "o"
       },
       {
-        name: "15 neutral",
-        cn: "15 平静",
-        desc: "情绪清空，圆眼和触角重新回到待机。",
-        weights: { smile: 0, happy: 0, sad: 0, surprise: 0, angry: 0 },
-        pupilShape: "o"
-      },
-      {
         name: "16 surprise",
         cn: "16 惊讶",
         desc: "眼睛张圆并上看，触角明显抬起张开，像突然看到什么。",
@@ -573,13 +552,6 @@
         desc: "笑意更足但还带一点兴奋张力，眼睛偏 u，触角明显上扬外展。",
         weights: { smile: 20, happy: 100, sad: 0, surprise: 40, angry: 0 },
         pupilShape: "u"
-      },
-      {
-        name: "20 neutral",
-        cn: "20 平静",
-        desc: "再次回中性，给 angry 段落做分隔。",
-        weights: { smile: 0, happy: 0, sad: 0, surprise: 0, angry: 0 },
-        pupilShape: "o"
       },
       {
         name: "21 angry",
@@ -633,14 +605,6 @@
         desc: "眼睛轻轻弯起，触角舒展开但不高举，整体气质很松弛。",
         weights: { smile: 40, happy: 0, sad: 0, surprise: 0, angry: 0 },
         pupilShape: "u"
-      },
-      {
-        name: "28 neutral",
-        cn: "28 平静",
-        desc: "序列收尾回到中性圆眼和自然触角。",
-        weights: { smile: 0, happy: 0, sad: 0, surprise: 0, angry: 0 },
-        pupilShape: "o",
-        overrideEyes: { lookX: 0, lookY: 0 }
       }
     ];
 
@@ -1770,7 +1734,7 @@ static const gfx_lobster_emote_assets_t s_lobster_expr_assets = {
           btn.classList.add("active");
           setMood(mood);
         };
-        if (i === 0) btn.classList.add("active");
+        if (i === 0 || activeMood.name === mood.name) btn.classList.add("active");
         btns.appendChild(btn);
       });
 

@@ -23,7 +23,7 @@ typedef struct {
     gfx_obj_t *antenna_obj;
     gfx_obj_t *bg_obj;
     gfx_obj_t *eyes_obj;
-    gfx_obj_t *title_label;
+    // gfx_obj_t *title_label;
     gfx_timer_handle_t pose_timer;
     size_t current_expr_index;
     bool dragging;
@@ -90,9 +90,7 @@ static void test_lobster_expr_log_state_baseline(const gfx_lobster_emote_state_t
     }
 
     ESP_LOGI(TAG,
-             "lobster baseline state: name=%s cn=%s weights=(sm:%d hp:%d sd:%d su:%d an:%d) look=(%d,%d) pupil=%d hold=%" PRIu32,
-             state->name,
-             state->name_cn ? state->name_cn : "-",
+             "weights=(sm:%d hp:%d sd:%d su:%d an:%d) look=(%d,%d) pupil=%d hold=%" PRIu32,
              state->w_smile,
              state->w_happy,
              state->w_sad,
@@ -174,20 +172,21 @@ static void test_lobster_expr_emote_timer_cb(void *user_data)
 
     scene->current_expr_index = (scene->current_expr_index + 1U) % s_lobster_expr_assets.sequence_count;
     state = &s_lobster_expr_assets.sequence[scene->current_expr_index];
+    ESP_LOGI(TAG, "Switched to: %s (hold: %dms)", state->name, test_lobster_expr_hold_to_ms(state));
+
     gfx_lobster_emote_set_state_name(scene->antenna_obj, state->name, false);
     gfx_lobster_emote_set_state_name(scene->eyes_obj, state->name, false);
 
-    if (scene->title_label) {
-        gfx_label_set_text_fmt(scene->title_label, "Lobster: %s",
-                              state->name);
-    }
+    // if (scene->title_label) {
+    //     gfx_label_set_text_fmt(scene->title_label, "Lobster: %s (hold: %dms)",
+    //         state->name, test_lobster_expr_hold_to_ms(state));
+    // }
 
     test_lobster_expr_log_state_baseline(state);
     if (scene->pose_timer != NULL) {
         gfx_timer_set_period(scene->pose_timer, test_lobster_expr_hold_to_ms(state));
         gfx_timer_reset(scene->pose_timer);
     }
-    ESP_LOGI(TAG, "Switched lobster expression: %s", state->name);
 }
 
 void test_lobster_expr_emote_run(void)
@@ -205,11 +204,11 @@ void test_lobster_expr_emote_run(void)
     scene.antenna_obj = gfx_lobster_emote_create(disp_default, BSP_LCD_H_RES, BSP_LCD_V_RES);
     scene.bg_obj = gfx_img_create(disp_default);
     scene.eyes_obj = gfx_lobster_emote_create(disp_default, BSP_LCD_H_RES, BSP_LCD_V_RES);
-    scene.title_label = gfx_label_create(disp_default);
+    // scene.title_label = gfx_label_create(disp_default);
     TEST_ASSERT_NOT_NULL(scene.antenna_obj);
     TEST_ASSERT_NOT_NULL(scene.bg_obj);
     TEST_ASSERT_NOT_NULL(scene.eyes_obj);
-    TEST_ASSERT_NOT_NULL(scene.title_label);
+    // TEST_ASSERT_NOT_NULL(scene.title_label);
 
     gfx_obj_align(scene.antenna_obj, GFX_ALIGN_CENTER, 0, 0);
     gfx_lobster_emote_set_assets(scene.antenna_obj, &s_lobster_expr_assets);
@@ -227,10 +226,10 @@ void test_lobster_expr_emote_run(void)
     gfx_lobster_emote_set_color(scene.eyes_obj, GFX_COLOR_HEX(0xF46144));
     gfx_lobster_emote_set_layer_mask(scene.eyes_obj, GFX_LOBSTER_EMOTE_LAYER_EYE_WHITE | GFX_LOBSTER_EMOTE_LAYER_PUPIL | GFX_LOBSTER_EMOTE_LAYER_MOUTH);
     
-    gfx_obj_set_size(scene.title_label, 320, 30);
-    gfx_obj_align(scene.title_label, GFX_ALIGN_TOP_MID, 0, 10);
-    gfx_label_set_text(scene.title_label, "Lobster Emote Test");
-    gfx_label_set_color(scene.title_label, GFX_COLOR_HEX(0xE0E0E0));
+    // gfx_obj_set_size(scene.title_label, 320, 30);
+    // gfx_obj_align(scene.title_label, GFX_ALIGN_TOP_MID, 0, 10);
+    // gfx_label_set_text(scene.title_label, "Lobster Emote Test");
+    // gfx_label_set_color(scene.title_label, GFX_COLOR_HEX(0xE0E0E0));
 
     scene.current_expr_index = 0;
     gfx_lobster_emote_set_state_name(scene.antenna_obj, s_lobster_expr_assets.sequence[0].name, true);
@@ -249,7 +248,7 @@ void test_lobster_expr_emote_run(void)
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     if (scene.pose_timer) gfx_timer_delete(emote_handle, scene.pose_timer);
     test_app_set_touch_event_cb(NULL, NULL);
-    gfx_obj_delete(scene.title_label);
+    // gfx_obj_delete(scene.title_label);
     gfx_obj_delete(scene.eyes_obj);
     gfx_obj_delete(scene.bg_obj);
     gfx_obj_delete(scene.antenna_obj);

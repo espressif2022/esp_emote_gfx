@@ -17,6 +17,7 @@
 #include "widget/gfx_mesh_img.h"
 #include "widget/gfx_face_emote.h"
 #include "widget/gfx_lobster_emote.h"
+#include "widget/gfx_stickman_emote.h"
 #include "widget/gfx_qrcode.h"
 #include "widget/gfx_label.h"
 #include "widget/gfx_button.h"
