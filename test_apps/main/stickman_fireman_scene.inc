@@ -1,21 +1,27 @@
-/* Auto-converted from stickman_fireman_export.inc — new gfx_sm_scene format.
+/*
+ * SPDX-FileCopyrightText: 2026 Espressif Systems (Shanghai) CO LTD
  *
- * Format version: GFX_SM_SCENE_SCHEMA_VERSION (1)
+ * SPDX-License-Identifier: Apache-2.0
  *
- * Differences from old format
- * ─────────────────────────────────────────────────────────────────────────────
- * OLD (gfx_stickman_export_t):
- *   • gfx_stickman_pose_t  — 12 named struct fields (head_center, neck, …)
- *   • gfx_stickman_action_t — name + pose_index + step_index + step_count +
- *                              facing + transition_ticks
- *   • Segment wiring is hard-coded in gfx_stickman_emote.c
+ * stickman_fireman_scene.inc — stickman scene in the unified gfx_sm_scene format.
  *
- * NEW (gfx_sm_asset_t):
- *   • Poses  — flat int16_t coord array [x0,y0, x1,y1, …], joint_count pairs
- *   • Clips  — explicit gfx_sm_clip_step_t[] that carry pose_index + hold_ticks
- *              + interp + facing; multi-step actions (walk_r, run_r …) are
- *              now a single clip with 2 steps instead of 2 separate actions
- *   • Segments — explicit table in ROM; no wiring buried in .c files
+ * Format version: GFX_SM_SCENE_SCHEMA_VERSION (2)
+ *
+ * Segments encode the rendering primitive for each joint pair:
+ *
+ *   Segment    Joints   Kind      Notes
+ *   ─────────  ───────  ────────  ──────────────
+ *   head       0        RING      radius_hint=20
+ *   neck       1→2      CAPSULE   solid colour
+ *   spine      2→3      CAPSULE   solid colour
+ *   arm_l_u    2→4      CAPSULE   solid colour
+ *   arm_l_l    4→5      CAPSULE   solid colour
+ *   arm_r_u    2→6      CAPSULE   solid colour
+ *   arm_r_l    6→7      CAPSULE   solid colour
+ *   leg_l_u    3→8      CAPSULE   solid colour
+ *   leg_l_l    8→9      CAPSULE   solid colour
+ *   leg_r_u    3→10     CAPSULE   solid colour
+ *   leg_r_l    10→11    CAPSULE   solid colour
  *
  * Joint index table (0-based, 12 joints):
  *   0  head_center
@@ -84,19 +90,17 @@ static const char *const s_fm_joint_names[] = {
 /* ------------------------------------------------------------------ */
 
 static const gfx_sm_segment_t s_fm_segments[] = {
-    /* head ring — joint_a == joint_b, radius_hint from layout->head_radius */
-    { .joint_a = 0, .joint_b = 0, .kind = GFX_SM_SEG_RING,    .layer_bit = 0, .radius_hint = 20 },
-    /* body segments */
-    { .joint_a = 1, .joint_b = 2, .kind = GFX_SM_SEG_CAPSULE, .layer_bit = 0, .radius_hint = 0 }, /* neck */
-    { .joint_a = 2, .joint_b = 3, .kind = GFX_SM_SEG_CAPSULE, .layer_bit = 0, .radius_hint = 0 }, /* spine */
-    { .joint_a = 2, .joint_b = 4, .kind = GFX_SM_SEG_CAPSULE, .layer_bit = 0, .radius_hint = 0 }, /* arm_l upper */
-    { .joint_a = 4, .joint_b = 5, .kind = GFX_SM_SEG_CAPSULE, .layer_bit = 0, .radius_hint = 0 }, /* arm_l lower */
-    { .joint_a = 2, .joint_b = 6, .kind = GFX_SM_SEG_CAPSULE, .layer_bit = 0, .radius_hint = 0 }, /* arm_r upper */
-    { .joint_a = 6, .joint_b = 7, .kind = GFX_SM_SEG_CAPSULE, .layer_bit = 0, .radius_hint = 0 }, /* arm_r lower */
-    { .joint_a = 3, .joint_b = 8, .kind = GFX_SM_SEG_CAPSULE, .layer_bit = 0, .radius_hint = 0 }, /* leg_l upper */
-    { .joint_a = 8, .joint_b = 9, .kind = GFX_SM_SEG_CAPSULE, .layer_bit = 0, .radius_hint = 0 }, /* leg_l lower */
-    { .joint_a = 3, .joint_b =10, .kind = GFX_SM_SEG_CAPSULE, .layer_bit = 0, .radius_hint = 0 }, /* leg_r upper */
-    { .joint_a =10, .joint_b =11, .kind = GFX_SM_SEG_CAPSULE, .layer_bit = 0, .radius_hint = 0 }, /* leg_r lower */
+    /* head   */ { .kind = GFX_SM_SEG_RING,    .joint_a = 0,  .joint_b = 0,  .radius_hint = 20 },
+    /* neck   */ { .kind = GFX_SM_SEG_CAPSULE, .joint_a = 1,  .joint_b = 2  },
+    /* spine  */ { .kind = GFX_SM_SEG_CAPSULE, .joint_a = 2,  .joint_b = 3  },
+    /* arm_lu */ { .kind = GFX_SM_SEG_CAPSULE, .joint_a = 2,  .joint_b = 4  },
+    /* arm_ll */ { .kind = GFX_SM_SEG_CAPSULE, .joint_a = 4,  .joint_b = 5  },
+    /* arm_ru */ { .kind = GFX_SM_SEG_CAPSULE, .joint_a = 2,  .joint_b = 6  },
+    /* arm_rl */ { .kind = GFX_SM_SEG_CAPSULE, .joint_a = 6,  .joint_b = 7  },
+    /* leg_lu */ { .kind = GFX_SM_SEG_CAPSULE, .joint_a = 3,  .joint_b = 8  },
+    /* leg_ll */ { .kind = GFX_SM_SEG_CAPSULE, .joint_a = 8,  .joint_b = 9  },
+    /* leg_ru */ { .kind = GFX_SM_SEG_CAPSULE, .joint_a = 3,  .joint_b = 10 },
+    /* leg_rl */ { .kind = GFX_SM_SEG_CAPSULE, .joint_a = 10, .joint_b = 11 },
 };
 
 /* ------------------------------------------------------------------ */

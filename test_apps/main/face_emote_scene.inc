@@ -5,30 +5,37 @@
  *
  * face_emote_scene.inc — facial expression scene in the unified gfx_sm_scene format.
  *
+ * Format version: GFX_SM_SCENE_SCHEMA_VERSION (2)
+ *
  * Joints are BÉZIER CONTROL POINTS in design space (viewbox 200×200, centred at 0,0).
  * Segments encode the rendering primitive for each joint group:
  *
- *   Segment  Joints         Kind           Resource
- *   ───────  ─────────────  ─────────────  ──────────────────────────
- *   mouth    0-6  (7 pts)   BEZIER_LOOP    — (solid colour)
- *   eye_l    7-13 (7 pts)   BEZIER_FILL    resource[1] = face_eye_tex
- *   eye_r    14-20 (7 pts)  BEZIER_FILL    resource[1] = face_eye_tex
- *   brow_l   21-24 (4 pts)  BEZIER_STRIP   — (solid colour)
- *   brow_r   25-28 (4 pts)  BEZIER_STRIP   — (solid colour)
+ *   Segment  Joints         Kind           Notes
+ *   ───────  ─────────────  ─────────────  ──────────────
+ *   mouth    0-6  (7 pts)   BEZIER_LOOP    solid colour
+ *   eye_l    7-13 (7 pts)   BEZIER_FILL    solid colour
+ *   eye_r    14-20 (7 pts)  BEZIER_FILL    solid colour
+ *   brow_l   21-24 (4 pts)  BEZIER_STRIP   solid colour
+ *   brow_r   25-28 (4 pts)  BEZIER_STRIP   solid colour
  *
- * Pose data is pre-computed by blending the reference shapes from
- * face_emote_expr_assets.inc with the expression weights — no runtime
- * blend logic needed.  The stickman fireman scene uses the SAME format.
+ * Joint index table (0-based, 29 joints):
+ *   0-6    mouth  (7 cubic Bézier ctrl pts)
+ *   7-13   eye_l  (7 cubic Bézier ctrl pts, two-half fill)
+ *   14-20  eye_r  (7 cubic Bézier ctrl pts, two-half fill)
+ *   21-24  brow_l (4 cubic Bézier ctrl pts)
+ *   25-28  brow_r (4 cubic Bézier ctrl pts)
  *
- * Resource table: s_fe_resources[] (defined below), 1-based index in segment.resource_idx.
- *
- * Include after gfx_sm_scene.h.
+ * Pose data is pre-computed from face_emote_expr_assets.inc.
+ * The stickman fireman scene uses the SAME gfx_sm_asset_t format.
  */
 
 #pragma once
 
 #include "widget/gfx_sm_scene.h"
-#include "face_eye_tex.inc"
+
+/* ------------------------------------------------------------------ */
+/*  Metadata                                                           */
+/* ------------------------------------------------------------------ */
 
 static const gfx_sm_meta_t s_fe_meta = {
     .version   = GFX_SM_SCENE_SCHEMA_VERSION,
@@ -38,47 +45,58 @@ static const gfx_sm_meta_t s_fe_meta = {
     .viewbox_h =  200,
 };
 
+/* ------------------------------------------------------------------ */
+/*  Layout / rendering hints                                           */
+/* ------------------------------------------------------------------ */
+
 static const gfx_sm_layout_t s_fe_layout = {
     .stroke_width    =  6,
     .mirror_x        =  0,
     .ground_y        =  80,
     .timer_period_ms =  33,
-    .damping_div     =   4,  /* ease control-points for smooth transitions */
+    .damping_div     =   4,
 };
 
-static const char * const s_fe_joint_names[] = {
-    "mouth_0",
-    "mouth_1",
-    "mouth_2",
-    "mouth_3",
-    "mouth_4",
-    "mouth_5",
-    "mouth_6",
-    "eye_l_0",
-    "eye_l_1",
-    "eye_l_2",
-    "eye_l_3",
-    "eye_l_4",
-    "eye_l_5",
-    "eye_l_6",
-    "eye_r_0",
-    "eye_r_1",
-    "eye_r_2",
-    "eye_r_3",
-    "eye_r_4",
-    "eye_r_5",
-    "eye_r_6",
-    "brow_l_0",
-    "brow_l_1",
-    "brow_l_2",
-    "brow_l_3",
-    "brow_r_0",
-    "brow_r_1",
-    "brow_r_2",
-    "brow_r_3",
+/* ------------------------------------------------------------------ */
+/*  Joint names                                                        */
+/* ------------------------------------------------------------------ */
+
+static const char *const s_fe_joint_names[] = {
+    "mouth_0",   /* 0 */
+    "mouth_1",   /* 1 */
+    "mouth_2",   /* 2 */
+    "mouth_3",   /* 3 */
+    "mouth_4",   /* 4 */
+    "mouth_5",   /* 5 */
+    "mouth_6",   /* 6 */
+    "eye_l_0",   /* 7 */
+    "eye_l_1",   /* 8 */
+    "eye_l_2",   /* 9 */
+    "eye_l_3",   /* 10 */
+    "eye_l_4",   /* 11 */
+    "eye_l_5",   /* 12 */
+    "eye_l_6",   /* 13 */
+    "eye_r_0",   /* 14 */
+    "eye_r_1",   /* 15 */
+    "eye_r_2",   /* 16 */
+    "eye_r_3",   /* 17 */
+    "eye_r_4",   /* 18 */
+    "eye_r_5",   /* 19 */
+    "eye_r_6",   /* 20 */
+    "brow_l_0",  /* 21 */
+    "brow_l_1",  /* 22 */
+    "brow_l_2",  /* 23 */
+    "brow_l_3",  /* 24 */
+    "brow_r_0",  /* 25 */
+    "brow_r_1",  /* 26 */
+    "brow_r_2",  /* 27 */
+    "brow_r_3",  /* 28 */
 };
 
-/* ── Pose data: 29 joints × (x,y) = 58 int16_t values per pose ── */
+/* ------------------------------------------------------------------ */
+/*  Poses — flat coord arrays [x0,y0, x1,y1, …] for 29 joints         */
+/* ------------------------------------------------------------------ */
+
 static const int16_t s_fe_p00[] = { -28, 25, -14, 24, 14, 24, 28, 25, 14, 26, -14, 26, -28, 25, -51, -8, -43, -24, -27, -24, -19, -8, -27, 8, -43, 8, -51, -8, 51, -8, 43, 8, 27, 8, 19, -8, 27, -24, 43, -24, 51, -8, -51, -32, -40, -38, -30, -38, -19, -32, 19, -32, 30, -38, 40, -38, 51, -32 };  /* neutral */
 static const int16_t s_fe_p01[] = { -27, 25, -14, 22, 14, 22, 27, 25, 14, 28, -14, 28, -27, 25, -51, -8, -43, -24, -27, -24, -19, -8, -27, 8, -43, 8, -51, -8, 51, -8, 43, 8, 27, 8, 19, -8, 27, -24, 43, -24, 51, -8, -51, -32, -40, -38, -30, -38, -19, -32, 19, -32, 30, -38, 40, -38, 51, -32 };  /* look up */
 static const int16_t s_fe_p02[] = { -28, 25, -14, 24, 14, 24, 28, 25, 14, 26, -14, 26, -28, 25, -51, -8, -43, -24, -27, -24, -19, -8, -27, 8, -43, 8, -51, -8, 51, -8, 43, 8, 27, 8, 19, -8, 27, -24, 43, -24, 51, -8, -51, -32, -40, -38, -30, -38, -19, -32, 19, -32, 30, -38, 40, -38, 51, -32 };  /* look down */
@@ -129,188 +147,187 @@ static const int16_t s_fe_p46[] = { -28, 27, -14, 16, 14, 16, 28, 27, 18, 38, -1
 static const int16_t s_fe_p47[] = { -28, 25, -14, 20, 14, 20, 28, 25, 19, 42, -19, 42, -28, 25, -51, -5, -43, -22, -27, -23, -19, -7, -27, 1, -43, 1, -51, -5, 51, -5, 43, 1, 27, 1, 19, -7, 27, -23, 43, -22, 51, -5, -51, -32, -40, -39, -30, -40, -19, -36, 19, -36, 30, -40, 40, -39, 51, -32 };  /* embarrassed */
 static const int16_t s_fe_p48[] = { -31, 20, -13, 26, 13, 26, 31, 20, 26, 58, -26, 58, -31, 20, -51, -4, -43, -19, -27, -20, -19, -5, -27, -8, -43, -8, -51, -4, 51, -4, 43, -8, 27, -8, 19, -5, 27, -20, 43, -19, 51, -4, -51, -32, -40, -39, -30, -40, -19, -35, 19, -35, 30, -40, 40, -39, 51, -32 };  /* flattered */
 
+#define FE_POSE(arr) { .coords = (arr) }
+
 static const gfx_sm_pose_t s_fe_poses[] = {
-    { s_fe_p00 },  /* neutral */
-    { s_fe_p01 },  /* look up */
-    { s_fe_p02 },  /* look down */
-    { s_fe_p03 },  /* look left */
-    { s_fe_p04 },  /* look right */
-    { s_fe_p05 },  /* side-eye */
-    { s_fe_p06 },  /* daydream */
-    { s_fe_p07 },  /* soft smile */
-    { s_fe_p08 },  /* smile */
-    { s_fe_p09 },  /* happy */
-    { s_fe_p10 },  /* grinning */
-    { s_fe_p11 },  /* big grin */
-    { s_fe_p12 },  /* loving */
-    { s_fe_p13 },  /* excited */
-    { s_fe_p14 },  /* laughing */
-    { s_fe_p15 },  /* amused */
-    { s_fe_p16 },  /* relaxed */
-    { s_fe_p17 },  /* blissful */
-    { s_fe_p18 },  /* proud */
-    { s_fe_p19 },  /* smug */
-    { s_fe_p20 },  /* sad */
-    { s_fe_p21 },  /* sorrowful */
-    { s_fe_p22 },  /* crying */
-    { s_fe_p23 },  /* sobbing */
-    { s_fe_p24 },  /* dejected */
-    { s_fe_p25 },  /* sympathetic */
-    { s_fe_p26 },  /* longing */
-    { s_fe_p27 },  /* tearful plea */
-    { s_fe_p28 },  /* wow */
-    { s_fe_p29 },  /* shocked */
-    { s_fe_p30 },  /* horrified */
-    { s_fe_p31 },  /* spooked */
-    { s_fe_p32 },  /* in awe */
-    { s_fe_p33 },  /* alarmed */
-    { s_fe_p34 },  /* angry */
-    { s_fe_p35 },  /* furious */
-    { s_fe_p36 },  /* displeased */
-    { s_fe_p37 },  /* contempt */
-    { s_fe_p38 },  /* suspicious */
-    { s_fe_p39 },  /* thinking */
-    { s_fe_p40 },  /* pondering */
-    { s_fe_p41 },  /* confused */
-    { s_fe_p42 },  /* curious */
-    { s_fe_p43 },  /* sheepish */
-    { s_fe_p44 },  /* mischievous */
-    { s_fe_p45 },  /* determined */
-    { s_fe_p46 },  /* nervous */
-    { s_fe_p47 },  /* embarrassed */
-    { s_fe_p48 },  /* flattered */
+    FE_POSE(s_fe_p00),  FE_POSE(s_fe_p01),  FE_POSE(s_fe_p02),
+    FE_POSE(s_fe_p03),  FE_POSE(s_fe_p04),  FE_POSE(s_fe_p05),
+    FE_POSE(s_fe_p06),  FE_POSE(s_fe_p07),  FE_POSE(s_fe_p08),
+    FE_POSE(s_fe_p09),  FE_POSE(s_fe_p10),  FE_POSE(s_fe_p11),
+    FE_POSE(s_fe_p12),  FE_POSE(s_fe_p13),  FE_POSE(s_fe_p14),
+    FE_POSE(s_fe_p15),  FE_POSE(s_fe_p16),  FE_POSE(s_fe_p17),
+    FE_POSE(s_fe_p18),  FE_POSE(s_fe_p19),  FE_POSE(s_fe_p20),
+    FE_POSE(s_fe_p21),  FE_POSE(s_fe_p22),  FE_POSE(s_fe_p23),
+    FE_POSE(s_fe_p24),  FE_POSE(s_fe_p25),  FE_POSE(s_fe_p26),
+    FE_POSE(s_fe_p27),  FE_POSE(s_fe_p28),  FE_POSE(s_fe_p29),
+    FE_POSE(s_fe_p30),  FE_POSE(s_fe_p31),  FE_POSE(s_fe_p32),
+    FE_POSE(s_fe_p33),  FE_POSE(s_fe_p34),  FE_POSE(s_fe_p35),
+    FE_POSE(s_fe_p36),  FE_POSE(s_fe_p37),  FE_POSE(s_fe_p38),
+    FE_POSE(s_fe_p39),  FE_POSE(s_fe_p40),  FE_POSE(s_fe_p41),
+    FE_POSE(s_fe_p42),  FE_POSE(s_fe_p43),  FE_POSE(s_fe_p44),
+    FE_POSE(s_fe_p45),  FE_POSE(s_fe_p46),  FE_POSE(s_fe_p47),
+    FE_POSE(s_fe_p48),
 };
 
-/* Resource table: index 1 → eye texture (sclera/iris/pupil). */
-static const gfx_sm_resource_t s_fe_resources[] = {
-    /* [0] eye_tex */ { .image = &s_face_eye_tex },
-};
+/* ------------------------------------------------------------------ */
+/*  Segment wiring                                                     */
+/* ------------------------------------------------------------------ */
 
 static const gfx_sm_segment_t s_fe_segments[] = {
-    /* mouth  */ { GFX_SM_SEG_BEZIER_LOOP,  .joint_a =  0, .joint_count = 7, .stroke_width = 10 },
-    /* eye_l  */ { GFX_SM_SEG_BEZIER_FILL,  .joint_a =  7, .joint_count = 7, .resource_idx = 1 },
-    /* eye_r  */ { GFX_SM_SEG_BEZIER_FILL,  .joint_a = 14, .joint_count = 7, .resource_idx = 1 },
-    /* brow_l */ { GFX_SM_SEG_BEZIER_STRIP, .joint_a = 21, .joint_count = 4, .stroke_width =  6 },
-    /* brow_r */ { GFX_SM_SEG_BEZIER_STRIP, .joint_a = 25, .joint_count = 4, .stroke_width =  6 },
+    /* mouth  */ { .kind = GFX_SM_SEG_BEZIER_LOOP,  .joint_a =  0, .joint_count = 7, .stroke_width = 10 },
+    /* eye_l  */ { .kind = GFX_SM_SEG_BEZIER_FILL,  .joint_a =  7, .joint_count = 7 },
+    /* eye_r  */ { .kind = GFX_SM_SEG_BEZIER_FILL,  .joint_a = 14, .joint_count = 7 },
+    /* brow_l */ { .kind = GFX_SM_SEG_BEZIER_STRIP, .joint_a = 21, .joint_count = 4, .stroke_width =  6 },
+    /* brow_r */ { .kind = GFX_SM_SEG_BEZIER_STRIP, .joint_a = 25, .joint_count = 4, .stroke_width =  6 },
 };
 
-static const gfx_sm_clip_step_t s_fe_step00[] = { { .pose_index= 0, .hold_ticks= 60, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* neutral */
-static const gfx_sm_clip_step_t s_fe_step01[] = { { .pose_index= 1, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* look up */
-static const gfx_sm_clip_step_t s_fe_step02[] = { { .pose_index= 2, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* look down */
-static const gfx_sm_clip_step_t s_fe_step03[] = { { .pose_index= 3, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* look left */
-static const gfx_sm_clip_step_t s_fe_step04[] = { { .pose_index= 4, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* look right */
-static const gfx_sm_clip_step_t s_fe_step05[] = { { .pose_index= 5, .hold_ticks= 40, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* side-eye */
-static const gfx_sm_clip_step_t s_fe_step06[] = { { .pose_index= 6, .hold_ticks= 50, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* daydream */
-static const gfx_sm_clip_step_t s_fe_step07[] = { { .pose_index= 7, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* soft smile */
-static const gfx_sm_clip_step_t s_fe_step08[] = { { .pose_index= 8, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* smile */
-static const gfx_sm_clip_step_t s_fe_step09[] = { { .pose_index= 9, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* happy */
-static const gfx_sm_clip_step_t s_fe_step10[] = { { .pose_index=10, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* grinning */
-static const gfx_sm_clip_step_t s_fe_step11[] = { { .pose_index=11, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* big grin */
-static const gfx_sm_clip_step_t s_fe_step12[] = { { .pose_index=12, .hold_ticks= 40, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* loving */
-static const gfx_sm_clip_step_t s_fe_step13[] = { { .pose_index=13, .hold_ticks= 25, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* excited */
-static const gfx_sm_clip_step_t s_fe_step14[] = { { .pose_index=14, .hold_ticks= 25, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* laughing */
-static const gfx_sm_clip_step_t s_fe_step15[] = { { .pose_index=15, .hold_ticks= 35, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* amused */
-static const gfx_sm_clip_step_t s_fe_step16[] = { { .pose_index=16, .hold_ticks= 45, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* relaxed */
-static const gfx_sm_clip_step_t s_fe_step17[] = { { .pose_index=17, .hold_ticks= 40, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* blissful */
-static const gfx_sm_clip_step_t s_fe_step18[] = { { .pose_index=18, .hold_ticks= 35, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* proud */
-static const gfx_sm_clip_step_t s_fe_step19[] = { { .pose_index=19, .hold_ticks= 40, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* smug */
-static const gfx_sm_clip_step_t s_fe_step20[] = { { .pose_index=20, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* sad */
-static const gfx_sm_clip_step_t s_fe_step21[] = { { .pose_index=21, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* sorrowful */
-static const gfx_sm_clip_step_t s_fe_step22[] = { { .pose_index=22, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* crying */
-static const gfx_sm_clip_step_t s_fe_step23[] = { { .pose_index=23, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* sobbing */
-static const gfx_sm_clip_step_t s_fe_step24[] = { { .pose_index=24, .hold_ticks= 35, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* dejected */
-static const gfx_sm_clip_step_t s_fe_step25[] = { { .pose_index=25, .hold_ticks= 35, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* sympathetic */
-static const gfx_sm_clip_step_t s_fe_step26[] = { { .pose_index=26, .hold_ticks= 35, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* longing */
-static const gfx_sm_clip_step_t s_fe_step27[] = { { .pose_index=27, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* tearful plea */
-static const gfx_sm_clip_step_t s_fe_step28[] = { { .pose_index=28, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* wow */
-static const gfx_sm_clip_step_t s_fe_step29[] = { { .pose_index=29, .hold_ticks= 25, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* shocked */
-static const gfx_sm_clip_step_t s_fe_step30[] = { { .pose_index=30, .hold_ticks= 25, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* horrified */
-static const gfx_sm_clip_step_t s_fe_step31[] = { { .pose_index=31, .hold_ticks= 25, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* spooked */
-static const gfx_sm_clip_step_t s_fe_step32[] = { { .pose_index=32, .hold_ticks= 35, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* in awe */
-static const gfx_sm_clip_step_t s_fe_step33[] = { { .pose_index=33, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* alarmed */
-static const gfx_sm_clip_step_t s_fe_step34[] = { { .pose_index=34, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* angry */
-static const gfx_sm_clip_step_t s_fe_step35[] = { { .pose_index=35, .hold_ticks= 25, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* furious */
-static const gfx_sm_clip_step_t s_fe_step36[] = { { .pose_index=36, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* displeased */
-static const gfx_sm_clip_step_t s_fe_step37[] = { { .pose_index=37, .hold_ticks= 35, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* contempt */
-static const gfx_sm_clip_step_t s_fe_step38[] = { { .pose_index=38, .hold_ticks= 35, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* suspicious */
-static const gfx_sm_clip_step_t s_fe_step39[] = { { .pose_index=39, .hold_ticks= 35, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* thinking */
-static const gfx_sm_clip_step_t s_fe_step40[] = { { .pose_index=40, .hold_ticks= 35, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* pondering */
-static const gfx_sm_clip_step_t s_fe_step41[] = { { .pose_index=41, .hold_ticks= 35, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* confused */
-static const gfx_sm_clip_step_t s_fe_step42[] = { { .pose_index=42, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* curious */
-static const gfx_sm_clip_step_t s_fe_step43[] = { { .pose_index=43, .hold_ticks= 40, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* sheepish */
-static const gfx_sm_clip_step_t s_fe_step44[] = { { .pose_index=44, .hold_ticks= 35, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* mischievous */
-static const gfx_sm_clip_step_t s_fe_step45[] = { { .pose_index=45, .hold_ticks= 35, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* determined */
-static const gfx_sm_clip_step_t s_fe_step46[] = { { .pose_index=46, .hold_ticks= 30, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* nervous */
-static const gfx_sm_clip_step_t s_fe_step47[] = { { .pose_index=47, .hold_ticks= 35, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* embarrassed */
-static const gfx_sm_clip_step_t s_fe_step48[] = { { .pose_index=48, .hold_ticks= 35, .interp=GFX_SM_INTERP_DAMPED, .facing=1 } };  /* flattered */
+/* ------------------------------------------------------------------ */
+/*  Clip step arrays                                                   */
+/*  All face clips are single-step (one expression = one pose).        */
+/*  Consolidate into one flat array; each clip points to &steps[N].    */
+/* ------------------------------------------------------------------ */
+
+#define STEP(p, h, f) { .pose_index = (p), .hold_ticks = (h), .interp = GFX_SM_INTERP_DAMPED, .facing = (f) }
+
+static const gfx_sm_clip_step_t s_fe_steps[] = {
+    STEP( 0, 60,  1),  /*  0: neutral */
+    STEP( 1, 30,  1),  /*  1: look up */
+    STEP( 2, 30,  1),  /*  2: look down */
+    STEP( 3, 30,  1),  /*  3: look left */
+    STEP( 4, 30,  1),  /*  4: look right */
+    STEP( 5, 40,  1),  /*  5: side-eye */
+    STEP( 6, 50,  1),  /*  6: daydream */
+    STEP( 7, 30,  1),  /*  7: soft smile */
+    STEP( 8, 30,  1),  /*  8: smile */
+    STEP( 9, 30,  1),  /*  9: happy */
+    STEP(10, 30,  1),  /* 10: grinning */
+    STEP(11, 30,  1),  /* 11: big grin */
+    STEP(12, 40,  1),  /* 12: loving */
+    STEP(13, 25,  1),  /* 13: excited */
+    STEP(14, 25,  1),  /* 14: laughing */
+    STEP(15, 35,  1),  /* 15: amused */
+    STEP(16, 45,  1),  /* 16: relaxed */
+    STEP(17, 40,  1),  /* 17: blissful */
+    STEP(18, 35,  1),  /* 18: proud */
+    STEP(19, 40,  1),  /* 19: smug */
+    STEP(20, 30,  1),  /* 20: sad */
+    STEP(21, 30,  1),  /* 21: sorrowful */
+    STEP(22, 30,  1),  /* 22: crying */
+    STEP(23, 30,  1),  /* 23: sobbing */
+    STEP(24, 35,  1),  /* 24: dejected */
+    STEP(25, 35,  1),  /* 25: sympathetic */
+    STEP(26, 35,  1),  /* 26: longing */
+    STEP(27, 30,  1),  /* 27: tearful plea */
+    STEP(28, 30,  1),  /* 28: wow */
+    STEP(29, 25,  1),  /* 29: shocked */
+    STEP(30, 25,  1),  /* 30: horrified */
+    STEP(31, 25,  1),  /* 31: spooked */
+    STEP(32, 35,  1),  /* 32: in awe */
+    STEP(33, 30,  1),  /* 33: alarmed */
+    STEP(34, 30,  1),  /* 34: angry */
+    STEP(35, 25,  1),  /* 35: furious */
+    STEP(36, 30,  1),  /* 36: displeased */
+    STEP(37, 35,  1),  /* 37: contempt */
+    STEP(38, 35,  1),  /* 38: suspicious */
+    STEP(39, 35,  1),  /* 39: thinking */
+    STEP(40, 35,  1),  /* 40: pondering */
+    STEP(41, 35,  1),  /* 41: confused */
+    STEP(42, 30,  1),  /* 42: curious */
+    STEP(43, 40,  1),  /* 43: sheepish */
+    STEP(44, 35,  1),  /* 44: mischievous */
+    STEP(45, 35,  1),  /* 45: determined */
+    STEP(46, 30,  1),  /* 46: nervous */
+    STEP(47, 35,  1),  /* 47: embarrassed */
+    STEP(48, 35,  1),  /* 48: flattered */
+};
+
+/* ------------------------------------------------------------------ */
+/*  Clips                                                              */
+/* ------------------------------------------------------------------ */
+
+#define CLIP(n, cn, idx, lp) \
+    { .name = (n), .name_cn = (cn), .steps = &s_fe_steps[(idx)], \
+      .step_count = 1, .loop = (lp) }
 
 static const gfx_sm_clip_t s_fe_clips[] = {
-    { "neutral", "平静", s_fe_step00, 1, true },
-    { "look up", "抬头看", s_fe_step01, 1, true },
-    { "look down", "低头看", s_fe_step02, 1, true },
-    { "look left", "向左看", s_fe_step03, 1, true },
-    { "look right", "向右看", s_fe_step04, 1, true },
-    { "side-eye", "斜视", s_fe_step05, 1, true },
-    { "daydream", "发呆", s_fe_step06, 1, true },
-    { "soft smile", "微笑", s_fe_step07, 1, true },
-    { "smile", "灿烂微笑", s_fe_step08, 1, true },
-    { "happy", "开心", s_fe_step09, 1, true },
-    { "grinning", "咧嘴笑", s_fe_step10, 1, true },
-    { "big grin", "大嘴笑", s_fe_step11, 1, true },
-    { "loving", "爱慕", s_fe_step12, 1, true },
-    { "excited", "激动", s_fe_step13, 1, true },
-    { "laughing", "大笑", s_fe_step14, 1, true },
-    { "amused", "忍俊不禁", s_fe_step15, 1, true },
-    { "relaxed", "放松", s_fe_step16, 1, true },
-    { "blissful", "陶醉", s_fe_step17, 1, true },
-    { "proud", "骄傲", s_fe_step18, 1, true },
-    { "smug", "自鸣得意", s_fe_step19, 1, true },
-    { "sad", "难过", s_fe_step20, 1, true },
-    { "sorrowful", "哀愁", s_fe_step21, 1, true },
-    { "crying", "哭泣", s_fe_step22, 1, true },
-    { "sobbing", "抽泣", s_fe_step23, 1, true },
-    { "dejected", "沮丧", s_fe_step24, 1, true },
-    { "sympathetic", "同情", s_fe_step25, 1, true },
-    { "longing", "思念", s_fe_step26, 1, true },
-    { "tearful plea", "泪眼求饶", s_fe_step27, 1, true },
-    { "wow", "哇", s_fe_step28, 1, true },
-    { "shocked", "震惊", s_fe_step29, 1, true },
-    { "horrified", "恐惧", s_fe_step30, 1, true },
-    { "spooked", "受惊", s_fe_step31, 1, true },
-    { "in awe", "敬畏", s_fe_step32, 1, true },
-    { "alarmed", "警觉", s_fe_step33, 1, true },
-    { "angry", "生气", s_fe_step34, 1, true },
-    { "furious", "暴怒", s_fe_step35, 1, true },
-    { "displeased", "不悦", s_fe_step36, 1, true },
-    { "contempt", "鄙视", s_fe_step37, 1, true },
-    { "suspicious", "起疑", s_fe_step38, 1, true },
-    { "thinking", "思考", s_fe_step39, 1, true },
-    { "pondering", "沉思", s_fe_step40, 1, true },
-    { "confused", "困惑", s_fe_step41, 1, true },
-    { "curious", "好奇", s_fe_step42, 1, true },
-    { "sheepish", "装乖", s_fe_step43, 1, true },
-    { "mischievous", "坏笑", s_fe_step44, 1, true },
-    { "determined", "坚定", s_fe_step45, 1, true },
-    { "nervous", "紧张", s_fe_step46, 1, true },
-    { "embarrassed", "尴尬", s_fe_step47, 1, true },
-    { "flattered", "受宠若惊", s_fe_step48, 1, true },
+    CLIP("neutral",      "平静",       0, true),
+    CLIP("look up",      "抬头看",     1, true),
+    CLIP("look down",    "低头看",     2, true),
+    CLIP("look left",    "向左看",     3, true),
+    CLIP("look right",   "向右看",     4, true),
+    CLIP("side-eye",     "斜视",       5, true),
+    CLIP("daydream",     "发呆",       6, true),
+    CLIP("soft smile",   "微笑",       7, true),
+    CLIP("smile",        "灿烂微笑",   8, true),
+    CLIP("happy",        "开心",       9, true),
+    CLIP("grinning",     "咧嘴笑",    10, true),
+    CLIP("big grin",     "大嘴笑",    11, true),
+    CLIP("loving",       "爱慕",      12, true),
+    CLIP("excited",      "激动",      13, true),
+    CLIP("laughing",     "大笑",      14, true),
+    CLIP("amused",       "忍俊不禁",  15, true),
+    CLIP("relaxed",      "放松",      16, true),
+    CLIP("blissful",     "陶醉",      17, true),
+    CLIP("proud",        "骄傲",      18, true),
+    CLIP("smug",         "自鸣得意",  19, true),
+    CLIP("sad",          "难过",      20, true),
+    CLIP("sorrowful",    "哀愁",      21, true),
+    CLIP("crying",       "哭泣",      22, true),
+    CLIP("sobbing",      "抽泣",      23, true),
+    CLIP("dejected",     "沮丧",      24, true),
+    CLIP("sympathetic",  "同情",      25, true),
+    CLIP("longing",      "思念",      26, true),
+    CLIP("tearful plea", "泪眼求饶",  27, true),
+    CLIP("wow",          "哇",        28, true),
+    CLIP("shocked",      "震惊",      29, true),
+    CLIP("horrified",    "恐惧",      30, true),
+    CLIP("spooked",      "受惊",      31, true),
+    CLIP("in awe",       "敬畏",      32, true),
+    CLIP("alarmed",      "警觉",      33, true),
+    CLIP("angry",        "生气",      34, true),
+    CLIP("furious",      "暴怒",      35, true),
+    CLIP("displeased",   "不悦",      36, true),
+    CLIP("contempt",     "鄙视",      37, true),
+    CLIP("suspicious",   "起疑",      38, true),
+    CLIP("thinking",     "思考",      39, true),
+    CLIP("pondering",    "沉思",      40, true),
+    CLIP("confused",     "困惑",      41, true),
+    CLIP("curious",      "好奇",      42, true),
+    CLIP("sheepish",     "装乖",      43, true),
+    CLIP("mischievous",  "坏笑",      44, true),
+    CLIP("determined",   "坚定",      45, true),
+    CLIP("nervous",      "紧张",      46, true),
+    CLIP("embarrassed",  "尴尬",      47, true),
+    CLIP("flattered",    "受宠若惊",  48, true),
 };
 
-static const uint16_t s_fe_sequence[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48 };
+/* ------------------------------------------------------------------ */
+/*  Default playback sequence — one entry per clip                     */
+/* ------------------------------------------------------------------ */
+
+static const uint16_t s_fe_sequence[] = {
+     0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
+    10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+    20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+    30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+    40, 41, 42, 43, 44, 45, 46, 47, 48,
+};
+
+/* ------------------------------------------------------------------ */
+/*  Top-level asset                                                    */
+/* ------------------------------------------------------------------ */
 
 static const gfx_sm_asset_t s_fe_scene_asset = {
     .meta           = &s_fe_meta,
     .joint_names    = s_fe_joint_names,
-    .joint_count    = 29,
+    .joint_count    = (uint8_t)(sizeof(s_fe_joint_names) / sizeof(s_fe_joint_names[0])),
     .segments       = s_fe_segments,
-    .segment_count  = 5,
+    .segment_count  = (uint8_t)(sizeof(s_fe_segments) / sizeof(s_fe_segments[0])),
     .poses          = s_fe_poses,
-    .pose_count     = 49,
+    .pose_count     = (uint16_t)(sizeof(s_fe_poses) / sizeof(s_fe_poses[0])),
     .clips          = s_fe_clips,
-    .clip_count     = 49,
+    .clip_count     = (uint16_t)(sizeof(s_fe_clips) / sizeof(s_fe_clips[0])),
     .sequence       = s_fe_sequence,
-    .sequence_count = 49,
+    .sequence_count = (uint16_t)(sizeof(s_fe_sequence) / sizeof(s_fe_sequence[0])),
     .layout         = &s_fe_layout,
-    .resources      = s_fe_resources,
-    .resource_count = 1,
 };

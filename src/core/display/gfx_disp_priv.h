@@ -26,7 +26,7 @@ struct gfx_core_context;
 #ifdef CONFIG_GFX_DISP_INV_BUF_SIZE
 #define GFX_DISP_INV_BUF_SIZE  CONFIG_GFX_DISP_INV_BUF_SIZE
 #else
-#define GFX_DISP_INV_BUF_SIZE  32
+#define GFX_DISP_INV_BUF_SIZE  64
 #endif
 
 /*********************

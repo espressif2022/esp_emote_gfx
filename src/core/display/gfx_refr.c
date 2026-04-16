@@ -177,7 +177,7 @@ void gfx_invalidate_area_disp(gfx_disp_t *disp, const gfx_area_t *area_p)
     if (area_p == NULL) {
         disp->dirty.count = 0;
         memset(disp->dirty.merged, 0, sizeof(disp->dirty.merged));
-        GFX_LOGD(TAG, "invalidate display area: cleared all dirty areas");
+        GFX_LOGD(TAG, "invalidate area: cleared all dirty areas");
         return;
     }
 
@@ -190,13 +190,13 @@ void gfx_invalidate_area_disp(gfx_disp_t *disp, const gfx_area_t *area_p)
     gfx_area_t clipped_area;
     bool success = gfx_area_intersect(&clipped_area, area_p, &screen_area);
     if (!success) {
-        GFX_LOGD(TAG, "invalidate display area: area is out of screen bounds");
+        GFX_LOGD(TAG, "invalidate area: area is out of screen bounds");
         return;
     }
 
     for (uint8_t i = 0; i < disp->dirty.count; i++) {
         if (gfx_area_is_in(&clipped_area, &disp->dirty.areas[i])) {
-            GFX_LOGD(TAG, "invalidate display area: area is already covered by dirty area %d", i);
+            GFX_LOGD(TAG, "invalidate area: area is already covered by dirty area %d", i);
             return;
         }
     }
@@ -204,12 +204,12 @@ void gfx_invalidate_area_disp(gfx_disp_t *disp, const gfx_area_t *area_p)
     if (disp->dirty.count < GFX_DISP_INV_BUF_SIZE) {
         gfx_area_copy(&disp->dirty.areas[disp->dirty.count], &clipped_area);
         disp->dirty.count++;
-        GFX_LOGD(TAG, "invalidate display area: added [%d,%d,%d,%d], total=%d",
+        GFX_LOGD(TAG, "invalidate area: added [%d,%d,%d,%d], total=%d",
                  clipped_area.x1, clipped_area.y1, clipped_area.x2, clipped_area.y2, disp->dirty.count);
     } else {
+        GFX_LOGW(TAG, "invalidate area: dirty buffer is full[%d], marking full screen", disp->dirty.count);
         disp->dirty.count = 1;
         gfx_area_copy(&disp->dirty.areas[0], &screen_area);
-        GFX_LOGW(TAG, "invalidate display area: dirty buffer is full, marking full screen");
     }
 
     /* Wake render task so it refreshes without waiting for the next timer tick */
