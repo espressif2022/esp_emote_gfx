@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
   <title>Stickman Static Action Board</title>
   <style>
     :root {
@@ -247,10 +248,18 @@
 
     .viewer.edit-joints .joint-dot {
       cursor: grab;
+      pointer-events: all;
     }
 
     .viewer.edit-joints .joint-dot:active {
       cursor: grabbing;
+    }
+
+    .viewer.edit-joints .paper-head,
+    .viewer.edit-joints .paper-stroke,
+    .viewer.edit-joints .shadow,
+    .viewer.edit-joints .ground-line {
+      pointer-events: none;
     }
 
     .paper-stroke {
@@ -329,7 +338,7 @@
     <section class="stage">
       <div class="viewer" id="viewer">
         <svg id="preview-svg" viewBox="0 0 200 300" aria-label="Static stickman actions based on fireman.svg">
-          <rect x="0" y="0" width="200" height="300" fill="#04070b" rx="18"></rect>
+          <rect style="pointer-events:none" x="0" y="0" width="200" height="300" fill="#04070b" rx="18"></rect>
           <line class="ground-line" x1="26" y1="238" x2="174" y2="238"></line>
           <ellipse id="shadow" class="shadow" cx="100" cy="238" rx="24" ry="6"></ellipse>
 
@@ -344,18 +353,18 @@
           <line id="leg-right-upper" class="paper-stroke" x1="100" y1="160" x2="114" y2="186"></line>
           <line id="leg-right-lower" class="paper-stroke" x1="114" y1="186" x2="128" y2="214"></line>
 
-          <circle id="joint-head"     class="joint-dot" r="3.5"></circle>
-          <circle id="joint-neck"     class="joint-dot" r="3.5"></circle>
-          <circle id="joint-shoulder" class="joint-dot" r="4"></circle>
-          <circle id="joint-hip"      class="joint-dot" r="4"></circle>
-          <circle id="joint-elbow-l"  class="joint-dot" r="3"></circle>
-          <circle id="joint-hand-l"   class="joint-dot" r="3"></circle>
-          <circle id="joint-elbow-r"  class="joint-dot" r="3"></circle>
-          <circle id="joint-hand-r"   class="joint-dot" r="3"></circle>
-          <circle id="joint-knee-l"   class="joint-dot" r="3"></circle>
-          <circle id="joint-foot-l"   class="joint-dot" r="3"></circle>
-          <circle id="joint-knee-r"   class="joint-dot" r="3"></circle>
-          <circle id="joint-foot-r"   class="joint-dot" r="3"></circle>
+          <circle id="joint-head"     class="joint-dot" r="7"></circle>
+          <circle id="joint-neck"     class="joint-dot" r="7"></circle>
+          <circle id="joint-shoulder" class="joint-dot" r="7"></circle>
+          <circle id="joint-hip"      class="joint-dot" r="7"></circle>
+          <circle id="joint-elbow-l"  class="joint-dot" r="6"></circle>
+          <circle id="joint-hand-l"   class="joint-dot" r="6"></circle>
+          <circle id="joint-elbow-r"  class="joint-dot" r="6"></circle>
+          <circle id="joint-hand-r"   class="joint-dot" r="6"></circle>
+          <circle id="joint-knee-l"   class="joint-dot" r="6"></circle>
+          <circle id="joint-foot-l"   class="joint-dot" r="6"></circle>
+          <circle id="joint-knee-r"   class="joint-dot" r="6"></circle>
+          <circle id="joint-foot-r"   class="joint-dot" r="6"></circle>
         </svg>
         <div class="hud" id="hud"></div>
       </div>
@@ -372,7 +381,7 @@
         <div class="btns" id="btns"></div>
       </div>
       <div class="custom-edit-bar" id="custom-edit-bar" hidden>
-        <span id="custom-edit-hint">上体/下体分段联动；肘、膝始终落在肩-手、髋-脚连线上。自定义动作可点 ✎ 命名、× 删除。</span>
+        <span id="custom-edit-hint">每个关节独立拖动，连线自动跟随，可摆任意角度。✎ 重命名，× 删除。</span>
         <button type="button" id="save-custom-btn">Save</button>
         <button type="button" id="cancel-custom-btn">Cancel</button>
       </div>
@@ -1127,43 +1136,20 @@
       ["footRX/footRY", "右脚"]
     ];
 
-    /** 自定义编辑：同组关节共享位移增量（相对拖拽），线段不脱节。
-     * 上体轴：头/颈/肩 + 双臂（肘、手）一起动；下体轴：髋 + 双腿（膝、脚）一起动。
-     * 前臂 = 肘+手，小腿 = 膝+脚。 */
-    const TORSO_UPPER_ARMS_PAIRS = [
-      ["headX", "headY"],
-      ["neckX", "neckY"],
-      ["shoulderX", "shoulderY"],
-      ["elbowLX", "elbowLY"],
-      ["handLX", "handLY"],
-      ["elbowRX", "elbowRY"],
-      ["handRX", "handRY"]
-    ];
-    const LOWER_BODY_PAIRS = [
-      ["hipX", "hipY"],
-      ["kneeLX", "kneeLY"],
-      ["footLX", "footLY"],
-      ["kneeRX", "kneeRY"],
-      ["footRX", "footRY"]
-    ];
-    const FOREARM_L = [["elbowLX", "elbowLY"], ["handLX", "handLY"]];
-    const FOREARM_R = [["elbowRX", "elbowRY"], ["handRX", "handRY"]];
-    const SHIN_L = [["kneeLX", "kneeLY"], ["footLX", "footLY"]];
-    const SHIN_R = [["kneeRX", "kneeRY"], ["footRX", "footRY"]];
-
+    /** 每个关节只移动自身，连线由渲染系统自动维护，完全自由。 */
     const JOINT_LINK_GROUPS = {
-      "joint-head": TORSO_UPPER_ARMS_PAIRS,
-      "joint-neck": TORSO_UPPER_ARMS_PAIRS,
-      "joint-shoulder": TORSO_UPPER_ARMS_PAIRS,
-      "joint-hip": LOWER_BODY_PAIRS,
-      "joint-elbow-l": FOREARM_L,
-      "joint-hand-l": FOREARM_L,
-      "joint-elbow-r": FOREARM_R,
-      "joint-hand-r": FOREARM_R,
-      "joint-knee-l": SHIN_L,
-      "joint-foot-l": SHIN_L,
-      "joint-knee-r": SHIN_R,
-      "joint-foot-r": SHIN_R
+      "joint-head":     [["headX",    "headY"]],
+      "joint-neck":     [["neckX",    "neckY"]],
+      "joint-shoulder": [["shoulderX","shoulderY"]],
+      "joint-hip":      [["hipX",     "hipY"]],
+      "joint-elbow-l":  [["elbowLX",  "elbowLY"]],
+      "joint-hand-l":   [["handLX",   "handLY"]],
+      "joint-elbow-r":  [["elbowRX",  "elbowRY"]],
+      "joint-hand-r":   [["handRX",   "handRY"]],
+      "joint-knee-l":   [["kneeLX",   "kneeLY"]],
+      "joint-foot-l":   [["footLX",   "footLY"]],
+      "joint-knee-r":   [["kneeRX",   "kneeRY"]],
+      "joint-foot-r":   [["footRX",   "footRY"]],
     };
 
     function applyPoseDeltaToPairs(pose, pairs, dx, dy) {
@@ -2129,10 +2115,10 @@
       buildUI();
     }
 
-    function deleteCustomAction(action) {
-      if (!action.isCustom) return;
+    function deleteCustomAction(poseId) {
+      const action = ACTIONS.find((a) => a.isCustom && a.poseId === poseId);
+      if (!action) return;
       if (!window.confirm(`删除自定义动作「${action.cn}」？`)) return;
-      const poseId = action.poseId;
       const idx = ACTIONS.indexOf(action);
       if (idx === -1) return;
       ACTIONS.splice(idx, 1);
@@ -2147,7 +2133,7 @@
         return;
       }
       persistCustomToStorage();
-      if (activeAction.poseId === poseId || activeAction.name === action.name) {
+      if (activeAction.poseId === poseId) {
         setAction(ACTIONS[0], { snapNow: true, syncHash: true });
       }
       buildUI();
@@ -2157,6 +2143,7 @@
       btns.innerHTML = "";
       ACTIONS.forEach((action) => {
         const btn = document.createElement("button");
+        btn.type = "button";
         btn.dataset.action = action.name;
         btn.textContent = action.cn;
         if (activeAction.name === action.name) btn.classList.add("active");
@@ -2179,18 +2166,24 @@
           renameBtn.className = "btn-mini";
           renameBtn.title = "重命名";
           renameBtn.textContent = "✎";
+          renameBtn.dataset.poseId = action.poseId;
           renameBtn.onclick = (ev) => {
             ev.stopPropagation();
-            renameCustomAction(action);
+            ev.preventDefault();
+            const pid = ev.currentTarget.dataset.poseId;
+            const a = ACTIONS.find((x) => x.isCustom && x.poseId === pid);
+            if (a) renameCustomAction(a);
           };
           const delBtn = document.createElement("button");
           delBtn.type = "button";
           delBtn.className = "btn-mini";
           delBtn.title = "删除";
           delBtn.textContent = "×";
+          delBtn.dataset.poseId = action.poseId;
           delBtn.onclick = (ev) => {
             ev.stopPropagation();
-            deleteCustomAction(action);
+            ev.preventDefault();
+            deleteCustomAction(ev.currentTarget.dataset.poseId);
           };
           row.appendChild(renameBtn);
           row.appendChild(delBtn);
@@ -2270,7 +2263,6 @@
       jointDrag.lastY = pt.y;
       if (dx === 0 && dy === 0) return;
       applyPoseDeltaToPairs(draftAction.customPose, pairs, dx, dy);
-      syncLimbMidJointsOnAxis(draftAction.customPose);
       stopSchedulers();
       targetPose = clonePose(resolveActionPose(draftAction));
       currentPose = clonePose(targetPose);
