@@ -34,8 +34,19 @@ static const char *TAG = "gfx_sm_runtime";
 
 #define SM_RING_SEGS_MIN  16U
 #define SM_RING_SEGS_MAX  48U
-/* Max control points in one Bézier segment (joint_count ≤ GFX_SM_SCENE_MAX_JOINTS). */
-#define SM_BEZIER_MAX_PTS GFX_SM_SCENE_MAX_JOINTS
+/* Max control points in one segment (joint_count ≤ GFX_SM_SCENE_MAX_JOINTS). */
+#define SM_BEZIER_MAX_PTS       GFX_SM_SCENE_MAX_JOINTS
+/*
+ * Control points use the cubic-Bezier polygon format: n = 3k+1
+ * (k segments, adjacent segments share one endpoint).
+ * Only pts[0], pts[3], pts[6], … lie on the curve; interior pts are handles.
+ */
+/* Samples per cubic Bezier segment for stroke (BEZIER_LOOP / BEZIER_STRIP). */
+#define SM_BEZIER_SEGS_PER_SEG  12U
+/* Samples per half-eye for BEZIER_FILL (matches gfx_face_emote default eye_segs=24). */
+#define SM_BEZIER_FILL_SEGS     24U
+/* Max tessellated points: worst-case (n-1)/3 segments × segs_per + 1. */
+#define SM_BEZIER_MAX_TESS      ((((SM_BEZIER_MAX_PTS - 1U) / 3U) * SM_BEZIER_SEGS_PER_SEG) + 1U)
 
 /* ------------------------------------------------------------------ */
 /*  Coordinate transform — design space → screen pixels               */
@@ -175,88 +186,149 @@ static esp_err_t s_apply_ring(gfx_obj_t *obj,
 }
 
 /* ------------------------------------------------------------------ */
+/*  Cubic Bezier tessellation                                         */
+/*                                                                     */
+/*  Control points use the standard cubic polygon format: n = 3k+1.  */
+/*  pts[0], pts[3], pts[6], … are ON the curve; interior pts are      */
+/*  tangent handles. Adjacent segments share one endpoint.            */
+/*                                                                     */
+/*  s_tess_cubic_bezier — for BEZIER_LOOP / BEZIER_STRIP:            */
+/*    closed (loop): k*segs_per points, no endpoint repeat            */
+/*    open  (strip): k*segs_per + 1 points                            */
+/* ------------------------------------------------------------------ */
+
+static void s_cubic_bezier(const s_spt_t *p0, const s_spt_t *p1,
+                            const s_spt_t *p2, const s_spt_t *p3,
+                            float t, s_spt_t *out)
+{
+    float u  = 1.0f - t;
+    float u2 = u * u, u3 = u2 * u;
+    float t2 = t * t, t3 = t2 * t;
+    out->x = (int32_t)lroundf(u3*(float)p0->x + 3.0f*u2*t*(float)p1->x
+                               + 3.0f*u*t2*(float)p2->x + t3*(float)p3->x);
+    out->y = (int32_t)lroundf(u3*(float)p0->y + 3.0f*u2*t*(float)p1->y
+                               + 3.0f*u*t2*(float)p2->y + t3*(float)p3->y);
+}
+
+/* Tessellate n = 3k+1 cubic Bezier control points.
+ * segs_per: samples per segment (t = 0, 1/segs, …, (segs-1)/segs per seg).
+ * loop=true: closed — k*segs_per output pts (no repeated endpoint).
+ * loop=false: open  — k*segs_per + 1 output pts (includes final endpoint). */
+static uint16_t s_tess_cubic_bezier(const s_spt_t *ctrl, uint8_t n,
+                                     bool loop, uint8_t segs_per,
+                                     s_spt_t *out)
+{
+    uint16_t count = 0;
+    uint8_t  k;
+
+    if (n < 4U) { return 0U; }
+    k = (uint8_t)((n - 1U) / 3U);   /* number of cubic segments */
+
+    for (uint8_t seg = 0; seg < k; seg++) {
+        const s_spt_t *p0 = &ctrl[(uint8_t)(seg * 3U)];
+        const s_spt_t *p1 = &ctrl[(uint8_t)(seg * 3U + 1U)];
+        const s_spt_t *p2 = &ctrl[(uint8_t)(seg * 3U + 2U)];
+        const s_spt_t *p3 = loop
+            ? &ctrl[(uint8_t)(((seg + 1U) * 3U) % (n - 1U))]
+            : &ctrl[(uint8_t)((seg + 1U) * 3U)];
+
+        for (uint8_t sub = 0; sub < segs_per; sub++) {
+            s_cubic_bezier(p0, p1, p2, p3,
+                           (float)sub / (float)segs_per,
+                           &out[count++]);
+        }
+    }
+    if (!loop) {
+        out[count++] = ctrl[n - 1U];   /* final endpoint for open strip */
+    }
+    return count;
+}
+
+/* ------------------------------------------------------------------ */
 /*  BEZIER_STRIP / BEZIER_LOOP primitives                             */
 /*                                                                     */
-/*  Mesh topology (same as RING):                                      */
-/*   loop=true  : grid(n, 1) + wrap_cols → (n+1)*2 pts               */
-/*   loop=false : grid(n-1, 1), no wrap  →   n  *2 pts               */
+/*  Control points are first tessellated via Catmull-Rom (SUBDIV      */
+/*  samples per interval) for smooth curves; then the tessellated     */
+/*  path is extruded ±half_thick along per-vertex normals.            */
 /*                                                                     */
-/*  Row 0 = "outer" ring (ctrl_pts + normal * half_thick)             */
-/*  Row 1 = "inner" ring (ctrl_pts - normal * half_thick)             */
+/*  Mesh topology (same as RING):                                      */
+/*   loop=true  : grid(M, 1) + wrap_cols → (M+1)*2 pts               */
+/*   loop=false : grid(M-1, 1), no wrap  →   M  *2 pts               */
+/*  where M = n*SUBDIV (loop) or (n-1)*SUBDIV+1 (strip).             */
+/*                                                                     */
+/*  Row 0 = "outer" ring (tess + normal * half_thick)                 */
+/*  Row 1 = "inner" ring (tess - normal * half_thick)                 */
 /* ------------------------------------------------------------------ */
 
 static esp_err_t s_apply_bezier(gfx_obj_t *obj,
                                  const s_spt_t *ctrl, uint8_t n,
                                  int32_t thick, bool loop)
 {
-    /* Maximum (n+1)*2 points for a closed loop. */
-    gfx_mesh_img_point_q8_t pts[(SM_BEZIER_MAX_PTS + 1U) * 2U];
-    int32_t ox[SM_BEZIER_MAX_PTS + 1U];
-    int32_t oy[SM_BEZIER_MAX_PTS + 1U];
-    int32_t ix_arr[SM_BEZIER_MAX_PTS + 1U];
-    int32_t iy_arr[SM_BEZIER_MAX_PTS + 1U];
+    s_spt_t  tess[SM_BEZIER_MAX_TESS + 1U];
+    gfx_mesh_img_point_q8_t pts[(SM_BEZIER_MAX_TESS + 1U) * 2U];
+    int32_t ox[SM_BEZIER_MAX_TESS + 1U];
+    int32_t oy[SM_BEZIER_MAX_TESS + 1U];
+    int32_t ix_arr[SM_BEZIER_MAX_TESS + 1U];
+    int32_t iy_arr[SM_BEZIER_MAX_TESS + 1U];
     int32_t min_x = INT32_MAX, max_x = INT32_MIN;
     int32_t min_y = INT32_MAX, max_y = INT32_MIN;
     float   half  = (float)thick * 0.5f;
 
-    if (n < 2U) {
+    if (n < 4U) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    /* ── Compute per-vertex normals ── */
-    for (uint8_t i = 0; i < n; i++) {
-        uint8_t prev, next;
+    uint16_t M = s_tess_cubic_bezier(ctrl, n, loop, SM_BEZIER_SEGS_PER_SEG, tess);
+
+    /* ── Compute per-vertex normals on the tessellated path ── */
+    for (uint16_t i = 0; i < M; i++) {
+        uint16_t prev, next;
         if (loop) {
-            prev = (uint8_t)((i + n - 1U) % n);
-            next = (uint8_t)((i + 1U)     % n);
+            prev = (uint16_t)((i + M - 1U) % M);
+            next = (uint16_t)((i + 1U)     % M);
         } else {
-            prev = (i == 0U)      ? 0U      : (uint8_t)(i - 1U);
-            next = (i == n - 1U)  ? n - 1U  : (uint8_t)(i + 1U);
+            prev = (i == 0U)      ? 0U          : (uint16_t)(i - 1U);
+            next = (i == M - 1U)  ? (uint16_t)(M - 1U) : (uint16_t)(i + 1U);
         }
 
-        float tx = (float)(ctrl[next].x - ctrl[prev].x);
-        float ty = (float)(ctrl[next].y - ctrl[prev].y);
+        float tx = (float)(tess[next].x - tess[prev].x);
+        float ty = (float)(tess[next].y - tess[prev].y);
         float len = sqrtf(tx * tx + ty * ty);
         if (len < 0.001f) { tx = 1.0f; ty = 0.0f; }
         else { tx /= len; ty /= len; }
 
-        /* Left-hand normal: (-ty, tx) */
-        float nx = -ty, ny = tx;
+        float nx = -ty, ny = tx;   /* left-hand normal */
 
-        ox[i] = (int32_t)lroundf((float)ctrl[i].x + nx * half);
-        oy[i] = (int32_t)lroundf((float)ctrl[i].y + ny * half);
-        ix_arr[i] = (int32_t)lroundf((float)ctrl[i].x - nx * half);
-        iy_arr[i] = (int32_t)lroundf((float)ctrl[i].y - ny * half);
+        ox[i]     = (int32_t)lroundf((float)tess[i].x + nx * half);
+        oy[i]     = (int32_t)lroundf((float)tess[i].y + ny * half);
+        ix_arr[i] = (int32_t)lroundf((float)tess[i].x - nx * half);
+        iy_arr[i] = (int32_t)lroundf((float)tess[i].y - ny * half);
     }
 
-    uint8_t cols; /* number of points per ring row */
+    uint16_t cols;
     if (loop) {
-        /* Close: repeat first point */
-        ox[n]      = ox[0];
-        oy[n]      = oy[0];
-        ix_arr[n]  = ix_arr[0];
-        iy_arr[n]  = iy_arr[0];
-        cols = n + 1U;
+        ox[M]     = ox[0];      oy[M]     = oy[0];
+        ix_arr[M] = ix_arr[0];  iy_arr[M] = iy_arr[0];
+        cols = (uint16_t)(M + 1U);
     } else {
-        cols = n;
+        cols = M;
     }
 
     /* ── Bounding box ── */
-    for (uint8_t i = 0; i < cols; i++) {
+    for (uint16_t i = 0; i < cols; i++) {
         if (ox[i]     < min_x) { min_x = ox[i];     } if (ox[i]     > max_x) { max_x = ox[i];     }
         if (oy[i]     < min_y) { min_y = oy[i];     } if (oy[i]     > max_y) { max_y = oy[i];     }
         if (ix_arr[i] < min_x) { min_x = ix_arr[i]; } if (ix_arr[i] > max_x) { max_x = ix_arr[i]; }
         if (iy_arr[i] < min_y) { min_y = iy_arr[i]; } if (iy_arr[i] > max_y) { max_y = iy_arr[i]; }
     }
-    if (max_x <= min_x) max_x = min_x + 1;
-    if (max_y <= min_y) max_y = min_y + 1;
+    if (max_x <= min_x) { max_x = min_x + 1; }
+    if (max_y <= min_y) { max_y = min_y + 1; }
 
-    /* ── Fill mesh points: row 0 = outer, row 1 = inner ── */
-    for (uint8_t i = 0; i < cols; i++) {
-        pts[i].x_q8           = (ox[i]      - min_x) << 8;
-        pts[i].y_q8           = (oy[i]      - min_y) << 8;
-        pts[cols + i].x_q8    = (ix_arr[i]  - min_x) << 8;
-        pts[cols + i].y_q8    = (iy_arr[i]  - min_y) << 8;
+    for (uint16_t i = 0; i < cols; i++) {
+        pts[i].x_q8        = (ox[i]     - min_x) << 8;
+        pts[i].y_q8        = (oy[i]     - min_y) << 8;
+        pts[cols + i].x_q8 = (ix_arr[i] - min_x) << 8;
+        pts[cols + i].y_q8 = (iy_arr[i] - min_y) << 8;
     }
 
     ESP_RETURN_ON_ERROR(gfx_obj_align(obj, GFX_ALIGN_TOP_LEFT,
@@ -277,52 +349,68 @@ static esp_err_t s_apply_bezier(gfx_obj_t *obj,
 /*  entire closed shape with no gap at the middle.                     */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/*  BEZIER_FILL primitive — two-half cubic Bezier scan fill           */
+/*                                                                     */
+/*  Exactly mirrors gfx_face_emote_apply_bezier_fill():              */
+/*  n=7 control points define two cubic Bezier halves:               */
+/*    upper arc: ctrl[0..3]  →  SM_BEZIER_FILL_SEGS+1 pts left→right */
+/*    lower arc: ctrl[3..6]  →  SM_BEZIER_FILL_SEGS+1 pts right→left */
+/*               (reversed so both rows go left→right)                */
+/*                                                                     */
+/*  Mesh: grid(SM_BEZIER_FILL_SEGS, 1), no wrap.                      */
+/*  Each column i connects the corresponding upper and lower pts,     */
+/*  creating horizontal scan quads that fill the lens/eye shape.      */
+/* ------------------------------------------------------------------ */
+
 static esp_err_t s_apply_bezier_fill(gfx_obj_t *obj,
                                       const s_spt_t *ctrl, uint8_t n)
 {
-    gfx_mesh_img_point_q8_t pts[(SM_BEZIER_MAX_PTS + 1U) * 2U];
-    int32_t min_x, max_x, min_y, max_y;
-    int32_t cx = 0, cy = 0;
-    uint8_t cols = (uint8_t)(n + 1U);
+    const uint8_t  segs = SM_BEZIER_FILL_SEGS;
+    const uint16_t cols = (uint16_t)segs + 1U;
 
-    if (n < 3U) {
+    gfx_mesh_img_point_q8_t pts[(SM_BEZIER_FILL_SEGS + 1U) * 2U];
+    s_spt_t  upper[SM_BEZIER_FILL_SEGS + 1U];
+    s_spt_t  lower[SM_BEZIER_FILL_SEGS + 1U];
+    int32_t  min_x = INT32_MAX, max_x = INT32_MIN;
+    int32_t  min_y = INT32_MAX, max_y = INT32_MIN;
+
+    /* Need at least two cubic halves: n must be 7 (= 3*2+1). */
+    if (n < 7U) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    /* Centroid of the control-point polygon */
-    for (uint8_t i = 0; i < n; i++) {
-        cx += ctrl[i].x;
-        cy += ctrl[i].y;
+    /* ── Sample upper cubic Bezier: ctrl[0..3], t = 0→1 ── */
+    for (uint8_t i = 0; i <= segs; i++) {
+        float t = (float)i / (float)segs;
+        s_cubic_bezier(&ctrl[0], &ctrl[1], &ctrl[2], &ctrl[3], t, &upper[i]);
     }
-    cx /= (int32_t)n;
-    cy /= (int32_t)n;
+    /* ── Sample lower cubic Bezier: ctrl[3..6], t = 1→0 (reversed) ── */
+    for (uint8_t i = 0; i <= segs; i++) {
+        float t = (float)(segs - i) / (float)segs;   /* descend t: right→left on curve */
+        s_cubic_bezier(&ctrl[3], &ctrl[4], &ctrl[5], &ctrl[6], t, &lower[i]);
+    }
 
-    /* Bounding box: union of outline pts and centroid */
-    min_x = max_x = ctrl[0].x;
-    min_y = max_y = ctrl[0].y;
-    for (uint8_t i = 1; i < n; i++) {
-        if (ctrl[i].x < min_x) { min_x = ctrl[i].x; }
-        if (ctrl[i].x > max_x) { max_x = ctrl[i].x; }
-        if (ctrl[i].y < min_y) { min_y = ctrl[i].y; }
-        if (ctrl[i].y > max_y) { max_y = ctrl[i].y; }
+    /* Bounding box */
+    for (uint16_t i = 0; i < cols; i++) {
+        if (upper[i].x < min_x) { min_x = upper[i].x; } if (upper[i].x > max_x) { max_x = upper[i].x; }
+        if (upper[i].y < min_y) { min_y = upper[i].y; } if (upper[i].y > max_y) { max_y = upper[i].y; }
+        if (lower[i].x < min_x) { min_x = lower[i].x; } if (lower[i].x > max_x) { max_x = lower[i].x; }
+        if (lower[i].y < min_y) { min_y = lower[i].y; } if (lower[i].y > max_y) { max_y = lower[i].y; }
     }
-    if (cx < min_x) { min_x = cx; } if (cx > max_x) { max_x = cx; }
-    if (cy < min_y) { min_y = cy; } if (cy > max_y) { max_y = cy; }
     if (max_x <= min_x) { max_x = min_x + 1; }
     if (max_y <= min_y) { max_y = min_y + 1; }
 
-    /* Row 0: hub — centroid repeated cols times */
-    for (uint8_t i = 0; i < cols; i++) {
-        pts[i].x_q8 = (cx - min_x) << 8;
-        pts[i].y_q8 = (cy - min_y) << 8;
+    /* Row 0: upper arc, left→right */
+    for (uint16_t i = 0; i < cols; i++) {
+        pts[i].x_q8 = (upper[i].x - min_x) << 8;
+        pts[i].y_q8 = (upper[i].y - min_y) << 8;
     }
-    /* Row 1: rim — outline points, then close by repeating first */
-    for (uint8_t i = 0; i < n; i++) {
-        pts[cols + i].x_q8 = (ctrl[i].x - min_x) << 8;
-        pts[cols + i].y_q8 = (ctrl[i].y - min_y) << 8;
+    /* Row 1: lower arc reversed, also left→right */
+    for (uint16_t i = 0; i < cols; i++) {
+        pts[cols + i].x_q8 = (lower[i].x - min_x) << 8;
+        pts[cols + i].y_q8 = (lower[i].y - min_y) << 8;
     }
-    pts[cols + n].x_q8 = (ctrl[0].x - min_x) << 8;
-    pts[cols + n].y_q8 = (ctrl[0].y - min_y) << 8;
 
     ESP_RETURN_ON_ERROR(gfx_obj_align(obj, GFX_ALIGN_TOP_LEFT,
                                       (gfx_coord_t)min_x, (gfx_coord_t)min_y),
@@ -525,16 +613,28 @@ esp_err_t gfx_sm_runtime_init(gfx_sm_runtime_t *rt,
         case GFX_SM_SEG_CAPSULE:
             gfx_mesh_img_set_grid(obj, 1U, 1U);
             break;
-        case GFX_SM_SEG_BEZIER_LOOP:
-        case GFX_SM_SEG_BEZIER_FILL: {
-            uint8_t n = (seg->joint_count > 2U) ? seg->joint_count : 3U;
-            gfx_mesh_img_set_grid(obj, n, 1U);
+        case GFX_SM_SEG_BEZIER_LOOP: {
+            /* Stroke: k = (n-1)/3 segments × segs_per → k*segs_per cols, wrap. */
+            uint8_t  n     = (seg->joint_count >= 4U) ? seg->joint_count : 4U;
+            uint8_t  k     = (uint8_t)((n - 1U) / 3U);
+            uint16_t tcols = (uint16_t)k * SM_BEZIER_SEGS_PER_SEG;
+            uint8_t  gcols = (tcols > 255U) ? 255U : (uint8_t)tcols;
+            gfx_mesh_img_set_grid(obj, gcols, 1U);
             gfx_mesh_img_set_wrap_cols(obj, true);
             break;
         }
+        case GFX_SM_SEG_BEZIER_FILL: {
+            /* Two-half scan fill: grid(SM_BEZIER_FILL_SEGS, 1), no wrap. */
+            gfx_mesh_img_set_grid(obj, (uint8_t)SM_BEZIER_FILL_SEGS, 1U);
+            break;
+        }
         case GFX_SM_SEG_BEZIER_STRIP: {
-            uint8_t n = (seg->joint_count > 1U) ? seg->joint_count : 2U;
-            gfx_mesh_img_set_grid(obj, (uint8_t)(n - 1U), 1U);
+            /* Stroke: k = (n-1)/3 segments × segs_per → k*segs_per cols, no wrap. */
+            uint8_t  n     = (seg->joint_count >= 4U) ? seg->joint_count : 4U;
+            uint8_t  k     = (uint8_t)((n - 1U) / 3U);
+            uint16_t tcols = (uint16_t)k * SM_BEZIER_SEGS_PER_SEG;
+            uint8_t  gcols = (tcols > 255U) ? 255U : (uint8_t)tcols;
+            gfx_mesh_img_set_grid(obj, gcols, 1U);
             break;
         }
         default:
@@ -542,7 +642,10 @@ esp_err_t gfx_sm_runtime_init(gfx_sm_runtime_t *rt,
             break;
         }
 
-        gfx_mesh_img_set_aa_inward(obj, true);
+        /* BEZIER_FILL is a solid region — no inward-edge AA (would make centre transparent) */
+        if (seg->kind != GFX_SM_SEG_BEZIER_FILL) {
+            gfx_mesh_img_set_aa_inward(obj, true);
+        }
         gfx_mesh_img_set_src_desc(obj, &solid_src);
         gfx_obj_set_visible(obj, false);
 
