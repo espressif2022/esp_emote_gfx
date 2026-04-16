@@ -205,6 +205,15 @@ gfx_obj_t *gfx_lobster_emote_create(gfx_disp_t *disp, uint16_t w, uint16_t h);
 esp_err_t gfx_lobster_emote_set_assets(gfx_obj_t *obj, const gfx_lobster_emote_assets_t *assets);
 /* Changes the accent color used by the lobster body and antenna. */
 esp_err_t gfx_lobster_emote_set_color(gfx_obj_t *obj, gfx_color_t color);
+/**
+ * @brief Use full RGB565 / RGB565A8 images for eye white and pupil+mouth mesh UV sampling.
+ *
+ * Pass NULL for a layer to keep the default 1×1 solid-color source for that layer.
+ * Typical use: bind exported or hand-authored textures to verify mesh_img texture mapping.
+ */
+esp_err_t gfx_lobster_emote_set_mesh_textures(gfx_obj_t *obj,
+                                              const gfx_image_dsc_t *eye_white,
+                                              const gfx_image_dsc_t *pupil_and_mouth);
 /* Switches to a named exported state, optionally snapping instead of easing. */
 esp_err_t gfx_lobster_emote_set_state_name(gfx_obj_t *obj, const char *name, bool snap_now);
 /* Overrides look direction without changing the active emotion state. */

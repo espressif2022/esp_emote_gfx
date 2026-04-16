@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lobster Action Animator - Cute Edition</title>
+  <style>
+    :root {
+      --bg: #09131d;
+      --panel: rgba(13, 24, 38, 0.94);
+      --line: rgba(255, 255, 255, 0.08);
+      --text: #eef4ff;
+      --muted: #8ea3bd;
+      --accent: #f46144;
+      --cool: #7dd3fc;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      padding: 24px;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 15%, rgba(125, 211, 252, 0.12), transparent 30%),
+        radial-gradient(circle at 85% 12%, rgba(244, 97, 68, 0.15), transparent 30%),
+        linear-gradient(180deg, #102031 0%, var(--bg) 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+    .subtitle { font-size: 14px; color: var(--muted); text-align: center; max-width: 600px; }
+
+    .main-layout {
+      width: min(1200px, 100%);
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 20px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+      padding: 20px;
+    }
+
+    .viewer {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4/3;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #0d1117;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .viewer svg { width: 100%; height: 100%; display: block; }
+
+    .hud {
+      position: absolute;
+      left: 16px; top: 16px;
+      padding: 6px 10px;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 8px;
+      font: 12px ui-monospace, monospace;
+      color: var(--cool);
+      backdrop-filter: blur(4px);
+    }
+
+    /* Actions UI */
+    .controls-panel { display: flex; flex-direction: column; gap: 16px; }
+    .actions-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .btn {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 12px 8px;
+      cursor: pointer;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .btn.active {
+      background: rgba(244, 97, 68, 0.15);
+      border-color: var(--accent);
+      box-shadow: 0 0 20px rgba(244, 97, 68, 0.2);
+    }
+
+    .btn .icon { font-size: 24px; }
+    .btn .name { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    .card {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 14px;
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .card-title { font-size: 13px; font-weight: 600; color: var(--cool); margin-bottom: 8px; text-transform: uppercase; }
+    .card-text { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+    .timeline { width: min(1200px, 100%); margin-top: 10px; }
+    .seq-labels { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .seq-tag {
+      font-size: 11px;
+      padding: 6px 12px;
+      background: #1a222e;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .seq-tag.active {
+      color: #fff;
+      background: var(--accent);
+      border-color: #ff8c7a;
+    }
+
+    @media (max-width: 900px) {
+      .main-layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Lobster Animator <span style="color:var(--accent)">Action Edition</span></h1>
+  <p class="subtitle">A cute, expressive lobster powered by SVG transforms. Every movement is micro-adjusted for personality.</p>
+
+  <div class="main-layout">
+    <!-- View Area -->
+    <div class="panel">
+      <div class="viewer">
+        <div class="hud" id="hud">STATE: IDLE</div>
+        <svg id="lobster-svg" viewBox="120 150 1000 980" preserveAspectRatio="xMidYMid meet">
+          <!-- Background -->
+          <rect x="0" y="0" width="1240" height="1280" fill="#0d1117" />
+          
+          <g id="master-pivot">
+            <!-- Part: Tail -->
+            <g id="part-tail">
+              <path fill="#f46144" opacity="0.9" d="M861,296.72c53.35,41.85,101.1,84.8,132.13,131.04,3.22,4.8,9.08,7.11,14.71,5.79l67.83-15.88c32.23-7.54,35.63-41.08,17.33-66.41-39.18-54.2-96.65-108.87-151.87-150.72-24.12-18.29-52.18-9.98-62.4,18.52l-22.24,62.02c-2.02,5.63-.21,11.93,4.5,15.62Z"/>
+            </g>
+
+            <!-- Part: Body -->
+            <g id="part-body">
+              <path fill="#f46144" d="M900.97,539.29c-38.15-89.02-92.78-136.66-155.82-162.53-3.36-1.38-4.2-5.74-1.57-8.25l52.45-49.94c19.57-18.63,50.36-18.46,69.72.39l97.36,94.79c20.38,19.84,20.6,52.51.49,72.62l-54.5,54.5c-2.5,2.5-6.73,1.68-8.13-1.58Z"/>
+            </g>
+
+            <!-- Part: Dots -->
+            <g id="part-dots">
+              <circle fill="#f46144" cx="872.27" cy="846.44" r="27.29"/>
+              <circle fill="#f46144" cx="915.29" cy="784.26" r="27.29"/>
+              <circle fill="#f46144" cx="939.83" cy="714.19" r="27.29"/>
+            </g>
+
+            <!-- Part: Head Base (Full Circle) -->
+            <g id="part-head-group">
+              <circle cx="620" cy="650" r="260" fill="#f46144"/>
+              <!-- Detail Overlay -->
+              <path fill="#e34d31" opacity="0.4" d="M698.92,823.06c33.31,0,63.97,10.67,88.39,28.59,1.92,1.41,4.55,1.42,6.46-.02,63.44-47.6,105.09-122.65,107.3-207.53,4.05-155.38-121.91-280.37-277.26-275.17-143.9,4.82-259.07,122.99-259.07,268.06,0,124.74,85.16,229.57,200.51,259.57,2.84.74,5.83-.49,7.31-3.02,24.59-42.02,71.95-70.47,126.35-70.47Z"/>
+              
+              <!-- Face: Eyes -->
+              <g id="eyes-group">
+                <g id="eye-left-pivot" transform="translate(480 650)">
+                   <g id="eye-left-anim">
+                     <path id="eye-white-left" fill="#fff" d=""/>
+                     <g id="pupil-left-pivot" transform="translate(0 13)">
+                       <path id="pupil-left" fill="#191919" d=""/>
+                     </g>
+                   </g>
+                </g>
+                <g id="eye-right-pivot" transform="translate(630 650)">
+                   <g id="eye-right-anim">
+                     <path id="eye-white-right" fill="#fff" d=""/>
+                     <g id="pupil-right-pivot" transform="translate(0 13)">
+                       <path id="pupil-right" fill="#191919" d=""/>
+                     </g>
+                   </g>
+                </g>
+              </g>
+
+              <!-- Face: Mouth -->
+              <g id="mouth-pivot" transform="translate(555 770)">
+                <path id="mouth-path" fill="#191919" d=""/>
+              </g>
+
+              <!-- Face: Antennae -->
+              <g id="antennae-group">
+                <g id="ant-left-pivot" transform="translate(485 450)">
+                  <path id="ant-left-path" fill="none" stroke="#f46144" stroke-width="30" stroke-linecap="round" d=""/>
+                </g>
+                <g id="ant-right-pivot" transform="translate(625 450)">
+                  <path id="ant-right-path" fill="none" stroke="#f46144" stroke-width="30" stroke-linecap="round" d=""/>
+                </g>
+              </g>
+            </g>
+
+            <!-- ARMS (Z-Order: ABOVE Head) -->
+            <!-- Right Arm (Symmetric Origin) -->
+            <g id="arm-right-pivot" transform="translate(680 850)">
+               <g id="arm-right-pincer-pivot">
+                  <path id="arm-right-path" fill="#f46144" transform="translate(-675 -974)"
+                    d="M675.01,973.51h-83.14c-12.21,0-21.58-11.02-19.41-23.04,11.02-61.18,65.05-108.22,129.2-108.22,72,0,131.25,59.25,131.25,131.25s-59.25,131.25-131.25,131.25c-34.91,0-68.14-13.93-92.55-38.18-7.75-7.7-7.75-20.23.02-27.91l65.88-65.16Z"/>
+               </g>
+            </g>
+
+            <!-- Left Arm (Symmetric Origin + Mirrored) -->
+            <g id="arm-left-pivot" transform="translate(560 850)">
+               <g id="arm-left-pincer-pivot">
+                  <path id="arm-left-path" fill="#f46144" transform="scale(-1, 1) translate(-675 -974)"
+                    d="M675.01,973.51h-83.14c-12.21,0-21.58-11.02-19.41-23.04,11.02-61.18,65.05-108.22,129.2-108.22,72,0,131.25,59.25,131.25,131.25s-59.25,131.25-131.25,131.25c-34.91,0-68.14-13.93-92.55-38.18-7.75-7.7-7.75-20.23.02-27.91l65.88-65.16Z"/>
+               </g>
+            </g>
+
+          </g><!-- /master -->
+        </svg>
+      </div>
+    </div>
+
+    <!-- Controls Area -->
+    <div class="controls-panel">
+      <div class="panel">
+        <div class="card-title">Cute Actions</div>
+        <div class="actions-grid" id="actions-el">
+          <!-- JS dynamic -->
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="card">
+          <div class="card-title" id="info-title">Action Info</div>
+          <p class="card-text" id="info-text">Select an action to see the micro-adjustments in action.</p>
+        </div>
+        <div style="margin-top:16px;">
+          <div class="card-title">Pivot Mechanics</div>
+          <p class="card-text" style="font-size:11px;">
+            Arms pivot at <code>(680, 850)</code> and <code>(560, 850)</code>.
+            Pincer "click" is simulated by scaling on the arm sub-pivots.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel timeline">
+    <div class="card-title">Automatic Cycle</div>
+    <div class="seq-labels" id="seq-el">
+      <!-- JS dynamic -->
+    </div>
+  </div>
+
+<script>
+/* ─────────────────────────────────────────────────────────────────────────────
+   CURVE DATA (Bases derived from lobster_face_animator)
+   ───────────────────────────────────────────────────────────────────────────── */
+const CURVES = {
+  eyeWhite: [
+    [-58,0,-52,-62,52,-62,58,0,52,62,-52,62,-58,0],    // 0 neutral
+    [-58,8,-46,-46,46,-46,58,8,50,42,-50,42,-58,8],    // 1 smile
+    [-58,10,-44,-40,44,-40,58,10,52,36,-52,36,-58,10], // 2 happy
+    [-58,12,-50,-50,42,-62,58,-6,50,52,-46,60,-58,12], // 3 sad
+    [-50,0,-50,-82,50,-82,50,0,50,82,-50,82,-50,0],    // 4 surprise
+    [-58,-4,-46,-34,40,-56,58,6,50,44,-50,48,-58,-4]   // 5 angry
+  ],
+  mouth: [
+    [-20,0,-10,0,10,0,20,0,10,0.5,-10,0.5,-20,0],      // 0 neutral
+    [-25,-2,-12,10,12,10,25,-2,15,6,-15,6,-25,-2],     // 1 smile
+    [-25,-5,-12,8,12,8,25,-5,15,-2,-15,-2,-25,-5],     // 2 happy
+    [-25,5,-12,-8,12,-8,25,5,15,2,-15,2,-25,5],        // 3 sad
+    [-12,-12,-12,14,12,14,12,-12,12,-26,-12,-26,-12,-12], // 4 surprise
+    [-25,0,-12,-6,12,-6,25,0,15,-1,-15,-1,-25,0]       // 5 angry
+  ],
+  pupil: [
+    [-30,0,-30,-3,30,-3,30,0,30,3,-30,3,-30,0],        // 0 o
+    [-38,-5,-38,45,38,45,38,-5,38,18,-38,18,-38,-5],   // 1 u
+    [-38,-10,-38,65,38,65,38,-10,38,28,-38,28,-38,-10],// 2 u+
+    [-38,5,-38,-60,38,-60,38,5,38,-25,-38,-25,-38,5],  // 3 n
+    [-25,0,-25,-45,25,-45,25,0,25,45,-25,45,-25,0],    // 4 big o
+    [-38,0,-38,-14,38,-14,38,0,38,12,-38,12,-38,0]     // 5 line
+  ],
+  antL: [
+    [0,85,-20,20,-50,-40,-80,-140],
+    [0,88,-25,25,-60,-30,-90,-130],
+    [0,95,-30,30,-70,-20,-100,-120],
+    [0,80,-15,15,-40,-50,-70,-150],
+    [0,100,-40,10,-80,-10,-110,-110],
+    [0,85,-10,10,-30,-60,-60,-160]
+  ],
+  antR: [
+    [0,85,20,20,50,-40,80,-140],
+    [0,88,25,25,60,-30,90,-130],
+    [0,95,30,30,70,-20,100,-120],
+    [0,80,15,15,40,-50,70,-150],
+    [0,100,40,10,80,-10,110,-110],
+    [0,85,10,10,30,-60,60,-160]
+  ]
+};
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   POSES (Non-Symmetric / Micro-Adjusted)
+   ra: right arm angle, la: left arm angle
+   rp: right pinch (0=norm, 1=tight), lp: left pinch
+   lk: look target {x,y}
+   ───────────────────────────────────────────────────────────────────────────── */
+const ACTIONS = [
+  { id: "idle",  icon: "🧬", name: "Idle", desc: "自然待机。触须和钳子有微弱的、不同步的摆动，看起来更有生命力。",
+    w: { sm: 0, hp: 0, sd: 0, su: 0, an: 0 }, pk: 0, lk: { x: 0, y: 0 },
+    ra: 8, la: -8, rp: 0, lp: 0, asy: 0, asr: 0 },
+
+  { id: "happy", icon: "✨", name: "Happy", desc: "开心地挥舞双钳。钳子微微外张并快速颤动（开合感），眼睛弯弯。",
+    w: { sm: 40, hp: 100, sd: 0, su: 20, an: 0 }, pk: 2, lk: { x: 0, y: -15 },
+    ra: -50, la: 50, rp: -0.3, lp: -0.3, asy: -10, asr: 20 },
+
+  { id: "wave",  icon: "👋", name: "Wave", desc: "单手招手。只有左钳在大幅度摇摆，右钳保持低位平衡，这是非对称的可爱感。",
+    w: { sm: 80, hp: 10, sd: 0, su: 0, an: 0 }, pk: 1, lk: { x: -20, y: -20 },
+    ra: 10, la: -110, rp: 0, lp: -0.5, asy: -5, asr: 5 },
+
+  { id: "think", icon: "🤔", name: "Think", desc: "右钳抵住下巴（托腮），左钳垂下。触须一高一低，眼神飘忽。",
+    w: { sm: 0, hp: 0, sd: 20, su: 0, an: 40 }, pk: 5, lk: { x: 25, y: -20 },
+    ra: -135, la: -5, rp: 0.4, lp: 0, asy: 0, asr: -10 },
+
+  { id: "shy",   icon: "🙈", name: "Bashful", desc: "害羞地遮住双眼。钳子完全重叠在眼白位置，只留一点缝隙偷看。",
+    w: { sm: 50, hp: 0, sd: 50, su: 0, an: 0 }, pk: 1, lk: { x: 0, y: 15 },
+    ra: 155, la: -155, rp: 0.2, lp: 0.2, asy: 10, asr: -15 },
+
+  { id: "surprise", icon: "💥", name: "Shock", desc: "受到惊吓，两钳瞬间弹开并夹紧。触须像通了电一样笔直。",
+    w: { sm: 0, hp: 0, sd: 0, su: 100, an: 0 }, pk: 4, lk: { x: 0, y: -30 },
+    ra: 110, la: -110, rp: 0.8, lp: 0.8, asy: -20, asr: 40 },
+
+  { id: "angry", icon: "💢", name: "Angry", desc: "双钳抬起并快速模拟“咔哒咔哒”的夹击。身体微微颤抖。",
+    w: { sm: 0, hp: 0, sd: 0, su: 0, an: 100 }, pk: 5, lk: { x: 0, y: 0 },
+    ra: -60, la: 60, rp: 0.9, lp: 0.9, asy: -15, asr: -5 },
+    
+  { id: "dead", icon: "💀", name: "Dead", desc: "装死。双钳无力地耷拉到最下方，身体歪斜。",
+    w: { sm: 0, hp: 0, sd: 100, su: 0, an: 0 }, pk: 3, lk: { x: 0, y: 40 },
+    ra: 60, la: -60, rp: -0.2, lp: -0.2, asy: 20, asr: -30 }
+];
+
+const SEQUENCE = ["idle", "wave", "happy", "idle", "think", "shy", "idle", "surprise", "angry", "dead", "idle"];
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   STATE MANAGEMENT
+   ───────────────────────────────────────────────────────────────────────────── */
+const cur = {
+  w: { sm: 0, hp: 0, sd: 0, su: 0, an: 0 },
+  ra: 0, la: 0, rp: 0, lp: 0, asy: 0, asr: 0, ass: 1, 
+  lk: { x: 0, y: 0 }, rootY: 0, rootR: 0
+};
+const tgt = JSON.parse(JSON.stringify(cur));
+
+const curveCur = {
+  ew: [...CURVES.eyeWhite[0]],
+  mo: [...CURVES.mouth[0]],
+  pu: [...CURVES.pupil[0]],
+  al: [...CURVES.antL[0]],
+  ar: [...CURVES.antR[0]]
+};
+
+let activeAction = ACTIONS[0];
+let animTime = 0;
+let phaseT = 0;
+
+/* DOM */
+const dom = {
+  root: document.getElementById("master-pivot"),
+  armR: document.getElementById("arm-right-pivot"),
+  armL: document.getElementById("arm-left-pivot"),
+  pinchR: document.getElementById("arm-right-pincer-pivot"),
+  pinchL: document.getElementById("arm-left-pincer-pivot"),
+  ewL: document.getElementById("eye-white-left"),
+  ewR: document.getElementById("eye-white-right"),
+  puL: document.getElementById("pupil-left"),
+  puR: document.getElementById("pupil-right"),
+  puWL: document.getElementById("pupil-left-pivot"),
+  puWR: document.getElementById("pupil-right-pivot"),
+  ewWL: document.getElementById("eye-left-anim"),
+  ewWR: document.getElementById("eye-right-anim"),
+  mouth: document.getElementById("mouth-path"),
+  antL: document.getElementById("ant-left-path"),
+  antR: document.getElementById("ant-right-path"),
+  antLW: document.getElementById("ant-left-pivot"),
+  antRW: document.getElementById("ant-right-pivot")
+};
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   HELPERS
+   ──────────────────────────────────────────────────────────────────────────────── */
+function blend(base, w) {
+  return base[0].map((v, i) => v 
+    + (base[1][i]-v)*w.sm/100 + (base[2][i]-v)*w.hp/100 
+    + (base[3][i]-v)*w.sd/100 + (base[4][i]-v)*w.su/100 + (base[5][i]-v)*w.an/100
+  );
+}
+
+function easeScalar(c, t, k=0.15) {
+  const d = t - c;
+  return Math.abs(d) < 0.05 ? t : c + d * k;
+}
+
+function easeArr(c, t, k=0.18) {
+  for(let i=0; i<c.length; i++) {
+    const d = t[i] - c[i];
+    c[i] = Math.abs(d) < 0.05 ? t[i] : c[i] + d * k;
+  }
+}
+
+function path14(p) {
+  return `M ${p[0]} ${p[1]} C ${p[2]} ${p[3]}, ${p[4]} ${p[5]}, ${p[6]} ${p[7]} C ${p[8]} ${p[9]}, ${p[10]} ${p[11]}, ${p[12]} ${p[13]} Z`;
+}
+
+function path8(p) {
+  return `M ${p[0]} ${p[1]} C ${p[2]} ${p[3]}, ${p[4]} ${p[5]}, ${p[6]} ${p[7]}`;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ANIMATION ENGINE
+   ──────────────────────────────────────────────────────────────────────────────── */
+function update(dt) {
+  animTime += dt;
+  phaseT += dt * 0.001;
+
+  // Breathing & Idle Sway
+  const breath = Math.sin(phaseT * 1.5) * 4;
+  const swayArmR = Math.sin(phaseT * 1.2) * 5;
+  const swayArmL = Math.cos(phaseT * 0.8) * 5;
+
+  // Micro-adjustment oscillations (Clicky Pinch)
+  let pinchOsc = 0;
+  if(activeAction.id === "angry") pinchOsc = Math.sin(animTime * 0.04) * 0.3;
+  if(activeAction.id === "happy") pinchOsc = Math.sin(animTime * 0.06) * 0.15;
+  if(activeAction.id === "wave")  pinchOsc = Math.sin(animTime * 0.03) * 0.2;
+
+  // Ease state
+  cur.ra = easeScalar(cur.ra, tgt.ra);
+  cur.la = easeScalar(cur.la, tgt.la);
+  cur.rp = easeScalar(cur.rp, tgt.rp);
+  cur.lp = easeScalar(cur.lp, tgt.lp);
+  cur.lk.x = easeScalar(cur.lk.x, tgt.lk.x);
+  cur.lk.y = easeScalar(cur.lk.y, tgt.lk.y);
+  cur.rootY = easeScalar(cur.rootY, tgt.rootY);
+  cur.rootR = easeScalar(cur.rootR, tgt.rootR);
+  cur.asy = easeScalar(cur.asy, tgt.asy);
+  cur.asr = easeScalar(cur.asr, tgt.asr);
+  
+  Object.keys(cur.w).forEach(k => cur.w[k] = easeScalar(cur.w[k], tgt.w[k], 0.1));
+
+  // Compute Curves
+  const cTarget = {
+    ew: blend(CURVES.eyeWhite, cur.w),
+    mo: blend(CURVES.mouth, cur.w),
+    pu: [...CURVES.pupil[activeAction.pk]],
+    al: blend(CURVES.antL, cur.w),
+    ar: blend(CURVES.antR, cur.w)
+  };
+  easeArr(curveCur.ew, cTarget.ew);
+  easeArr(curveCur.mo, cTarget.mo);
+  easeArr(curveCur.pu, cTarget.pu, 0.14);
+  easeArr(curveCur.al, cTarget.al);
+  easeArr(curveCur.ar, cTarget.ar);
+
+  // Apply Transforms
+  dom.root.setAttribute("transform", `translate(0 ${cur.rootY + breath}) rotate(${cur.rootR})`);
+  
+  // Arms
+  dom.armR.setAttribute("transform", `translate(680 850) rotate(${cur.ra + swayArmR})`);
+  dom.armL.setAttribute("transform", `translate(560 850) rotate(${cur.la + swayArmL})`);
+  
+  // Pincer Click (Simulated with scaling)
+  // Neutral pinch is scale 1. Opening is scale > 1 (on X), closing is < 1.
+  const scaleR = 1 - (cur.rp + pinchOsc);
+  const scaleL = 1 - (cur.lp + pinchOsc);
+  dom.pinchR.setAttribute("transform", `scale(${scaleR.toFixed(2)} 1)`);
+  dom.pinchL.setAttribute("transform", `scale(${scaleL.toFixed(2)} 1)`);
+
+  // Eyes & Mouth
+  const lkX = cur.lk.x;
+  const lkY = cur.lk.y;
+  dom.ewWL.setAttribute("transform", `translate(${lkX} ${lkY})`);
+  dom.ewWR.setAttribute("transform", `translate(${lkX} ${lkY})`);
+  dom.puWL.setAttribute("transform", `translate(${lkX * 0.3} ${13 + lkY * 0.3})`);
+  dom.puWR.setAttribute("transform", `translate(${lkX * 0.3} ${13 + lkY * 0.3})`);
+  
+  dom.ewL.setAttribute("d", path14(curveCur.ew));
+  dom.ewR.setAttribute("d", path14(curveCur.ew));
+  dom.puL.setAttribute("d", path14(curveCur.pu));
+  dom.puR.setAttribute("d", path14(curveCur.pu));
+  dom.mouth.setAttribute("d", path14(curveCur.mo));
+  
+  // Antennae
+  dom.antLW.setAttribute("transform", `translate(0 ${cur.asy}) rotate(${cur.asr + lkX * 0.5}) scale(1)`);
+  dom.antRW.setAttribute("transform", `translate(0 ${cur.asy}) rotate(${-cur.asr + lkX * 0.5}) scale(1)`);
+  dom.antL.setAttribute("d", path8(curveCur.al));
+  dom.antR.setAttribute("d", path8(curveCur.ar));
+}
+
+function setAction(a) {
+  activeAction = a;
+  Object.keys(a.w).forEach(k => tgt.w[k] = a.w[k]);
+  tgt.ra = a.ra; tgt.la = a.la;
+  tgt.rp = a.rp; tgt.lp = a.lp;
+  tgt.lk = { ...a.lk };
+  tgt.asy = a.asy; tgt.asr = a.asr;
+  
+  // Global body adjustments for certain moods
+  tgt.rootY = (a.id === "dead") ? 30 : (a.id === "surprise" ? -20 : 0);
+  tgt.rootR = (a.id === "dead") ? 25 : 0;
+
+  // UI
+  document.getElementById("hud").innerText = `STATE: ${a.id.toUpperCase()}`;
+  document.getElementById("info-title").innerText = a.name;
+  document.getElementById("info-text").innerText = a.desc;
+  
+  document.querySelectorAll(".btn").forEach(b => b.classList.toggle("active", b.dataset.id === a.id));
+  document.querySelectorAll(".seq-tag").forEach(b => b.classList.toggle("active", b.dataset.id === a.id));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ENTRY POINT
+   ──────────────────────────────────────────────────────────────────────────────── */
+function init() {
+  const container = document.getElementById("actions-el");
+  ACTIONS.forEach(a => {
+    const el = document.createElement("div");
+    el.className = "btn";
+    el.dataset.id = a.id;
+    el.innerHTML = `<span class="icon">${a.icon}</span><span class="name">${a.name}</span>`;
+    el.onclick = () => { autoCycle = false; setAction(a); };
+    container.appendChild(el);
+  });
+
+  const seqContainer = document.getElementById("seq-el");
+  SEQUENCE.forEach((id, i) => {
+    const a = ACTIONS.find(x => x.id === id);
+    const el = document.createElement("div");
+    el.className = "seq-tag";
+    el.dataset.id = id;
+    el.innerText = `${i+1}. ${a.name}`;
+    el.onclick = () => { autoCycle = false; idx = i; next(); autoCycle = true; };
+    seqContainer.appendChild(el);
+  });
+
+  setAction(ACTIONS[0]);
+}
+
+let idx = 0;
+let autoCycle = true;
+function next() {
+  if(!autoCycle) return;
+  const id = SEQUENCE[idx % SEQUENCE.length];
+  const a = ACTIONS.find(x => x.id === id);
+  setAction(a);
+  idx++;
+  setTimeout(next, 3000);
+}
+
+// Tick
+let last = performance.now();
+function tick(now) {
+  update(now - last);
+  last = now;
+  requestAnimationFrame(tick);
+}
+
+init();
+requestAnimationFrame(tick);
+setTimeout(next, 2000);
+
+</script>
+</body>
+</html>

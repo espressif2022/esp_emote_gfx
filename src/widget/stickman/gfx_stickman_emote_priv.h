@@ -42,6 +42,9 @@ typedef struct {
     size_t action_idx;
 } gfx_stickman_emote_t;
 
+void gfx_stickman_emote_anim_cb(void *user_data);
+esp_err_t gfx_stickman_emote_sync_meshes(gfx_obj_t *obj, gfx_stickman_emote_t *stickman);
+
 esp_err_t gfx_stickman_emote_validate_export(const gfx_stickman_export_t *export_data);
 esp_err_t gfx_stickman_emote_find_action_index(const gfx_stickman_export_t *export_data,
                                                const char *name,

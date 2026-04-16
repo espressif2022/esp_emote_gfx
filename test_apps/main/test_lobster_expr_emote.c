@@ -18,6 +18,8 @@
 static const char *TAG = "test_lobster_expr";
 
 #include "lobster_emote_export.inc"
+#include "lobster_test_mesh_tex.inc"
+#include "lobster_test_body_tex.inc"
 
 typedef struct {
     gfx_obj_t *antenna_obj;
@@ -194,7 +196,7 @@ void test_lobster_expr_emote_run(void)
     test_lobster_expr_emote_scene_t scene = {0};
 
     test_app_log_case(TAG, "Lobster Emote (龙虾) expression animation test");
-    ESP_LOGI(TAG, "asset mode: exported inc (lobster_emote_export.inc)");
+    ESP_LOGI(TAG, "asset mode: expr inc + readback mesh/body (lobster_test_*_tex.inc)");
     test_lobster_expr_log_export_baseline();
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
@@ -217,7 +219,7 @@ void test_lobster_expr_emote_run(void)
 
     gfx_img_set_src_desc(scene.bg_obj, &(gfx_img_src_t) {
         .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
-        .data = &LOBSTER_EXPORTED_BG_SYMBOL,
+        .data = &s_lobster_test_body_tex,
     });
     gfx_obj_align(scene.bg_obj, GFX_ALIGN_CENTER, 0, 0);
 
@@ -225,7 +227,15 @@ void test_lobster_expr_emote_run(void)
     gfx_lobster_emote_set_assets(scene.eyes_obj, &s_lobster_expr_assets);
     gfx_lobster_emote_set_color(scene.eyes_obj, GFX_COLOR_HEX(0xF46144));
     gfx_lobster_emote_set_layer_mask(scene.eyes_obj, GFX_LOBSTER_EMOTE_LAYER_EYE_WHITE | GFX_LOBSTER_EMOTE_LAYER_PUPIL | GFX_LOBSTER_EMOTE_LAYER_MOUTH);
-    
+
+    /* RGB565A8: eye white ellipse + pupil arc from ip_svg_parts_readback.html (see gen_lobster_readback_textures.py) */
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_lobster_emote_set_mesh_textures(scene.eyes_obj, &s_lobster_test_eye_tex, &s_lobster_test_pupil_tex));
+    ESP_LOGI(TAG, "mesh textures (readback eye): eye %ux%u pupil %ux%u RGB565A8",
+             (unsigned)s_lobster_test_eye_tex.header.w, (unsigned)s_lobster_test_eye_tex.header.h,
+             (unsigned)s_lobster_test_pupil_tex.header.w, (unsigned)s_lobster_test_pupil_tex.header.h);
+    ESP_LOGI(TAG, "bg image (readback body, no eyes/antenna): %ux%u RGB565A8",
+             (unsigned)s_lobster_test_body_tex.header.w, (unsigned)s_lobster_test_body_tex.header.h);
+
     // gfx_obj_set_size(scene.title_label, 320, 30);
     // gfx_obj_align(scene.title_label, GFX_ALIGN_TOP_MID, 0, 10);
     // gfx_label_set_text(scene.title_label, "Lobster Emote Test");
@@ -242,7 +252,7 @@ void test_lobster_expr_emote_run(void)
     
     test_app_unlock();
 
-    test_app_log_step(TAG, "Observe lobster expressions cycling every 2 seconds with eye and antenna coordination");
+    test_app_log_step(TAG, "Observe lobster: readback body BG + eye mesh textures, expressions cycling with antenna");
     test_app_wait_for_observe(1000 * 10000);
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());

@@ -125,11 +125,11 @@ static esp_err_t gfx_lobster_emote_apply_color(gfx_lobster_emote_t *lobster)
     };
     const gfx_img_src_t eye_white_src = {
         .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
-        .data = &lobster->eye_white_img,
+        .data = (lobster->mesh_tex_eye_white != NULL) ? lobster->mesh_tex_eye_white : &lobster->eye_white_img,
     };
     const gfx_img_src_t pupil_src = {
         .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
-        .data = &lobster->pupil_img,
+        .data = (lobster->mesh_tex_pupil != NULL) ? lobster->mesh_tex_pupil : &lobster->pupil_img,
     };
     bool swap;
 
@@ -297,6 +297,19 @@ esp_err_t gfx_lobster_emote_set_color(gfx_obj_t *obj, gfx_color_t color)
     CHECK_OBJ_TYPE_LOBSTER_EMOTE(obj);
     lobster = (gfx_lobster_emote_t *)obj->src;
     lobster->color = color;
+    return gfx_lobster_emote_apply_color(lobster);
+}
+
+esp_err_t gfx_lobster_emote_set_mesh_textures(gfx_obj_t *obj,
+                                              const gfx_image_dsc_t *eye_white,
+                                              const gfx_image_dsc_t *pupil_and_mouth)
+{
+    gfx_lobster_emote_t *lobster;
+
+    CHECK_OBJ_TYPE_LOBSTER_EMOTE(obj);
+    lobster = (gfx_lobster_emote_t *)obj->src;
+    lobster->mesh_tex_eye_white = eye_white;
+    lobster->mesh_tex_pupil = pupil_and_mouth;
     return gfx_lobster_emote_apply_color(lobster);
 }
 

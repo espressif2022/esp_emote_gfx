@@ -490,7 +490,7 @@
           <path fill="none" stroke="#191919" stroke-width="20" stroke-linecap="round" d="M446.38,665.79c5.69-42.61,55.93-40.58,61.22,0"/>
         </svg>
         <div class="part-card-title">左眼 / Left Eye</div>
-        <div class="part-card-note">眼白是白色椭圆，眼珠是黑色弧形 path。</div>
+        <div class="part-card-note">眼白是白色椭圆，眼珠是黑色弧形 path。设备端 mesh 测试贴图由同几何光栅化：<code>test_apps/main/gen_lobster_readback_textures.py</code> → <code>lobster_test_mesh_tex.inc</code>（RGB565 字节序默认与 <code>scripts/image_converter.py</code> 无 <code>--swap16</code> 一致；需与旧版小端布局一致时加 <code>--swap16</code>）。同一脚本还把身体层（钳/头/身/尾/点，不含眼与触角）光栅成 360×360 → <code>lobster_test_body_tex.inc</code>，给 <code>test_lobster_expr_emote</code> 的 <code>bg_obj</code> 用。</div>
       </article>
 
       <article class="part-card">

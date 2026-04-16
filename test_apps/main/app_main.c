@@ -38,6 +38,8 @@ extern void test_list_run_case(void);
 extern void test_benchmark_run_case(void);
 extern void test_lobster_expr_emote_run_case(void);
 extern void test_stickman_emote_run_case(void);
+extern void test_gfx_rig_stickman_host_run_case(void);
+extern void test_gfx_sm_scene_run_case(void);
 
 void app_main(void)
 {
@@ -52,5 +54,7 @@ void app_main(void)
     // test_benchmark_run_case();
     // test_mesh_bulge_run_case();
     // test_lobster_expr_emote_run_case();
-    test_stickman_emote_run_case();
+    // test_stickman_emote_run_case();
+    // test_gfx_rig_stickman_host_run_case();
+    test_gfx_sm_scene_run_case();
 }

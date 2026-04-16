@@ -83,6 +83,10 @@ typedef struct {
     gfx_image_dsc_t accent_img;
     gfx_image_dsc_t eye_white_img;
     gfx_image_dsc_t pupil_img;
+    /** When non-NULL, eye mesh uses this RGB565/RGB565A8 image for UV mapping instead of eye_white_img. */
+    const gfx_image_dsc_t *mesh_tex_eye_white;
+    /** When non-NULL, pupil and mouth meshes use this image instead of pupil_img. */
+    const gfx_image_dsc_t *mesh_tex_pupil;
     gfx_color_t color;
 
     gfx_obj_t *head_obj;

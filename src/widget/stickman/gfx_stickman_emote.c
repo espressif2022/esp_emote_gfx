@@ -71,9 +71,7 @@ static const uint8_t s_segment_point_pairs[GFX_STICKMAN_SEGMENT_COUNT][2] = {
 static esp_err_t gfx_stickman_emote_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx);
 static esp_err_t gfx_stickman_emote_delete_impl(gfx_obj_t *obj);
 static esp_err_t gfx_stickman_emote_update_impl(gfx_obj_t *obj);
-static void gfx_stickman_emote_anim_cb(void *user_data);
 static esp_err_t gfx_stickman_emote_apply_color(gfx_stickman_emote_t *stickman);
-static esp_err_t gfx_stickman_emote_sync_meshes(gfx_obj_t *obj, gfx_stickman_emote_t *stickman);
 static esp_err_t gfx_stickman_apply_segment_mesh(gfx_obj_t *mesh_obj,
                                                  const gfx_stickman_screen_point_t *a,
                                                  const gfx_stickman_screen_point_t *b,
@@ -356,7 +354,7 @@ static esp_err_t gfx_stickman_apply_head_ring_mesh(gfx_obj_t *mesh_obj,
     return gfx_mesh_img_set_points_q8(mesh_obj, mesh_pts, ((size_t)segs + 1U) * 2U);
 }
 
-static esp_err_t gfx_stickman_emote_sync_meshes(gfx_obj_t *obj, gfx_stickman_emote_t *stickman)
+esp_err_t gfx_stickman_emote_sync_meshes(gfx_obj_t *obj, gfx_stickman_emote_t *stickman)
 {
     const gfx_stickman_export_t *export_data;
     const gfx_stickman_layout_t *layout;
@@ -432,7 +430,7 @@ static esp_err_t gfx_stickman_emote_sync_meshes(gfx_obj_t *obj, gfx_stickman_emo
     return ESP_OK;
 }
 
-static void gfx_stickman_emote_anim_cb(void *user_data)
+void gfx_stickman_emote_anim_cb(void *user_data)
 {
     gfx_obj_t *obj = (gfx_obj_t *)user_data;
     gfx_stickman_emote_t *stickman;
