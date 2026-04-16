@@ -8,17 +8,19 @@
  * Joints are BÉZIER CONTROL POINTS in design space (viewbox 200×200, centred at 0,0).
  * Segments encode the rendering primitive for each joint group:
  *
- *   Segment          Joints        Kind
- *   ───────────────  ────────────  ────────────────
- *   mouth            0-6 (7 pts)   BEZIER_LOOP
- *   eye_l            7-13 (7 pts)  BEZIER_LOOP
- *   eye_r           14-20 (7 pts)  BEZIER_LOOP
- *   brow_l          21-24 (4 pts)  BEZIER_STRIP
- *   brow_r          25-28 (4 pts)  BEZIER_STRIP
+ *   Segment  Joints         Kind           Resource
+ *   ───────  ─────────────  ─────────────  ──────────────────────────
+ *   mouth    0-6  (7 pts)   BEZIER_LOOP    — (solid colour)
+ *   eye_l    7-13 (7 pts)   BEZIER_FILL    resource[1] = face_eye_tex
+ *   eye_r    14-20 (7 pts)  BEZIER_FILL    resource[1] = face_eye_tex
+ *   brow_l   21-24 (4 pts)  BEZIER_STRIP   — (solid colour)
+ *   brow_r   25-28 (4 pts)  BEZIER_STRIP   — (solid colour)
  *
  * Pose data is pre-computed by blending the reference shapes from
  * face_emote_expr_assets.inc with the expression weights — no runtime
  * blend logic needed.  The stickman fireman scene uses the SAME format.
+ *
+ * Resource table: s_fe_resources[] (defined below), 1-based index in segment.resource_idx.
  *
  * Include after gfx_sm_scene.h.
  */
@@ -26,6 +28,7 @@
 #pragma once
 
 #include "widget/gfx_sm_scene.h"
+#include "face_eye_tex.inc"
 
 static const gfx_sm_meta_t s_fe_meta = {
     .version   = GFX_SM_SCENE_SCHEMA_VERSION,
@@ -178,10 +181,15 @@ static const gfx_sm_pose_t s_fe_poses[] = {
     { s_fe_p48 },  /* flattered */
 };
 
+/* Resource table: index 1 → eye texture (sclera/iris/pupil). */
+static const gfx_sm_resource_t s_fe_resources[] = {
+    /* [0] eye_tex */ { .image = &s_face_eye_tex },
+};
+
 static const gfx_sm_segment_t s_fe_segments[] = {
     /* mouth  */ { GFX_SM_SEG_BEZIER_LOOP,  .joint_a =  0, .joint_count = 7, .stroke_width = 10 },
-    /* eye_l  */ { GFX_SM_SEG_BEZIER_FILL,  .joint_a =  7, .joint_count = 7 },
-    /* eye_r  */ { GFX_SM_SEG_BEZIER_FILL,  .joint_a = 14, .joint_count = 7 },
+    /* eye_l  */ { GFX_SM_SEG_BEZIER_FILL,  .joint_a =  7, .joint_count = 7, .resource_idx = 1 },
+    /* eye_r  */ { GFX_SM_SEG_BEZIER_FILL,  .joint_a = 14, .joint_count = 7, .resource_idx = 1 },
     /* brow_l */ { GFX_SM_SEG_BEZIER_STRIP, .joint_a = 21, .joint_count = 4, .stroke_width =  6 },
     /* brow_r */ { GFX_SM_SEG_BEZIER_STRIP, .joint_a = 25, .joint_count = 4, .stroke_width =  6 },
 };
@@ -303,4 +311,6 @@ static const gfx_sm_asset_t s_fe_scene_asset = {
     .sequence       = s_fe_sequence,
     .sequence_count = 49,
     .layout         = &s_fe_layout,
+    .resources      = s_fe_resources,
+    .resource_count = 1,
 };

@@ -16,7 +16,6 @@
 #include "widget/gfx_img.h"
 #include "widget/gfx_mesh_img.h"
 #include "widget/gfx_rig.h"
-#include "widget/gfx_stickman_rig_host.h"
 #include "widget/gfx_sm_scene.h"
 #include "widget/gfx_face_emote.h"
 #include "widget/gfx_lobster_emote.h"

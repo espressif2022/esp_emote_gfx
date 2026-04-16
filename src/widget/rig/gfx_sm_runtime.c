@@ -646,7 +646,23 @@ esp_err_t gfx_sm_runtime_init(gfx_sm_runtime_t *rt,
         if (seg->kind != GFX_SM_SEG_BEZIER_FILL) {
             gfx_mesh_img_set_aa_inward(obj, true);
         }
-        gfx_mesh_img_set_src_desc(obj, &solid_src);
+
+        /* Bind per-segment image source: texture if resource_idx > 0, else solid colour */
+        if (seg->resource_idx > 0U
+                && asset->resources != NULL
+                && (uint8_t)(seg->resource_idx - 1U) < asset->resource_count
+                && asset->resources[seg->resource_idx - 1U].image != NULL) {
+            gfx_img_src_t res_src = {
+                .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+                .data = (const void *)asset->resources[seg->resource_idx - 1U].image,
+            };
+            gfx_mesh_img_set_src_desc(obj, &res_src);
+        } else {
+            gfx_mesh_img_set_src_desc(obj, &solid_src);
+        }
+
+        /* TODO: apply seg->opacity once gfx_obj exposes an opacity API */
+
         gfx_obj_set_visible(obj, false);
 
         rt->seg_objs[i] = obj;
@@ -700,6 +716,12 @@ esp_err_t gfx_sm_runtime_set_color(gfx_sm_runtime_t *rt, gfx_color_t color)
     solid_src.data = &rt->solid_img;
 
     for (uint8_t i = 0; i < rt->seg_obj_count; i++) {
+        /* Skip texture-mapped segments — colour change does not apply */
+        if (rt->scene.asset != NULL && i < rt->scene.asset->segment_count) {
+            if (rt->scene.asset->segments[i].resource_idx != 0U) {
+                continue;
+            }
+        }
         ESP_RETURN_ON_ERROR(gfx_mesh_img_set_src_desc(rt->seg_objs[i], &solid_src),
                             TAG, "set color seg[%u]", i);
     }

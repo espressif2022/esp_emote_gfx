@@ -7,8 +7,8 @@
 /*
  * Test: unified gfx_sm_runtime — stickman + face 同屏同时运行
  *
- * 左半屏：stickman fireman   (CAPSULE / RING segments)
- * 右半屏：face expressions   (BEZIER_LOOP / BEZIER_STRIP / RING segments)
+ * 左 1/3：stickman fireman   (CAPSULE / RING segments)
+ * 右 2/3：face expressions   (BEZIER_FILL / BEZIER_LOOP / BEZIER_STRIP segments)
  *
  * 两者使用完全相同的 gfx_sm_runtime_t + gfx_sm_runtime_init()，
  * 通过 gfx_sm_runtime_set_canvas() 限定各自的画布区域；
@@ -99,9 +99,9 @@ static void test_sm_dual_run(void)
 
     disp_w = (uint16_t)gfx_disp_get_hor_res(disp_default);
     disp_h = (uint16_t)gfx_disp_get_ver_res(disp_default);
-    half_w = disp_w / 2U;
+    half_w = disp_w / 2U;   /* stickman: left 1/2 */
 
-    /* ── Slot 0: stickman fireman, left half ── */
+    /* ── Slot 0: stickman fireman, left 1/3 ── */
     memset(&s_slot_skel, 0, sizeof(s_slot_skel));
     s_slot_skel.asset = &s_fm_scene_asset;
 
@@ -121,15 +121,15 @@ static void test_sm_dual_run(void)
                                                &s_slot_skel);
     TEST_ASSERT_NOT_NULL(s_slot_skel.clip_timer);
 
-    /* ── Slot 1: face expressions, right half ── */
+    /* ── Slot 1: face expressions, right 2/3 ── */
     memset(&s_slot_face, 0, sizeof(s_slot_face));
     s_slot_face.asset = &s_fe_scene_asset;
 
     TEST_ASSERT_EQUAL(ESP_OK,
         gfx_sm_runtime_init(&s_slot_face.rt, disp_default, &s_fe_scene_asset));
     TEST_ASSERT_EQUAL(ESP_OK,
-        gfx_sm_runtime_set_canvas(&s_slot_face.rt, (gfx_coord_t)half_w, 0,
-                                   (uint16_t)(disp_w - half_w), disp_h));
+        gfx_sm_runtime_set_canvas(&s_slot_face.rt, (gfx_coord_t)half_w - 30, 0,
+                                   (uint16_t)(disp_w - half_w) + 60, disp_h));
     TEST_ASSERT_EQUAL(ESP_OK,
         gfx_sm_runtime_set_color(&s_slot_face.rt, GFX_COLOR_HEX(0x40B0FF)));
 
@@ -144,7 +144,7 @@ static void test_sm_dual_run(void)
 
     test_app_unlock();
 
-    test_app_log_step(TAG, "Left: fireman clips  Right: 49 face expressions — observe");
+    test_app_log_step(TAG, "Left 1/3: fireman  Right 2/3: 49 face expressions — observe");
     test_app_wait_for_observe(1000 * 10000);
 
     /* ── Teardown ── */

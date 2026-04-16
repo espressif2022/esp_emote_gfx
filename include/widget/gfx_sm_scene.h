@@ -13,7 +13,7 @@
  *
  * Layer 1 — SOURCE FORMAT (this file, ROM-side):
  *   Named joints (2-D control points) grouped into primitives via segments.
- *   Both stickman limbs and face Bézier shapes share the same struct:
+ *   All emote types (stickman, face, lobster-style textured) share the same struct:
  *
  *     Segment kind   Joints used      Rendered as
  *     ─────────────  ───────────────  ────────────────────────────────────
@@ -24,7 +24,8 @@
  *     BEZIER_FILL    joint_a .. +n-1  Closed filled Bézier shape (eye sclera)
  *
  *   Stickman: each joint = one skeleton endpoint.
- *   Face:     each joint = one Bézier control point of a facial shape.
+ *   Face:     each joint = one cubic Bézier control point (n = 3k+1 format).
+ *   Textured: any segment can reference a ROM image via segment.resource_idx.
  *   Poses store the *actual* target positions (pre-blended for face expressions).
  *
  * Layer 2 — PARSER (gfx_sm_scene.c):
@@ -51,7 +52,30 @@
 extern "C" {
 #endif
 
-#define GFX_SM_SCENE_SCHEMA_VERSION 1U
+#define GFX_SM_SCENE_SCHEMA_VERSION 2U
+
+/* ------------------------------------------------------------------ */
+/*  0. Resource table (textures / image assets)                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One entry in the asset's resource table.
+ *
+ * A segment with resource_idx > 0 uses resources[resource_idx - 1]
+ * as its mesh_img texture source instead of the runtime solid colour.
+ * This allows texture-mapped segments (e.g. lobster body) to live in
+ * the same unified asset format as solid-colour vector segments.
+ *
+ * resource_idx = 0  → solid colour (default, zero-init compatible)
+ * resource_idx = N  → resources[N-1]
+ */
+typedef struct {
+    const gfx_image_dsc_t *image;  /**< Pointer to the image descriptor (ROM .inc array)         */
+    uint16_t uv_x;                 /**< Source crop origin X  (0 = full image)                   */
+    uint16_t uv_y;                 /**< Source crop origin Y  (0 = full image)                   */
+    uint16_t uv_w;                 /**< Source crop width     (0 = full image width)              */
+    uint16_t uv_h;                 /**< Source crop height    (0 = full image height)             */
+} gfx_sm_resource_t;
 
 /* ------------------------------------------------------------------ */
 /*  1. Segment primitives                                              */
@@ -61,8 +85,8 @@ extern "C" {
  * Primitive kind — determines how the renderer draws a segment.
  *
  * CAPSULE / RING use two joints (endpoint pair / center).
- * BEZIER_STRIP / BEZIER_LOOP use a contiguous range of joints as
- * Bézier control points; joint_count gives the number of points.
+ * BEZIER_STRIP / BEZIER_LOOP / BEZIER_FILL use a contiguous range of
+ * joints as cubic Bézier control points (n = 3k+1 polygon format).
  */
 typedef enum {
     GFX_SM_SEG_CAPSULE      = 0, /**< Thick capsule between joint_a → joint_b        */
@@ -75,12 +99,23 @@ typedef enum {
 /** One rendering primitive wiring joints to a visual element. */
 typedef struct {
     gfx_sm_seg_kind_t kind;
-    uint8_t           joint_a;       /**< CAPSULE: start; RING: centre; BEZIER: first control point */
-    uint8_t           joint_b;       /**< CAPSULE: end  ; unused for RING/BEZIER                   */
-    uint8_t           joint_count;   /**< BEZIER_*: number of consecutive control points            */
-    uint8_t           stroke_width;  /**< Design-space override; 0 = use layout->stroke_width       */
-    uint8_t           layer_bit;     /**< Visibility layer mask bit (0 = always shown)              */
-    int16_t           radius_hint;   /**< RING: design-space radius                                 */
+    uint8_t           joint_a;       /**< CAPSULE: start; RING: centre; BEZIER: first ctrl pt     */
+    uint8_t           joint_b;       /**< CAPSULE: end  ; unused for RING/BEZIER                  */
+    uint8_t           joint_count;   /**< BEZIER_*: number of consecutive control points (n=3k+1) */
+    uint8_t           stroke_width;  /**< Design-space override; 0 = use layout->stroke_width     */
+    uint8_t           layer_bit;     /**< Visibility layer mask bit (0 = always shown)            */
+    int16_t           radius_hint;   /**< RING: design-space radius                               */
+    /**
+     * Texture / resource binding.
+     * 0   = solid colour (driven by gfx_sm_runtime_set_color).
+     * N>0 = use asset->resources[N-1] as the mesh_img image source.
+     */
+    uint8_t           resource_idx;
+    /**
+     * Segment opacity 0-255.
+     * 0 is treated as 255 (fully opaque) for zero-init compatibility.
+     */
+    uint8_t           opacity;
 } gfx_sm_segment_t;
 
 /* ------------------------------------------------------------------ */
@@ -177,6 +212,14 @@ typedef struct {
 
     /** Rendering hints. */
     const gfx_sm_layout_t  *layout;
+
+    /**
+     * Optional texture/image resource table.
+     * Segments reference entries here via segment.resource_idx (1-based).
+     * NULL and resource_count=0 are valid (all segments use solid colour).
+     */
+    const gfx_sm_resource_t *resources;
+    uint8_t                   resource_count;
 } gfx_sm_asset_t;
 
 /* ------------------------------------------------------------------ */
