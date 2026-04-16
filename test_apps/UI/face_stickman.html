@@ -11,8 +11,8 @@
       --line: rgba(255, 255, 255, 0.08);
       --text: #eef4fb;
       --muted: #96a8bc;
-      --accent: #111111;
-      --paper: #fbfbf9;
+      --accent: #f5f7fb;
+      --paper: #04070b;
       --preview-w: 360px;
       --preview-h: 360px;
     }
@@ -57,7 +57,7 @@
       align-items: start;
     }
 
-    .stage, .sidebar, .actions, .rules {
+    .stage, .sidebar {
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 16px;
@@ -66,7 +66,6 @@
 
     .stage { padding: 14px; }
     .sidebar { padding: 14px; display: grid; gap: 12px; }
-    .actions, .rules { width: min(1140px, 100%); padding: 14px 16px; }
 
     .viewer {
       position: relative;
@@ -76,10 +75,14 @@
       max-height: 82vh;
       overflow: hidden;
       border-radius: 12px;
-      background: linear-gradient(180deg, #fefefb 0%, #f7f7f3 100%);
+      touch-action: none;
+      background:
+        radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.06), transparent 24%),
+        radial-gradient(circle at 70% 16%, rgba(255, 255, 255, 0.04), transparent 22%),
+        linear-gradient(180deg, #0d1219 0%, #030507 100%);
       box-shadow:
-        inset 0 0 0 1px rgba(17, 17, 17, 0.08),
-        0 12px 30px rgba(0, 0, 0, 0.18);
+        inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 12px 30px rgba(0, 0, 0, 0.28);
     }
 
     .viewer svg {
@@ -92,7 +95,7 @@
       position: absolute;
       left: 12px;
       bottom: 10px;
-      color: rgba(17, 17, 17, 0.58);
+      color: rgba(245, 247, 251, 0.70);
       font: 12px ui-monospace, monospace;
       white-space: pre;
     }
@@ -128,6 +131,28 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+    }
+
+    .mode-bar {
+      margin-top: 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .mode-switch {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .mode-switch button {
+      min-width: 92px;
+    }
+
+    .mode-note {
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--muted);
     }
 
     button {
@@ -167,44 +192,70 @@
       padding: 6px 8px;
     }
 
-    .grid {
-      margin-top: 10px;
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 10px;
-    }
-
-    .item {
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      border-radius: 12px;
-      padding: 10px;
-    }
-
-    .item-title {
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    .item-sub {
-      margin-top: 6px;
-      font-size: 11px;
-      line-height: 1.55;
-      color: var(--muted);
-    }
-
-    .action-meta {
-      margin-top: 8px;
+    .btns-wrap {
+      margin-top: 12px;
       display: flex;
-      justify-content: space-between;
+      flex-wrap: wrap;
       gap: 8px;
-      font-size: 11px;
+      align-items: center;
+    }
+
+    .btn-add {
+      min-width: 40px;
+      padding-left: 10px;
+      padding-right: 10px;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .action-row {
+      display: inline-flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn-mini {
+      padding: 4px 8px;
+      min-width: 28px;
+      font-size: 12px;
+      line-height: 1.2;
+      opacity: 0.9;
+    }
+
+    .btn-mini:hover {
+      opacity: 1;
+    }
+
+    .custom-edit-bar {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 12px;
+      background: rgba(144, 180, 216, 0.08);
+      border: 1px solid rgba(144, 180, 216, 0.25);
+      border-radius: 10px;
+      font-size: 12px;
       color: var(--muted);
+    }
+
+    .custom-edit-bar[hidden] {
+      display: none !important;
+    }
+
+    .viewer.edit-joints .joint-dot {
+      cursor: grab;
+    }
+
+    .viewer.edit-joints .joint-dot:active {
+      cursor: grabbing;
     }
 
     .paper-stroke {
       fill: none;
-      stroke: #111111;
+      stroke: var(--accent);
       stroke-width: 4;
       stroke-linecap: round;
       stroke-linejoin: round;
@@ -212,24 +263,54 @@
 
     .paper-head {
       fill: none;
-      stroke: #111111;
+      stroke: var(--accent);
       stroke-width: 4;
     }
 
     .ground-line {
-      stroke: rgba(17, 17, 17, 0.16);
+      stroke: rgba(255, 255, 255, 0.18);
       stroke-width: 2;
       stroke-linecap: round;
       stroke-dasharray: 6 6;
     }
 
     .shadow {
-      fill: rgba(17, 17, 17, 0.10);
+      fill: rgba(255, 255, 255, 0.08);
+    }
+
+    .joint-dot {
+      fill: #90b4d8;
+      stroke: rgba(4, 7, 11, 0.7);
+      stroke-width: 1.5;
+      pointer-events: visibleFill;
+      cursor: default;
+      transition: r 0.12s;
+    }
+
+    .joint-dot:hover {
+      fill: #f5f7fb;
+    }
+
+    .viewer.device-mode {
+      cursor: crosshair;
+    }
+
+    .viewer.device-mode .ground-line,
+    .viewer.device-mode .shadow,
+    .viewer.device-mode .hud,
+    .viewer.device-mode .joint-dot {
+      display: none;
+    }
+
+    .viewer.dragging {
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+        0 0 0 2px rgba(144, 180, 216, 0.32),
+        0 12px 30px rgba(0, 0, 0, 0.28);
     }
 
     @media (max-width: 960px) {
       .layout { grid-template-columns: 1fr; }
-      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
   </style>
 </head>
@@ -237,32 +318,64 @@
   <h1>Stickman Static Action Board</h1>
   <p class="intro">
     这个页面直接以 <code>fireman.svg</code> 的火柴人比例为基础，只保留圆头和直线四肢的读形。
-    每个动作都是单个静态目标姿态，不自动循环；只有在你点击动作按钮时，才会从当前姿态缓动切到下一个姿态。
-    现在走路和跑步已经拆成左右各 <code>step1 / step2</code> 两组，导出时会带上分组和步序信息，方便你在设备端循环切换。
+    画面改成黑底白人，方便先看剪影是否成立；每个动作仍然都是单个静态目标姿态，不自动循环，
+    只有在你点击动作按钮时，才会从当前姿态缓动切到下一个姿态。现在预览区额外带了 <code>Board / Device</code> 两种模式：
+    <code>Board</code> 适合逐个看姿态，<code>Device</code> 会按设备端同样的方向触摸映射来拖拽切动作。走路和跑步继续拆成左右各
+    <code>step1 / step2</code>，导出时会带上分组和步序信息，方便你在设备端循环切换。
+    <code>Board</code> 下可点 <code>+</code> 从平静姿态新建自定义动作，拖动关节点后 <code>Save</code> 保存（数据在浏览器本地存储）。
   </p>
 
   <div class="layout">
     <section class="stage">
       <div class="viewer" id="viewer">
         <svg id="preview-svg" viewBox="0 0 200 300" aria-label="Static stickman actions based on fireman.svg">
-          <rect x="0" y="0" width="200" height="300" fill="#fbfbf9" rx="18"></rect>
+          <rect x="0" y="0" width="200" height="300" fill="#04070b" rx="18"></rect>
           <line class="ground-line" x1="26" y1="238" x2="174" y2="238"></line>
           <ellipse id="shadow" class="shadow" cx="100" cy="238" rx="24" ry="6"></ellipse>
 
           <circle id="head" class="paper-head" cx="100" cy="50" r="20"></circle>
-          <line id="spine" class="paper-stroke" x1="100" y1="70" x2="100" y2="162"></line>
-          <line id="arm-left-upper" class="paper-stroke" x1="100" y1="100" x2="80" y2="118"></line>
-          <line id="arm-left-lower" class="paper-stroke" x1="80" y1="118" x2="60" y2="135"></line>
-          <line id="arm-right-upper" class="paper-stroke" x1="100" y1="100" x2="120" y2="118"></line>
-          <line id="arm-right-lower" class="paper-stroke" x1="120" y1="118" x2="140" y2="135"></line>
-          <line id="leg-left-upper" class="paper-stroke" x1="100" y1="162" x2="85" y2="188"></line>
-          <line id="leg-left-lower" class="paper-stroke" x1="85" y1="188" x2="70" y2="214"></line>
-          <line id="leg-right-upper" class="paper-stroke" x1="100" y1="162" x2="115" y2="188"></line>
-          <line id="leg-right-lower" class="paper-stroke" x1="115" y1="188" x2="130" y2="214"></line>
+          <line id="spine" class="paper-stroke" x1="100" y1="70" x2="100" y2="160"></line>
+          <line id="arm-left-upper" class="paper-stroke" x1="100" y1="100" x2="82" y2="118"></line>
+          <line id="arm-left-lower" class="paper-stroke" x1="82" y1="118" x2="66" y2="138"></line>
+          <line id="arm-right-upper" class="paper-stroke" x1="100" y1="100" x2="118" y2="118"></line>
+          <line id="arm-right-lower" class="paper-stroke" x1="118" y1="118" x2="134" y2="138"></line>
+          <line id="leg-left-upper" class="paper-stroke" x1="100" y1="160" x2="86" y2="186"></line>
+          <line id="leg-left-lower" class="paper-stroke" x1="86" y1="186" x2="72" y2="214"></line>
+          <line id="leg-right-upper" class="paper-stroke" x1="100" y1="160" x2="114" y2="186"></line>
+          <line id="leg-right-lower" class="paper-stroke" x1="114" y1="186" x2="128" y2="214"></line>
+
+          <circle id="joint-head"     class="joint-dot" r="3.5"></circle>
+          <circle id="joint-neck"     class="joint-dot" r="3.5"></circle>
+          <circle id="joint-shoulder" class="joint-dot" r="4"></circle>
+          <circle id="joint-hip"      class="joint-dot" r="4"></circle>
+          <circle id="joint-elbow-l"  class="joint-dot" r="3"></circle>
+          <circle id="joint-hand-l"   class="joint-dot" r="3"></circle>
+          <circle id="joint-elbow-r"  class="joint-dot" r="3"></circle>
+          <circle id="joint-hand-r"   class="joint-dot" r="3"></circle>
+          <circle id="joint-knee-l"   class="joint-dot" r="3"></circle>
+          <circle id="joint-foot-l"   class="joint-dot" r="3"></circle>
+          <circle id="joint-knee-r"   class="joint-dot" r="3"></circle>
+          <circle id="joint-foot-r"   class="joint-dot" r="3"></circle>
         </svg>
         <div class="hud" id="hud"></div>
       </div>
-      <div class="btns" id="btns"></div>
+      <div class="mode-bar">
+        <div class="title">Preview Mode</div>
+        <div class="mode-switch">
+          <button id="mode-board" type="button" class="active">Board</button>
+          <button id="mode-device" type="button">Device</button>
+        </div>
+        <div class="mode-note" id="mode-note"></div>
+      </div>
+      <div class="btns-wrap">
+        <button type="button" id="btn-add-custom" class="btn-add" title="添加自定义动作（从平静姿态开始，拖动关节后保存）">+</button>
+        <div class="btns" id="btns"></div>
+      </div>
+      <div class="custom-edit-bar" id="custom-edit-bar" hidden>
+        <span id="custom-edit-hint">上体/下体分段联动；肘、膝始终落在肩-手、髋-脚连线上。自定义动作可点 ✎ 命名、× 删除。</span>
+        <button type="button" id="save-custom-btn">Save</button>
+        <button type="button" id="cancel-custom-btn">Cancel</button>
+      </div>
       <div class="export-bar">
         <label>宽 <input id="export-width" type="number" min="64" step="1" value="360"></label>
         <label>高 <input id="export-height" type="number" min="64" step="1" value="360"></label>
@@ -279,24 +392,14 @@
       </div>
       <div class="card">
         <div class="title">Shape Rule</div>
-        <p>头保持圆形，身体、手臂、双腿都只用直线。走、跑、跳、挥手、坐下只通过肢体角度和端点变化来表达，不额外加表情或装饰。</p>
+        <p>头保持圆形，身体、手臂、双腿都只用直线。网页里统一用黑底白线先看剪影，动作只靠关节点位置变化来成立，不额外加表情或装饰。</p>
       </div>
       <div class="card">
         <div class="title">Transition Rule</div>
-        <p>页面默认停在当前动作，不会自己播。点击另一个动作后，用和设备侧一致的阻尼参数把当前姿态推向目标姿态。</p>
+        <p><code>Board</code> 模式下仍然是点按钮看静态姿态；<code>Device</code> 模式下可以直接在预览区拖拽，上下左右和斜向会映射到设备侧同款动作。</p>
       </div>
     </aside>
   </div>
-
-  <section class="actions">
-    <div class="title">Action Overview</div>
-    <div class="grid" id="action-grid"></div>
-  </section>
-
-  <section class="rules">
-    <div class="title">Skeleton Notes</div>
-    <div class="grid" id="rule-grid"></div>
-  </section>
 
   <script>
     const VIEWBOX = { x: 0, y: 0, w: 200, h: 300 };
@@ -324,15 +427,11 @@
       timerPeriodMs: TIMER_PERIOD_MS,
       dampingDiv: DAMPING_DIV
     };
-    const RULES = [
-      { title: "基础比例", note: "平静姿态严格贴 fireman.svg：圆头、直躯干、双臂斜下、双腿斜下。" },
-      { title: "动作方式", note: "每个动作只保留一个关键姿态，不在页面里自动做 walk cycle 或 loop。" },
-      { title: "步态拆分", note: "走路和跑步拆成左右各 step1 / step2，两帧来回切换就能形成基础运动感。" },
-      { title: "左右方向", note: "走左和跑左继续复用右向姿态做镜像，保证导出格式更稳定。" },
-      { title: "固定点位", note: "所有动作都严格使用同一套 12 个关键点：头心、脖颈、肩、髋、左右肘手、左右膝脚。" },
-      { title: "设备契约", note: "导出的是固定 schema 的静态 pose、动作分组、step 序号和阻尼参数，设备端只需要做插值和画线。" }
-    ];
-    const POSE_ORDER = [
+    const PREVIEW_MODE_TEXT = {
+      board: "Board: 点击动作按钮，按网页预览节奏看静态 pose 之间的缓动切换。",
+      device: "Device: 在预览区拖拽，方向会按设备端映射到走、跑、跳、挥手、指向、抱头和叉腰；松手回 calm。"
+    };
+    const POSE_ORDER_BASE = [
       "calm",
       "walk_step1",
       "walk_step2",
@@ -345,193 +444,362 @@
       "hands_on_head",
       "cheer",
       "point",
-      "akimbo"
+      "akimbo",
+      "salute",
+      "guard",
+      "kick",
+      "stretch",
+      "thinking",
+      "slouch",
+      "reach_up",
+      "strut",
+      "balance",
+      "lunge",
+      "shrug"
     ];
-    const POSE_LIBRARY = {
+    let POSE_ORDER = POSE_ORDER_BASE.slice();
+
+    const POSE_LIBRARY_BASE = {
       calm: {
         headX: 100, headY: 50,
         neckX: 100, neckY: 70,
         shoulderX: 100, shoulderY: 100,
-        hipX: 100, hipY: 162,
-        elbowLX: 80, elbowLY: 118,
-        handLX: 60, handLY: 135,
-        elbowRX: 120, elbowRY: 118,
-        handRX: 140, handRY: 135,
-        kneeLX: 85, kneeLY: 188,
-        footLX: 70, footLY: 214,
-        kneeRX: 115, kneeRY: 188,
-        footRX: 130, footRY: 214
+        hipX: 100, hipY: 160,
+        elbowLX: 82, elbowLY: 118,
+        handLX: 66, handLY: 138,
+        elbowRX: 118, elbowRY: 118,
+        handRX: 134, handRY: 138,
+        kneeLX: 86, kneeLY: 186,
+        footLX: 72, footLY: 214,
+        kneeRX: 114, kneeRY: 186,
+        footRX: 128, footRY: 214
       },
       walk_step1: {
-        headX: 100, headY: 50,
-        neckX: 100, neckY: 70,
+        headX: 102, headY: 50,
+        neckX: 101, neckY: 70,
         shoulderX: 100, shoulderY: 100,
-        hipX: 100, hipY: 162,
-        elbowLX: 92, elbowLY: 118,
-        handLX: 86, handLY: 139,
-        elbowRX: 112, elbowRY: 112,
-        handRX: 126, handRY: 119,
-        kneeLX: 90, kneeLY: 186,
-        footLX: 76, footLY: 213,
-        kneeRX: 112, kneeRY: 183,
-        footRX: 126, footRY: 199
+        hipX: 98, hipY: 160,
+        elbowLX: 90, elbowLY: 108,
+        handLX: 82, handLY: 90,
+        elbowRX: 114, elbowRY: 120,
+        handRX: 126, handRY: 142,
+        kneeLX: 84, kneeLY: 184,
+        footLX: 70, footLY: 214,
+        kneeRX: 112, kneeRY: 182,
+        footRX: 132, footRY: 198
       },
       walk_step2: {
-        headX: 100, headY: 50,
-        neckX: 100, neckY: 70,
+        headX: 98, headY: 50,
+        neckX: 99, neckY: 70,
         shoulderX: 100, shoulderY: 100,
-        hipX: 100, hipY: 162,
-        elbowLX: 88, elbowLY: 112,
-        handLX: 74, handLY: 119,
-        elbowRX: 108, elbowRY: 118,
-        handRX: 114, handRY: 139,
-        kneeLX: 88, kneeLY: 183,
-        footLX: 74, footLY: 199,
-        kneeRX: 110, kneeRY: 186,
-        footRX: 124, footRY: 213
+        hipX: 102, hipY: 160,
+        elbowLX: 86, elbowLY: 120,
+        handLX: 74, handLY: 142,
+        elbowRX: 110, elbowRY: 108,
+        handRX: 118, handRY: 90,
+        kneeLX: 88, kneeLY: 182,
+        footLX: 68, footLY: 198,
+        kneeRX: 116, kneeRY: 184,
+        footRX: 130, footRY: 214
       },
       run_step1: {
-        headX: 114, headY: 50,
-        neckX: 108, neckY: 70,
-        shoulderX: 104, shoulderY: 96,
-        hipX: 88, hipY: 158,
-        elbowLX: 82, elbowLY: 103,
-        handLX: 62, handLY: 119,
-        elbowRX: 116, elbowRY: 105,
-        handRX: 132, handRY: 88,
-        kneeLX: 70, kneeLY: 182,
-        footLX: 50, footLY: 202,
-        kneeRX: 112, kneeRY: 177,
-        footRX: 128, footRY: 200
+        headX: 112, headY: 48,
+        neckX: 106, neckY: 68,
+        shoulderX: 102, shoulderY: 94,
+        hipX: 88, hipY: 154,
+        elbowLX: 86, elbowLY: 96,
+        handLX: 78, handLY: 72,
+        elbowRX: 114, elbowRY: 112,
+        handRX: 130, handRY: 136,
+        kneeLX: 72, kneeLY: 180,
+        footLX: 54, footLY: 210,
+        kneeRX: 116, kneeRY: 172,
+        footRX: 142, footRY: 190
       },
       run_step2: {
         headX: 114, headY: 50,
-        neckX: 108, neckY: 70,
-        shoulderX: 104, shoulderY: 96,
-        hipX: 86, hipY: 158,
-        elbowLX: 112, elbowLY: 106,
-        handLX: 128, handLY: 88,
-        elbowRX: 78, elbowRY: 103,
-        handRX: 58, handRY: 119,
-        kneeLX: 108, kneeLY: 177,
-        footLX: 126, footLY: 200,
-        kneeRX: 72, kneeRY: 182,
-        footRX: 50, footRY: 202
+        neckX: 108, neckY: 68,
+        shoulderX: 104, shoulderY: 94,
+        hipX: 90, hipY: 154,
+        elbowLX: 110, elbowLY: 110,
+        handLX: 126, handLY: 136,
+        elbowRX: 82, elbowRY: 96,
+        handRX: 74, handRY: 72,
+        kneeLX: 106, kneeLY: 172,
+        footLX: 138, footLY: 190,
+        kneeRX: 74, kneeRY: 180,
+        footRX: 54, footRY: 210
       },
       jump: {
         headX: 100, headY: 44,
         neckX: 100, neckY: 64,
         shoulderX: 100, shoulderY: 94,
-        hipX: 100, hipY: 147,
-        elbowLX: 84, elbowLY: 76,
-        handLX: 66, handLY: 58,
-        elbowRX: 116, elbowRY: 76,
-        handRX: 134, handRY: 58,
-        kneeLX: 90, kneeLY: 171,
-        footLX: 106, footLY: 186,
-        kneeRX: 116, kneeRY: 166,
-        footRX: 132, footRY: 149
+        hipX: 100, hipY: 146,
+        elbowLX: 78, elbowLY: 70,
+        handLX: 60, handLY: 46,
+        elbowRX: 122, elbowRY: 70,
+        handRX: 140, handRY: 46,
+        kneeLX: 84, kneeLY: 172,
+        footLX: 68, footLY: 194,
+        kneeRX: 116, kneeRY: 172,
+        footRX: 132, footRY: 194
       },
       wave: {
-        headX: 100, headY: 50,
-        neckX: 100, neckY: 70,
-        shoulderX: 100, shoulderY: 100,
-        hipX: 100, hipY: 162,
-        elbowLX: 90, elbowLY: 119,
-        handLX: 80, handLY: 140,
-        elbowRX: 114, elbowRY: 84,
-        handRX: 122, handRY: 54,
-        kneeLX: 90, kneeLY: 188,
-        footLX: 80, footLY: 214,
-        kneeRX: 110, kneeRY: 188,
-        footRX: 120, footRY: 214
+        headX: 98, headY: 50,
+        neckX: 98, neckY: 70,
+        shoulderX: 98, shoulderY: 100,
+        hipX: 98, hipY: 160,
+        elbowLX: 84, elbowLY: 118,
+        handLX: 72, handLY: 140,
+        elbowRX: 116, elbowRY: 82,
+        handRX: 112, handRY: 48,
+        kneeLX: 88, kneeLY: 186,
+        footLX: 76, footLY: 214,
+        kneeRX: 110, kneeRY: 186,
+        footRX: 122, footRY: 214
       },
       deep_squat_hold_head: {
         headX: 100, headY: 64,
         neckX: 100, neckY: 84,
-        shoulderX: 100, shoulderY: 112,
-        hipX: 100, hipY: 175,
-        elbowLX: 80, elbowLY: 106,
-        handLX: 88, handLY: 78,
-        elbowRX: 120, elbowRY: 106,
-        handRX: 112, handRY: 78,
-        kneeLX: 84, kneeLY: 202,
-        footLX: 66, footLY: 218,
-        kneeRX: 116, kneeRY: 202,
-        footRX: 134, footRY: 218
+        shoulderX: 100, shoulderY: 120,
+        hipX: 100, hipY: 176,
+        elbowLX: 78, elbowLY: 106,
+        handLX: 90, handLY: 78,
+        elbowRX: 122, elbowRY: 106,
+        handRX: 110, handRY: 78,
+        kneeLX: 74, kneeLY: 206,
+        footLX: 92, footLY: 224,
+        kneeRX: 126, kneeRY: 206,
+        footRX: 108, footRY: 224
       },
       half_squat: {
         headX: 100, headY: 60,
         neckX: 100, neckY: 80,
-        shoulderX: 100, shoulderY: 110,
-        hipX: 100, hipY: 168,
-        elbowLX: 86, elbowLY: 126,
-        handLX: 72, handLY: 142,
-        elbowRX: 114, elbowRY: 126,
-        handRX: 128, handRY: 142,
-        kneeLX: 88, kneeLY: 193,
-        footLX: 74, footLY: 216,
-        kneeRX: 112, kneeRY: 193,
-        footRX: 126, footRY: 216
+        shoulderX: 100, shoulderY: 108,
+        hipX: 100, hipY: 166,
+        elbowLX: 86, elbowLY: 124,
+        handLX: 74, handLY: 146,
+        elbowRX: 114, elbowRY: 124,
+        handRX: 126, handRY: 146,
+        kneeLX: 78, kneeLY: 194,
+        footLX: 92, footLY: 216,
+        kneeRX: 122, kneeRY: 194,
+        footRX: 108, footRY: 216
       },
       hands_on_head: {
         headX: 100, headY: 52,
         neckX: 100, neckY: 72,
         shoulderX: 100, shoulderY: 102,
-        hipX: 100, hipY: 164,
-        elbowLX: 82, elbowLY: 92,
-        handLX: 86, handLY: 64,
-        elbowRX: 118, elbowRY: 92,
-        handRX: 114, handRY: 64,
-        kneeLX: 88, kneeLY: 190,
-        footLX: 76, footLY: 216,
-        kneeRX: 112, kneeRY: 190,
-        footRX: 124, footRY: 216
+        hipX: 100, hipY: 162,
+        elbowLX: 74, elbowLY: 88,
+        handLX: 90, handLY: 58,
+        elbowRX: 126, elbowRY: 88,
+        handRX: 110, handRY: 58,
+        kneeLX: 86, kneeLY: 188,
+        footLX: 72, footLY: 214,
+        kneeRX: 114, kneeRY: 188,
+        footRX: 128, footRY: 214
       },
       cheer: {
         headX: 100, headY: 48,
         neckX: 100, neckY: 68,
         shoulderX: 100, shoulderY: 98,
-        hipX: 100, hipY: 160,
-        elbowLX: 86, elbowLY: 82,
-        handLX: 70, handLY: 60,
-        elbowRX: 114, elbowRY: 82,
-        handRX: 130, handRY: 60,
-        kneeLX: 88, kneeLY: 186,
-        footLX: 76, footLY: 212,
-        kneeRX: 112, kneeRY: 186,
-        footRX: 124, footRY: 212
+        hipX: 100, hipY: 158,
+        elbowLX: 82, elbowLY: 78,
+        handLX: 64, handLY: 52,
+        elbowRX: 118, elbowRY: 78,
+        handRX: 136, handRY: 52,
+        kneeLX: 84, kneeLY: 184,
+        footLX: 70, footLY: 212,
+        kneeRX: 116, kneeRY: 184,
+        footRX: 130, footRY: 212
       },
       point: {
-        headX: 100, headY: 50,
-        neckX: 100, neckY: 70,
-        shoulderX: 100, shoulderY: 100,
-        hipX: 100, hipY: 162,
-        elbowLX: 88, elbowLY: 116,
-        handLX: 76, handLY: 139,
-        elbowRX: 122, elbowRY: 102,
-        handRX: 148, handRY: 102,
-        kneeLX: 90, kneeLY: 188,
-        footLX: 78, footLY: 214,
-        kneeRX: 110, kneeRY: 188,
-        footRX: 122, footRY: 214
+        headX: 96, headY: 50,
+        neckX: 97, neckY: 70,
+        shoulderX: 98, shoulderY: 100,
+        hipX: 94, hipY: 160,
+        elbowLX: 84, elbowLY: 116,
+        handLX: 74, handLY: 138,
+        elbowRX: 126, elbowRY: 100,
+        handRX: 154, handRY: 96,
+        kneeLX: 84, kneeLY: 186,
+        footLX: 72, footLY: 214,
+        kneeRX: 110, kneeRY: 184,
+        footRX: 126, footRY: 212
       },
       akimbo: {
         headX: 100, headY: 50,
         neckX: 100, neckY: 70,
         shoulderX: 100, shoulderY: 100,
-        hipX: 100, hipY: 162,
-        elbowLX: 84, elbowLY: 112,
-        handLX: 92, handLY: 139,
-        elbowRX: 116, elbowRY: 112,
-        handRX: 108, handRY: 139,
+        hipX: 100, hipY: 160,
+        elbowLX: 84, elbowLY: 110,
+        handLX: 92, handLY: 136,
+        elbowRX: 116, elbowRY: 110,
+        handRX: 108, handRY: 136,
+        kneeLX: 82, kneeLY: 186,
+        footLX: 66, footLY: 214,
+        kneeRX: 118, kneeRY: 186,
+        footRX: 134, footRY: 214
+      },
+      salute: {
+        headX: 100, headY: 50,
+        neckX: 100, neckY: 70,
+        shoulderX: 100, shoulderY: 100,
+        hipX: 100, hipY: 160,
+        elbowLX: 84, elbowLY: 118,
+        handLX: 72, handLY: 140,
+        elbowRX: 118, elbowRY: 88,
+        handRX: 106, handRY: 60,
+        kneeLX: 86, kneeLY: 186,
+        footLX: 72, footLY: 214,
+        kneeRX: 114, kneeRY: 186,
+        footRX: 128, footRY: 214
+      },
+      guard: {
+        headX: 98, headY: 54,
+        neckX: 99, neckY: 74,
+        shoulderX: 100, shoulderY: 104,
+        hipX: 96, hipY: 164,
+        elbowLX: 84, elbowLY: 108,
+        handLX: 92, handLY: 92,
+        elbowRX: 116, elbowRY: 110,
+        handRX: 126, handRY: 94,
+        kneeLX: 84, kneeLY: 190,
+        footLX: 72, footLY: 218,
+        kneeRX: 112, kneeRY: 186,
+        footRX: 126, footRY: 210
+      },
+      kick: {
+        headX: 100, headY: 52,
+        neckX: 100, neckY: 72,
+        shoulderX: 100, shoulderY: 102,
+        hipX: 96, hipY: 160,
+        elbowLX: 84, elbowLY: 106,
+        handLX: 70, handLY: 118,
+        elbowRX: 118, elbowRY: 110,
+        handRX: 132, handRY: 126,
         kneeLX: 88, kneeLY: 188,
+        footLX: 80, footLY: 216,
+        kneeRX: 120, kneeRY: 166,
+        footRX: 150, footRY: 166
+      },
+      stretch: {
+        headX: 100, headY: 46,
+        neckX: 100, neckY: 66,
+        shoulderX: 100, shoulderY: 96,
+        hipX: 100, hipY: 158,
+        elbowLX: 78, elbowLY: 96,
+        handLX: 56, handLY: 96,
+        elbowRX: 122, elbowRY: 96,
+        handRX: 144, handRY: 96,
+        kneeLX: 86, kneeLY: 184,
+        footLX: 72, footLY: 212,
+        kneeRX: 114, kneeRY: 184,
+        footRX: 128, footRY: 212
+      },
+      thinking: {
+        headX: 102, headY: 50,
+        neckX: 102, neckY: 70,
+        shoulderX: 100, shoulderY: 100,
+        hipX: 100, hipY: 160,
+        elbowLX: 84, elbowLY: 112,
+        handLX: 92, handLY: 136,
+        elbowRX: 116, elbowRY: 92,
+        handRX: 104, handRY: 74,
+        kneeLX: 86, kneeLY: 186,
+        footLX: 72, footLY: 214,
+        kneeRX: 114, kneeRY: 186,
+        footRX: 128, footRY: 214
+      },
+      slouch: {
+        headX: 108, headY: 54,
+        neckX: 106, neckY: 74,
+        shoulderX: 102, shoulderY: 104,
+        hipX: 94, hipY: 164,
+        elbowLX: 90, elbowLY: 124,
+        handLX: 86, handLY: 146,
+        elbowRX: 104, elbowRY: 120,
+        handRX: 100, handRY: 144,
+        kneeLX: 92, kneeLY: 188,
+        footLX: 88, footLY: 214,
+        kneeRX: 112, kneeRY: 190,
+        footRX: 114, footRY: 220
+      },
+      reach_up: {
+        headX: 100, headY: 48,
+        neckX: 100, neckY: 68,
+        shoulderX: 100, shoulderY: 98,
+        hipX: 98, hipY: 160,
+        elbowLX: 84, elbowLY: 86,
+        handLX: 78, handLY: 54,
+        elbowRX: 116, elbowRY: 76,
+        handRX: 118, handRY: 38,
+        kneeLX: 86, kneeLY: 186,
+        footLX: 72, footLY: 214,
+        kneeRX: 114, kneeRY: 186,
+        footRX: 128, footRY: 214
+      },
+      strut: {
+        headX: 104, headY: 50,
+        neckX: 104, neckY: 70,
+        shoulderX: 102, shoulderY: 100,
+        hipX: 100, hipY: 160,
+        elbowLX: 86, elbowLY: 108,
+        handLX: 68, handLY: 108,
+        elbowRX: 118, elbowRY: 118,
+        handRX: 132, handRY: 134,
+        kneeLX: 90, kneeLY: 188,
         footLX: 76, footLY: 214,
-        kneeRX: 112, kneeRY: 188,
-        footRX: 124, footRY: 214
+        kneeRX: 118, kneeRY: 178,
+        footRX: 134, footRY: 198
+      },
+      balance: {
+        headX: 100, headY: 48,
+        neckX: 100, neckY: 68,
+        shoulderX: 100, shoulderY: 96,
+        hipX: 98, hipY: 158,
+        elbowLX: 80, elbowLY: 96,
+        handLX: 56, handLY: 96,
+        elbowRX: 118, elbowRY: 88,
+        handRX: 136, handRY: 72,
+        kneeLX: 88, kneeLY: 184,
+        footLX: 76, footLY: 212,
+        kneeRX: 122, kneeRY: 166,
+        footRX: 140, footRY: 190
+      },
+      lunge: {
+        headX: 98, headY: 50,
+        neckX: 98, neckY: 70,
+        shoulderX: 98, shoulderY: 100,
+        hipX: 92, hipY: 160,
+        elbowLX: 80, elbowLY: 116,
+        handLX: 62, handLY: 120,
+        elbowRX: 122, elbowRY: 94,
+        handRX: 146, handRY: 80,
+        kneeLX: 80, kneeLY: 186,
+        footLX: 62, footLY: 214,
+        kneeRX: 118, kneeRY: 174,
+        footRX: 146, footRY: 190
+      },
+      shrug: {
+        headX: 100, headY: 52,
+        neckX: 100, neckY: 72,
+        shoulderX: 100, shoulderY: 104,
+        hipX: 100, hipY: 162,
+        elbowLX: 86, elbowLY: 100,
+        handLX: 78, handLY: 84,
+        elbowRX: 114, elbowRY: 100,
+        handRX: 122, handRY: 84,
+        kneeLX: 84, kneeLY: 188,
+        footLX: 70, footLY: 214,
+        kneeRX: 116, kneeRY: 188,
+        footRX: 130, footRY: 214
       }
     };
-    const ACTIONS = [
+    let POSE_LIBRARY = JSON.parse(JSON.stringify(POSE_LIBRARY_BASE));
+
+    const ACTIONS_BASE = [
       {
         name: "00 calm",
         cn: "00 平静",
@@ -541,7 +809,7 @@
         stepCount: 1,
         facing: 1,
         transitionTicks: 6,
-        desc: "正面基础站姿，直接对齐 fireman.svg 的标准比例。"
+        desc: "正面基础站姿，仍然贴 fireman.svg 的母形，只把手肘和站姿收得更自然一点。"
       },
       {
         name: "01 walk_r_s1",
@@ -552,7 +820,7 @@
         stepCount: 2,
         facing: 1,
         transitionTicks: 7,
-        desc: "走右 step1，按你给的经典走路剪影收成直立身体、前脚抬起、前臂轻轻前送。"
+        desc: "走右 step1，身体微微前送，形成更典型的摆臂摆腿剪影。"
       },
       {
         name: "02 walk_r_s2",
@@ -563,7 +831,7 @@
         stepCount: 2,
         facing: 1,
         transitionTicks: 7,
-        desc: "走右 step2，把 step1 的手脚前后关系对换，来回切换后更像经典火柴人行走。"
+        desc: "走右 step2，把 step1 的手脚前后关系完全对换，切换时更像经典火柴人走路。"
       },
       {
         name: "03 walk_l_s1",
@@ -596,7 +864,7 @@
         stepCount: 2,
         facing: 1,
         transitionTicks: 7,
-        desc: "跑右 step1，按你给的经典跑步剪影收成身体前倾、后臂下压、前臂上挑。"
+        desc: "跑右 step1，身体更前倾，前腿探出、后腿蹬地，剪影更像标准跑步。"
       },
       {
         name: "06 run_r_s2",
@@ -607,7 +875,7 @@
         stepCount: 2,
         facing: 1,
         transitionTicks: 7,
-        desc: "跑右 step2，把 step1 的摆臂摆腿关系完全对换，交替切换后更接近经典跑步图示。"
+        desc: "跑右 step2，把前后摆臂摆腿彻底对换，交替后会更有冲刺感。"
       },
       {
         name: "07 run_l_s1",
@@ -640,7 +908,7 @@
         stepCount: 1,
         facing: 1,
         transitionTicks: 8,
-        desc: "双臂上举，一侧腿提起，停在参考图里的腾空关键姿态。"
+        desc: "改成更明确的腾空星跳姿态，双臂和双腿都主动张开。"
       },
       {
         name: "10 wave",
@@ -651,7 +919,7 @@
         stepCount: 1,
         facing: 1,
         transitionTicks: 7,
-        desc: "站姿不变，只把右臂抬到头侧上方，形成经典挥手轮廓。"
+        desc: "身体轻轻偏向支撑侧，只把右臂抬到头上方，挥手轮廓更清楚。"
       },
       {
         name: "11 deep_squat_hold_head",
@@ -662,7 +930,7 @@
         stepCount: 1,
         facing: 1,
         transitionTicks: 9,
-        desc: "把原来的坐下改成深蹲抱头：重心深压、膝盖外开、双手贴近头两侧。"
+        desc: "深蹲抱头改成明显的 M 形腿：膝盖外开、脚回收到身体下方，重心更扎实。"
       },
       {
         name: "12 half_squat",
@@ -673,7 +941,7 @@
         stepCount: 1,
         facing: 1,
         transitionTicks: 7,
-        desc: "身体整体下沉一小段，膝盖明显弯折，适合做准备或戒备姿态。"
+        desc: "半蹲也改成更轻的 M 形腿，像准备起跑或临时压低重心。"
       },
       {
         name: "13 hands_on_head",
@@ -684,7 +952,7 @@
         stepCount: 1,
         facing: 1,
         transitionTicks: 7,
-        desc: "双肘抬开、双手靠头两侧，是很典型的抱头或紧张姿态。"
+        desc: "双肘更外张、双手更贴近头顶，是更典型的抱头剪影。"
       },
       {
         name: "14 cheer",
@@ -695,7 +963,7 @@
         stepCount: 1,
         facing: 1,
         transitionTicks: 7,
-        desc: "双手上举成 V 字，双腿略打开，是很常见的火柴人庆祝姿态。"
+        desc: "双手上举成更完整的 V 字，站姿略打开，是很标准的火柴人欢呼。"
       },
       {
         name: "15 point_r",
@@ -706,7 +974,7 @@
         stepCount: 1,
         facing: 1,
         transitionTicks: 6,
-        desc: "右臂平直指向前方，适合做提示或讲解类动作。"
+        desc: "身体顺着目标方向轻轻探出，右臂平直指向前方，更像在强调某个目标。"
       },
       {
         name: "16 akimbo",
@@ -717,9 +985,133 @@
         stepCount: 1,
         facing: 1,
         transitionTicks: 6,
-        desc: "双臂弯折靠近腰部，整体是一个很经典的站姿变体。"
+        desc: "双手更明确地落到腰两侧，双腿也打开一点，叉腰更有气势。"
+      },
+      {
+        name: "17 salute",
+        cn: "17 敬礼",
+        poseId: "salute",
+        group: "salute",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 6,
+        desc: "右手收向额头，左手自然下垂，是很清楚的敬礼姿态。"
+      },
+      {
+        name: "18 guard",
+        cn: "18 警戒",
+        poseId: "guard",
+        group: "guard",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 7,
+        desc: "身体微蹲，双拳收在脸前，是更有张力的防守或戒备姿态。"
+      },
+      {
+        name: "19 kick_r",
+        cn: "19 右踢",
+        poseId: "kick",
+        group: "kick_r",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 7,
+        desc: "一腿支撑、一腿平踢，配合反向摆臂，形成很典型的火柴人踢腿动作。"
+      },
+      {
+        name: "20 stretch",
+        cn: "20 展臂",
+        poseId: "stretch",
+        group: "stretch",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 6,
+        desc: "双臂平展拉开身体，是很经典的热身或亮相姿态。"
+      },
+      {
+        name: "21 thinking",
+        cn: "21 思考",
+        poseId: "thinking",
+        group: "thinking",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 6,
+        desc: "一手扶下巴、一手落在腰侧，是很典型的思考火柴人姿态。"
+      },
+      {
+        name: "22 slouch",
+        cn: "22 沮丧",
+        poseId: "slouch",
+        group: "slouch",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 7,
+        desc: "头前探、肩下塌、手臂自然垂落，整个人的精神气一下就弱下来。"
+      },
+      {
+        name: "23 reach_up",
+        cn: "23 上探",
+        poseId: "reach_up",
+        group: "reach_up",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 6,
+        desc: "双臂一高一低，像是伸手去碰上方某个东西。"
+      },
+      {
+        name: "24 strut",
+        cn: "24 神气走",
+        poseId: "strut",
+        group: "strut",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 7,
+        desc: "头略抬、手臂外摆、前脚探出，整体是很有状态的神气步态。"
+      },
+      {
+        name: "25 balance",
+        cn: "25 单脚平衡",
+        poseId: "balance",
+        group: "balance",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 7,
+        desc: "一脚站稳、一脚抬起，双臂分别拉开维持平衡。"
+      },
+      {
+        name: "26 lunge",
+        cn: "26 弓步冲",
+        poseId: "lunge",
+        group: "lunge",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 7,
+        desc: "一腿前跨、一腿后顶，配合前探手臂，像准备冲刺或出招。"
+      },
+      {
+        name: "27 shrug",
+        cn: "27 摊手",
+        poseId: "shrug",
+        group: "shrug",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 6,
+        desc: "双肩抬起、双手摊开，是很经典的“我也没办法”火柴人表情。"
       }
     ];
+    let ACTIONS = ACTIONS_BASE.slice();
+
+    const CUSTOM_STORAGE_KEY = "face_stickman_custom_v1";
     const FIXED_POINT_LABELS = [
       ["headX/headY", "头心"],
       ["neckX/neckY", "脖颈"],
@@ -735,6 +1127,148 @@
       ["footRX/footRY", "右脚"]
     ];
 
+    /** 自定义编辑：同组关节共享位移增量（相对拖拽），线段不脱节。
+     * 上体轴：头/颈/肩 + 双臂（肘、手）一起动；下体轴：髋 + 双腿（膝、脚）一起动。
+     * 前臂 = 肘+手，小腿 = 膝+脚。 */
+    const TORSO_UPPER_ARMS_PAIRS = [
+      ["headX", "headY"],
+      ["neckX", "neckY"],
+      ["shoulderX", "shoulderY"],
+      ["elbowLX", "elbowLY"],
+      ["handLX", "handLY"],
+      ["elbowRX", "elbowRY"],
+      ["handRX", "handRY"]
+    ];
+    const LOWER_BODY_PAIRS = [
+      ["hipX", "hipY"],
+      ["kneeLX", "kneeLY"],
+      ["footLX", "footLY"],
+      ["kneeRX", "kneeRY"],
+      ["footRX", "footRY"]
+    ];
+    const FOREARM_L = [["elbowLX", "elbowLY"], ["handLX", "handLY"]];
+    const FOREARM_R = [["elbowRX", "elbowRY"], ["handRX", "handRY"]];
+    const SHIN_L = [["kneeLX", "kneeLY"], ["footLX", "footLY"]];
+    const SHIN_R = [["kneeRX", "kneeRY"], ["footRX", "footRY"]];
+
+    const JOINT_LINK_GROUPS = {
+      "joint-head": TORSO_UPPER_ARMS_PAIRS,
+      "joint-neck": TORSO_UPPER_ARMS_PAIRS,
+      "joint-shoulder": TORSO_UPPER_ARMS_PAIRS,
+      "joint-hip": LOWER_BODY_PAIRS,
+      "joint-elbow-l": FOREARM_L,
+      "joint-hand-l": FOREARM_L,
+      "joint-elbow-r": FOREARM_R,
+      "joint-hand-r": FOREARM_R,
+      "joint-knee-l": SHIN_L,
+      "joint-foot-l": SHIN_L,
+      "joint-knee-r": SHIN_R,
+      "joint-foot-r": SHIN_R
+    };
+
+    function applyPoseDeltaToPairs(pose, pairs, dx, dy) {
+      const seen = new Set();
+      pairs.forEach(([xk, yk]) => {
+        if (!seen.has(xk)) {
+          pose[xk] = clamp(pose[xk] + dx, 0, VIEWBOX.w);
+          seen.add(xk);
+        }
+        if (!seen.has(yk)) {
+          pose[yk] = clamp(pose[yk] + dy, 0, VIEWBOX.h);
+          seen.add(yk);
+        }
+      });
+    }
+
+    /** 平静姿态下肩-肘-手、髋-膝-脚的投影参数 t∈[0,1]，使肘/膝始终在对应肢段轴线上（左右倾后仍共线）。 */
+    function scalarOnSegment(ax, ay, bx, by, px, py) {
+      const vx = bx - ax;
+      const vy = by - ay;
+      const len2 = vx * vx + vy * vy;
+      if (len2 < 1e-9) return 0.5;
+      const t = ((px - ax) * vx + (py - ay) * vy) / len2;
+      return clamp(t, 0, 1);
+    }
+
+    function syncLimbMidJointsOnAxis(pose) {
+      const c = POSE_LIBRARY.calm;
+      const tEl = scalarOnSegment(
+        c.shoulderX, c.shoulderY, c.handLX, c.handLY, c.elbowLX, c.elbowLY
+      );
+      const tEr = scalarOnSegment(
+        c.shoulderX, c.shoulderY, c.handRX, c.handRY, c.elbowRX, c.elbowRY
+      );
+      const tKl = scalarOnSegment(c.hipX, c.hipY, c.footLX, c.footLY, c.kneeLX, c.kneeLY);
+      const tKr = scalarOnSegment(c.hipX, c.hipY, c.footRX, c.footRY, c.kneeRX, c.kneeRY);
+
+      function placeOnSeg(ax, ay, bx, by, t, setX, setY) {
+        const vx = bx - ax;
+        const vy = by - ay;
+        const len2 = vx * vx + vy * vy;
+        if (len2 < 1e-9) return;
+        pose[setX] = clamp(ax + t * vx, 0, VIEWBOX.w);
+        pose[setY] = clamp(ay + t * vy, 0, VIEWBOX.h);
+      }
+
+      placeOnSeg(
+        pose.shoulderX, pose.shoulderY, pose.handLX, pose.handLY, tEl, "elbowLX", "elbowLY"
+      );
+      placeOnSeg(
+        pose.shoulderX, pose.shoulderY, pose.handRX, pose.handRY, tEr, "elbowRX", "elbowRY"
+      );
+      placeOnSeg(pose.hipX, pose.hipY, pose.footLX, pose.footLY, tKl, "kneeLX", "kneeLY");
+      placeOnSeg(pose.hipX, pose.hipY, pose.footRX, pose.footRY, tKr, "kneeRX", "kneeRY");
+    }
+
+    function loadCustomFromStorage() {
+      try {
+        const raw = localStorage.getItem(CUSTOM_STORAGE_KEY);
+        if (!raw) return;
+        const list = JSON.parse(raw);
+        if (!Array.isArray(list)) return;
+        list.forEach((item) => {
+          if (!item || !item.poseId || !item.pose || !item.action) return;
+          POSE_LIBRARY[item.poseId] = item.pose;
+          syncLimbMidJointsOnAxis(POSE_LIBRARY[item.poseId]);
+          POSE_ORDER.push(item.poseId);
+          ACTIONS.push({
+            name: item.action.name,
+            cn: item.action.cn,
+            poseId: item.poseId,
+            group: item.poseId,
+            stepIndex: 1,
+            stepCount: 1,
+            facing: 1,
+            transitionTicks: item.action.transitionTicks != null ? item.action.transitionTicks : 6,
+            desc: item.action.desc || "用户自定义姿态",
+            isCustom: true
+          });
+        });
+      } catch (e) {
+        console.warn("loadCustomFromStorage", e);
+      }
+    }
+
+    function persistCustomToStorage() {
+      const list = ACTIONS.filter((a) => a.isCustom && !a.isDraft).map((a) => ({
+        poseId: a.poseId,
+        pose: POSE_LIBRARY[a.poseId],
+        action: {
+          name: a.name,
+          cn: a.cn,
+          desc: a.desc,
+          transitionTicks: a.transitionTicks
+        }
+      }));
+      try {
+        localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(list));
+      } catch (e) {
+        console.warn("persistCustomToStorage", e);
+      }
+    }
+
+    loadCustomFromStorage();
+
     const parts = {
       head: document.getElementById("head"),
       spine: document.getElementById("spine"),
@@ -746,16 +1280,34 @@
       legLL: document.getElementById("leg-left-lower"),
       legRU: document.getElementById("leg-right-upper"),
       legRL: document.getElementById("leg-right-lower"),
-      shadow: document.getElementById("shadow")
+      shadow: document.getElementById("shadow"),
+      jointHead:     document.getElementById("joint-head"),
+      jointNeck:     document.getElementById("joint-neck"),
+      jointShoulder: document.getElementById("joint-shoulder"),
+      jointHip:      document.getElementById("joint-hip"),
+      jointElbowL:   document.getElementById("joint-elbow-l"),
+      jointHandL:    document.getElementById("joint-hand-l"),
+      jointElbowR:   document.getElementById("joint-elbow-r"),
+      jointHandR:    document.getElementById("joint-hand-r"),
+      jointKneeL:    document.getElementById("joint-knee-l"),
+      jointFootL:    document.getElementById("joint-foot-l"),
+      jointKneeR:    document.getElementById("joint-knee-r"),
+      jointFootR:    document.getElementById("joint-foot-r")
     };
 
     const btns = document.getElementById("btns");
     const hud = document.getElementById("hud");
     const actionName = document.getElementById("action-name");
     const actionDesc = document.getElementById("action-desc");
-    const actionGrid = document.getElementById("action-grid");
-    const ruleGrid = document.getElementById("rule-grid");
+    const btnAddCustom = document.getElementById("btn-add-custom");
+    const customEditBar = document.getElementById("custom-edit-bar");
+    const saveCustomBtn = document.getElementById("save-custom-btn");
+    const cancelCustomBtn = document.getElementById("cancel-custom-btn");
+    const viewer = document.getElementById("viewer");
     const previewSvg = document.getElementById("preview-svg");
+    const modeBoardBtn = document.getElementById("mode-board");
+    const modeDeviceBtn = document.getElementById("mode-device");
+    const modeNote = document.getElementById("mode-note");
     const exportWidthInput = document.getElementById("export-width");
     const exportHeightInput = document.getElementById("export-height");
     const exportIncBtn = document.getElementById("export-inc-btn");
@@ -764,7 +1316,15 @@
     let activeAction = ACTIONS[0];
     let currentPose = null;
     let targetPose = null;
+    let renderMode = "board";
+    let renderOffsetX = 0;
+    let renderOffsetY = 0;
     let rafHandle = 0;
+    let deviceTimerHandle = 0;
+    let dragPointerId = null;
+    let dragActive = false;
+    let draftAction = null;
+    let jointDrag = null;
 
     function validatePoseLibrary() {
       const allowedKeys = new Set(POSE_KEYS);
@@ -840,8 +1400,28 @@
       return Math.max(min, Math.min(max, value));
     }
 
+    function clampInt(value, min, max) {
+      return Math.trunc(clamp(value, min, max));
+    }
+
     function lerp(a, b, t) {
       return a + (b - a) * t;
+    }
+
+    function poseNeedsAnimation(cur, tgt) {
+      if (!cur || !tgt) return false;
+      return POSE_KEYS.some((key) => cur[key] !== tgt[key]);
+    }
+
+    function stopSchedulers() {
+      if (rafHandle !== 0) {
+        cancelAnimationFrame(rafHandle);
+        rafHandle = 0;
+      }
+      if (deviceTimerHandle !== 0) {
+        clearTimeout(deviceTimerHandle);
+        deviceTimerHandle = 0;
+      }
     }
 
     function mirrorX(value, facing) {
@@ -849,8 +1429,21 @@
       return (STICKMAN_LAYOUT.mirrorX * 2) - value;
     }
 
+    function findAction(groupName, facing, stepIndex) {
+      return ACTIONS.find((action) => (
+        action.group === groupName &&
+        action.facing === facing &&
+        action.stepIndex === stepIndex
+      )) || null;
+    }
+
     function resolveActionPose(action) {
-      const source = POSE_LIBRARY[action.poseId];
+      const source = action.customPose
+        ? action.customPose
+        : POSE_LIBRARY[action.poseId];
+      if (!source) {
+        throw new Error(`missing pose for action ${action.name}`);
+      }
       const resolved = {};
       POSE_KEYS.forEach((key) => {
         if (key.endsWith("X")) {
@@ -862,10 +1455,124 @@
       return resolved;
     }
 
+    function clientToSvgXY(clientX, clientY) {
+      const rect = previewSvg.getBoundingClientRect();
+      const vb = previewSvg.viewBox.baseVal;
+      const x = vb.x + ((clientX - rect.left) / rect.width) * vb.width;
+      const y = vb.y + ((clientY - rect.top) / rect.height) * vb.height;
+      return { x, y };
+    }
+
+    function syncEditViewerClass() {
+      const editing = draftAction !== null && renderMode === "board";
+      viewer.classList.toggle("edit-joints", editing);
+      if (customEditBar) customEditBar.hidden = !draftAction;
+    }
+
+    function beginDraft() {
+      if (draftAction) return;
+      if (renderMode !== "board") {
+        setPreviewMode("board");
+      }
+      draftAction = {
+        name: "__draft__",
+        cn: "自定义 (未保存)",
+        poseId: "__draft__",
+        group: "__draft__",
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 6,
+        desc: "头/颈/肩与双臂同组平移；髋与双腿同组平移。前臂、小腿按段联动。",
+        isDraft: true,
+        customPose: clonePose(POSE_LIBRARY.calm)
+      };
+      syncEditViewerClass();
+      setAction(draftAction, { snapNow: true, syncHash: false });
+      buildUI();
+    }
+
+    function cancelDraft() {
+      if (!draftAction) return;
+      draftAction = null;
+      jointDrag = null;
+      syncEditViewerClass();
+      setAction(ACTIONS[0], { snapNow: true, syncHash: true });
+      buildUI();
+    }
+
+    function saveDraft() {
+      if (!draftAction || !draftAction.isDraft) return;
+      const poseId = `custom_${Date.now()}`;
+      const n = ACTIONS.filter((a) => a.isCustom && !a.isDraft).length + 1;
+      const savedPose = clonePose(draftAction.customPose);
+      syncLimbMidJointsOnAxis(savedPose);
+      const newAction = {
+        name: `c${n}_${poseId}`,
+        cn: `自定义 ${n}`,
+        poseId,
+        group: poseId,
+        stepIndex: 1,
+        stepCount: 1,
+        facing: 1,
+        transitionTicks: 6,
+        desc: "用户自定义姿态",
+        isCustom: true
+      };
+      POSE_LIBRARY[poseId] = savedPose;
+      POSE_ORDER.push(poseId);
+      ACTIONS.push(newAction);
+      draftAction = null;
+      jointDrag = null;
+      syncEditViewerClass();
+      try {
+        validateStickmanData();
+      } catch (err) {
+        ACTIONS.pop();
+        POSE_ORDER.pop();
+        delete POSE_LIBRARY[poseId];
+        draftAction = {
+          name: "__draft__",
+          cn: "自定义 (未保存)",
+          poseId: "__draft__",
+          group: "__draft__",
+          stepIndex: 1,
+          stepCount: 1,
+          facing: 1,
+          transitionTicks: 6,
+          desc: "头/颈/肩与双臂同组平移；髋与双腿同组平移。前臂、小腿按段联动。",
+          isDraft: true,
+          customPose: savedPose
+        };
+        syncEditViewerClass();
+        alert(`保存失败: ${err.message || err}`);
+        return;
+      }
+      persistCustomToStorage();
+      setAction(newAction, { snapNow: true, syncHash: true });
+      buildUI();
+    }
+
     function easeValue(cur, tgt, div) {
       const diff = tgt - cur;
       if (Math.abs(diff) < 0.2) return tgt;
       return cur + (diff / Math.max(1, div));
+    }
+
+    function easeValueDevice(cur, tgt, div) {
+      const curInt = Math.round(cur);
+      const tgtInt = Math.round(tgt);
+      const diff = tgtInt - curInt;
+      let step;
+
+      if (diff === 0) return curInt;
+      if (div < 1) div = 1;
+
+      step = Math.trunc(diff / div);
+      if (step === 0) {
+        step = diff > 0 ? 1 : -1;
+      }
+      return curInt + step;
     }
 
     function easePose(cur, tgt, div) {
@@ -877,8 +1584,23 @@
       return moving;
     }
 
+    function easePoseDevice(cur, tgt, div) {
+      let moving = false;
+      POSE_KEYS.forEach((key) => {
+        const next = easeValueDevice(cur[key], tgt[key], div);
+        if (next !== cur[key]) {
+          cur[key] = next;
+          moving = true;
+        }
+      });
+      return moving;
+    }
+
     function point(pose, xKey, yKey) {
-      return { x: pose[xKey], y: pose[yKey] };
+      return {
+        x: pose[xKey] + renderOffsetX,
+        y: pose[yKey] + renderOffsetY
+      };
     }
 
     function setLine(el, p0, p1) {
@@ -886,6 +1608,11 @@
       el.setAttribute("y1", p0.y.toFixed(2));
       el.setAttribute("x2", p1.x.toFixed(2));
       el.setAttribute("y2", p1.y.toFixed(2));
+    }
+
+    function setJointDot(dotEl, p) {
+      dotEl.setAttribute("cx", p.x.toFixed(2));
+      dotEl.setAttribute("cy", p.y.toFixed(2));
     }
 
     function renderPose(pose, action) {
@@ -916,66 +1643,285 @@
       setLine(parts.legRU, hip, kneeR);
       setLine(parts.legRL, kneeR, footR);
 
+      setJointDot(parts.jointHead,     head);
+      setJointDot(parts.jointNeck,     neck);
+      setJointDot(parts.jointShoulder, shoulder);
+      setJointDot(parts.jointHip,      hip);
+      setJointDot(parts.jointElbowL,   elbowL);
+      setJointDot(parts.jointHandL,    handL);
+      setJointDot(parts.jointElbowR,   elbowR);
+      setJointDot(parts.jointHandR,    handR);
+      setJointDot(parts.jointKneeL,    kneeL);
+      setJointDot(parts.jointFootL,    footL);
+      setJointDot(parts.jointKneeR,    kneeR);
+      setJointDot(parts.jointFootR,    footR);
+
       const lowestFoot = Math.max(footL.y, footR.y);
       const lift = clamp((STICKMAN_LAYOUT.groundY - lowestFoot) / 48, 0, 1);
       const shadowRx = lerp(24, 14, lift);
       const shadowRy = lerp(6, 3.5, lift);
-      const shadowOpacity = lerp(0.10, 0.05, lift);
+      const shadowOpacity = lerp(0.10, 0.04, lift);
       const shadowCx = lerp((footL.x + footR.x) / 2, hip.x, 0.35);
 
       parts.shadow.setAttribute("cx", shadowCx.toFixed(2));
+      parts.shadow.setAttribute("cy", (STICKMAN_LAYOUT.groundY + renderOffsetY).toFixed(2));
       parts.shadow.setAttribute("rx", shadowRx.toFixed(2));
       parts.shadow.setAttribute("ry", shadowRy.toFixed(2));
-      parts.shadow.setAttribute("fill", `rgba(17, 17, 17, ${shadowOpacity.toFixed(3)})`);
+      parts.shadow.setAttribute("fill", `rgba(255, 255, 255, ${shadowOpacity.toFixed(3)})`);
 
       hud.textContent =
         `${action.name}\n` +
         `group:${action.group} step:${action.stepIndex}/${action.stepCount} face:${action.facing > 0 ? "R" : "L"}\n` +
-        `hip:${hip.x.toFixed(1)},${hip.y.toFixed(1)}`;
+        `hip:${hip.x.toFixed(1)},${hip.y.toFixed(1)} mode:${renderMode}`;
     }
 
-    function tick() {
-      if (!currentPose || !targetPose) {
+    function tickBoard() {
+      if (renderMode !== "board" || !currentPose || !targetPose) {
         rafHandle = 0;
         return;
       }
       const moving = easePose(currentPose, targetPose, STICKMAN_LAYOUT.dampingDiv);
       renderPose(currentPose, activeAction);
       if (moving) {
-        rafHandle = requestAnimationFrame(tick);
+        rafHandle = requestAnimationFrame(tickBoard);
       } else {
         rafHandle = 0;
       }
     }
 
-    function ensureAnimation() {
-      if (rafHandle !== 0) return;
-      rafHandle = requestAnimationFrame(tick);
+    function tickDevice() {
+      if (renderMode !== "device" || !currentPose || !targetPose) {
+        deviceTimerHandle = 0;
+        return;
+      }
+      const moving = easePoseDevice(currentPose, targetPose, STICKMAN_LAYOUT.dampingDiv);
+      renderPose(currentPose, activeAction);
+      if (moving) {
+        deviceTimerHandle = window.setTimeout(tickDevice, STICKMAN_LAYOUT.timerPeriodMs);
+      } else {
+        deviceTimerHandle = 0;
+      }
     }
 
-    function setAction(action) {
-      activeAction = action;
-      actionName.textContent = `${action.cn} / ${action.name}`;
-      actionDesc.textContent = action.desc;
-      document.querySelectorAll("#btns button").forEach((el) => {
-        el.classList.toggle("active", el.dataset.action === action.name);
-      });
-      const encoded = encodeURIComponent(action.name);
-      try {
-        if (location.hash !== `#${encoded}`) {
-          history.replaceState(null, "", `#${encoded}`);
+    function ensureAnimation() {
+      if (!currentPose || !targetPose) return;
+      if (!poseNeedsAnimation(currentPose, targetPose)) {
+        renderPose(currentPose, activeAction);
+        return;
+      }
+      if (renderMode === "device") {
+        if (deviceTimerHandle === 0) {
+          deviceTimerHandle = window.setTimeout(tickDevice, STICKMAN_LAYOUT.timerPeriodMs);
         }
-      } catch (err) {
-        console.warn("hash update skipped", err);
+      } else if (rafHandle === 0) {
+        rafHandle = requestAnimationFrame(tickBoard);
+      }
+    }
+
+    function syncModeUI() {
+      viewer.classList.toggle("device-mode", renderMode === "device");
+      viewer.classList.toggle("dragging", dragActive);
+      modeBoardBtn.classList.toggle("active", renderMode === "board");
+      modeDeviceBtn.classList.toggle("active", renderMode === "device");
+      modeNote.textContent = PREVIEW_MODE_TEXT[renderMode];
+    }
+
+    function setPreviewMode(nextMode) {
+      if (nextMode !== "board" && nextMode !== "device") return;
+
+      if (nextMode === "device" && draftAction) {
+        if (!window.confirm("Device 模式下无法编辑关节，将放弃未保存的自定义，是否继续？")) return;
+        draftAction = null;
+        jointDrag = null;
+      }
+
+      if (renderMode === nextMode) {
+        syncModeUI();
+        syncEditViewerClass();
+        return;
+      }
+
+      renderMode = nextMode;
+      dragActive = false;
+      viewer.classList.remove("dragging");
+      if (dragPointerId !== null && viewer.hasPointerCapture(dragPointerId)) {
+        try {
+          viewer.releasePointerCapture(dragPointerId);
+        } catch (err) {
+          console.warn("releasePointerCapture skipped", err);
+        }
+      }
+      dragPointerId = null;
+      renderOffsetX = 0;
+      renderOffsetY = 0;
+      stopSchedulers();
+      syncModeUI();
+      syncEditViewerClass();
+
+      if (!currentPose || !targetPose) {
+        return;
+      }
+
+      renderPose(currentPose, activeAction);
+      ensureAnimation();
+    }
+
+    function setAction(action, options = {}) {
+      const {
+        syncHash = true,
+        offsetX = 0,
+        offsetY = 0,
+        snapNow = false
+      } = options;
+      const actionChanged = activeAction.name !== action.name;
+      const refreshActionUI = actionChanged || !actionName.textContent;
+
+      activeAction = action;
+      renderOffsetX = (renderMode === "device") ? offsetX : 0;
+      renderOffsetY = (renderMode === "device") ? offsetY : 0;
+
+      if (refreshActionUI) {
+        actionName.textContent = `${action.cn} / ${action.name}`;
+        actionDesc.textContent = action.desc;
+        document.querySelectorAll("#btns button[data-action]").forEach((el) => {
+          el.classList.toggle("active", el.dataset.action === action.name);
+        });
+      }
+
+      if (syncHash && !action.isDraft) {
+        const encoded = encodeURIComponent(action.name);
+        try {
+          if (location.hash !== `#${encoded}`) {
+            history.replaceState(null, "", `#${encoded}`);
+          }
+        } catch (err) {
+          console.warn("hash update skipped", err);
+        }
       }
 
       targetPose = resolveActionPose(action);
-      if (!currentPose) {
+      if (!currentPose || snapNow) {
         currentPose = clonePose(targetPose);
         renderPose(currentPose, activeAction);
         return;
       }
+
+      stopSchedulers();
+      renderPose(currentPose, activeAction);
       ensureAnimation();
+    }
+
+    function resolveTouchAction(clientX, clientY) {
+      const rect = viewer.getBoundingClientRect();
+      const localX = clientX - rect.left;
+      const localY = clientY - rect.top;
+      const dx = localX - (rect.width / 2);
+      const dy = localY - (rect.height / 2);
+      const absX = Math.abs(dx);
+      const absY = Math.abs(dy);
+      const minDim = Math.min(rect.width, rect.height);
+      let deadZone = minDim / 8;
+      let diagonalGate;
+      let walkStep2 = rect.width / 5;
+      let runStep1 = rect.width / 3;
+      let runStep2 = (rect.width * 9) / 20;
+      let verticalFar = rect.height / 3;
+      let maxOfsX = rect.width / 12;
+      let maxOfsY = rect.height / 14;
+      let groupName = "calm";
+      let facing = 1;
+      let stepIndex = 1;
+      let ofsX;
+      let ofsY;
+      let diagonalTouch;
+      let action;
+
+      if (deadZone < 24) deadZone = 24;
+      diagonalGate = deadZone + (deadZone / 2);
+      if (walkStep2 <= deadZone) walkStep2 = deadZone + 1;
+      if (runStep1 <= walkStep2) runStep1 = walkStep2 + 1;
+      if (runStep2 <= runStep1) runStep2 = runStep1 + 1;
+      if (verticalFar <= deadZone) verticalFar = deadZone + 1;
+      if (maxOfsX < 16) maxOfsX = 16;
+      if (maxOfsY < 14) maxOfsY = 14;
+
+      ofsX = clampInt(Math.trunc(dx / 7), -maxOfsX, maxOfsX);
+      ofsY = clampInt(Math.trunc(dy / 9), -maxOfsY, maxOfsY);
+      diagonalTouch = (absX >= diagonalGate) && (absY >= diagonalGate) &&
+                      (absX * 5 >= absY * 3) && (absY * 5 >= absX * 3);
+
+      if (absX < deadZone && absY < deadZone) {
+        groupName = "calm";
+        ofsX = 0;
+        ofsY = 0;
+      } else if (diagonalTouch && dy < 0) {
+        if (dx < 0) {
+          groupName = "wave";
+          ofsX = clampInt(ofsX - (maxOfsX / 3), -maxOfsX, maxOfsX);
+          ofsY = clampInt(ofsY - (maxOfsY / 3), -maxOfsY, maxOfsY);
+        } else {
+          groupName = "point_r";
+          ofsX = clampInt(ofsX + (maxOfsX / 4), -maxOfsX, maxOfsX);
+          ofsY = clampInt(ofsY - (maxOfsY / 4), -maxOfsY, maxOfsY);
+        }
+      } else if (diagonalTouch && dy > 0) {
+        groupName = (dx < 0) ? "hands_on_head" : "akimbo";
+      } else if (absX >= absY) {
+        facing = (dx >= 0) ? 1 : -1;
+        if (absX >= runStep1) {
+          groupName = (facing > 0) ? "run_r" : "run_l";
+          stepIndex = (absX >= runStep2) ? 2 : 1;
+          ofsX = clampInt(
+            ofsX + ((facing > 0) ? (maxOfsX / 4) : -(maxOfsX / 4)),
+            -maxOfsX,
+            maxOfsX
+          );
+        } else {
+          groupName = (facing > 0) ? "walk_r" : "walk_l";
+          stepIndex = (absX >= walkStep2) ? 2 : 1;
+        }
+      } else if (dy < 0) {
+        groupName = (absY >= verticalFar) ? "jump" : "cheer";
+        ofsY = clampInt(ofsY - (maxOfsY / 4), -maxOfsY, maxOfsY);
+      } else {
+        groupName = (absY >= verticalFar) ? "deep_squat_hold_head" : "half_squat";
+        ofsY = clampInt(ofsY + (maxOfsY / 5), -maxOfsY, maxOfsY);
+      }
+
+      action = findAction(groupName, facing, stepIndex) ||
+               ((stepIndex > 1) ? findAction(groupName, facing, 1) : null) ||
+               findAction(groupName, 1, 1);
+      if (!action) return null;
+
+      return {
+        action,
+        offsetX: Math.round((ofsX / rect.width) * VIEWBOX.w),
+        offsetY: Math.round((ofsY / rect.height) * VIEWBOX.h)
+      };
+    }
+
+    function applyDeviceTouch(clientX, clientY) {
+      const resolved = resolveTouchAction(clientX, clientY);
+      if (!resolved) return;
+      setAction(resolved.action, {
+        syncHash: false,
+        offsetX: resolved.offsetX,
+        offsetY: resolved.offsetY
+      });
+      buildUI();
+    }
+
+    function releaseDeviceTouch() {
+      dragActive = false;
+      viewer.classList.remove("dragging");
+      dragPointerId = null;
+      setAction(ACTIONS[0], {
+        syncHash: false,
+        offsetX: 0,
+        offsetY: 0
+      });
+      syncModeUI();
+      buildUI();
     }
 
     function updatePreviewResolution() {
@@ -1119,8 +2065,8 @@
         `Fixed points: ${schemaText}`,
         "",
         "Page behavior:",
-        "- every action is static",
-        "- pose only changes when a new action is selected",
+        "- Board mode: every action is static and only changes when a new action is selected",
+        "- Device mode: dragging in the viewer maps directions to device-side actions and returns to calm on release",
         "- walk/run are split into step1 and step2 pairs",
         "- device side should blend current pose to target pose"
       ].join("\n");
@@ -1151,58 +2097,130 @@
       alert("已导出到所选文件夹：\n- stickman_fireman_export.inc\n- stickman_fireman_README.txt");
     }
 
+    function renameCustomAction(action) {
+      if (!action.isCustom) return;
+      const cn = window.prompt("显示名称（中文）", action.cn);
+      if (cn === null) return;
+      const cnTrim = cn.trim();
+      if (!cnTrim) return;
+      action.cn = cnTrim;
+      const nameIn = window.prompt("导出用 id（英文，留空不改）", action.name);
+      if (nameIn === null) return;
+      const nameTrim = nameIn.trim();
+      if (nameTrim) {
+        if (ACTIONS.some((a) => a !== action && a.name === nameTrim)) {
+          alert("该 id 已被占用");
+          return;
+        }
+        action.name = nameTrim;
+      }
+      persistCustomToStorage();
+      if (activeAction.poseId === action.poseId) {
+        actionName.textContent = `${action.cn} / ${action.name}`;
+        try {
+          const encoded = encodeURIComponent(action.name);
+          if (location.hash !== `#${encoded}`) {
+            history.replaceState(null, "", `#${encoded}`);
+          }
+        } catch (err) {
+          console.warn("hash update skipped", err);
+        }
+      }
+      buildUI();
+    }
+
+    function deleteCustomAction(action) {
+      if (!action.isCustom) return;
+      if (!window.confirm(`删除自定义动作「${action.cn}」？`)) return;
+      const poseId = action.poseId;
+      const idx = ACTIONS.indexOf(action);
+      if (idx === -1) return;
+      ACTIONS.splice(idx, 1);
+      const pi = POSE_ORDER.indexOf(poseId);
+      if (pi !== -1) POSE_ORDER.splice(pi, 1);
+      delete POSE_LIBRARY[poseId];
+      try {
+        validateStickmanData();
+      } catch (err) {
+        console.error(err);
+        alert(`删除后数据校验失败: ${err.message || err}`);
+        return;
+      }
+      persistCustomToStorage();
+      if (activeAction.poseId === poseId || activeAction.name === action.name) {
+        setAction(ACTIONS[0], { snapNow: true, syncHash: true });
+      }
+      buildUI();
+    }
+
     function buildUI() {
       btns.innerHTML = "";
-      ACTIONS.forEach((action, index) => {
+      ACTIONS.forEach((action) => {
         const btn = document.createElement("button");
         btn.dataset.action = action.name;
         btn.textContent = action.cn;
-        if (index === 0) btn.classList.add("active");
-        btn.onclick = () => setAction(action);
-        btns.appendChild(btn);
+        if (activeAction.name === action.name) btn.classList.add("active");
+        btn.onclick = () => {
+          if (draftAction && action.name !== draftAction.name) {
+            if (!window.confirm("当前有未保存的自定义编辑，切换将放弃，是否继续？")) return;
+            draftAction = null;
+            jointDrag = null;
+            syncEditViewerClass();
+          }
+          setAction(action);
+          buildUI();
+        };
+        if (action.isCustom) {
+          const row = document.createElement("div");
+          row.className = "action-row";
+          row.appendChild(btn);
+          const renameBtn = document.createElement("button");
+          renameBtn.type = "button";
+          renameBtn.className = "btn-mini";
+          renameBtn.title = "重命名";
+          renameBtn.textContent = "✎";
+          renameBtn.onclick = (ev) => {
+            ev.stopPropagation();
+            renameCustomAction(action);
+          };
+          const delBtn = document.createElement("button");
+          delBtn.type = "button";
+          delBtn.className = "btn-mini";
+          delBtn.title = "删除";
+          delBtn.textContent = "×";
+          delBtn.onclick = (ev) => {
+            ev.stopPropagation();
+            deleteCustomAction(action);
+          };
+          row.appendChild(renameBtn);
+          row.appendChild(delBtn);
+          btns.appendChild(row);
+        } else {
+          btns.appendChild(btn);
+        }
       });
-
-      actionGrid.innerHTML = ACTIONS.map((action) => `
-        <div class="item">
-          <div class="item-title">${action.cn}</div>
-          <div class="item-sub">${action.desc}</div>
-          <div class="action-meta">
-            <span>${action.group} ${action.stepCount > 1 ? `s${action.stepIndex}/${action.stepCount}` : "single"}</span>
-            <span>${action.transitionTicks} ticks</span>
-          </div>
-        </div>
-      `).join("");
-
-      const pointSchemaCard = `
-        <div class="item">
-          <div class="item-title">固定 12 点</div>
-          <div class="item-sub">${FIXED_POINT_LABELS.map(([_, label]) => label).join(" / ")}</div>
-        </div>
-      `;
-
-      ruleGrid.innerHTML = RULES.map((rule) => `
-        <div class="item">
-          <div class="item-title">${rule.title}</div>
-          <div class="item-sub">${rule.note}</div>
-        </div>
-      `).join("") + pointSchemaCard;
     }
 
     function getInitialAction() {
       const raw = decodeURIComponent(location.hash.replace(/^#/, "")).trim();
       if (!raw) return ACTIONS[0];
       return ACTIONS.find((action) => (
-        action.name === raw ||
+        !action.isDraft &&
+        (action.name === raw ||
         action.cn === raw ||
-        action.poseId === raw
+        action.poseId === raw)
       )) || ACTIONS[0];
     }
 
     validateStickmanData();
-    buildUI();
     updatePreviewResolution();
+    syncModeUI();
     setAction(getInitialAction());
+    buildUI();
+    syncEditViewerClass();
 
+    modeBoardBtn.onclick = () => setPreviewMode("board");
+    modeDeviceBtn.onclick = () => setPreviewMode("device");
     exportIncBtn.onclick = () => downloadTextFile("stickman_fireman_export.inc", buildIncText());
     exportFolderBtn.onclick = () => exportToFolder().catch((err) => {
       console.error(err);
@@ -1211,10 +2229,88 @@
     exportWidthInput.addEventListener("input", updatePreviewResolution);
     exportHeightInput.addEventListener("input", updatePreviewResolution);
     window.addEventListener("hashchange", () => {
+      if (draftAction) {
+        draftAction = null;
+        jointDrag = null;
+        syncEditViewerClass();
+      }
       const nextAction = getInitialAction();
       if (nextAction.name !== activeAction.name) {
         setAction(nextAction);
+        buildUI();
       }
+    });
+
+    btnAddCustom.onclick = () => {
+      if (draftAction) return;
+      beginDraft();
+    };
+    saveCustomBtn.onclick = () => saveDraft();
+    cancelCustomBtn.onclick = () => cancelDraft();
+
+    previewSvg.addEventListener("pointerdown", (ev) => {
+      if (!draftAction || activeAction !== draftAction || renderMode !== "board") return;
+      const id = ev.target.id;
+      const pairs = JOINT_LINK_GROUPS[id];
+      if (!pairs) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const pt = clientToSvgXY(ev.clientX, ev.clientY);
+      jointDrag = { id, pointerId: ev.pointerId, lastX: pt.x, lastY: pt.y };
+      previewSvg.setPointerCapture(ev.pointerId);
+    });
+    previewSvg.addEventListener("pointermove", (ev) => {
+      if (!jointDrag || jointDrag.pointerId !== ev.pointerId || !draftAction) return;
+      const pairs = JOINT_LINK_GROUPS[jointDrag.id];
+      if (!pairs) return;
+      const pt = clientToSvgXY(ev.clientX, ev.clientY);
+      const dx = pt.x - jointDrag.lastX;
+      const dy = pt.y - jointDrag.lastY;
+      jointDrag.lastX = pt.x;
+      jointDrag.lastY = pt.y;
+      if (dx === 0 && dy === 0) return;
+      applyPoseDeltaToPairs(draftAction.customPose, pairs, dx, dy);
+      syncLimbMidJointsOnAxis(draftAction.customPose);
+      stopSchedulers();
+      targetPose = clonePose(resolveActionPose(draftAction));
+      currentPose = clonePose(targetPose);
+      renderPose(currentPose, draftAction);
+    });
+    previewSvg.addEventListener("pointerup", (ev) => {
+      if (!jointDrag || jointDrag.pointerId !== ev.pointerId) return;
+      if (previewSvg.hasPointerCapture(ev.pointerId)) {
+        previewSvg.releasePointerCapture(ev.pointerId);
+      }
+      jointDrag = null;
+    });
+    previewSvg.addEventListener("pointercancel", (ev) => {
+      if (jointDrag && jointDrag.pointerId === ev.pointerId) {
+        jointDrag = null;
+      }
+    });
+    viewer.addEventListener("pointerdown", (ev) => {
+      if (renderMode !== "device") return;
+      dragActive = true;
+      dragPointerId = ev.pointerId;
+      viewer.classList.add("dragging");
+      viewer.setPointerCapture(ev.pointerId);
+      applyDeviceTouch(ev.clientX, ev.clientY);
+      syncModeUI();
+    });
+    viewer.addEventListener("pointermove", (ev) => {
+      if (renderMode !== "device" || !dragActive || dragPointerId !== ev.pointerId) return;
+      applyDeviceTouch(ev.clientX, ev.clientY);
+    });
+    viewer.addEventListener("pointerup", (ev) => {
+      if (renderMode !== "device" || dragPointerId !== ev.pointerId) return;
+      if (viewer.hasPointerCapture(ev.pointerId)) {
+        viewer.releasePointerCapture(ev.pointerId);
+      }
+      releaseDeviceTouch();
+    });
+    viewer.addEventListener("pointercancel", (ev) => {
+      if (renderMode !== "device" || dragPointerId !== ev.pointerId) return;
+      releaseDeviceTouch();
     });
   </script>
 </body>
