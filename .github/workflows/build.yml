@@ -45,7 +45,7 @@ jobs:
         timeout-minutes: 100
         run: |
           . $IDF_PATH/export.sh
-          pip install --upgrade idf-component-manager
+          # pip install --upgrade idf-component-manager
           pip install idf-build-apps
 
           cd $GITHUB_WORKSPACE
