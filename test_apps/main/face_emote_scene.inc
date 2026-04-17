@@ -174,7 +174,7 @@ static const gfx_sm_pose_t s_fe_poses[] = {
 /* ------------------------------------------------------------------ */
 
 static const gfx_sm_segment_t s_fe_segments[] = {
-    /* mouth  */ { .kind = GFX_SM_SEG_BEZIER_LOOP,  .joint_a =  0, .joint_count = 7, .stroke_width = 10 },
+    /* mouth  */ { .kind = GFX_SM_SEG_BEZIER_LOOP,  .joint_a =  0, .joint_count = 7, .stroke_width = 6 },
     /* eye_l  */ { .kind = GFX_SM_SEG_BEZIER_FILL,  .joint_a =  7, .joint_count = 7 },
     /* eye_r  */ { .kind = GFX_SM_SEG_BEZIER_FILL,  .joint_a = 14, .joint_count = 7 },
     /* brow_l */ { .kind = GFX_SM_SEG_BEZIER_STRIP, .joint_a = 21, .joint_count = 4, .stroke_width =  6 },
