@@ -1,0 +1,3278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>gfx_sm 设计器</title>
+  <style>
+    :root {
+      --bg: #f3eee6;
+      --panel: rgba(255, 251, 246, 0.92);
+      --panel-strong: rgba(255, 255, 255, 0.96);
+      --line: rgba(66, 52, 36, 0.12);
+      --text: #241b13;
+      --muted: #796654;
+      --accent: #146e78;
+      --accent-soft: rgba(20, 110, 120, 0.10);
+      --warn: #ab5c2c;
+      --stage: #fffdfa;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: "Avenir Next", "PingFang SC", "Noto Sans SC", sans-serif;
+      background:
+        radial-gradient(circle at 14% 16%, rgba(20, 110, 120, 0.10), transparent 18%),
+        radial-gradient(circle at 88% 10%, rgba(171, 92, 44, 0.10), transparent 18%),
+        linear-gradient(180deg, #f7f2ea 0%, #efe6d9 100%);
+    }
+
+    .shell {
+      min-height: 100vh;
+      padding: 24px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .hero {
+      display: grid;
+      gap: 8px;
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 48px);
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 980px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) 360px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow:
+        0 18px 38px rgba(38, 24, 15, 0.10),
+        inset 0 1px 0 rgba(255, 255, 255, 0.68);
+      backdrop-filter: blur(14px);
+    }
+
+    .sidebar,
+    .editor,
+    .preview {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .sidebar,
+    .editor {
+      max-height: calc(100vh - 48px);
+      overflow: auto;
+    }
+
+    .head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    .head h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .head span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .card {
+      background: var(--panel-strong);
+      border: 1px solid rgba(66, 52, 36, 0.10);
+      border-radius: 18px;
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .card h3 {
+      margin: 0;
+      font-size: 13px;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    details.fold {
+      border: 1px solid rgba(66, 52, 36, 0.10);
+      border-radius: 18px;
+      background: var(--panel-strong);
+      overflow: hidden;
+    }
+
+    details.fold > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 14px 16px;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      user-select: none;
+    }
+
+    details.fold > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    details.fold[open] > summary {
+      border-bottom: 1px solid rgba(66, 52, 36, 0.08);
+      background: rgba(20, 110, 120, 0.04);
+    }
+
+    .fold-body {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .card p,
+    .mini {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    textarea,
+    input[type="text"],
+    input[type="number"],
+    input[type="color"],
+    select {
+      width: 100%;
+      border: 1px solid rgba(66, 52, 36, 0.14);
+      background: rgba(255, 255, 255, 0.76);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 11px 13px;
+      font: inherit;
+    }
+
+    textarea {
+      min-height: 620px;
+      resize: vertical;
+      font: 12px/1.6 ui-monospace, "SFMono-Regular", monospace;
+    }
+
+    .dropzone {
+      min-height: 96px;
+      border: 1px dashed rgba(66, 52, 36, 0.18);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.55);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 14px;
+      color: var(--muted);
+      transition: 0.16s ease;
+    }
+
+    .dropzone.dragover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .btn-row,
+    .grid-2,
+    .grid-3 {
+      display: grid;
+      gap: 10px;
+    }
+
+    .btn-row {
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
+
+    .grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    button,
+    .file-btn {
+      appearance: none;
+      border: none;
+      border-radius: 14px;
+      padding: 11px 14px;
+      background: linear-gradient(180deg, #1d7b82 0%, #146e78 100%);
+      color: #f7fbfb;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 600;
+      text-align: center;
+      box-shadow: 0 12px 20px rgba(20, 110, 120, 0.16);
+      transition: 0.12s ease;
+    }
+
+    button:hover,
+    .file-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 16px 24px rgba(20, 110, 120, 0.18);
+    }
+
+    button.ghost,
+    .file-btn.ghost {
+      background: rgba(255, 255, 255, 0.74);
+      color: var(--text);
+      border: 1px solid rgba(66, 52, 36, 0.12);
+      box-shadow: none;
+    }
+
+    button.warn {
+      background: linear-gradient(180deg, #c16b3e 0%, #ab5c2c 100%);
+      box-shadow: 0 12px 20px rgba(171, 92, 44, 0.16);
+    }
+
+    .file-btn {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .file-btn input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .badge {
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      border: 1px solid rgba(20, 110, 120, 0.14);
+      color: var(--accent);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .viewer-shell {
+      position: relative;
+      min-height: 580px;
+      border-radius: 20px;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(255, 253, 250, 0.96) 0%, rgba(245, 238, 229, 0.98) 100%);
+      border: 1px solid rgba(66, 52, 36, 0.10);
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.6),
+        0 18px 34px rgba(52, 36, 23, 0.10);
+    }
+
+    .viewer-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(36, 27, 19, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(36, 27, 19, 0.08) 1px, transparent 1px);
+      background-size: 24px 24px;
+      pointer-events: none;
+    }
+
+    svg.viewer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .hud {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255, 252, 248, 0.84);
+      border: 1px solid rgba(66, 52, 36, 0.10);
+      box-shadow: 0 8px 20px rgba(44, 30, 18, 0.08);
+      font: 12px/1.5 ui-monospace, "SFMono-Regular", monospace;
+      white-space: pre;
+      pointer-events: none;
+    }
+
+    .viewer.is-editing {
+      cursor: crosshair;
+    }
+
+    .edit-guide {
+      fill: none;
+      stroke: rgba(217, 111, 59, 0.55);
+      stroke-width: 2;
+      stroke-dasharray: 6 5;
+      pointer-events: none;
+    }
+
+    .part-highlight {
+      fill: rgba(20, 110, 120, 0.04);
+      stroke: rgba(20, 110, 120, 0.55);
+      stroke-width: 2;
+      stroke-dasharray: 8 6;
+      pointer-events: none;
+    }
+
+    .part-hit {
+      fill: transparent;
+      stroke: transparent;
+      pointer-events: all;
+      cursor: pointer;
+    }
+
+    .part-hit.selected {
+      cursor: grab;
+    }
+
+    .part-hit.selected.dragging {
+      cursor: grabbing;
+    }
+
+    .edit-joint-line {
+      fill: none;
+      stroke: rgba(217, 111, 59, 0.35);
+      stroke-width: 1.5;
+      pointer-events: none;
+    }
+
+    .edit-joint {
+      fill: #d96f3b;
+      stroke: #fffdfa;
+      stroke-width: 2;
+      cursor: grab;
+    }
+
+    .edit-joint.active {
+      fill: #146e78;
+      r: 7;
+      cursor: grabbing;
+    }
+
+    .edit-joint-label {
+      fill: #8b4f2e;
+      font-size: 11px;
+      pointer-events: none;
+    }
+
+    .status {
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(20, 110, 120, 0.08);
+      border: 1px solid rgba(20, 110, 120, 0.12);
+      color: var(--accent);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .status.error {
+      background: rgba(171, 92, 44, 0.10);
+      border-color: rgba(171, 92, 44, 0.18);
+      color: #8d451f;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat {
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(20, 110, 120, 0.06);
+      border: 1px solid rgba(20, 110, 120, 0.10);
+    }
+
+    .stat .k {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .stat .v {
+      margin-top: 5px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    code {
+      font-family: ui-monospace, "SFMono-Regular", monospace;
+      background: rgba(36, 27, 19, 0.05);
+      padding: 1px 5px;
+      border-radius: 6px;
+    }
+
+    @media (max-width: 1280px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar,
+      .editor {
+        max-height: none;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .shell {
+        padding: 14px;
+      }
+
+      .grid-2,
+      .grid-3,
+      .stat-grid,
+      .btn-row {
+        grid-template-columns: 1fr;
+      }
+
+      textarea {
+        min-height: 420px;
+      }
+
+      .viewer-shell {
+        min-height: 380px;
+      }
+    }
+
+    .stack {
+      display: grid;
+      gap: 8px;
+    }
+
+    .listbox {
+      display: grid;
+      gap: 6px;
+      max-height: 220px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .chip {
+      appearance: none;
+      border: 1px solid rgba(66, 52, 36, 0.12);
+      background: rgba(255, 255, 255, 0.78);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 9px 11px;
+      text-align: left;
+      font: inherit;
+      font-size: 12px;
+      line-height: 1.5;
+      cursor: pointer;
+      box-shadow: none;
+    }
+
+    .chip.active {
+      background: rgba(20, 110, 120, 0.12);
+      border-color: rgba(20, 110, 120, 0.28);
+      color: var(--accent);
+    }
+
+    .chip:hover {
+      transform: none;
+      box-shadow: none;
+    }
+
+    .field-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .field-grid label {
+      display: grid;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .inline-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .inline-tools > * {
+      flex: 1 1 120px;
+    }
+
+    .readonly-input {
+      background: rgba(239, 232, 224, 0.72);
+      color: var(--text);
+    }
+
+    .point-editor {
+      display: grid;
+      gap: 10px;
+      max-height: 320px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .point-group {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(66, 52, 36, 0.10);
+      background: rgba(255, 251, 246, 0.92);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    }
+
+    .point-group-head {
+      display: grid;
+      gap: 4px;
+    }
+
+    .point-group-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .point-group-note {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .point-group-body {
+      display: grid;
+      gap: 10px;
+    }
+
+    .point-card {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(66, 52, 36, 0.10);
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    .point-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .point-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .point-role {
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(20, 110, 120, 0.08);
+      border: 1px solid rgba(20, 110, 120, 0.12);
+      color: var(--accent);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .point-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .point-empty {
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px dashed rgba(66, 52, 36, 0.16);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.7;
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .compact-fold > summary {
+      padding: 10px 12px;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: none;
+    }
+
+    .compact-fold .fold-body {
+      padding: 12px;
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="eyebrow">场景标准</div>
+      <h1>gfx_sm 设计工作台</h1>
+      <p>
+        这个页面把设计链路固定为一条：<code>Lottie JSON</code> 或 <code>scene.json v1</code> 导入，
+        统一归一成标准场景描述，再编译成设备端 asset，最后用和 <code>gfx_sm_scene</code> 一致的
+        <code>clip/step/hold_ticks/facing/damping</code> 语义做仿真，并支持直接导出 <code>.inc</code>。
+      </p>
+    </section>
+
+    <section class="layout">
+      <aside class="panel sidebar">
+        <div class="head">
+          <h2>导入</h2>
+          <span>Lottie / 场景标准</span>
+        </div>
+
+        <section class="card">
+          <h3>输入源</h3>
+          <div class="dropzone" id="dropzone">拖拽 <code>.json</code> 文件到这里，或者选择本地文件</div>
+          <div class="btn-row">
+            <label class="file-btn">
+              打开 JSON 文件
+              <input id="file-input" type="file" accept=".json,.txt">
+            </label>
+            <button class="ghost" id="load-lottie-btn" type="button">加载 face Lottie 示例</button>
+          </div>
+          <p class="mini">
+            自动识别两类输入：
+            <code>scene.json v1</code> 直接进入标准编辑区，
+            普通 Lottie JSON 会根据 <code>__gfx_sm</code> / markers / shape layers 归一成标准场景。
+          </p>
+        </section>
+
+        <section class="card">
+          <h3>编译与导出</h3>
+          <div class="btn-row">
+            <button id="normalize-btn" type="button">识别并归一化当前文本</button>
+            <button id="compile-btn" type="button">编译并仿真</button>
+          </div>
+          <div class="btn-row">
+            <button class="ghost" id="export-scene-btn" type="button">导出 scene.json</button>
+            <button class="ghost" id="export-inc-btn" type="button">导出 .inc</button>
+          </div>
+          <p class="mini">
+            标准格式建议作为设计源文件保存，<code>.inc</code> 只作为设备端编译产物。
+          </p>
+        </section>
+
+        <section class="card">
+          <h3>标准说明</h3>
+          <p>
+            最小字段：
+            <code>schema</code>、
+            <code>name</code>、
+            <code>prefix</code>、
+            <code>meta.viewbox</code>、
+            <code>layout</code>、
+            <code>parts</code>、
+            <code>poses</code>、
+            <code>clips</code>、
+            <code>sequence</code>。
+          </p>
+          <p>
+            其中 <code>poses[*].parts</code> 存每个部件的控制点，
+            <code>clips[*].steps</code> 存设备端真正消费的离散 step，而不是连续时间轴。
+          </p>
+        </section>
+
+        <section class="card">
+          <h3>状态</h3>
+          <div class="status" id="status-box">等待导入 Lottie 或 scene.json。</div>
+        </section>
+      </aside>
+
+      <section class="panel editor">
+        <div class="head">
+          <h2>设计区</h2>
+          <span id="source-name">未加载</span>
+        </div>
+
+        <details class="fold">
+          <summary>scene.json v1 原文</summary>
+          <div class="fold-body">
+            <textarea id="scene-editor" spellcheck="false" placeholder='{
+  "schema": "gfx_sm_scene_v1",
+  "name": "demo_scene",
+  "prefix": "s_demo"
+}'></textarea>
+          </div>
+        </details>
+
+        <section class="card">
+          <h3>场景信息</h3>
+          <div class="field-grid">
+            <label>
+              场景名称
+              <input id="gui-scene-name" type="text" placeholder="场景名称">
+            </label>
+            <label>
+              导出前缀
+              <input id="gui-scene-prefix" type="text" placeholder="例如 s_scene">
+            </label>
+          </div>
+          <div class="inline-tools">
+            <button class="ghost" id="gui-save-scene-meta-btn" type="button">保存场景信息</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3>部件</h3>
+          <div class="grid-2">
+            <div class="stack">
+              <p class="mini">部件列表</p>
+              <div class="listbox" id="parts-list"></div>
+            </div>
+            <div class="stack">
+              <div class="field-grid">
+                <label>
+                  部件 ID
+                  <input id="part-id-input" type="text" placeholder="部件 ID">
+                </label>
+                <label>
+                  部件名称
+                  <input id="part-label-input" type="text" placeholder="例如 嘴巴">
+                </label>
+                <label>
+                  部件类型
+                  <select id="part-kind-select">
+                    <option value="BEZIER_FILL">贝塞尔填充</option>
+                    <option value="BEZIER_LOOP">贝塞尔闭环</option>
+                    <option value="BEZIER_STRIP">贝塞尔开放线</option>
+                    <option value="CAPSULE">胶囊段</option>
+                    <option value="RING">圆环</option>
+                  </select>
+                </label>
+                <div class="grid-3">
+                  <label>
+                    线宽
+                    <input id="part-stroke-input" type="number" min="0" step="1" value="0">
+                  </label>
+                  <label>
+                    半径提示
+                    <input id="part-radius-input" type="number" step="1" value="0">
+                  </label>
+                  <label>
+                    控制点数
+                    <input id="part-count-input" type="number" value="0" readonly>
+                  </label>
+                </div>
+              </div>
+              <div class="inline-tools">
+                <button class="ghost" id="part-save-btn" type="button">保存部件</button>
+                <button class="ghost" id="part-add-btn" type="button">新增部件</button>
+                <button class="warn" id="part-remove-btn" type="button">删除部件</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3>姿态</h3>
+          <div class="grid-2">
+            <div class="stack">
+              <p class="mini">姿态列表</p>
+              <div class="listbox" id="poses-list"></div>
+            </div>
+            <div class="stack">
+              <div class="field-grid">
+                <label>
+                  姿态 ID
+                  <input id="pose-id-input" type="text" placeholder="姿态 ID">
+                </label>
+                <label>
+                  名称
+                  <input id="pose-label-input" type="text" placeholder="例如 平静">
+                </label>
+                <label>
+                  中文名
+                  <input id="pose-label-cn-input" type="text" placeholder="中文名">
+                </label>
+                <label>
+                  当前部件
+                  <select id="pose-part-select"></select>
+                </label>
+                <label>
+                  点位编辑
+                  <div id="pose-point-list" class="point-editor"></div>
+                </label>
+                <div class="grid-3">
+                  <label>
+                    部位中心
+                    <input id="pose-part-center-input" class="readonly-input" type="text" readonly placeholder="(x, y)">
+                  </label>
+                  <label>
+                    包围盒起点
+                    <input id="pose-part-bbox-origin-input" class="readonly-input" type="text" readonly placeholder="(x, y)">
+                  </label>
+                  <label>
+                    包围盒尺寸
+                    <input id="pose-part-bbox-size-input" class="readonly-input" type="text" readonly placeholder="w x h">
+                  </label>
+                </div>
+                <details class="fold compact-fold">
+                  <summary>高级模式：原始点位 JSON</summary>
+                  <div class="fold-body">
+                    <label>
+                      原始点位 JSON
+                      <textarea id="pose-part-points-input" spellcheck="false" style="min-height:120px;" placeholder="[[0,0],[10,10]]"></textarea>
+                    </label>
+                  </div>
+                </details>
+              </div>
+              <div class="inline-tools">
+                <button class="ghost" id="pose-save-btn" type="button">保存姿态</button>
+                <button class="ghost" id="pose-save-points-btn" type="button">应用高级点位</button>
+                <button class="ghost" id="pose-duplicate-btn" type="button">复制姿态</button>
+              </div>
+              <p class="mini">主编辑入口是点位卡片和右侧画布拖点。高级模式里的原始 JSON 只用于批量粘贴或调试。</p>
+              <p class="mini">位置描述由当前姿态控制点实时推导。右侧预览区支持拖点编辑；双击部件可选中，随后可整体拖动该部件。</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3>动作片段</h3>
+          <div class="grid-2">
+            <div class="stack">
+              <p class="mini">片段列表</p>
+              <div class="listbox" id="clips-list"></div>
+            </div>
+            <div class="stack">
+              <div class="field-grid">
+                <label>
+                  片段 ID
+                  <input id="clip-id-input" type="text" placeholder="片段 ID">
+                </label>
+                <label>
+                  名称
+                  <input id="clip-label-input" type="text" placeholder="例如 微笑">
+                </label>
+                <label>
+                  中文名
+                  <input id="clip-label-cn-input" type="text" placeholder="中文名">
+                </label>
+                <label>
+                  是否循环
+                  <select id="clip-loop-select">
+                    <option value="true">是</option>
+                    <option value="false">否</option>
+                  </select>
+                </label>
+                <label>
+                  当前步骤
+                  <select id="clip-step-select"></select>
+                </label>
+                <label>
+                  步骤姿态
+                  <select id="step-pose-select"></select>
+                </label>
+                <div class="grid-3">
+                  <label>
+                    停留 Tick
+                    <input id="step-hold-input" type="number" min="1" step="1" value="30">
+                  </label>
+                  <label>
+                    朝向
+                    <select id="step-facing-select">
+                      <option value="1">1</option>
+                      <option value="-1">-1</option>
+                    </select>
+                  </label>
+                  <label>
+                    插值
+                    <select id="step-interp-select">
+                      <option value="DAMPED">缓动</option>
+                      <option value="HOLD">保持</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div class="inline-tools">
+                <button class="ghost" id="clip-save-btn" type="button">保存片段</button>
+                <button class="ghost" id="clip-add-btn" type="button">从当前姿态新建片段</button>
+                <button class="ghost" id="step-save-btn" type="button">保存步骤</button>
+                <button class="ghost" id="step-add-btn" type="button">新增步骤</button>
+                <button class="warn" id="step-remove-btn" type="button">删除步骤</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="panel preview">
+        <div class="head">
+          <h2>预览</h2>
+          <span id="asset-name">未编译</span>
+        </div>
+
+        <div class="badge-row">
+          <div class="badge" id="tick-badge">节拍: -</div>
+          <div class="badge" id="clip-badge">片段: -</div>
+          <div class="badge" id="mode-badge">编译后资产模式</div>
+        </div>
+
+        <div class="viewer-shell">
+          <svg class="viewer" id="viewer" aria-label="compiled asset preview"></svg>
+          <div class="hud" id="hud">尚未编译资产</div>
+        </div>
+
+        <section class="card">
+          <h3>播放控制</h3>
+          <div class="grid-3">
+            <button id="play-btn" type="button">暂停</button>
+            <button class="ghost" id="step-btn" type="button">单步</button>
+            <button class="ghost" id="reset-btn" type="button">重置</button>
+          </div>
+          <div class="grid-2">
+            <div>
+              <p class="mini">当前片段</p>
+              <select id="clip-select"></select>
+            </div>
+            <div>
+              <p class="mini">播放倍率</p>
+              <input id="speed-input" type="number" min="0.1" max="4" step="0.1" value="1.0">
+            </div>
+          </div>
+          <div class="grid-2">
+            <div>
+              <p class="mini">主色</p>
+              <input id="color-input" type="color" value="#101820">
+            </div>
+            <div>
+              <p class="mini">自动序列</p>
+              <select id="autoseq-select">
+                <option value="on">开启</option>
+                <option value="off">关闭</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3>编译结果</h3>
+          <div class="stat-grid">
+            <div class="stat"><div class="k">关节点</div><div class="v" id="stat-joints">-</div></div>
+            <div class="stat"><div class="k">绘制段</div><div class="v" id="stat-segments">-</div></div>
+            <div class="stat"><div class="k">姿态</div><div class="v" id="stat-poses">-</div></div>
+            <div class="stat"><div class="k">片段</div><div class="v" id="stat-clips">-</div></div>
+          </div>
+          <p class="mini" id="meta-text">视口: -</p>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const NS = "http://www.w3.org/2000/svg";
+    const SCENE_SCHEMA = "gfx_sm_scene_v1";
+    const SEG_KIND = {
+      CAPSULE: "GFX_SM_SEG_CAPSULE",
+      RING: "GFX_SM_SEG_RING",
+      BEZIER_STRIP: "GFX_SM_SEG_BEZIER_STRIP",
+      BEZIER_LOOP: "GFX_SM_SEG_BEZIER_LOOP",
+      BEZIER_FILL: "GFX_SM_SEG_BEZIER_FILL",
+    };
+    const KIND_LABELS = {
+      CAPSULE: "胶囊段",
+      RING: "圆环",
+      BEZIER_STRIP: "贝塞尔开放线",
+      BEZIER_LOOP: "贝塞尔闭环",
+      BEZIER_FILL: "贝塞尔填充",
+      GFX_SM_SEG_CAPSULE: "胶囊段",
+      GFX_SM_SEG_RING: "圆环",
+      GFX_SM_SEG_BEZIER_STRIP: "贝塞尔开放线",
+      GFX_SM_SEG_BEZIER_LOOP: "贝塞尔闭环",
+      GFX_SM_SEG_BEZIER_FILL: "贝塞尔填充",
+    };
+
+    const els = {
+      dropzone: document.getElementById("dropzone"),
+      fileInput: document.getElementById("file-input"),
+      loadLottieBtn: document.getElementById("load-lottie-btn"),
+      normalizeBtn: document.getElementById("normalize-btn"),
+      compileBtn: document.getElementById("compile-btn"),
+      exportSceneBtn: document.getElementById("export-scene-btn"),
+      exportIncBtn: document.getElementById("export-inc-btn"),
+      status: document.getElementById("status-box"),
+      sourceName: document.getElementById("source-name"),
+      sceneEditor: document.getElementById("scene-editor"),
+      guiSceneName: document.getElementById("gui-scene-name"),
+      guiScenePrefix: document.getElementById("gui-scene-prefix"),
+      guiSaveSceneMetaBtn: document.getElementById("gui-save-scene-meta-btn"),
+      partsList: document.getElementById("parts-list"),
+      partIdInput: document.getElementById("part-id-input"),
+      partLabelInput: document.getElementById("part-label-input"),
+      partKindSelect: document.getElementById("part-kind-select"),
+      partStrokeInput: document.getElementById("part-stroke-input"),
+      partRadiusInput: document.getElementById("part-radius-input"),
+      partCountInput: document.getElementById("part-count-input"),
+      partSaveBtn: document.getElementById("part-save-btn"),
+      partAddBtn: document.getElementById("part-add-btn"),
+      partRemoveBtn: document.getElementById("part-remove-btn"),
+      posesList: document.getElementById("poses-list"),
+      poseIdInput: document.getElementById("pose-id-input"),
+      poseLabelInput: document.getElementById("pose-label-input"),
+      poseLabelCnInput: document.getElementById("pose-label-cn-input"),
+      posePartSelect: document.getElementById("pose-part-select"),
+      posePointList: document.getElementById("pose-point-list"),
+      posePartPointsInput: document.getElementById("pose-part-points-input"),
+      posePartCenterInput: document.getElementById("pose-part-center-input"),
+      posePartBboxOriginInput: document.getElementById("pose-part-bbox-origin-input"),
+      posePartBboxSizeInput: document.getElementById("pose-part-bbox-size-input"),
+      poseSaveBtn: document.getElementById("pose-save-btn"),
+      poseSavePointsBtn: document.getElementById("pose-save-points-btn"),
+      poseDuplicateBtn: document.getElementById("pose-duplicate-btn"),
+      clipsList: document.getElementById("clips-list"),
+      clipIdInput: document.getElementById("clip-id-input"),
+      clipLabelInput: document.getElementById("clip-label-input"),
+      clipLabelCnInput: document.getElementById("clip-label-cn-input"),
+      clipLoopSelect: document.getElementById("clip-loop-select"),
+      clipStepSelect: document.getElementById("clip-step-select"),
+      stepPoseSelect: document.getElementById("step-pose-select"),
+      stepHoldInput: document.getElementById("step-hold-input"),
+      stepFacingSelect: document.getElementById("step-facing-select"),
+      stepInterpSelect: document.getElementById("step-interp-select"),
+      clipSaveBtn: document.getElementById("clip-save-btn"),
+      clipAddBtn: document.getElementById("clip-add-btn"),
+      stepSaveBtn: document.getElementById("step-save-btn"),
+      stepAddBtn: document.getElementById("step-add-btn"),
+      stepRemoveBtn: document.getElementById("step-remove-btn"),
+      viewer: document.getElementById("viewer"),
+      hud: document.getElementById("hud"),
+      assetName: document.getElementById("asset-name"),
+      tickBadge: document.getElementById("tick-badge"),
+      clipBadge: document.getElementById("clip-badge"),
+      clipSelect: document.getElementById("clip-select"),
+      playBtn: document.getElementById("play-btn"),
+      stepBtn: document.getElementById("step-btn"),
+      resetBtn: document.getElementById("reset-btn"),
+      speedInput: document.getElementById("speed-input"),
+      colorInput: document.getElementById("color-input"),
+      autoseqSelect: document.getElementById("autoseq-select"),
+      statJoints: document.getElementById("stat-joints"),
+      statSegments: document.getElementById("stat-segments"),
+      statPoses: document.getElementById("stat-poses"),
+      statClips: document.getElementById("stat-clips"),
+      metaText: document.getElementById("meta-text"),
+    };
+
+    const state = {
+      sourceName: "",
+      sceneDoc: null,
+      asset: null,
+      scene: null,
+      sourceText: "",
+      playing: true,
+      autoSequence: true,
+      speed: 1,
+      color: "#101820",
+      accumMs: 0,
+      seqAccumMs: 0,
+      lastTs: performance.now(),
+      selectedPartIndex: 0,
+      selectedPoseIndex: 0,
+      selectedClipIndex: 0,
+      selectedStepIndex: 0,
+      selectedPartId: "",
+      dragPointIndex: -1,
+      dragPointerId: null,
+      dragPartId: "",
+      dragPartPointerId: null,
+      dragPartStartDesign: null,
+      dragPartOriginalPoints: null,
+    };
+
+    function setStatus(text, error = false) {
+      els.status.textContent = text;
+      els.status.classList.toggle("error", error);
+    }
+
+    function pointerPosOnViewer(event) {
+      const rect = els.viewer.getBoundingClientRect();
+      return {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      };
+    }
+
+    function safeStringify(value) {
+      return JSON.stringify(value, null, 2);
+    }
+
+    function slugify(value, fallback = "item") {
+      const base = String(value || fallback)
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+      return base || fallback;
+    }
+
+    function makeUniqueId(base, existingIds, fallback = "item") {
+      const root = slugify(base, fallback);
+      let candidate = root;
+      let counter = 2;
+      while (existingIds.has(candidate)) {
+        candidate = `${root}_${counter}`;
+        counter += 1;
+      }
+      return candidate;
+    }
+
+    function sanitizeCIdent(value, fallback = "item") {
+      let out = String(value || fallback).replace(/[^A-Za-z0-9_]/g, "_");
+      if (!/^[A-Za-z_]/.test(out)) out = "_" + out;
+      return out || fallback;
+    }
+
+    function kindLabel(kind) {
+      return KIND_LABELS[kind] || kind;
+    }
+
+    function interpLabel(interp) {
+      return interp === "HOLD" ? "保持" : "缓动";
+    }
+
+    function screenMetrics(asset, width, height) {
+      const scale = Math.min(width / asset.meta.viewboxW, height / asset.meta.viewboxH);
+      const rw = asset.meta.viewboxW * scale;
+      const rh = asset.meta.viewboxH * scale;
+      return {
+        scale,
+        offX: Math.floor((width - rw) * 0.5) - asset.meta.viewboxX * scale,
+        offY: Math.floor((height - rh) * 0.5) - asset.meta.viewboxY * scale,
+      };
+    }
+
+    function deepClone(value) {
+      return JSON.parse(JSON.stringify(value));
+    }
+
+    function downloadText(filename, text) {
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function parseJsonInput(text) {
+      return JSON.parse(text);
+    }
+
+    function lottieShapeToCtrlPts(shape) {
+      const v = shape.v;
+      const iTan = shape.i;
+      const oTan = shape.o;
+      const closed = !!shape.c;
+      const segCount = closed ? v.length : (v.length - 1);
+      const pts = [];
+
+      for (let seg = 0; seg < segCount; seg++) {
+        const j = (seg + 1) % v.length;
+        const p0 = v[seg];
+        const cp1 = [v[seg][0] + oTan[seg][0], v[seg][1] + oTan[seg][1]];
+        const cp2 = [v[j][0] + iTan[j][0], v[j][1] + iTan[j][1]];
+        const p1 = v[j];
+
+        if (seg === 0) pts.push(p0);
+        pts.push(cp1, cp2, p1);
+      }
+
+      return { points: pts, closed };
+    }
+
+    function findShapePathKs(layer) {
+      for (const shape of layer.shapes || []) {
+        if (shape.ty === "sh") return shape.ks;
+        if (shape.ty === "gr") {
+          for (const item of shape.it || []) {
+            if (item.ty === "sh") return item.ks;
+          }
+        }
+      }
+      return null;
+    }
+
+    function getShapeAtFrame(ks, frame) {
+      if (!ks) return null;
+      if (!ks.a) {
+        const k = ks.k;
+        if (Array.isArray(k) && k.length && typeof k[0] === "object" && k[0].i) return k[0];
+        return k;
+      }
+      const list = ks.k || [];
+      if (!list.length) return null;
+      for (let idx = list.length - 1; idx >= 0; idx--) {
+        if (list[idx].t <= frame) {
+          const s = list[idx].s;
+          return Array.isArray(s) ? s[0] : s;
+        }
+      }
+      const first = list[0].s;
+      return Array.isArray(first) ? first[0] : first;
+    }
+
+    function detectKind(layer, closed) {
+      let hasFill = false;
+      let hasStroke = false;
+      function scan(items) {
+        for (const item of items || []) {
+          if (item.ty === "fl") hasFill = true;
+          if (item.ty === "st") hasStroke = true;
+          if (item.ty === "gr") scan(item.it || []);
+        }
+      }
+      scan(layer.shapes || []);
+      if (closed) return hasFill && !hasStroke ? "BEZIER_FILL" : "BEZIER_LOOP";
+      return "BEZIER_STRIP";
+    }
+
+    function layerStrokeWidth(layer) {
+      function scan(items) {
+        for (const item of items || []) {
+          if (item.ty === "st") {
+            const w = item.w;
+            if (typeof w === "number") return Math.round(w);
+            if (w && typeof w.k === "number") return Math.round(w.k);
+          }
+          if (item.ty === "gr") {
+            const got = scan(item.it || []);
+            if (got != null) return got;
+          }
+        }
+        return null;
+      }
+      return scan(layer.shapes || []) || 0;
+    }
+
+    function buildMarkersFromShapeTimes(layers) {
+      const times = new Set();
+      for (const layer of layers) {
+        const ks = findShapePathKs(layer);
+        if (ks && ks.a) {
+          for (const item of ks.k || []) {
+            if (item && typeof item.t === "number") times.add(item.t);
+          }
+        }
+      }
+      return [...times].sort((a, b) => a - b).map((tm, index) => ({
+        tm,
+        cm: `pose_${index}`,
+        dr: 30,
+      }));
+    }
+
+    function normalizePoints(points) {
+      if (!Array.isArray(points)) throw new Error("points must be array");
+      if (!points.length) return [];
+      if (Array.isArray(points[0])) {
+        return points.map((pair) => {
+          if (!Array.isArray(pair) || pair.length < 2) {
+            throw new Error("point pair must be [x, y]");
+          }
+          return [Number(pair[0]), Number(pair[1])];
+        });
+      }
+      if (points.length % 2 !== 0) {
+        throw new Error("flat point array length must be even");
+      }
+      const out = [];
+      for (let i = 0; i < points.length; i += 2) {
+        out.push([Number(points[i]), Number(points[i + 1])]);
+      }
+      return out;
+    }
+
+    function normalizeSceneDoc(input) {
+      const doc = deepClone(input);
+      if (doc.schema !== SCENE_SCHEMA) {
+        throw new Error(`scene schema must be ${SCENE_SCHEMA}`);
+      }
+
+      const viewbox = doc.meta && Array.isArray(doc.meta.viewbox) ? doc.meta.viewbox : [0, 0, 200, 200];
+      const layout = {
+        stroke_width: Number(doc.layout && doc.layout.stroke_width != null ? doc.layout.stroke_width : 4),
+        mirror_x: Number(doc.layout && doc.layout.mirror_x != null ? doc.layout.mirror_x : 0),
+        ground_y: Number(doc.layout && doc.layout.ground_y != null ? doc.layout.ground_y : viewbox[1] + viewbox[3]),
+        timer_period_ms: Number(doc.layout && doc.layout.timer_period_ms != null ? doc.layout.timer_period_ms : 33),
+        damping_div: Number(doc.layout && doc.layout.damping_div != null ? doc.layout.damping_div : 4),
+      };
+
+      const parts = (doc.parts || []).map((part, index) => ({
+        id: String(part.id || `part_${index}`),
+        label: part.label || part.id || `part_${index}`,
+        kind: String(part.kind || "BEZIER_STRIP"),
+        stroke_width: Number(part.stroke_width || 0),
+        radius_hint: Number(part.radius_hint || 0),
+      }));
+
+      if (!parts.length) throw new Error("scene.parts is empty");
+
+      const partMap = new Map(parts.map((part) => [part.id, part]));
+      const poses = (doc.poses || []).map((pose, index) => {
+        const id = String(pose.id || `pose_${index}`);
+        const poseParts = {};
+        for (const part of parts) {
+          const raw = pose.parts && pose.parts[part.id];
+          if (!raw) {
+            throw new Error(`pose ${id} missing part ${part.id}`);
+          }
+          poseParts[part.id] = normalizePoints(raw);
+        }
+        return {
+          id,
+          label: pose.label || id,
+          label_cn: pose.label_cn || pose.label || id,
+          parts: poseParts,
+        };
+      });
+
+      if (!poses.length) throw new Error("scene.poses is empty");
+
+      const poseMap = new Map(poses.map((pose) => [pose.id, pose]));
+      const clips = (doc.clips || []).map((clip, index) => {
+        const id = String(clip.id || `clip_${index}`);
+        const steps = (clip.steps || []).map((step) => {
+          if (!poseMap.has(step.pose)) throw new Error(`clip ${id} references unknown pose ${step.pose}`);
+          return {
+            pose: String(step.pose),
+            hold_ticks: Number(step.hold_ticks != null ? step.hold_ticks : 30),
+            facing: Number(step.facing != null ? step.facing : 1),
+            interp: String(step.interp || "DAMPED"),
+          };
+        });
+        if (!steps.length) throw new Error(`clip ${id} has no steps`);
+        return {
+          id,
+          label: clip.label || id,
+          label_cn: clip.label_cn || clip.label || id,
+          loop: clip.loop !== false,
+          steps,
+        };
+      });
+
+      if (!clips.length) throw new Error("scene.clips is empty");
+
+      const clipMap = new Map(clips.map((clip) => [clip.id, clip]));
+      const sequence = (doc.sequence && doc.sequence.length ? doc.sequence : clips.map((clip) => clip.id)).map((id) => {
+        if (!clipMap.has(id)) throw new Error(`sequence references unknown clip ${id}`);
+        return String(id);
+      });
+
+      for (const part of parts) {
+        const expected = poses[0].parts[part.id].length;
+        for (const pose of poses) {
+          const count = pose.parts[part.id].length;
+          if (count !== expected) {
+            throw new Error(`part ${part.id} control point count mismatch between poses`);
+          }
+        }
+      }
+
+      return {
+        schema: SCENE_SCHEMA,
+        name: doc.name || "scene",
+        prefix: doc.prefix || "s_scene",
+        meta: { viewbox },
+        layout,
+        parts,
+        poses,
+        clips,
+        sequence,
+      };
+    }
+
+    function lottieToSceneDoc(lottie) {
+      const gfx = lottie.__gfx_sm || {};
+      const viewbox = gfx.meta && Array.isArray(gfx.meta.viewbox)
+        ? gfx.meta.viewbox
+        : [0, 0, Number(lottie.w || 200), Number(lottie.h || 200)];
+
+      const layout = {
+        stroke_width: Number(gfx.layout && gfx.layout.stroke_width != null ? gfx.layout.stroke_width : 4),
+        mirror_x: Number(gfx.layout && gfx.layout.mirror_x != null ? gfx.layout.mirror_x : 0),
+        ground_y: Number(gfx.layout && gfx.layout.ground_y != null ? gfx.layout.ground_y : viewbox[1] + viewbox[3]),
+        timer_period_ms: Number(gfx.layout && gfx.layout.timer_period_ms != null ? gfx.layout.timer_period_ms : 33),
+        damping_div: Number(gfx.layout && gfx.layout.damping_div != null ? gfx.layout.damping_div : 4),
+      };
+
+      const shapeLayers = (lottie.layers || []).filter((layer) => layer.ty === 4);
+      const segCfg = new Map((gfx.segments || []).map((segment) => [segment.layer, segment]));
+      const orderedLayers = segCfg.size
+        ? (gfx.segments || []).map((segment) => shapeLayers.find((layer) => layer.nm === segment.layer)).filter(Boolean)
+        : shapeLayers;
+
+      const markers = (lottie.markers && lottie.markers.length)
+        ? [...lottie.markers].sort((a, b) => a.tm - b.tm)
+        : buildMarkersFromShapeTimes(orderedLayers);
+
+      const parts = [];
+      for (const layer of orderedLayers) {
+        const ks = findShapePathKs(layer);
+        const shape0 = getShapeAtFrame(ks, markers[0] ? markers[0].tm : 0);
+        if (!ks || !shape0) continue;
+        const converted = lottieShapeToCtrlPts(shape0);
+        const cfg = segCfg.get(layer.nm) || {};
+        parts.push({
+          id: layer.nm,
+          label: layer.nm,
+          kind: cfg.kind || detectKind(layer, converted.closed),
+          stroke_width: Number(cfg.stroke_width != null ? cfg.stroke_width : layerStrokeWidth(layer)),
+          radius_hint: 0,
+        });
+      }
+
+      const poses = markers.map((marker, index) => {
+        const tokens = String(marker.cm || `pose_${index}`).split("|", 2);
+        const id = slugify(tokens[0], `pose_${index}`);
+        const pose = {
+          id,
+          label: tokens[0] || id,
+          label_cn: tokens[1] || tokens[0] || id,
+          parts: {},
+        };
+
+        for (const part of parts) {
+          const layer = orderedLayers.find((item) => item.nm === part.id);
+          const ks = findShapePathKs(layer);
+          const shape = getShapeAtFrame(ks, marker.tm);
+          if (!shape) continue;
+          const converted = lottieShapeToCtrlPts(shape);
+          pose.parts[part.id] = converted.points.map((pt) => [Math.round(pt[0]), Math.round(pt[1])]);
+        }
+        return pose;
+      });
+
+      const clips = poses.map((pose, index) => {
+        const marker = markers[index] || { dr: 30 };
+        return {
+          id: pose.id,
+          label: pose.label,
+          label_cn: pose.label_cn,
+          loop: true,
+          steps: [{
+            pose: pose.id,
+            hold_ticks: Number(marker.dr != null ? marker.dr : 30),
+            facing: 1,
+            interp: "DAMPED",
+          }],
+        };
+      });
+
+      return normalizeSceneDoc({
+        schema: SCENE_SCHEMA,
+        name: gfx.name || lottie.nm || "scene_from_lottie",
+        prefix: gfx.prefix || "s_scene",
+        meta: { viewbox },
+        layout,
+        parts,
+        poses,
+        clips,
+        sequence: clips.map((clip) => clip.id),
+      });
+    }
+
+    function detectAndNormalize(text) {
+      const obj = parseJsonInput(text);
+      if (obj && obj.schema === SCENE_SCHEMA) {
+        return { kind: "scene", doc: normalizeSceneDoc(obj) };
+      }
+      if (obj && Array.isArray(obj.layers)) {
+        return { kind: "lottie", doc: lottieToSceneDoc(obj) };
+      }
+      throw new Error("未识别的 JSON 类型，只支持 scene.json v1 或 Lottie JSON。");
+    }
+
+    function ensureSceneDoc() {
+      if (state.sceneDoc) {
+        return state.sceneDoc;
+      }
+      const text = els.sceneEditor.value.trim();
+      if (!text) {
+        throw new Error("没有可编辑的 scene.json");
+      }
+      state.sceneDoc = normalizeSceneDoc(parseJsonInput(text));
+      return state.sceneDoc;
+    }
+
+    function writeSceneDoc(doc, message, autoCompile = true, silentStatus = false) {
+      const normalized = normalizeSceneDoc(doc);
+      state.sceneDoc = normalized;
+      els.sceneEditor.value = safeStringify(normalized);
+      refreshGuiPanels();
+      if (autoCompile) {
+        compileFromSceneDoc(normalized, { silentStatus, statusText: message });
+      } else {
+        if (!silentStatus) {
+          setStatus(message || "已更新 scene.json。");
+        }
+      }
+    }
+
+    function poseByIndex(index) {
+      const doc = ensureSceneDoc();
+      return doc.poses[Math.max(0, Math.min(index, doc.poses.length - 1))];
+    }
+
+    function clipByIndex(index) {
+      const doc = ensureSceneDoc();
+      return doc.clips[Math.max(0, Math.min(index, doc.clips.length - 1))];
+    }
+
+    function partByIndex(index) {
+      const doc = ensureSceneDoc();
+      return doc.parts[Math.max(0, Math.min(index, doc.parts.length - 1))];
+    }
+
+    function currentPosePartId() {
+      const doc = ensureSceneDoc();
+      return state.selectedPartId && doc.parts.some((part) => part.id === state.selectedPartId)
+        ? state.selectedPartId
+        : (doc.parts[0] ? doc.parts[0].id : "");
+    }
+
+    function currentPartIndex() {
+      const doc = ensureSceneDoc();
+      const found = doc.parts.findIndex((part) => part.id === state.selectedPartId);
+      return found >= 0 ? found : 0;
+    }
+
+    function currentPartPointCount(doc, partId) {
+      if (!doc || !doc.poses.length || !partId) return 0;
+      const pts = doc.poses[0].parts[partId];
+      return Array.isArray(pts) ? pts.length : 0;
+    }
+
+    function defaultPointCountForKind(kind) {
+      if (kind === "CAPSULE") return 2;
+      if (kind === "RING") return 1;
+      if (kind === "BEZIER_STRIP") return 4;
+      if (kind === "BEZIER_LOOP" || kind === "BEZIER_FILL") return 7;
+      return 4;
+    }
+
+    function makeDefaultPoints(kind, viewbox) {
+      const count = defaultPointCountForKind(kind);
+      const cx = Number(viewbox[0]) + Number(viewbox[2]) / 2;
+      const cy = Number(viewbox[1]) + Number(viewbox[3]) / 2;
+      const half = Math.max(12, Math.round(Number(viewbox[2]) * 0.08));
+
+      if (kind === "RING") {
+        return [[Math.round(cx), Math.round(cy)]];
+      }
+      if (kind === "CAPSULE") {
+        return [
+          [Math.round(cx - half), Math.round(cy)],
+          [Math.round(cx + half), Math.round(cy)],
+        ];
+      }
+      if (kind === "BEZIER_STRIP") {
+        return [
+          [Math.round(cx - half), Math.round(cy)],
+          [Math.round(cx - half / 3), Math.round(cy - half / 2)],
+          [Math.round(cx + half / 3), Math.round(cy - half / 2)],
+          [Math.round(cx + half), Math.round(cy)],
+        ];
+      }
+      return [
+        [Math.round(cx - half), Math.round(cy)],
+        [Math.round(cx - half / 2), Math.round(cy - half)],
+        [Math.round(cx + half / 2), Math.round(cy - half)],
+        [Math.round(cx + half), Math.round(cy)],
+        [Math.round(cx + half / 2), Math.round(cy + half)],
+        [Math.round(cx - half / 2), Math.round(cy + half)],
+        [Math.round(cx - half), Math.round(cy)],
+      ];
+    }
+
+    function partBounds(points) {
+      if (!Array.isArray(points) || !points.length) return null;
+      let minX = Number(points[0][0]);
+      let minY = Number(points[0][1]);
+      let maxX = Number(points[0][0]);
+      let maxY = Number(points[0][1]);
+      for (const pair of points) {
+        const x = Number(pair[0]);
+        const y = Number(pair[1]);
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+      return {
+        minX,
+        minY,
+        maxX,
+        maxY,
+        width: maxX - minX,
+        height: maxY - minY,
+        centerX: (minX + maxX) * 0.5,
+        centerY: (minY + maxY) * 0.5,
+      };
+    }
+
+    function formatPair(x, y) {
+      return `(${Math.round(x)}, ${Math.round(y)})`;
+    }
+
+    function pointDescriptor(kind, index) {
+      if (kind === "RING") {
+        return { name: "圆心", role: `点 ${index}` };
+      }
+      if (kind === "CAPSULE") {
+        return { name: index === 0 ? "起点" : "终点", role: `点 ${index}` };
+      }
+      if (index === 0 || index % 3 === 0) {
+        return { name: `锚点 ${Math.floor(index / 3) + 1}`, role: `点 ${index}` };
+      }
+      if (index % 3 === 1) {
+        return { name: `出手柄 ${Math.floor(index / 3) + 1}`, role: `点 ${index}` };
+      }
+      return { name: `入手柄 ${Math.floor(index / 3) + 2}`, role: `点 ${index}` };
+    }
+
+    function pointGroups(kind, pts) {
+      if (!Array.isArray(pts) || !pts.length) return [];
+      if (kind === "RING") {
+        return [{
+          title: "圆环中心",
+          note: "圆环的位置由圆心决定，半径主要参考部件里的“半径提示”。",
+          indices: [0],
+        }];
+      }
+      if (kind === "CAPSULE") {
+        return [{
+          title: "胶囊主轴",
+          note: "胶囊段由起点和终点决定方向与长度，粗细由线宽决定。",
+          indices: pts.map((_, index) => index),
+        }];
+      }
+      const groups = [];
+      for (let start = 0, segIndex = 0; start + 3 < pts.length; start += 3, segIndex += 1) {
+        groups.push({
+          title: `曲线段 ${segIndex + 1}`,
+          note: `从锚点 ${segIndex + 1} 连到锚点 ${segIndex + 2}，中间由出手柄和入手柄控制弯曲。`,
+          indices: [start, start + 1, start + 2, start + 3],
+        });
+      }
+      if (!groups.length) {
+        groups.push({
+          title: "点位列表",
+          note: "当前部件的点位数量不足以组成标准贝塞尔段，先按原始点展示。",
+          indices: pts.map((_, index) => index),
+        });
+      }
+      if ((kind === "BEZIER_LOOP" || kind === "BEZIER_FILL") && groups.length) {
+        const last = groups[groups.length - 1];
+        last.note += " 当前部件为闭合形状，最后会回到起点形成闭环。";
+      }
+      return groups;
+    }
+
+    function partPoseSummary(doc, poseIndex, partId) {
+      if (!doc || !doc.poses.length || !partId) return null;
+      const pose = doc.poses[Math.max(0, Math.min(poseIndex, doc.poses.length - 1))];
+      const pts = pose.parts[partId];
+      if (!Array.isArray(pts) || !pts.length) return null;
+      const bbox = partBounds(pts);
+      if (!bbox) return null;
+      return {
+        centerText: formatPair(bbox.centerX, bbox.centerY),
+        bboxOriginText: formatPair(bbox.minX, bbox.minY),
+        bboxSizeText: `${Math.round(bbox.width)} x ${Math.round(bbox.height)}`,
+        bbox,
+      };
+    }
+
+    function translatePoints(points, dx, dy, viewbox) {
+      const bbox = partBounds(points);
+      if (!bbox) return deepClone(points);
+      const minX = Number(viewbox[0]);
+      const minY = Number(viewbox[1]);
+      const maxX = Number(viewbox[0]) + Number(viewbox[2]);
+      const maxY = Number(viewbox[1]) + Number(viewbox[3]);
+      const clampedDx = Math.max(minX - bbox.minX, Math.min(maxX - bbox.maxX, dx));
+      const clampedDy = Math.max(minY - bbox.minY, Math.min(maxY - bbox.maxY, dy));
+      return points.map((pair) => [Number(pair[0]) + clampedDx, Number(pair[1]) + clampedDy]);
+    }
+
+    function segmentScreenCtrl(asset, scene, seg, width, height) {
+      const ctrl = [];
+      if (seg.kind === "GFX_SM_SEG_CAPSULE") {
+        ctrl.push(toScreen(asset, scene.poseCur[seg.jointA], width, height));
+        ctrl.push(toScreen(asset, scene.poseCur[seg.jointB], width, height));
+        return ctrl;
+      }
+      for (let i = 0; i < seg.jointCount; i++) {
+        ctrl.push(toScreen(asset, scene.poseCur[seg.jointA + i], width, height));
+      }
+      return ctrl;
+    }
+
+    function selectPart(partId) {
+      if (!partId || !state.sceneDoc) return;
+      const index = state.sceneDoc.parts.findIndex((part) => part.id === partId);
+      if (index < 0) return;
+      state.selectedPartId = partId;
+      state.selectedPartIndex = index;
+      refreshGuiPanels();
+      renderAsset();
+    }
+
+    function updatePointFromForm(pointIndex, axis, rawValue) {
+      if (!state.sceneDoc) return;
+      const value = Number(rawValue);
+      if (!Number.isFinite(value)) {
+        setStatus("点位坐标必须是数字。", true);
+        return;
+      }
+      const doc = deepClone(ensureSceneDoc());
+      const pose = doc.poses[state.selectedPoseIndex];
+      const partId = currentPosePartId();
+      const pts = pose.parts[partId];
+      if (!Array.isArray(pts) || !pts[pointIndex]) return;
+      const viewbox = doc.meta.viewbox;
+      const minX = Number(viewbox[0]);
+      const minY = Number(viewbox[1]);
+      const maxX = Number(viewbox[0]) + Number(viewbox[2]);
+      const maxY = Number(viewbox[1]) + Number(viewbox[3]);
+      if (axis === "x") {
+        pts[pointIndex][0] = Math.max(minX, Math.min(maxX, Math.round(value)));
+      } else {
+        pts[pointIndex][1] = Math.max(minY, Math.min(maxY, Math.round(value)));
+      }
+      writeSceneDoc(doc, "已更新点位。", true, true);
+    }
+
+    function renderPosePointList(doc, part, pts) {
+      els.posePointList.innerHTML = "";
+      if (!doc || !part || !Array.isArray(pts) || !pts.length) {
+        const empty = document.createElement("div");
+        empty.className = "point-empty";
+        empty.textContent = "当前部件还没有可编辑点位。";
+        els.posePointList.appendChild(empty);
+        return;
+      }
+
+      const groups = pointGroups(part.kind, pts);
+      groups.forEach((group) => {
+        const section = document.createElement("section");
+        section.className = "point-group";
+
+        const head = document.createElement("div");
+        head.className = "point-group-head";
+
+        const title = document.createElement("div");
+        title.className = "point-group-title";
+        title.textContent = group.title;
+
+        const note = document.createElement("div");
+        note.className = "point-group-note";
+        note.textContent = group.note;
+
+        head.appendChild(title);
+        head.appendChild(note);
+        section.appendChild(head);
+
+        const body = document.createElement("div");
+        body.className = "point-group-body";
+
+        group.indices.forEach((index) => {
+          const pair = pts[index];
+          if (!pair) return;
+          const meta = pointDescriptor(part.kind, index);
+          const card = document.createElement("div");
+          card.className = "point-card";
+
+          const cardHead = document.createElement("div");
+          cardHead.className = "point-card-head";
+
+          const name = document.createElement("div");
+          name.className = "point-name";
+          name.textContent = meta.name;
+
+          const role = document.createElement("div");
+          role.className = "point-role";
+          role.textContent = meta.role;
+
+          cardHead.appendChild(name);
+          cardHead.appendChild(role);
+          card.appendChild(cardHead);
+
+          const grid = document.createElement("div");
+          grid.className = "point-grid";
+
+          const xLabel = document.createElement("label");
+          xLabel.textContent = "X 坐标";
+          const xInput = document.createElement("input");
+          xInput.type = "number";
+          xInput.step = "1";
+          xInput.value = String(Math.round(Number(pair[0])));
+          xInput.addEventListener("change", () => updatePointFromForm(index, "x", xInput.value));
+          xLabel.appendChild(xInput);
+
+          const yLabel = document.createElement("label");
+          yLabel.textContent = "Y 坐标";
+          const yInput = document.createElement("input");
+          yInput.type = "number";
+          yInput.step = "1";
+          yInput.value = String(Math.round(Number(pair[1])));
+          yInput.addEventListener("change", () => updatePointFromForm(index, "y", yInput.value));
+          yLabel.appendChild(yInput);
+
+          grid.appendChild(xLabel);
+          grid.appendChild(yLabel);
+          card.appendChild(grid);
+          body.appendChild(card);
+        });
+
+        section.appendChild(body);
+        els.posePointList.appendChild(section);
+      });
+    }
+
+    function renderPosePartTextarea() {
+      const doc = state.sceneDoc;
+      if (!doc || !doc.poses.length || !doc.parts.length) {
+        els.posePointList.innerHTML = "";
+        els.posePartPointsInput.value = "";
+        els.posePartCenterInput.value = "";
+        els.posePartBboxOriginInput.value = "";
+        els.posePartBboxSizeInput.value = "";
+        return;
+      }
+      const pose = poseByIndex(state.selectedPoseIndex);
+      const partId = currentPosePartId();
+      const pts = pose.parts[partId] || [];
+      els.posePartPointsInput.value = JSON.stringify(pts, null, 2);
+      els.posePartSelect.value = partId;
+      const part = state.sceneDoc.parts.find((item) => item.id === partId);
+      renderPosePointList(doc, part, pts);
+      const summary = partPoseSummary(doc, state.selectedPoseIndex, partId);
+      els.posePartCenterInput.value = summary ? summary.centerText : "";
+      els.posePartBboxOriginInput.value = summary ? summary.bboxOriginText : "";
+      els.posePartBboxSizeInput.value = summary ? summary.bboxSizeText : "";
+    }
+
+    function renderClipStepEditor() {
+      const doc = state.sceneDoc;
+      if (!doc || !doc.clips.length) {
+        els.clipStepSelect.innerHTML = "";
+        els.stepPoseSelect.innerHTML = "";
+        els.clipIdInput.value = "";
+        els.clipLabelInput.value = "";
+        els.clipLabelCnInput.value = "";
+        return;
+      }
+
+      const clip = clipByIndex(state.selectedClipIndex);
+      const safeStepIndex = Math.max(0, Math.min(state.selectedStepIndex, clip.steps.length - 1));
+      state.selectedStepIndex = safeStepIndex;
+
+      els.clipStepSelect.innerHTML = "";
+      clip.steps.forEach((step, index) => {
+        const option = document.createElement("option");
+        option.value = String(index);
+        option.textContent = `${index}: ${step.pose} / ${step.hold_ticks} / ${step.facing} / ${interpLabel(step.interp)}`;
+        if (index === safeStepIndex) option.selected = true;
+        els.clipStepSelect.appendChild(option);
+      });
+
+      els.stepPoseSelect.innerHTML = "";
+      doc.poses.forEach((pose, index) => {
+        const option = document.createElement("option");
+        option.value = pose.id;
+        option.textContent = `${String(index).padStart(2, "0")} ${pose.id} / ${pose.label_cn}`;
+        els.stepPoseSelect.appendChild(option);
+      });
+
+      els.clipIdInput.value = clip.id;
+      els.clipLabelInput.value = clip.label;
+      els.clipLabelCnInput.value = clip.label_cn;
+      els.clipLoopSelect.value = clip.loop ? "true" : "false";
+
+      const step = clip.steps[safeStepIndex];
+      els.stepPoseSelect.value = step.pose;
+      els.stepHoldInput.value = String(step.hold_ticks);
+      els.stepFacingSelect.value = String(step.facing);
+      els.stepInterpSelect.value = step.interp;
+    }
+
+    function refreshGuiPanels() {
+      const doc = state.sceneDoc;
+      if (!doc) {
+        els.guiSceneName.value = "";
+        els.guiScenePrefix.value = "";
+        els.partsList.innerHTML = "";
+        els.partIdInput.value = "";
+        els.partLabelInput.value = "";
+        els.partKindSelect.value = "BEZIER_STRIP";
+        els.partStrokeInput.value = "0";
+        els.partRadiusInput.value = "0";
+        els.partCountInput.value = "0";
+        els.posesList.innerHTML = "";
+        els.clipsList.innerHTML = "";
+        els.posePartSelect.innerHTML = "";
+        els.poseIdInput.value = "";
+        els.poseLabelInput.value = "";
+        els.poseLabelCnInput.value = "";
+        els.posePointList.innerHTML = "";
+        els.posePartPointsInput.value = "";
+        els.posePartCenterInput.value = "";
+        els.posePartBboxOriginInput.value = "";
+        els.posePartBboxSizeInput.value = "";
+        els.clipStepSelect.innerHTML = "";
+        els.stepPoseSelect.innerHTML = "";
+        els.clipIdInput.value = "";
+        els.clipLabelInput.value = "";
+        els.clipLabelCnInput.value = "";
+        return;
+      }
+
+      state.selectedPoseIndex = Math.max(0, Math.min(state.selectedPoseIndex, doc.poses.length - 1));
+      state.selectedClipIndex = Math.max(0, Math.min(state.selectedClipIndex, doc.clips.length - 1));
+      state.selectedPartId = currentPosePartId();
+      state.selectedPartIndex = Math.max(0, Math.min(currentPartIndex(), doc.parts.length - 1));
+
+      els.guiSceneName.value = doc.name || "";
+      els.guiScenePrefix.value = doc.prefix || "";
+
+      els.partsList.innerHTML = "";
+      doc.parts.forEach((part, index) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "chip";
+        btn.textContent = `${String(index).padStart(2, "0")} ${part.id} | ${kindLabel(part.kind)} | 线宽=${part.stroke_width || 0}`;
+        btn.onclick = () => {
+          state.selectedPartIndex = index;
+          state.selectedPartId = part.id;
+          refreshGuiPanels();
+          renderAsset();
+        };
+        if (part.id === state.selectedPartId) btn.classList.add("active");
+        els.partsList.appendChild(btn);
+      });
+
+      const part = partByIndex(state.selectedPartIndex);
+      els.partIdInput.value = part.id;
+      els.partLabelInput.value = part.label;
+      els.partKindSelect.value = part.kind;
+      els.partStrokeInput.value = String(part.stroke_width || 0);
+      els.partRadiusInput.value = String(part.radius_hint || 0);
+      els.partCountInput.value = String(currentPartPointCount(doc, part.id));
+
+      els.posesList.innerHTML = "";
+      doc.poses.forEach((pose, index) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "chip";
+        btn.textContent = `${String(index).padStart(2, "0")} ${pose.id} / ${pose.label_cn}`;
+        btn.onclick = () => {
+          state.selectedPoseIndex = index;
+          state.selectedPartId = currentPosePartId();
+          refreshGuiPanels();
+          renderAsset();
+        };
+        if (index === state.selectedPoseIndex) btn.classList.add("active");
+        els.posesList.appendChild(btn);
+      });
+
+      els.clipsList.innerHTML = "";
+      doc.clips.forEach((clip, index) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "chip";
+        btn.textContent = `${String(index).padStart(2, "0")} ${clip.id} / ${clip.label_cn} (${clip.steps.length})`;
+        btn.onclick = () => {
+          state.selectedClipIndex = index;
+          state.selectedStepIndex = 0;
+          if (state.scene && state.asset && index < state.asset.clips.length) {
+            setClip(state.scene, index, false);
+            refreshCompiledUi();
+            renderAsset();
+          }
+          refreshGuiPanels();
+        };
+        if (index === state.selectedClipIndex) btn.classList.add("active");
+        els.clipsList.appendChild(btn);
+      });
+
+      els.posePartSelect.innerHTML = "";
+      doc.parts.forEach((part) => {
+        const option = document.createElement("option");
+        option.value = part.id;
+        option.textContent = `${part.id}（${kindLabel(part.kind)}）`;
+        els.posePartSelect.appendChild(option);
+      });
+
+      const pose = poseByIndex(state.selectedPoseIndex);
+      els.poseIdInput.value = pose.id;
+      els.poseLabelInput.value = pose.label;
+      els.poseLabelCnInput.value = pose.label_cn;
+
+      renderPosePartTextarea();
+      renderClipStepEditor();
+    }
+
+    function compileFromSceneDoc(doc, options = {}) {
+      const normalized = normalizeSceneDoc(doc);
+      state.sceneDoc = normalized;
+      state.asset = compileSceneDoc(normalized);
+      state.scene = createScene(state.asset);
+      if (state.asset.clips.length) {
+        state.selectedClipIndex = Math.max(0, Math.min(state.selectedClipIndex, state.asset.clips.length - 1));
+        if (state.selectedClipIndex > 0) {
+          setClip(state.scene, state.selectedClipIndex, true);
+        }
+      }
+      state.accumMs = 0;
+      state.seqAccumMs = 0;
+      refreshGuiPanels();
+      refreshCompiledUi();
+      renderAsset();
+      if (!options.silentStatus) {
+        setStatus(options.statusText || `编译完成：${normalized.name}，${state.asset.poses.length} poses / ${state.asset.clips.length} clips。`);
+      }
+      return state.asset;
+    }
+
+    function compileSceneDoc(sceneDoc) {
+      const jointNames = [];
+      const segments = [];
+      const poseIndexById = new Map();
+      const clipIndexById = new Map();
+      const partOffsets = new Map();
+      let jointCursor = 0;
+
+      sceneDoc.parts.forEach((part) => {
+        const count = sceneDoc.poses[0].parts[part.id].length;
+        partOffsets.set(part.id, { jointA: jointCursor, count });
+        for (let i = 0; i < count; i++) {
+          jointNames.push(`${part.id}_${i}`);
+        }
+        const compiledKind = SEG_KIND[part.kind] || part.kind;
+        segments.push({
+          id: part.id,
+          kind: compiledKind,
+          jointA: jointCursor,
+          jointB: compiledKind === "GFX_SM_SEG_CAPSULE" ? jointCursor + 1 : jointCursor,
+          jointCount: count,
+          strokeWidth: part.stroke_width || 0,
+          radiusHint: part.radius_hint || 0,
+        });
+        jointCursor += count;
+      });
+
+      const poses = sceneDoc.poses.map((pose, poseIndex) => {
+        poseIndexById.set(pose.id, poseIndex);
+        const coords = [];
+        for (const part of sceneDoc.parts) {
+          const pts = pose.parts[part.id];
+          for (const pt of pts) {
+            coords.push(Math.round(pt[0]), Math.round(pt[1]));
+          }
+        }
+        return {
+          id: pose.id,
+          label: pose.label,
+          labelCn: pose.label_cn,
+          coords,
+        };
+      });
+
+      const clips = sceneDoc.clips.map((clip, clipIndex) => {
+        clipIndexById.set(clip.id, clipIndex);
+        return {
+          id: clip.id,
+          name: clip.label,
+          nameCn: clip.label_cn,
+          loop: !!clip.loop,
+          steps: clip.steps.map((step) => ({
+            poseIndex: poseIndexById.get(step.pose),
+            holdTicks: step.hold_ticks,
+            facing: step.facing,
+            interp: step.interp === "HOLD" ? "GFX_SM_INTERP_HOLD" : "GFX_SM_INTERP_DAMPED",
+          })),
+        };
+      });
+
+      const sequence = sceneDoc.sequence.map((clipId) => clipIndexById.get(clipId));
+
+      return {
+        sceneDoc,
+        prefix: sceneDoc.prefix,
+        name: sceneDoc.name,
+        meta: {
+          viewboxX: sceneDoc.meta.viewbox[0],
+          viewboxY: sceneDoc.meta.viewbox[1],
+          viewboxW: sceneDoc.meta.viewbox[2],
+          viewboxH: sceneDoc.meta.viewbox[3],
+        },
+        layout: {
+          strokeWidth: sceneDoc.layout.stroke_width,
+          mirrorX: sceneDoc.layout.mirror_x,
+          groundY: sceneDoc.layout.ground_y,
+          timerPeriodMs: sceneDoc.layout.timer_period_ms,
+          dampingDiv: sceneDoc.layout.damping_div,
+        },
+        jointNames,
+        segments,
+        poses,
+        clips,
+        sequence,
+      };
+    }
+
+    function createScene(asset) {
+      const jointCount = asset.jointNames.length;
+      const scene = {
+        asset,
+        poseCur: Array.from({ length: jointCount }, () => ({ x: 0, y: 0 })),
+        poseTgt: Array.from({ length: jointCount }, () => ({ x: 0, y: 0 })),
+        activeClip: 0,
+        activeStep: 0,
+        stepTicks: 0,
+        sequenceIndex: 0,
+      };
+      const first = asset.clips[0].steps[0];
+      loadTarget(scene, first.poseIndex, first.facing);
+      copyPose(scene.poseCur, scene.poseTgt);
+      return scene;
+    }
+
+    function copyPose(dst, src) {
+      for (let i = 0; i < dst.length; i++) {
+        dst[i].x = src[i].x;
+        dst[i].y = src[i].y;
+      }
+    }
+
+    function getPoseJoint(asset, poseIndex, jointIndex) {
+      const coords = asset.poses[poseIndex].coords;
+      return { x: coords[jointIndex * 2], y: coords[jointIndex * 2 + 1] };
+    }
+
+    function loadTarget(scene, poseIndex, facing) {
+      const asset = scene.asset;
+      for (let i = 0; i < asset.jointNames.length; i++) {
+        let { x, y } = getPoseJoint(asset, poseIndex, i);
+        if (facing < 0) x = asset.layout.mirrorX * 2 - x;
+        scene.poseTgt[i].x = x;
+        scene.poseTgt[i].y = y;
+      }
+    }
+
+    function setClip(scene, clipIndex, snapNow) {
+      scene.activeClip = clipIndex;
+      scene.activeStep = 0;
+      scene.stepTicks = 0;
+      const step = scene.asset.clips[clipIndex].steps[0];
+      loadTarget(scene, step.poseIndex, step.facing);
+      if (snapNow) copyPose(scene.poseCur, scene.poseTgt);
+    }
+
+    function ease(cur, tgt, div) {
+      const diff = tgt - cur;
+      if (!diff) return cur;
+      const safeDiv = div < 1 ? 1 : div;
+      let step = (diff / safeDiv) | 0;
+      if (!step) step = diff > 0 ? 1 : -1;
+      return cur + step;
+    }
+
+    function sceneTick(scene) {
+      const div = scene.asset.layout.dampingDiv > 0 ? scene.asset.layout.dampingDiv : 4;
+      for (let i = 0; i < scene.poseCur.length; i++) {
+        scene.poseCur[i].x = ease(scene.poseCur[i].x, scene.poseTgt[i].x, div);
+        scene.poseCur[i].y = ease(scene.poseCur[i].y, scene.poseTgt[i].y, div);
+      }
+    }
+
+    function sceneAdvance(scene) {
+      const clip = scene.asset.clips[scene.activeClip];
+      const step = clip.steps[scene.activeStep];
+      scene.stepTicks += 1;
+      if (scene.stepTicks < step.holdTicks) return false;
+      scene.stepTicks = 0;
+      let nextStep = scene.activeStep + 1;
+      if (nextStep >= clip.steps.length) {
+        if (!clip.loop) return false;
+        nextStep = 0;
+      }
+      scene.activeStep = nextStep;
+      const next = clip.steps[nextStep];
+      loadTarget(scene, next.poseIndex, next.facing);
+      return true;
+    }
+
+    function clipHoldMs(asset, clipIndex) {
+      const clip = asset.clips[clipIndex];
+      const period = asset.layout.timerPeriodMs || 33;
+      let maxTicks = 0;
+      for (const step of clip.steps) {
+        if (step.holdTicks > maxTicks) maxTicks = step.holdTicks;
+      }
+      return Math.max(1, maxTicks) * period;
+    }
+
+    function toScreen(asset, pt, width, height) {
+      const metrics = screenMetrics(asset, width, height);
+      return {
+        x: Math.round(metrics.offX + pt.x * metrics.scale),
+        y: Math.round(metrics.offY + pt.y * metrics.scale),
+      };
+    }
+
+    function scalarPx(asset, width, height, value) {
+      const metrics = screenMetrics(asset, width, height);
+      return Math.max(1, Math.round(value * metrics.scale));
+    }
+
+    function screenToDesign(asset, screenPt, width, height) {
+      const metrics = screenMetrics(asset, width, height);
+      return {
+        x: Math.round((screenPt.x - metrics.offX) / metrics.scale),
+        y: Math.round((screenPt.y - metrics.offY) / metrics.scale),
+      };
+    }
+
+    function updateDraggedPoint(screenPt) {
+      if (state.dragPointIndex < 0 || !state.sceneDoc) return;
+      const width = Math.max(360, Math.round(els.viewer.clientWidth || 700));
+      const height = Math.max(360, Math.round(els.viewer.clientHeight || 700));
+      const design = screenToDesign(state.asset, screenPt, width, height);
+      const doc = deepClone(ensureSceneDoc());
+      const pose = doc.poses[state.selectedPoseIndex];
+      const partId = currentPosePartId();
+      const pts = pose.parts[partId];
+      if (!pts || !pts[state.dragPointIndex]) return;
+      const viewbox = doc.meta.viewbox;
+      const minX = Number(viewbox[0]);
+      const minY = Number(viewbox[1]);
+      const maxX = Number(viewbox[0]) + Number(viewbox[2]);
+      const maxY = Number(viewbox[1]) + Number(viewbox[3]);
+      pts[state.dragPointIndex][0] = Math.max(minX, Math.min(maxX, design.x));
+      pts[state.dragPointIndex][1] = Math.max(minY, Math.min(maxY, design.y));
+      writeSceneDoc(doc, "已拖拽更新控制点。", true, true);
+    }
+
+    function startPartDrag(event, partId) {
+      if (!state.sceneDoc || !state.asset) return;
+      if (state.dragPointIndex >= 0) return;
+      const width = Math.max(360, Math.round(els.viewer.clientWidth || 700));
+      const height = Math.max(360, Math.round(els.viewer.clientHeight || 700));
+      const doc = ensureSceneDoc();
+      const pose = doc.poses[state.selectedPoseIndex];
+      const pts = pose.parts[partId];
+      if (!Array.isArray(pts) || !pts.length) return;
+      state.dragPartId = partId;
+      state.dragPartPointerId = event.pointerId;
+      state.dragPartStartDesign = screenToDesign(state.asset, pointerPosOnViewer(event), width, height);
+      state.dragPartOriginalPoints = deepClone(pts);
+      renderAsset();
+    }
+
+    function updateDraggedPart(screenPt) {
+      if (!state.dragPartId || !state.dragPartStartDesign || !state.dragPartOriginalPoints || !state.sceneDoc) return;
+      const width = Math.max(360, Math.round(els.viewer.clientWidth || 700));
+      const height = Math.max(360, Math.round(els.viewer.clientHeight || 700));
+      const design = screenToDesign(state.asset, screenPt, width, height);
+      const dx = design.x - state.dragPartStartDesign.x;
+      const dy = design.y - state.dragPartStartDesign.y;
+      const doc = deepClone(ensureSceneDoc());
+      const pose = doc.poses[state.selectedPoseIndex];
+      pose.parts[state.dragPartId] = translatePoints(state.dragPartOriginalPoints, dx, dy, doc.meta.viewbox);
+      writeSceneDoc(doc, "已整体拖动部件。", true, true);
+    }
+
+    function clearPartDrag() {
+      state.dragPartId = "";
+      state.dragPartPointerId = null;
+      state.dragPartStartDesign = null;
+      state.dragPartOriginalPoints = null;
+    }
+
+    function bezierPath(ctrl, closed) {
+      if (!ctrl.length) return "";
+      let d = `M ${ctrl[0].x} ${ctrl[0].y}`;
+      for (let i = 1; i + 2 < ctrl.length; i += 3) {
+        d += ` C ${ctrl[i].x} ${ctrl[i].y} ${ctrl[i + 1].x} ${ctrl[i + 1].y} ${ctrl[i + 2].x} ${ctrl[i + 2].y}`;
+      }
+      if (closed) d += " Z";
+      return d;
+    }
+
+    function renderAsset() {
+      const svg = els.viewer;
+      const width = Math.max(360, Math.round(svg.clientWidth || 700));
+      const height = Math.max(360, Math.round(svg.clientHeight || 700));
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      svg.innerHTML = "";
+
+      const bg = document.createElementNS(NS, "rect");
+      bg.setAttribute("x", "0");
+      bg.setAttribute("y", "0");
+      bg.setAttribute("width", String(width));
+      bg.setAttribute("height", String(height));
+      bg.setAttribute("rx", "28");
+      bg.setAttribute("fill", "#fffdfa");
+      svg.appendChild(bg);
+
+      if (!state.asset || !state.scene) {
+        const text = document.createElementNS(NS, "text");
+        text.setAttribute("x", String(width / 2));
+        text.setAttribute("y", String(height / 2));
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("font-size", "18");
+        text.setAttribute("fill", "#7b6755");
+        text.textContent = "等待编译 scene.json";
+        svg.appendChild(text);
+        els.hud.textContent = "尚未编译资产";
+        return;
+      }
+
+      const asset = state.asset;
+      const scene = state.scene;
+      const strokeColor = state.color;
+      const defaultStroke = scalarPx(asset, width, height, asset.layout.strokeWidth || 4);
+
+      if (Number.isFinite(asset.layout.groundY)) {
+        const ground = toScreen(asset, { x: asset.meta.viewboxX, y: asset.layout.groundY }, width, height);
+        const line = document.createElementNS(NS, "line");
+        line.setAttribute("x1", "26");
+        line.setAttribute("x2", String(width - 26));
+        line.setAttribute("y1", String(ground.y));
+        line.setAttribute("y2", String(ground.y));
+        line.setAttribute("stroke", "rgba(36,27,19,0.14)");
+        line.setAttribute("stroke-width", "2");
+        line.setAttribute("stroke-dasharray", "7 7");
+        svg.appendChild(line);
+      }
+
+      for (const seg of asset.segments) {
+        const strokeWidth = seg.strokeWidth > 0
+          ? scalarPx(asset, width, height, seg.strokeWidth)
+          : defaultStroke;
+        const isSelectedPart = seg.id === currentPosePartId();
+
+        if (seg.kind === "GFX_SM_SEG_CAPSULE") {
+          const a = toScreen(asset, scene.poseCur[seg.jointA], width, height);
+          const b = toScreen(asset, scene.poseCur[seg.jointB], width, height);
+          const line = document.createElementNS(NS, "line");
+          line.setAttribute("x1", String(a.x));
+          line.setAttribute("y1", String(a.y));
+          line.setAttribute("x2", String(b.x));
+          line.setAttribute("y2", String(b.y));
+          line.setAttribute("stroke", strokeColor);
+          line.setAttribute("stroke-width", String(strokeWidth));
+          line.setAttribute("stroke-linecap", "round");
+          svg.appendChild(line);
+
+          const hit = document.createElementNS(NS, "line");
+          hit.setAttribute("x1", String(a.x));
+          hit.setAttribute("y1", String(a.y));
+          hit.setAttribute("x2", String(b.x));
+          hit.setAttribute("y2", String(b.y));
+          hit.setAttribute("stroke-width", String(Math.max(18, strokeWidth + 16)));
+          hit.setAttribute("stroke-linecap", "round");
+          hit.setAttribute("class", `part-hit${isSelectedPart ? " selected" : ""}${state.dragPartId === seg.id ? " dragging" : ""}`);
+          hit.addEventListener("dblclick", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            selectPart(seg.id);
+          });
+          if (isSelectedPart) {
+            hit.addEventListener("pointerdown", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              startPartDrag(event, seg.id);
+            });
+          }
+          svg.appendChild(hit);
+
+          if (isSelectedPart) {
+            const highlight = document.createElementNS(NS, "line");
+            highlight.setAttribute("x1", String(a.x));
+            highlight.setAttribute("y1", String(a.y));
+            highlight.setAttribute("x2", String(b.x));
+            highlight.setAttribute("y2", String(b.y));
+            highlight.setAttribute("stroke-linecap", "round");
+            highlight.setAttribute("stroke-width", String(Math.max(6, strokeWidth + 8)));
+            highlight.setAttribute("class", "part-highlight");
+            svg.appendChild(highlight);
+          }
+          continue;
+        }
+
+        if (seg.kind === "GFX_SM_SEG_RING") {
+          const c = toScreen(asset, scene.poseCur[seg.jointA], width, height);
+          const radius = seg.radiusHint > 0 ? scalarPx(asset, width, height, seg.radiusHint) : strokeWidth * 4;
+          const circle = document.createElementNS(NS, "circle");
+          circle.setAttribute("cx", String(c.x));
+          circle.setAttribute("cy", String(c.y));
+          circle.setAttribute("r", String(radius));
+          circle.setAttribute("fill", "none");
+          circle.setAttribute("stroke", strokeColor);
+          circle.setAttribute("stroke-width", String(strokeWidth));
+          svg.appendChild(circle);
+
+          const hit = document.createElementNS(NS, "circle");
+          hit.setAttribute("cx", String(c.x));
+          hit.setAttribute("cy", String(c.y));
+          hit.setAttribute("r", String(radius));
+          hit.setAttribute("stroke-width", String(Math.max(18, strokeWidth + 16)));
+          hit.setAttribute("class", `part-hit${isSelectedPart ? " selected" : ""}${state.dragPartId === seg.id ? " dragging" : ""}`);
+          hit.addEventListener("dblclick", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            selectPart(seg.id);
+          });
+          if (isSelectedPart) {
+            hit.addEventListener("pointerdown", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              startPartDrag(event, seg.id);
+            });
+          }
+          svg.appendChild(hit);
+
+          if (isSelectedPart) {
+            const highlight = document.createElementNS(NS, "circle");
+            highlight.setAttribute("cx", String(c.x));
+            highlight.setAttribute("cy", String(c.y));
+            highlight.setAttribute("r", String(radius + Math.max(4, strokeWidth * 0.5)));
+            highlight.setAttribute("class", "part-highlight");
+            svg.appendChild(highlight);
+          }
+          continue;
+        }
+
+        const ctrl = segmentScreenCtrl(asset, scene, seg, width, height);
+
+        if (seg.kind === "GFX_SM_SEG_BEZIER_FILL") {
+          const path = document.createElementNS(NS, "path");
+          path.setAttribute("d", bezierPath(ctrl, true));
+          path.setAttribute("fill", strokeColor);
+          svg.appendChild(path);
+
+          const hit = document.createElementNS(NS, "path");
+          hit.setAttribute("d", bezierPath(ctrl, true));
+          hit.setAttribute("class", `part-hit${isSelectedPart ? " selected" : ""}${state.dragPartId === seg.id ? " dragging" : ""}`);
+          hit.addEventListener("dblclick", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            selectPart(seg.id);
+          });
+          if (isSelectedPart) {
+            hit.addEventListener("pointerdown", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              startPartDrag(event, seg.id);
+            });
+          }
+          svg.appendChild(hit);
+
+          if (isSelectedPart) {
+            const highlight = document.createElementNS(NS, "path");
+            highlight.setAttribute("d", bezierPath(ctrl, true));
+            highlight.setAttribute("class", "part-highlight");
+            svg.appendChild(highlight);
+          }
+          continue;
+        }
+
+        if (seg.kind === "GFX_SM_SEG_BEZIER_LOOP" || seg.kind === "GFX_SM_SEG_BEZIER_STRIP") {
+          const path = document.createElementNS(NS, "path");
+          path.setAttribute("d", bezierPath(ctrl, seg.kind === "GFX_SM_SEG_BEZIER_LOOP"));
+          path.setAttribute("fill", "none");
+          path.setAttribute("stroke", strokeColor);
+          path.setAttribute("stroke-width", String(strokeWidth));
+          path.setAttribute("stroke-linecap", "round");
+          path.setAttribute("stroke-linejoin", "round");
+          svg.appendChild(path);
+
+          const hit = document.createElementNS(NS, "path");
+          hit.setAttribute("d", bezierPath(ctrl, seg.kind === "GFX_SM_SEG_BEZIER_LOOP"));
+          hit.setAttribute("stroke-width", String(Math.max(18, strokeWidth + 16)));
+          hit.setAttribute("stroke-linecap", "round");
+          hit.setAttribute("stroke-linejoin", "round");
+          hit.setAttribute("class", `part-hit${isSelectedPart ? " selected" : ""}${state.dragPartId === seg.id ? " dragging" : ""}`);
+          hit.addEventListener("dblclick", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            selectPart(seg.id);
+          });
+          if (isSelectedPart) {
+            hit.addEventListener("pointerdown", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              startPartDrag(event, seg.id);
+            });
+          }
+          svg.appendChild(hit);
+
+          if (isSelectedPart) {
+            const highlight = document.createElementNS(NS, "path");
+            highlight.setAttribute("d", bezierPath(ctrl, seg.kind === "GFX_SM_SEG_BEZIER_LOOP"));
+            highlight.setAttribute("class", "part-highlight");
+            svg.appendChild(highlight);
+          }
+        }
+      }
+
+      svg.classList.toggle("is-editing", !!state.sceneDoc);
+
+      if (state.sceneDoc && state.sceneDoc.poses.length && state.sceneDoc.parts.length) {
+        const pose = state.sceneDoc.poses[Math.max(0, Math.min(state.selectedPoseIndex, state.sceneDoc.poses.length - 1))];
+        const partId = currentPosePartId();
+        const pts = pose.parts[partId] || [];
+        const ctrl = pts.map((pair) => toScreen(asset, { x: Number(pair[0]), y: Number(pair[1]) }, width, height));
+        const selectedPart = state.sceneDoc.parts.find((part) => part.id === partId);
+
+        if (ctrl.length) {
+          const helper = document.createElementNS(NS, "path");
+          const closed = selectedPart && (selectedPart.kind === "BEZIER_FILL" || selectedPart.kind === "BEZIER_LOOP");
+          helper.setAttribute("d", bezierPath(ctrl, closed));
+          helper.setAttribute("class", "edit-guide");
+          svg.appendChild(helper);
+        }
+
+        for (let i = 0; i + 1 < ctrl.length; i++) {
+          const line = document.createElementNS(NS, "line");
+          line.setAttribute("x1", String(ctrl[i].x));
+          line.setAttribute("y1", String(ctrl[i].y));
+          line.setAttribute("x2", String(ctrl[i + 1].x));
+          line.setAttribute("y2", String(ctrl[i + 1].y));
+          line.setAttribute("class", "edit-joint-line");
+          svg.appendChild(line);
+        }
+
+        ctrl.forEach((pt, index) => {
+          const circle = document.createElementNS(NS, "circle");
+          circle.setAttribute("cx", String(pt.x));
+          circle.setAttribute("cy", String(pt.y));
+          circle.setAttribute("r", index === state.dragPointIndex ? "7" : "6");
+          circle.setAttribute("class", `edit-joint${index === state.dragPointIndex ? " active" : ""}`);
+          circle.addEventListener("pointerdown", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            state.dragPointIndex = index;
+            state.dragPointerId = event.pointerId;
+            renderAsset();
+          });
+          svg.appendChild(circle);
+
+          const label = document.createElementNS(NS, "text");
+          label.setAttribute("x", String(pt.x + 8));
+          label.setAttribute("y", String(pt.y - 8));
+          label.setAttribute("class", "edit-joint-label");
+          label.textContent = String(index);
+          svg.appendChild(label);
+        });
+      }
+
+      const clip = asset.clips[scene.activeClip];
+      const step = clip.steps[scene.activeStep];
+      els.hud.textContent =
+        `片段: ${clip.name}\n` +
+        `步骤: ${scene.activeStep + 1}/${clip.steps.length}  停留: ${scene.stepTicks}/${step.holdTicks}\n` +
+        `节拍: ${asset.layout.timerPeriodMs || 33} ms  阻尼: ${asset.layout.dampingDiv || 4}\n` +
+        `朝向: ${step.facing}`;
+      els.clipBadge.textContent = `片段: ${clip.name}`;
+    }
+
+    function refreshCompiledUi() {
+      if (!state.asset || !state.scene) {
+        els.assetName.textContent = "未编译";
+        els.tickBadge.textContent = "节拍: -";
+        els.clipBadge.textContent = "片段: -";
+        els.statJoints.textContent = "-";
+        els.statSegments.textContent = "-";
+        els.statPoses.textContent = "-";
+        els.statClips.textContent = "-";
+        els.metaText.textContent = "视口: -";
+        els.clipSelect.innerHTML = "<option>未编译</option>";
+        return;
+      }
+
+      const asset = state.asset;
+      els.assetName.textContent = `${asset.name} / ${asset.prefix}`;
+      els.tickBadge.textContent = `节拍: ${asset.layout.timerPeriodMs || 33} ms`;
+      els.statJoints.textContent = String(asset.jointNames.length);
+      els.statSegments.textContent = String(asset.segments.length);
+      els.statPoses.textContent = String(asset.poses.length);
+      els.statClips.textContent = String(asset.clips.length);
+      els.metaText.textContent =
+        `视口: [${asset.meta.viewboxX}, ${asset.meta.viewboxY}, ${asset.meta.viewboxW}, ${asset.meta.viewboxH}]  镜像轴: ${asset.layout.mirrorX}`;
+
+      els.clipSelect.innerHTML = "";
+      asset.clips.forEach((clip, index) => {
+        const option = document.createElement("option");
+        option.value = String(index);
+        option.textContent = `${String(index).padStart(2, "0")} ${clip.name}${clip.nameCn ? " / " + clip.nameCn : ""}`;
+        if (index === state.scene.activeClip) option.selected = true;
+        els.clipSelect.appendChild(option);
+      });
+    }
+
+    function sceneToEditor(doc, sourceName, message) {
+      state.sceneDoc = doc;
+      state.sourceName = sourceName;
+      els.sourceName.textContent = sourceName;
+      els.sceneEditor.value = safeStringify(doc);
+      state.selectedPoseIndex = 0;
+      state.selectedClipIndex = 0;
+      state.selectedStepIndex = 0;
+      state.selectedPartId = doc.parts && doc.parts[0] ? doc.parts[0].id : "";
+      refreshGuiPanels();
+      setStatus(message);
+    }
+
+    function normalizeEditorText() {
+      const text = els.sceneEditor.value.trim();
+      if (!text) throw new Error("编辑区为空");
+      const detected = detectAndNormalize(text);
+      sceneToEditor(detected.doc, state.sourceName || detected.kind, `已将 ${detected.kind} 归一化为 scene.json v1。`);
+      return detected.doc;
+    }
+
+    function compileFromEditor() {
+      const doc = normalizeSceneDoc(parseJsonInput(els.sceneEditor.value));
+      return compileFromSceneDoc(doc);
+    }
+
+    function buildIncText(asset) {
+      const prefix = sanitizeCIdent(asset.prefix, "s_scene");
+      const upper = prefix.toUpperCase();
+      const lines = [];
+
+      lines.push("/*");
+      lines.push(" * SPDX-FileCopyrightText: 2026 Espressif Systems (Shanghai) CO LTD");
+      lines.push(" *");
+      lines.push(" * SPDX-License-Identifier: Apache-2.0");
+      lines.push(" *");
+      lines.push(` * ${asset.name}.inc - generated from scene.json v1 by gui_designer.html`);
+      lines.push(" */");
+      lines.push("");
+      lines.push("#pragma once");
+      lines.push("");
+      lines.push('#include "widget/gfx_sm_scene.h"');
+      lines.push("");
+      lines.push(`static const gfx_sm_meta_t ${prefix}_meta = {`);
+      lines.push("    .version   = GFX_SM_SCENE_SCHEMA_VERSION,");
+      lines.push(`    .viewbox_x = ${asset.meta.viewboxX},`);
+      lines.push(`    .viewbox_y = ${asset.meta.viewboxY},`);
+      lines.push(`    .viewbox_w = ${asset.meta.viewboxW},`);
+      lines.push(`    .viewbox_h = ${asset.meta.viewboxH},`);
+      lines.push("};");
+      lines.push("");
+      lines.push(`static const gfx_sm_layout_t ${prefix}_layout = {`);
+      lines.push(`    .stroke_width    = ${asset.layout.strokeWidth},`);
+      lines.push(`    .mirror_x        = ${asset.layout.mirrorX},`);
+      lines.push(`    .ground_y        = ${asset.layout.groundY},`);
+      lines.push(`    .timer_period_ms = ${asset.layout.timerPeriodMs},`);
+      lines.push(`    .damping_div     = ${asset.layout.dampingDiv},`);
+      lines.push("};");
+      lines.push("");
+      lines.push(`static const char *const ${prefix}_joint_names[] = {`);
+      asset.jointNames.forEach((name, index) => {
+        lines.push(`    "${name}", /* ${index} */`);
+      });
+      lines.push("};");
+      lines.push("");
+
+      asset.poses.forEach((pose, index) => {
+        lines.push(`static const int16_t ${prefix}_p${String(index).padStart(2, "0")}[] = { ${pose.coords.join(", ")} }; /* ${pose.id} */`);
+      });
+      lines.push("");
+      lines.push(`#define ${upper}_POSE(arr) { .coords = (arr) }`);
+      lines.push("");
+      lines.push(`static const gfx_sm_pose_t ${prefix}_poses[] = {`);
+      const poseRefs = asset.poses.map((_, index) => `${upper}_POSE(${prefix}_p${String(index).padStart(2, "0")})`);
+      for (let i = 0; i < poseRefs.length; i += 3) {
+        lines.push(`    ${poseRefs.slice(i, i + 3).join(",  ")},`);
+      }
+      lines.push("};");
+      lines.push("");
+
+      lines.push(`static const gfx_sm_segment_t ${prefix}_segments[] = {`);
+      asset.segments.forEach((seg) => {
+        const fields = [
+          `.kind = ${seg.kind}`,
+          `.joint_a = ${seg.jointA}`,
+        ];
+        if (seg.kind === "GFX_SM_SEG_CAPSULE") fields.push(`.joint_b = ${seg.jointB}`);
+        if (seg.kind !== "GFX_SM_SEG_CAPSULE" && seg.kind !== "GFX_SM_SEG_RING") fields.push(`.joint_count = ${seg.jointCount}`);
+        if (seg.strokeWidth) fields.push(`.stroke_width = ${seg.strokeWidth}`);
+        if (seg.radiusHint) fields.push(`.radius_hint = ${seg.radiusHint}`);
+        lines.push(`    /* ${seg.id} */ { ${fields.join(", ")} },`);
+      });
+      lines.push("};");
+      lines.push("");
+
+      lines.push(`#define STEP(p, h, f, i) { .pose_index = (p), .hold_ticks = (h), .interp = (i), .facing = (f) }`);
+      lines.push("");
+      asset.clips.forEach((clip, clipIndex) => {
+        const clipId = sanitizeCIdent(clip.id, `clip_${clipIndex}`);
+        lines.push(`static const gfx_sm_clip_step_t ${prefix}_steps_${clipId}[] = {`);
+        clip.steps.forEach((step) => {
+          lines.push(`    STEP(${step.poseIndex}, ${step.holdTicks}, ${step.facing}, ${step.interp}),`);
+        });
+        lines.push("};");
+      });
+      lines.push("");
+
+      lines.push(`#define CLIP(n, cn, arr, lp) { .name = (n), .name_cn = (cn), .steps = (arr), .step_count = (uint8_t)(sizeof(arr) / sizeof((arr)[0])), .loop = (lp) }`);
+      lines.push("");
+      lines.push(`static const gfx_sm_clip_t ${prefix}_clips[] = {`);
+      asset.clips.forEach((clip, clipIndex) => {
+        const clipId = sanitizeCIdent(clip.id, `clip_${clipIndex}`);
+        lines.push(`    CLIP("${clip.name}", "${clip.nameCn}", ${prefix}_steps_${clipId}, ${clip.loop ? "true" : "false"}),`);
+      });
+      lines.push("};");
+      lines.push("");
+
+      lines.push(`static const uint16_t ${prefix}_sequence[] = { ${asset.sequence.join(", ")} };`);
+      lines.push("");
+      lines.push(`static const gfx_sm_asset_t ${prefix}_scene_asset = {`);
+      lines.push(`    .meta           = &${prefix}_meta,`);
+      lines.push(`    .joint_names    = ${prefix}_joint_names,`);
+      lines.push(`    .joint_count    = (uint8_t)(sizeof(${prefix}_joint_names) / sizeof(${prefix}_joint_names[0])),`);
+      lines.push(`    .segments       = ${prefix}_segments,`);
+      lines.push(`    .segment_count  = (uint8_t)(sizeof(${prefix}_segments) / sizeof(${prefix}_segments[0])),`);
+      lines.push(`    .poses          = ${prefix}_poses,`);
+      lines.push(`    .pose_count     = (uint16_t)(sizeof(${prefix}_poses) / sizeof(${prefix}_poses[0])),`);
+      lines.push(`    .clips          = ${prefix}_clips,`);
+      lines.push(`    .clip_count     = (uint16_t)(sizeof(${prefix}_clips) / sizeof(${prefix}_clips[0])),`);
+      lines.push(`    .sequence       = ${prefix}_sequence,`);
+      lines.push(`    .sequence_count = (uint16_t)(sizeof(${prefix}_sequence) / sizeof(${prefix}_sequence[0])),`);
+      lines.push(`    .layout         = &${prefix}_layout,`);
+      lines.push("};");
+
+      return lines.join("\n");
+    }
+
+    function stepOnce() {
+      if (!state.scene) return;
+      sceneAdvance(state.scene);
+      sceneTick(state.scene);
+      renderAsset();
+    }
+
+    function animate(now) {
+      const deltaMs = Math.min(100, now - state.lastTs);
+      state.lastTs = now;
+
+      if (state.asset && state.scene && state.playing) {
+        const period = Math.max(1, (state.asset.layout.timerPeriodMs || 33) / Math.max(state.speed, 0.1));
+        state.accumMs += deltaMs;
+
+        while (state.accumMs >= period) {
+          state.accumMs -= period;
+          sceneAdvance(state.scene);
+          sceneTick(state.scene);
+
+          if (state.autoSequence && state.asset.sequence.length) {
+            state.seqAccumMs += period;
+            const holdMs = clipHoldMs(state.asset, state.scene.activeClip);
+            if (state.seqAccumMs >= holdMs) {
+              state.seqAccumMs = 0;
+              state.scene.sequenceIndex = (state.scene.sequenceIndex + 1) % state.asset.sequence.length;
+              const nextClip = state.asset.sequence[state.scene.sequenceIndex];
+              setClip(state.scene, nextClip, false);
+              refreshCompiledUi();
+            }
+          }
+        }
+
+        renderAsset();
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    function handleJsonText(text, sourceName) {
+      try {
+        const detected = detectAndNormalize(text);
+        sceneToEditor(detected.doc, sourceName || detected.kind, `已导入 ${sourceName || detected.kind}，并归一化为 scene.json v1。`);
+      } catch (err) {
+        setStatus(`导入失败：${err.message}`, true);
+        console.error(err);
+      }
+    }
+
+    function handleFile(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const text = String(reader.result || "");
+        state.sourceText = text;
+        handleJsonText(text, file.name);
+      };
+      reader.readAsText(file, "utf-8");
+    }
+
+    els.fileInput.addEventListener("change", (event) => {
+      handleFile(event.target.files && event.target.files[0]);
+    });
+
+    els.dropzone.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      els.dropzone.classList.add("dragover");
+    });
+
+    els.dropzone.addEventListener("dragleave", () => {
+      els.dropzone.classList.remove("dragover");
+    });
+
+    els.dropzone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      els.dropzone.classList.remove("dragover");
+      handleFile(event.dataTransfer.files && event.dataTransfer.files[0]);
+    });
+
+    els.loadLottieBtn.addEventListener("click", async () => {
+      try {
+        const response = await fetch("./face_emote_demo.json", { cache: "no-store" });
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        const text = await response.text();
+        state.sourceText = text;
+        handleJsonText(text, "face_emote_demo.json");
+      } catch (err) {
+        setStatus(`示例加载失败：${err.message}。如果你是直接双击打开 HTML，请改用“打开 JSON 文件”。`, true);
+      }
+    });
+
+    els.normalizeBtn.addEventListener("click", () => {
+      try {
+        normalizeEditorText();
+      } catch (err) {
+        setStatus(`归一化失败：${err.message}`, true);
+      }
+    });
+
+    els.compileBtn.addEventListener("click", () => {
+      try {
+        compileFromEditor();
+      } catch (err) {
+        setStatus(`编译失败：${err.message}`, true);
+        console.error(err);
+      }
+    });
+
+    els.exportSceneBtn.addEventListener("click", () => {
+      try {
+        const doc = normalizeSceneDoc(parseJsonInput(els.sceneEditor.value));
+        downloadText(`${doc.name || "scene"}.scene.json`, safeStringify(doc));
+        setStatus(`已导出 ${doc.name || "scene"}.scene.json`);
+      } catch (err) {
+        setStatus(`scene.json 导出失败：${err.message}`, true);
+      }
+    });
+
+    els.exportIncBtn.addEventListener("click", () => {
+      try {
+        const asset = state.asset || compileFromEditor();
+        downloadText(`${asset.name}.inc`, buildIncText(asset));
+        setStatus(`已导出 ${asset.name}.inc`);
+      } catch (err) {
+        setStatus(`.inc 导出失败：${err.message}`, true);
+      }
+    });
+
+    els.guiSaveSceneMetaBtn.addEventListener("click", () => {
+      try {
+        const doc = deepClone(ensureSceneDoc());
+        doc.name = els.guiSceneName.value.trim() || doc.name;
+        doc.prefix = els.guiScenePrefix.value.trim() || doc.prefix;
+        writeSceneDoc(doc, "已更新场景信息。");
+      } catch (err) {
+        setStatus(`保存场景信息失败：${err.message}`, true);
+      }
+    });
+
+    els.partKindSelect.addEventListener("change", () => {
+      try {
+        const doc = ensureSceneDoc();
+        const current = partByIndex(state.selectedPartIndex);
+        const currentCount = currentPartPointCount(doc, current.id);
+        const suggested = defaultPointCountForKind(els.partKindSelect.value);
+        els.partCountInput.value = String(currentCount || suggested);
+      } catch (err) {
+        // no-op
+      }
+    });
+
+    els.partSaveBtn.addEventListener("click", () => {
+      try {
+        const doc = deepClone(ensureSceneDoc());
+        const part = doc.parts[state.selectedPartIndex];
+        const oldId = part.id;
+        const desiredId = slugify(els.partIdInput.value.trim() || oldId, oldId);
+        const otherIds = new Set(doc.parts.filter((_, index) => index !== state.selectedPartIndex).map((item) => item.id));
+        const newId = otherIds.has(desiredId) ? makeUniqueId(desiredId, otherIds, desiredId) : desiredId;
+        part.id = newId;
+        part.label = els.partLabelInput.value.trim() || newId;
+        part.kind = els.partKindSelect.value;
+        part.stroke_width = Math.max(0, Number(els.partStrokeInput.value) || 0);
+        part.radius_hint = Number(els.partRadiusInput.value) || 0;
+
+        if (oldId !== newId) {
+          doc.poses.forEach((pose) => {
+            const oldPts = pose.parts[oldId];
+            delete pose.parts[oldId];
+            pose.parts[newId] = oldPts;
+          });
+          state.selectedPartId = newId;
+        }
+
+        writeSceneDoc(doc, "已保存部件。");
+      } catch (err) {
+        setStatus(`保存部件失败：${err.message}`, true);
+      }
+    });
+
+    els.partAddBtn.addEventListener("click", () => {
+      try {
+        const doc = deepClone(ensureSceneDoc());
+        const kind = els.partKindSelect.value || "BEZIER_STRIP";
+        const newId = makeUniqueId(els.partIdInput.value.trim() || "part", new Set(doc.parts.map((part) => part.id)), "part");
+        const newPart = {
+          id: newId,
+          label: els.partLabelInput.value.trim() || newId,
+          kind,
+          stroke_width: Math.max(0, Number(els.partStrokeInput.value) || 0),
+          radius_hint: Number(els.partRadiusInput.value) || 0,
+        };
+        doc.parts.push(newPart);
+
+        const defaultPts = makeDefaultPoints(kind, doc.meta.viewbox);
+        doc.poses.forEach((pose) => {
+          pose.parts[newId] = deepClone(defaultPts);
+        });
+
+        state.selectedPartId = newId;
+        state.selectedPartIndex = doc.parts.length - 1;
+        writeSceneDoc(doc, "已新增部件。");
+      } catch (err) {
+        setStatus(`新增部件失败：${err.message}`, true);
+      }
+    });
+
+    els.partRemoveBtn.addEventListener("click", () => {
+      try {
+        const doc = deepClone(ensureSceneDoc());
+        if (doc.parts.length <= 1) {
+          throw new Error("至少保留一个部件");
+        }
+        const part = doc.parts[state.selectedPartIndex];
+        doc.parts.splice(state.selectedPartIndex, 1);
+        doc.poses.forEach((pose) => {
+          delete pose.parts[part.id];
+        });
+        state.selectedPartIndex = Math.max(0, state.selectedPartIndex - 1);
+        state.selectedPartId = doc.parts[state.selectedPartIndex].id;
+        writeSceneDoc(doc, "已删除部件。");
+      } catch (err) {
+        setStatus(`删除部件失败：${err.message}`, true);
+      }
+    });
+
+    els.posePartSelect.addEventListener("change", () => {
+      state.selectedPartId = els.posePartSelect.value;
+      try {
+        state.selectedPartIndex = currentPartIndex();
+      } catch (err) {
+        // no-op
+      }
+      renderPosePartTextarea();
+      refreshGuiPanels();
+      renderAsset();
+    });
+
+    els.poseSaveBtn.addEventListener("click", () => {
+      try {
+        const doc = deepClone(ensureSceneDoc());
+        const pose = doc.poses[state.selectedPoseIndex];
+        const oldId = pose.id;
+        const desiredId = slugify(els.poseIdInput.value.trim() || oldId, oldId);
+        const otherIds = new Set(doc.poses.filter((_, index) => index !== state.selectedPoseIndex).map((item) => item.id));
+        const newId = otherIds.has(desiredId) ? makeUniqueId(desiredId, otherIds, desiredId) : desiredId;
+        pose.id = newId;
+        pose.label = els.poseLabelInput.value.trim() || newId;
+        pose.label_cn = els.poseLabelCnInput.value.trim() || pose.label;
+        if (oldId !== newId) {
+          doc.clips.forEach((clip) => {
+            clip.steps.forEach((step) => {
+              if (step.pose === oldId) step.pose = newId;
+            });
+          });
+        }
+        state.selectedPartId = currentPosePartId();
+        writeSceneDoc(doc, "已保存姿态。");
+      } catch (err) {
+        setStatus(`保存姿态失败：${err.message}`, true);
+      }
+    });
+
+    els.poseSavePointsBtn.addEventListener("click", () => {
+      try {
+        const doc = deepClone(ensureSceneDoc());
+        const pose = doc.poses[state.selectedPoseIndex];
+        const partId = currentPosePartId();
+        pose.parts[partId] = normalizePoints(parseJsonInput(els.posePartPointsInput.value));
+        writeSceneDoc(doc, "已应用高级点位。");
+      } catch (err) {
+        setStatus(`应用高级点位失败：${err.message}`, true);
+      }
+    });
+
+    els.poseDuplicateBtn.addEventListener("click", () => {
+      try {
+        const doc = deepClone(ensureSceneDoc());
+        const src = doc.poses[state.selectedPoseIndex];
+        const newId = makeUniqueId(`${src.id}_copy`, new Set(doc.poses.map((pose) => pose.id)), src.id);
+        const copy = deepClone(src);
+        copy.id = newId;
+        copy.label = `${src.label} Copy`;
+        copy.label_cn = `${src.label_cn} 副本`;
+        doc.poses.splice(state.selectedPoseIndex + 1, 0, copy);
+        state.selectedPoseIndex += 1;
+        writeSceneDoc(doc, "已复制 Pose。");
+      } catch (err) {
+        setStatus(`复制姿态失败：${err.message}`, true);
+      }
+    });
+
+    els.clipSaveBtn.addEventListener("click", () => {
+      try {
+        const doc = deepClone(ensureSceneDoc());
+        const clip = doc.clips[state.selectedClipIndex];
+        const oldId = clip.id;
+        const desiredId = slugify(els.clipIdInput.value.trim() || oldId, oldId);
+        const otherIds = new Set(doc.clips.filter((_, index) => index !== state.selectedClipIndex).map((item) => item.id));
+        const newId = otherIds.has(desiredId) ? makeUniqueId(desiredId, otherIds, desiredId) : desiredId;
+        clip.id = newId;
+        clip.label = els.clipLabelInput.value.trim() || newId;
+        clip.label_cn = els.clipLabelCnInput.value.trim() || clip.label;
+        clip.loop = els.clipLoopSelect.value === "true";
+        if (oldId !== newId) {
+          doc.sequence = doc.sequence.map((item) => item === oldId ? newId : item);
+        }
+        writeSceneDoc(doc, "已保存片段。");
+      } catch (err) {
+        setStatus(`保存片段失败：${err.message}`, true);
+      }
+    });
+
+    els.clipAddBtn.addEventListener("click", () => {
+      try {
+        const doc = deepClone(ensureSceneDoc());
+        const pose = doc.poses[state.selectedPoseIndex];
+        const newId = makeUniqueId(`${pose.id}_clip`, new Set(doc.clips.map((clip) => clip.id)), pose.id);
+        doc.clips.push({
+          id: newId,
+          label: pose.label,
+          label_cn: pose.label_cn,
+          loop: true,
+          steps: [{
+            pose: pose.id,
+            hold_ticks: 30,
+            facing: 1,
+            interp: "DAMPED",
+          }],
+        });
+        doc.sequence.push(newId);
+        state.selectedClipIndex = doc.clips.length - 1;
+        state.selectedStepIndex = 0;
+        writeSceneDoc(doc, "已新增片段。");
+      } catch (err) {
+        setStatus(`新增片段失败：${err.message}`, true);
+      }
+    });
+
+    els.clipStepSelect.addEventListener("change", () => {
+      state.selectedStepIndex = Number(els.clipStepSelect.value);
+      renderClipStepEditor();
+    });
+
+    els.stepSaveBtn.addEventListener("click", () => {
+      try {
+        const doc = deepClone(ensureSceneDoc());
+        const clip = doc.clips[state.selectedClipIndex];
+        const step = clip.steps[state.selectedStepIndex];
+        step.pose = els.stepPoseSelect.value;
+        step.hold_ticks = Math.max(1, Number(els.stepHoldInput.value) || 1);
+        step.facing = Number(els.stepFacingSelect.value) || 1;
+        step.interp = els.stepInterpSelect.value === "HOLD" ? "HOLD" : "DAMPED";
+        writeSceneDoc(doc, "已保存步骤。");
+      } catch (err) {
+        setStatus(`保存步骤失败：${err.message}`, true);
+      }
+    });
+
+    els.stepAddBtn.addEventListener("click", () => {
+      try {
+        const doc = deepClone(ensureSceneDoc());
+        const clip = doc.clips[state.selectedClipIndex];
+        const pose = doc.poses[state.selectedPoseIndex];
+        clip.steps.push({
+          pose: pose.id,
+          hold_ticks: 30,
+          facing: 1,
+          interp: "DAMPED",
+        });
+        state.selectedStepIndex = clip.steps.length - 1;
+        writeSceneDoc(doc, "已新增步骤。");
+      } catch (err) {
+        setStatus(`新增步骤失败：${err.message}`, true);
+      }
+    });
+
+    els.stepRemoveBtn.addEventListener("click", () => {
+      try {
+        const doc = deepClone(ensureSceneDoc());
+        const clip = doc.clips[state.selectedClipIndex];
+        if (clip.steps.length <= 1) {
+          throw new Error("每个 clip 至少要保留一个 step");
+        }
+        clip.steps.splice(state.selectedStepIndex, 1);
+        state.selectedStepIndex = Math.max(0, state.selectedStepIndex - 1);
+        writeSceneDoc(doc, "已删除步骤。");
+      } catch (err) {
+        setStatus(`删除步骤失败：${err.message}`, true);
+      }
+    });
+
+    els.playBtn.addEventListener("click", () => {
+      state.playing = !state.playing;
+      els.playBtn.textContent = state.playing ? "暂停" : "播放";
+    });
+
+    els.stepBtn.addEventListener("click", stepOnce);
+
+    els.resetBtn.addEventListener("click", () => {
+      if (!state.asset) return;
+      state.scene = createScene(state.asset);
+      state.accumMs = 0;
+      state.seqAccumMs = 0;
+      refreshCompiledUi();
+      renderAsset();
+    });
+
+    els.clipSelect.addEventListener("change", () => {
+      if (!state.scene || !state.asset) return;
+      const clipIndex = Number(els.clipSelect.value);
+      const seqIndex = state.asset.sequence.indexOf(clipIndex);
+      state.scene.sequenceIndex = seqIndex >= 0 ? seqIndex : 0;
+      state.selectedClipIndex = clipIndex;
+      state.selectedStepIndex = 0;
+      state.seqAccumMs = 0;
+      setClip(state.scene, clipIndex, false);
+      refreshGuiPanels();
+      refreshCompiledUi();
+      renderAsset();
+    });
+
+    els.speedInput.addEventListener("change", () => {
+      const value = Number(els.speedInput.value);
+      state.speed = Number.isFinite(value) && value > 0 ? value : 1;
+      els.speedInput.value = state.speed.toFixed(1);
+    });
+
+    els.colorInput.addEventListener("input", () => {
+      state.color = els.colorInput.value;
+      renderAsset();
+    });
+
+    els.autoseqSelect.addEventListener("change", () => {
+      state.autoSequence = els.autoseqSelect.value === "on";
+      state.seqAccumMs = 0;
+    });
+
+    els.viewer.addEventListener("pointermove", (event) => {
+      if (state.dragPointIndex >= 0) {
+        if (state.dragPointerId != null && event.pointerId !== state.dragPointerId) return;
+        event.preventDefault();
+        updateDraggedPoint(pointerPosOnViewer(event));
+        return;
+      }
+      if (!state.dragPartId) return;
+      if (state.dragPartPointerId != null && event.pointerId !== state.dragPartPointerId) return;
+      event.preventDefault();
+      updateDraggedPart(pointerPosOnViewer(event));
+    });
+
+    window.addEventListener("pointerup", (event) => {
+      if (state.dragPointIndex >= 0) {
+        if (state.dragPointerId != null && event.pointerId !== state.dragPointerId) return;
+        state.dragPointIndex = -1;
+        state.dragPointerId = null;
+      }
+      if (state.dragPartId) {
+        if (state.dragPartPointerId != null && event.pointerId !== state.dragPartPointerId) return;
+        clearPartDrag();
+      }
+      renderAsset();
+    });
+
+    window.addEventListener("pointercancel", () => {
+      state.dragPointIndex = -1;
+      state.dragPointerId = null;
+      clearPartDrag();
+      renderAsset();
+    });
+
+    window.addEventListener("resize", renderAsset);
+
+    refreshGuiPanels();
+    renderAsset();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

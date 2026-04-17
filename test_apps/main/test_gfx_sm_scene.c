@@ -28,7 +28,8 @@
 static const char *TAG = "test_sm_scene";
 
 #include "stickman_fireman_scene.inc"
-#include "face_emote_scene.inc"
+// #include "face_emote_scene.inc"
+#include "face_emote_scene2.inc"
 
 /* ------------------------------------------------------------------ */
 /*  Shared helpers                                                      */

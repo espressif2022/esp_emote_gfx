@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>gfx_sm Scene Simulator</title>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --bg-ink: #1f1710;
+      --panel: rgba(255, 251, 245, 0.88);
+      --panel-strong: rgba(255, 248, 240, 0.96);
+      --line: rgba(74, 53, 34, 0.14);
+      --text: #271c12;
+      --muted: #79624d;
+      --accent: #0e6d70;
+      --accent-strong: #124b53;
+      --accent-soft: rgba(14, 109, 112, 0.12);
+      --warn: #a8512a;
+      --stage: #fffdfa;
+      --stage-grid: rgba(39, 28, 18, 0.08);
+      --stage-shadow: rgba(28, 20, 12, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: "Avenir Next", "PingFang SC", "Noto Sans SC", sans-serif;
+      background:
+        radial-gradient(circle at 16% 18%, rgba(14, 109, 112, 0.11), transparent 18%),
+        radial-gradient(circle at 88% 12%, rgba(168, 81, 42, 0.10), transparent 19%),
+        linear-gradient(180deg, #f7f3ec 0%, #efe7dc 100%);
+    }
+
+    .shell {
+      min-height: 100vh;
+      padding: 28px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .hero {
+      display: grid;
+      gap: 8px;
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 46px);
+      line-height: 1;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+    }
+
+    .hero p {
+      max-width: 920px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(320px, 420px);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow:
+        0 20px 42px var(--stage-shadow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(14px);
+    }
+
+    .stage-panel {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .stage-head,
+    .sidebar-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    .stage-head h2,
+    .sidebar-head h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .stage-head span,
+    .sidebar-head span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .viewer-shell {
+      position: relative;
+      min-height: 520px;
+      border-radius: 20px;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(255, 253, 250, 0.92) 0%, rgba(247, 240, 231, 0.96) 100%);
+      border: 1px solid rgba(74, 53, 34, 0.10);
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.55),
+        0 18px 34px rgba(60, 39, 20, 0.10);
+    }
+
+    .viewer-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--stage-grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--stage-grid) 1px, transparent 1px);
+      background-size: 24px 24px;
+      pointer-events: none;
+    }
+
+    .viewer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .viewer text {
+      font-family: "Avenir Next", "PingFang SC", "Noto Sans SC", sans-serif;
+    }
+
+    .hud {
+      position: absolute;
+      left: 16px;
+      bottom: 14px;
+      display: grid;
+      gap: 4px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255, 252, 248, 0.82);
+      border: 1px solid rgba(74, 53, 34, 0.10);
+      box-shadow: 0 10px 24px rgba(46, 31, 18, 0.08);
+      font: 12px/1.5 ui-monospace, "SFMono-Regular", monospace;
+      color: #3c2b1f;
+      white-space: pre;
+      pointer-events: none;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .badge {
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent-strong);
+      background: var(--accent-soft);
+      border: 1px solid rgba(14, 109, 112, 0.14);
+    }
+
+    .sidebar {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+      max-height: calc(100vh - 56px);
+      overflow: auto;
+    }
+
+    .card {
+      background: var(--panel-strong);
+      border: 1px solid rgba(74, 53, 34, 0.10);
+      border-radius: 18px;
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .card h3 {
+      margin: 0;
+      font-size: 13px;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .card p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .dropzone,
+    textarea,
+    select,
+    input[type="number"],
+    input[type="color"] {
+      width: 100%;
+      border: 1px solid rgba(74, 53, 34, 0.14);
+      background: rgba(255, 255, 255, 0.75);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 12px 14px;
+      font: inherit;
+    }
+
+    textarea {
+      min-height: 180px;
+      resize: vertical;
+      font: 12px/1.6 ui-monospace, "SFMono-Regular", monospace;
+    }
+
+    .dropzone {
+      min-height: 92px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--muted);
+      border-style: dashed;
+      transition: border-color 0.16s ease, background 0.16s ease;
+    }
+
+    .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(14, 109, 112, 0.08);
+      color: var(--accent-strong);
+    }
+
+    .btn-row,
+    .grid-2,
+    .grid-3,
+    .toggle-row {
+      display: grid;
+      gap: 10px;
+    }
+
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+    .btn-row {
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
+
+    button,
+    .file-btn {
+      appearance: none;
+      border: none;
+      border-radius: 14px;
+      padding: 11px 14px;
+      background: linear-gradient(180deg, #1c7a7d 0%, #0e6d70 100%);
+      color: #f7fbfb;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 600;
+      box-shadow: 0 12px 18px rgba(14, 109, 112, 0.16);
+      transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+      text-align: center;
+    }
+
+    button:hover,
+    .file-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 16px 22px rgba(14, 109, 112, 0.18);
+    }
+
+    button.ghost,
+    .file-btn.ghost {
+      background: rgba(255, 255, 255, 0.7);
+      color: var(--text);
+      border: 1px solid rgba(74, 53, 34, 0.12);
+      box-shadow: none;
+    }
+
+    button.warn {
+      background: linear-gradient(180deg, #be693c 0%, #a8512a 100%);
+      box-shadow: 0 12px 18px rgba(168, 81, 42, 0.16);
+    }
+
+    .file-btn {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .file-btn input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    label.switch {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.66);
+      border: 1px solid rgba(74, 53, 34, 0.10);
+      font-size: 13px;
+    }
+
+    label.switch input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat {
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(14, 109, 112, 0.06);
+      border: 1px solid rgba(14, 109, 112, 0.10);
+    }
+
+    .stat .k {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .stat .v {
+      margin-top: 5px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .status {
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(14, 109, 112, 0.08);
+      border: 1px solid rgba(14, 109, 112, 0.12);
+      color: var(--accent-strong);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .status.error {
+      background: rgba(168, 81, 42, 0.09);
+      border-color: rgba(168, 81, 42, 0.18);
+      color: #7f3517;
+    }
+
+    .mini {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .inline {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .inline > * {
+      flex: 1 1 0;
+    }
+
+    code {
+      font-family: ui-monospace, "SFMono-Regular", monospace;
+      font-size: 0.94em;
+      background: rgba(39, 28, 18, 0.06);
+      padding: 1px 5px;
+      border-radius: 6px;
+    }
+
+    @media (max-width: 1120px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { max-height: none; }
+      .viewer-shell { min-height: 460px; }
+    }
+
+    @media (max-width: 640px) {
+      .shell { padding: 16px; }
+      .grid-2,
+      .grid-3,
+      .stat-grid,
+      .inline {
+        grid-template-columns: 1fr;
+        display: grid;
+      }
+      .viewer-shell { min-height: 360px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="eyebrow">New Tooling</div>
+      <h1>gfx_sm GUI 仿真器</h1>
+      <p>
+        这个页面是重新起的一套独立仿真器，专门读取 <code>gfx_sm_scene</code> 风格的 <code>.inc</code> 资产。
+        它会解析 <code>meta/layout/poses/segments/clips/sequence</code>，并按设备端 <code>gfx_sm_scene.c</code> 的逻辑执行
+        <code>load_target → advance → tick(ease)</code>，这样能尽量贴近设备侧 clip 切换、<code>hold_ticks</code>、<code>mirror_x</code> 和阻尼表现。
+      </p>
+    </section>
+
+    <section class="layout">
+      <section class="panel stage-panel">
+        <div class="stage-head">
+          <h2>Scene Preview</h2>
+          <span id="asset-name">未加载资产</span>
+        </div>
+
+        <div class="badge-row">
+          <div class="badge" id="mode-badge">Device Parser Mode</div>
+          <div class="badge" id="clock-badge">33 ms / tick</div>
+          <div class="badge" id="clip-badge">clip: -</div>
+        </div>
+
+        <div class="viewer-shell">
+          <svg class="viewer" id="viewer" aria-label="gfx_sm scene simulator"></svg>
+          <div class="hud" id="hud">no asset</div>
+        </div>
+      </section>
+
+      <aside class="panel sidebar">
+        <div class="sidebar-head">
+          <h2>Controls</h2>
+          <span>Load .inc or paste text</span>
+        </div>
+
+        <section class="card">
+          <h3>Load Asset</h3>
+          <div class="dropzone" id="dropzone">拖拽 <code>.inc</code> 到这里，或者用下方按钮选择文件</div>
+          <div class="btn-row">
+            <label class="file-btn">
+              打开本地文件
+              <input id="file-input" type="file" accept=".inc,.h,.txt">
+            </label>
+            <button class="ghost" id="load-face-btn" type="button">加载 face 示例</button>
+            <button class="ghost" id="load-stickman-btn" type="button">加载 stickman 示例</button>
+          </div>
+          <textarea id="source-input" spellcheck="false" placeholder="也可以直接粘贴 .inc 文本，然后点击“从文本加载”"></textarea>
+          <div class="btn-row">
+            <button id="load-text-btn" type="button">从文本加载</button>
+            <button id="clear-text-btn" class="ghost" type="button">清空文本</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3>Playback</h3>
+          <div class="grid-3">
+            <button id="play-btn" type="button">暂停</button>
+            <button id="step-btn" class="ghost" type="button">单步</button>
+            <button id="reset-btn" class="ghost" type="button">重置</button>
+          </div>
+          <div class="inline">
+            <label class="mini" for="clip-select">当前 Clip</label>
+            <select id="clip-select"></select>
+          </div>
+          <div class="inline">
+            <label class="mini" for="speed-input">播放倍率</label>
+            <input id="speed-input" type="number" min="0.1" max="4" step="0.1" value="1.0">
+          </div>
+          <div class="inline">
+            <label class="mini" for="color-input">主色</label>
+            <input id="color-input" type="color" value="#101820">
+          </div>
+          <div class="toggle-row">
+            <label class="switch">
+              自动按 sequence 切 clip
+              <input id="autoseq-input" type="checkbox" checked>
+            </label>
+            <label class="switch">
+              选择 clip 时立即 snap
+              <input id="snap-input" type="checkbox">
+            </label>
+            <label class="switch">
+              显示关节点
+              <input id="joints-input" type="checkbox">
+            </label>
+          </div>
+          <p class="mini">
+            自动 sequence 默认模仿测试页的“外部 clip timer”思路，按当前 clip 的最大 <code>hold_ticks</code>
+            计算切换周期；单个 clip 内部的 step/loop 仍然按设备端 parser 规则执行。
+          </p>
+        </section>
+
+        <section class="card">
+          <h3>Asset Summary</h3>
+          <div class="stat-grid">
+            <div class="stat">
+              <div class="k">Joints</div>
+              <div class="v" id="stat-joints">-</div>
+            </div>
+            <div class="stat">
+              <div class="k">Segments</div>
+              <div class="v" id="stat-segments">-</div>
+            </div>
+            <div class="stat">
+              <div class="k">Poses</div>
+              <div class="v" id="stat-poses">-</div>
+            </div>
+            <div class="stat">
+              <div class="k">Clips</div>
+              <div class="v" id="stat-clips">-</div>
+            </div>
+          </div>
+          <div class="mini" id="asset-meta">viewbox: -</div>
+        </section>
+
+        <section class="card">
+          <h3>Status</h3>
+          <div class="status" id="status-box">等待加载 .inc 资产。</div>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const NS = "http://www.w3.org/2000/svg";
+
+    const app = {
+      asset: null,
+      sourceText: "",
+      scene: null,
+      playing: true,
+      speed: 1,
+      color: "#101820",
+      showJoints: false,
+      autoSequence: true,
+      snapOnSelect: false,
+      accumMs: 0,
+      seqAccumMs: 0,
+      lastTs: performance.now(),
+      currentSourceName: "",
+    };
+
+    const els = {
+      viewer: document.getElementById("viewer"),
+      hud: document.getElementById("hud"),
+      assetName: document.getElementById("asset-name"),
+      clipBadge: document.getElementById("clip-badge"),
+      clockBadge: document.getElementById("clock-badge"),
+      status: document.getElementById("status-box"),
+      fileInput: document.getElementById("file-input"),
+      dropzone: document.getElementById("dropzone"),
+      sourceInput: document.getElementById("source-input"),
+      loadTextBtn: document.getElementById("load-text-btn"),
+      clearTextBtn: document.getElementById("clear-text-btn"),
+      loadFaceBtn: document.getElementById("load-face-btn"),
+      loadStickmanBtn: document.getElementById("load-stickman-btn"),
+      playBtn: document.getElementById("play-btn"),
+      stepBtn: document.getElementById("step-btn"),
+      resetBtn: document.getElementById("reset-btn"),
+      clipSelect: document.getElementById("clip-select"),
+      speedInput: document.getElementById("speed-input"),
+      colorInput: document.getElementById("color-input"),
+      autoSeqInput: document.getElementById("autoseq-input"),
+      snapInput: document.getElementById("snap-input"),
+      jointsInput: document.getElementById("joints-input"),
+      statJoints: document.getElementById("stat-joints"),
+      statSegments: document.getElementById("stat-segments"),
+      statPoses: document.getElementById("stat-poses"),
+      statClips: document.getElementById("stat-clips"),
+      assetMeta: document.getElementById("asset-meta"),
+    };
+
+    function setStatus(text, error = false) {
+      els.status.textContent = text;
+      els.status.classList.toggle("error", error);
+    }
+
+    function stripComments(text) {
+      return text
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/\/\/.*$/gm, "");
+    }
+
+    function parseFieldInt(body, name, fallback = 0) {
+      const match = body.match(new RegExp("\\." + name + "\\s*=\\s*(-?\\d+)", "m"));
+      return match ? Number(match[1]) : fallback;
+    }
+
+    function parseFieldRaw(body, name) {
+      const match = body.match(new RegExp("\\." + name + "\\s*=\\s*([^,}]+)", "m"));
+      return match ? match[1].trim() : null;
+    }
+
+    function findMatchingParen(text, openIndex) {
+      let depth = 0;
+      let inString = false;
+      let escape = false;
+      for (let i = openIndex; i < text.length; i++) {
+        const ch = text[i];
+        if (inString) {
+          if (escape) {
+            escape = false;
+          } else if (ch === "\\") {
+            escape = true;
+          } else if (ch === "\"") {
+            inString = false;
+          }
+          continue;
+        }
+        if (ch === "\"") {
+          inString = true;
+          continue;
+        }
+        if (ch === "(") depth++;
+        if (ch === ")") {
+          depth--;
+          if (depth === 0) return i;
+        }
+      }
+      return -1;
+    }
+
+    function splitArgs(text) {
+      const args = [];
+      let start = 0;
+      let depth = 0;
+      let inString = false;
+      let escape = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inString) {
+          if (escape) {
+            escape = false;
+          } else if (ch === "\\") {
+            escape = true;
+          } else if (ch === "\"") {
+            inString = false;
+          }
+          continue;
+        }
+        if (ch === "\"") {
+          inString = true;
+          continue;
+        }
+        if (ch === "(" || ch === "[" || ch === "{") depth++;
+        if (ch === ")" || ch === "]" || ch === "}") depth--;
+        if (ch === "," && depth === 0) {
+          args.push(text.slice(start, i).trim());
+          start = i + 1;
+        }
+      }
+      const tail = text.slice(start).trim();
+      if (tail) args.push(tail);
+      return args;
+    }
+
+    function extractMacroCalls(body, macroName) {
+      const out = [];
+      const token = macroName + "(";
+      let cursor = 0;
+      while (cursor < body.length) {
+        const pos = body.indexOf(token, cursor);
+        if (pos < 0) break;
+        const openIndex = pos + macroName.length;
+        const closeIndex = findMatchingParen(body, openIndex);
+        if (closeIndex < 0) break;
+        const argsText = body.slice(openIndex + 1, closeIndex);
+        out.push(splitArgs(argsText));
+        cursor = closeIndex + 1;
+      }
+      return out;
+    }
+
+    function extractBraceEntries(body) {
+      const clean = stripComments(body);
+      const entries = [];
+      let depth = 0;
+      let start = -1;
+      let inString = false;
+      let escape = false;
+      for (let i = 0; i < clean.length; i++) {
+        const ch = clean[i];
+        if (inString) {
+          if (escape) {
+            escape = false;
+          } else if (ch === "\\") {
+            escape = true;
+          } else if (ch === "\"") {
+            inString = false;
+          }
+          continue;
+        }
+        if (ch === "\"") {
+          inString = true;
+          continue;
+        }
+        if (ch === "{") {
+          depth++;
+          if (depth === 1) start = i + 1;
+          continue;
+        }
+        if (ch === "}") {
+          if (depth === 1 && start >= 0) {
+            entries.push(clean.slice(start, i).trim());
+            start = -1;
+          }
+          depth--;
+        }
+      }
+      return entries.filter(Boolean);
+    }
+
+    function parseIntList(body) {
+      const matches = body.match(/-?\d+/g);
+      return matches ? matches.map(Number) : [];
+    }
+
+    function parseCString(token) {
+      const trimmed = token.trim();
+      if (!trimmed.startsWith("\"")) return trimmed;
+      try {
+        return JSON.parse(trimmed);
+      } catch (err) {
+        return trimmed.slice(1, -1);
+      }
+    }
+
+    function parseIncAsset(text) {
+      const normalized = text.replace(/\r/g, "");
+      const metaMatch = normalized.match(/static const gfx_sm_meta_t\s+(\w+)_meta\s*=\s*\{([\s\S]*?)\};/);
+      const layoutMatch = normalized.match(/static const gfx_sm_layout_t\s+(\w+)_layout\s*=\s*\{([\s\S]*?)\};/);
+      const jointsMatch = normalized.match(/static const char \*const\s+(\w+)_joint_names\[\]\s*=\s*\{([\s\S]*?)\};/);
+      const posesMatch = normalized.match(/static const gfx_sm_pose_t\s+(\w+)_poses\[\]\s*=\s*\{([\s\S]*?)\};/);
+      const segmentsMatch = normalized.match(/static const gfx_sm_segment_t\s+(\w+)_segments\[\]\s*=\s*\{([\s\S]*?)\};/);
+      const clipsMatch = normalized.match(/static const gfx_sm_clip_t\s+(\w+)_clips\[\]\s*=\s*\{([\s\S]*?)\};/);
+      const sequenceMatch = normalized.match(/static const uint16_t\s+(\w+)_sequence\[\]\s*=\s*\{([\s\S]*?)\};/);
+
+      if (!metaMatch || !layoutMatch || !jointsMatch || !posesMatch || !segmentsMatch || !clipsMatch) {
+        throw new Error("未找到完整的 gfx_sm_scene 资产结构，请确认文件里包含 meta/layout/joint_names/poses/segments/clips。");
+      }
+
+      const prefix = metaMatch[1];
+      const metaBody = metaMatch[2];
+      const layoutBody = layoutMatch[2];
+      const jointBody = jointsMatch[2];
+      const poseBody = posesMatch[2];
+      const segmentBody = segmentsMatch[2];
+      const clipBody = clipsMatch[2];
+      const sequenceBody = sequenceMatch ? sequenceMatch[2] : "";
+
+      const meta = {
+        version: parseFieldInt(metaBody, "version"),
+        viewboxX: parseFieldInt(metaBody, "viewbox_x"),
+        viewboxY: parseFieldInt(metaBody, "viewbox_y"),
+        viewboxW: parseFieldInt(metaBody, "viewbox_w"),
+        viewboxH: parseFieldInt(metaBody, "viewbox_h"),
+      };
+
+      const layout = {
+        strokeWidth: parseFieldInt(layoutBody, "stroke_width"),
+        mirrorX: parseFieldInt(layoutBody, "mirror_x"),
+        groundY: parseFieldInt(layoutBody, "ground_y"),
+        timerPeriodMs: parseFieldInt(layoutBody, "timer_period_ms", 33),
+        dampingDiv: parseFieldInt(layoutBody, "damping_div", 4),
+      };
+
+      const jointNames = [];
+      for (const match of jointBody.matchAll(/"((?:\\.|[^"])*)"/g)) {
+        jointNames.push(parseCString(`"${match[1]}"`));
+      }
+
+      const poseArrays = {};
+      for (const match of normalized.matchAll(/static const int16_t\s+(\w+)\[\]\s*=\s*\{([\s\S]*?)\};/g)) {
+        poseArrays[match[1]] = parseIntList(match[2]);
+      }
+
+      const poseRefs = [];
+      for (const match of poseBody.matchAll(/[A-Z_][A-Z0-9_]*\(\s*(\w+)\s*\)/g)) {
+        poseRefs.push(match[1]);
+      }
+      const poses = poseRefs.map((name, index) => {
+        const coords = poseArrays[name];
+        if (!coords) {
+          throw new Error(`pose ${index} 引用了未定义数组 ${name}`);
+        }
+        return { name, coords };
+      });
+
+      const segments = extractBraceEntries(segmentBody).map((entry, index) => ({
+        index,
+        kind: (parseFieldRaw(entry, "kind") || "GFX_SM_SEG_CAPSULE").replace(/[()]/g, ""),
+        jointA: parseFieldInt(entry, "joint_a"),
+        jointB: parseFieldInt(entry, "joint_b"),
+        jointCount: parseFieldInt(entry, "joint_count"),
+        strokeWidth: parseFieldInt(entry, "stroke_width"),
+        radiusHint: parseFieldInt(entry, "radius_hint"),
+      }));
+
+      const stepArrays = {};
+      for (const match of normalized.matchAll(/static const gfx_sm_clip_step_t\s+(\w+)\[\]\s*=\s*\{([\s\S]*?)\};/g)) {
+        const name = match[1];
+        const body = match[2];
+        const macroSteps = extractMacroCalls(body, "STEP");
+        const steps = macroSteps.map((args) => ({
+          poseIndex: Number(args[0]),
+          holdTicks: Number(args[1]),
+          facing: Number(args[2]),
+          interp: "GFX_SM_INTERP_DAMPED",
+        }));
+
+        if (!steps.length) {
+          const entrySteps = extractBraceEntries(body).map((entry) => ({
+            poseIndex: parseFieldInt(entry, "pose_index"),
+            holdTicks: parseFieldInt(entry, "hold_ticks"),
+            facing: parseFieldInt(entry, "facing", 1),
+            interp: (parseFieldRaw(entry, "interp") || "GFX_SM_INTERP_DAMPED").replace(/[()]/g, ""),
+          }));
+          stepArrays[name] = entrySteps;
+        } else {
+          stepArrays[name] = steps;
+        }
+      }
+
+      const clipMacroMatch = normalized.match(/#define\s+CLIP\([^\n]*\)\s*\\\s*\n([\s\S]*?)(?=\n\s*static const gfx_sm_clip_t)/);
+      let flatStepArray = null;
+      if (clipMacroMatch) {
+        const stepPtrMatch = clipMacroMatch[1].match(/\.steps\s*=\s*&(\w+)\[/);
+        if (stepPtrMatch) flatStepArray = stepPtrMatch[1];
+      }
+      if (!flatStepArray) {
+        const stepArrayNames = Object.keys(stepArrays);
+        if (stepArrayNames.length === 1) flatStepArray = stepArrayNames[0];
+      }
+
+      const clips = extractMacroCalls(clipBody, "CLIP").map((args, index) => {
+        const name = parseCString(args[0]);
+        const nameCn = parseCString(args[1]);
+        const ref = args[2].trim();
+        const loop = args[3].trim() === "true";
+        let steps;
+
+        if (/^-?\d+$/.test(ref)) {
+          if (!flatStepArray || !stepArrays[flatStepArray]) {
+            throw new Error(`clip ${name} 使用索引 ${ref}，但未找到共享 steps 数组。`);
+          }
+          steps = [stepArrays[flatStepArray][Number(ref)]];
+        } else {
+          steps = stepArrays[ref];
+        }
+
+        if (!steps || steps.some((step) => !step)) {
+          throw new Error(`clip ${name} 的 steps 引用无效: ${ref}`);
+        }
+
+        return {
+          index,
+          name,
+          nameCn,
+          loop,
+          steps: steps.map((step) => ({ ...step })),
+        };
+      });
+
+      const sequence = sequenceBody ? parseIntList(sequenceBody) : clips.map((_, index) => index);
+
+      return {
+        prefix,
+        meta,
+        layout,
+        jointNames,
+        poses,
+        segments,
+        clips,
+        sequence,
+      };
+    }
+
+    function createScene(asset) {
+      const jointCount = asset.jointNames.length;
+      const scene = {
+        asset,
+        poseCur: Array.from({ length: jointCount }, () => ({ x: 0, y: 0 })),
+        poseTgt: Array.from({ length: jointCount }, () => ({ x: 0, y: 0 })),
+        activeClip: 0,
+        activeStep: 0,
+        stepTicks: 0,
+        dirty: true,
+        sequenceIndex: 0,
+      };
+
+      const clip = asset.clips[0];
+      const step = clip.steps[0];
+      loadTarget(scene, step.poseIndex, step.facing);
+      copyPose(scene.poseCur, scene.poseTgt);
+      return scene;
+    }
+
+    function copyPose(dst, src) {
+      for (let i = 0; i < dst.length; i++) {
+        dst[i].x = src[i].x;
+        dst[i].y = src[i].y;
+      }
+    }
+
+    function getPoseJoint(asset, poseIndex, jointIndex) {
+      const coords = asset.poses[poseIndex].coords;
+      return {
+        x: coords[jointIndex * 2],
+        y: coords[jointIndex * 2 + 1],
+      };
+    }
+
+    function loadTarget(scene, poseIndex, facing) {
+      const { asset } = scene;
+      for (let i = 0; i < asset.jointNames.length; i++) {
+        let { x, y } = getPoseJoint(asset, poseIndex, i);
+        if (facing < 0) {
+          x = asset.layout.mirrorX * 2 - x;
+        }
+        scene.poseTgt[i].x = x;
+        scene.poseTgt[i].y = y;
+      }
+      scene.dirty = true;
+    }
+
+    function setClip(scene, clipIndex, snapNow) {
+      scene.activeClip = clipIndex;
+      scene.activeStep = 0;
+      scene.stepTicks = 0;
+      const step = scene.asset.clips[clipIndex].steps[0];
+      loadTarget(scene, step.poseIndex, step.facing);
+      if (snapNow) {
+        copyPose(scene.poseCur, scene.poseTgt);
+      }
+      scene.dirty = true;
+    }
+
+    function ease(cur, tgt, div) {
+      const diff = tgt - cur;
+      if (diff === 0) return cur;
+      const safeDiv = div < 1 ? 1 : div;
+      let step = (diff / safeDiv) | 0;
+      if (step === 0) {
+        step = diff > 0 ? 1 : -1;
+      }
+      return cur + step;
+    }
+
+    function sceneTick(scene) {
+      const div = scene.asset.layout.dampingDiv > 0 ? scene.asset.layout.dampingDiv : 4;
+      let changed = false;
+      for (let i = 0; i < scene.poseCur.length; i++) {
+        const nx = ease(scene.poseCur[i].x, scene.poseTgt[i].x, div);
+        const ny = ease(scene.poseCur[i].y, scene.poseTgt[i].y, div);
+        if (nx !== scene.poseCur[i].x || ny !== scene.poseCur[i].y) {
+          scene.poseCur[i].x = nx;
+          scene.poseCur[i].y = ny;
+          changed = true;
+        }
+      }
+      if (changed) scene.dirty = true;
+      return changed;
+    }
+
+    function sceneAdvance(scene) {
+      const clip = scene.asset.clips[scene.activeClip];
+      const step = clip.steps[scene.activeStep];
+      scene.stepTicks += 1;
+      if (scene.stepTicks < step.holdTicks) {
+        return false;
+      }
+      scene.stepTicks = 0;
+      let nextStep = scene.activeStep + 1;
+      if (nextStep >= clip.steps.length) {
+        if (!clip.loop) return false;
+        nextStep = 0;
+      }
+      scene.activeStep = nextStep;
+      const next = clip.steps[nextStep];
+      loadTarget(scene, next.poseIndex, next.facing);
+      return true;
+    }
+
+    function getSequenceHoldMs(asset, clipIndex) {
+      const clip = asset.clips[clipIndex];
+      const period = asset.layout.timerPeriodMs > 0 ? asset.layout.timerPeriodMs : 33;
+      let maxTicks = 0;
+      for (const step of clip.steps) {
+        if (step.holdTicks > maxTicks) maxTicks = step.holdTicks;
+      }
+      return Math.max(maxTicks, 1) * period;
+    }
+
+    function toScreen(asset, pt, width, height) {
+      const scale = Math.min(width / asset.meta.viewboxW, height / asset.meta.viewboxH);
+      const rw = asset.meta.viewboxW * scale;
+      const rh = asset.meta.viewboxH * scale;
+      const offX = Math.floor((width - rw) * 0.5) - asset.meta.viewboxX * scale;
+      const offY = Math.floor((height - rh) * 0.5) - asset.meta.viewboxY * scale;
+      return {
+        x: Math.round(offX + pt.x * scale),
+        y: Math.round(offY + pt.y * scale),
+        scale,
+      };
+    }
+
+    function scalarPx(asset, width, height, value) {
+      const scale = Math.min(width / asset.meta.viewboxW, height / asset.meta.viewboxH);
+      return Math.max(1, Math.round(value * scale));
+    }
+
+    function buildBezierPath(ctrl, closePath) {
+      if (!ctrl.length) return "";
+      let d = `M ${ctrl[0].x} ${ctrl[0].y}`;
+      for (let i = 1; i + 2 < ctrl.length; i += 3) {
+        d += ` C ${ctrl[i].x} ${ctrl[i].y} ${ctrl[i + 1].x} ${ctrl[i + 1].y} ${ctrl[i + 2].x} ${ctrl[i + 2].y}`;
+      }
+      if (closePath) d += " Z";
+      return d;
+    }
+
+    function renderScene() {
+      const svg = els.viewer;
+      const width = Math.max(320, Math.round(svg.clientWidth || 720));
+      const height = Math.max(320, Math.round(svg.clientHeight || 720));
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      svg.innerHTML = "";
+
+      const bg = document.createElementNS(NS, "rect");
+      bg.setAttribute("x", "0");
+      bg.setAttribute("y", "0");
+      bg.setAttribute("width", String(width));
+      bg.setAttribute("height", String(height));
+      bg.setAttribute("rx", "28");
+      bg.setAttribute("fill", "#fffdfa");
+      svg.appendChild(bg);
+
+      if (!app.asset || !app.scene) {
+        const empty = document.createElementNS(NS, "text");
+        empty.setAttribute("x", String(width / 2));
+        empty.setAttribute("y", String(height / 2));
+        empty.setAttribute("text-anchor", "middle");
+        empty.setAttribute("font-size", "18");
+        empty.setAttribute("fill", "#826b58");
+        empty.textContent = "等待加载 gfx_sm .inc";
+        svg.appendChild(empty);
+        els.hud.textContent = "no asset";
+        return;
+      }
+
+      const asset = app.asset;
+      const scene = app.scene;
+      const strokeColor = app.color;
+      const defaultStroke = scalarPx(asset, width, height, asset.layout.strokeWidth || 4);
+      const activeClip = asset.clips[scene.activeClip];
+      els.clipBadge.textContent = `clip: ${activeClip.name}`;
+      els.clipSelect.value = String(scene.activeClip);
+
+      if (Number.isFinite(asset.layout.groundY)) {
+        const ground = toScreen(asset, { x: asset.meta.viewboxX, y: asset.layout.groundY }, width, height);
+        const groundLine = document.createElementNS(NS, "line");
+        groundLine.setAttribute("x1", String(28));
+        groundLine.setAttribute("x2", String(width - 28));
+        groundLine.setAttribute("y1", String(ground.y));
+        groundLine.setAttribute("y2", String(ground.y));
+        groundLine.setAttribute("stroke", "rgba(39,28,18,0.16)");
+        groundLine.setAttribute("stroke-width", "2");
+        groundLine.setAttribute("stroke-dasharray", "7 7");
+        svg.appendChild(groundLine);
+      }
+
+      for (const seg of asset.segments) {
+        const strokeWidth = seg.strokeWidth > 0
+          ? scalarPx(asset, width, height, seg.strokeWidth)
+          : defaultStroke;
+
+        if (seg.kind === "GFX_SM_SEG_CAPSULE") {
+          const a = toScreen(asset, scene.poseCur[seg.jointA], width, height);
+          const b = toScreen(asset, scene.poseCur[seg.jointB], width, height);
+          const line = document.createElementNS(NS, "line");
+          line.setAttribute("x1", String(a.x));
+          line.setAttribute("y1", String(a.y));
+          line.setAttribute("x2", String(b.x));
+          line.setAttribute("y2", String(b.y));
+          line.setAttribute("stroke", strokeColor);
+          line.setAttribute("stroke-width", String(strokeWidth));
+          line.setAttribute("stroke-linecap", "round");
+          svg.appendChild(line);
+          continue;
+        }
+
+        if (seg.kind === "GFX_SM_SEG_RING") {
+          const c = toScreen(asset, scene.poseCur[seg.jointA], width, height);
+          const radius = seg.radiusHint > 0
+            ? scalarPx(asset, width, height, seg.radiusHint)
+            : strokeWidth * 4;
+          const circle = document.createElementNS(NS, "circle");
+          circle.setAttribute("cx", String(c.x));
+          circle.setAttribute("cy", String(c.y));
+          circle.setAttribute("r", String(radius));
+          circle.setAttribute("fill", "none");
+          circle.setAttribute("stroke", strokeColor);
+          circle.setAttribute("stroke-width", String(strokeWidth));
+          svg.appendChild(circle);
+          continue;
+        }
+
+        const ctrl = [];
+        for (let i = 0; i < seg.jointCount; i++) {
+          ctrl.push(toScreen(asset, scene.poseCur[seg.jointA + i], width, height));
+        }
+
+        if (seg.kind === "GFX_SM_SEG_BEZIER_FILL") {
+          const path = document.createElementNS(NS, "path");
+          path.setAttribute("d", buildBezierPath(ctrl, true));
+          path.setAttribute("fill", strokeColor);
+          path.setAttribute("stroke", "none");
+          svg.appendChild(path);
+          continue;
+        }
+
+        if (seg.kind === "GFX_SM_SEG_BEZIER_LOOP" || seg.kind === "GFX_SM_SEG_BEZIER_STRIP") {
+          const path = document.createElementNS(NS, "path");
+          path.setAttribute("d", buildBezierPath(ctrl, seg.kind === "GFX_SM_SEG_BEZIER_LOOP"));
+          path.setAttribute("fill", "none");
+          path.setAttribute("stroke", strokeColor);
+          path.setAttribute("stroke-width", String(strokeWidth));
+          path.setAttribute("stroke-linecap", "round");
+          path.setAttribute("stroke-linejoin", "round");
+          svg.appendChild(path);
+        }
+      }
+
+      if (app.showJoints) {
+        scene.poseCur.forEach((joint, index) => {
+          const pt = toScreen(asset, joint, width, height);
+          const dot = document.createElementNS(NS, "circle");
+          dot.setAttribute("cx", String(pt.x));
+          dot.setAttribute("cy", String(pt.y));
+          dot.setAttribute("r", "3.5");
+          dot.setAttribute("fill", "#d96f3b");
+          dot.setAttribute("stroke", "#fffdfa");
+          dot.setAttribute("stroke-width", "1.5");
+          svg.appendChild(dot);
+
+          const label = document.createElementNS(NS, "text");
+          label.setAttribute("x", String(pt.x + 6));
+          label.setAttribute("y", String(pt.y - 6));
+          label.setAttribute("font-size", "10");
+          label.setAttribute("fill", "#8a5232");
+          label.textContent = String(index);
+          svg.appendChild(label);
+        });
+      }
+
+      const clip = asset.clips[scene.activeClip];
+      const currentStep = clip.steps[scene.activeStep];
+      const period = asset.layout.timerPeriodMs > 0 ? asset.layout.timerPeriodMs : 33;
+      els.hud.textContent =
+        `clip: ${clip.name}\n` +
+        `step: ${scene.activeStep + 1}/${clip.steps.length}  hold: ${scene.stepTicks}/${currentStep.holdTicks}\n` +
+        `tick: ${period} ms  damping: ${asset.layout.dampingDiv || 4}\n` +
+        `facing: ${currentStep.facing}`;
+    }
+
+    function refreshAssetUi() {
+      if (!app.asset || !app.scene) {
+        els.assetName.textContent = "未加载资产";
+        els.clipBadge.textContent = "clip: -";
+        els.clockBadge.textContent = "33 ms / tick";
+        els.statJoints.textContent = "-";
+        els.statSegments.textContent = "-";
+        els.statPoses.textContent = "-";
+        els.statClips.textContent = "-";
+        els.assetMeta.textContent = "viewbox: -";
+        els.clipSelect.innerHTML = "<option>未加载</option>";
+        return;
+      }
+
+      const asset = app.asset;
+      const clip = asset.clips[app.scene.activeClip];
+      els.assetName.textContent = `${app.currentSourceName || asset.prefix}.inc`;
+      els.clipBadge.textContent = `clip: ${clip.name}`;
+      els.clockBadge.textContent = `${asset.layout.timerPeriodMs || 33} ms / tick`;
+      els.statJoints.textContent = String(asset.jointNames.length);
+      els.statSegments.textContent = String(asset.segments.length);
+      els.statPoses.textContent = String(asset.poses.length);
+      els.statClips.textContent = String(asset.clips.length);
+      els.assetMeta.textContent =
+        `viewbox: [${asset.meta.viewboxX}, ${asset.meta.viewboxY}, ${asset.meta.viewboxW}, ${asset.meta.viewboxH}]  mirror_x: ${asset.layout.mirrorX}`;
+
+      els.clipSelect.innerHTML = "";
+      asset.clips.forEach((item, index) => {
+        const option = document.createElement("option");
+        option.value = String(index);
+        option.textContent = `${String(index).padStart(2, "0")} ${item.name}${item.nameCn ? " / " + item.nameCn : ""}`;
+        if (index === app.scene.activeClip) option.selected = true;
+        els.clipSelect.appendChild(option);
+      });
+    }
+
+    function loadAssetText(text, sourceName = "scene") {
+      try {
+        const asset = parseIncAsset(text);
+        app.asset = asset;
+        app.sourceText = text;
+        app.scene = createScene(asset);
+        app.currentSourceName = sourceName;
+        app.accumMs = 0;
+        app.seqAccumMs = 0;
+        refreshAssetUi();
+        renderScene();
+        setStatus(`已加载 ${sourceName}，解析到 ${asset.clips.length} 个 clips / ${asset.segments.length} 个 segments。`);
+      } catch (err) {
+        setStatus(`解析失败：${err.message}`, true);
+        console.error(err);
+      }
+    }
+
+    async function loadFromUrl(url, label) {
+      try {
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`${response.status} ${response.statusText}`);
+        }
+        const text = await response.text();
+        els.sourceInput.value = text;
+        loadAssetText(text, label);
+      } catch (err) {
+        setStatus(`示例加载失败：${label} (${err.message})。如果你是直接双击打开 html，可以改用“打开本地文件”。`, true);
+      }
+    }
+
+    function stepOnce() {
+      if (!app.asset || !app.scene) return;
+      sceneAdvance(app.scene);
+      sceneTick(app.scene);
+      renderScene();
+    }
+
+    function animate(now) {
+      const deltaMs = Math.min(100, now - app.lastTs);
+      app.lastTs = now;
+
+      if (app.asset && app.scene && app.playing) {
+        const period = Math.max(1, (app.asset.layout.timerPeriodMs || 33) / Math.max(app.speed, 0.1));
+        app.accumMs += deltaMs;
+        while (app.accumMs >= period) {
+          app.accumMs -= period;
+          sceneAdvance(app.scene);
+          sceneTick(app.scene);
+
+          if (app.autoSequence && app.asset.sequence.length) {
+            app.seqAccumMs += period;
+            const holdMs = getSequenceHoldMs(app.asset, app.scene.activeClip);
+            if (app.seqAccumMs >= holdMs) {
+              app.seqAccumMs = 0;
+              app.scene.sequenceIndex = (app.scene.sequenceIndex + 1) % app.asset.sequence.length;
+              const nextClip = app.asset.sequence[app.scene.sequenceIndex];
+              setClip(app.scene, nextClip, false);
+            }
+          }
+        }
+        renderScene();
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    function handleFile(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const text = String(reader.result || "");
+        els.sourceInput.value = text;
+        loadAssetText(text, file.name.replace(/\.[^.]+$/, ""));
+      };
+      reader.readAsText(file, "utf-8");
+    }
+
+    els.fileInput.addEventListener("change", (event) => {
+      handleFile(event.target.files && event.target.files[0]);
+    });
+
+    els.dropzone.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      els.dropzone.classList.add("dragover");
+    });
+
+    els.dropzone.addEventListener("dragleave", () => {
+      els.dropzone.classList.remove("dragover");
+    });
+
+    els.dropzone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      els.dropzone.classList.remove("dragover");
+      const file = event.dataTransfer.files && event.dataTransfer.files[0];
+      handleFile(file);
+    });
+
+    els.loadTextBtn.addEventListener("click", () => {
+      const text = els.sourceInput.value.trim();
+      if (!text) {
+        setStatus("文本区域是空的，先粘贴 .inc 再加载。", true);
+        return;
+      }
+      loadAssetText(text, "pasted_scene");
+    });
+
+    els.clearTextBtn.addEventListener("click", () => {
+      els.sourceInput.value = "";
+    });
+
+    els.loadFaceBtn.addEventListener("click", () => {
+      loadFromUrl("./face_emote_scene2.inc", "face_emote_scene2");
+    });
+
+    els.loadStickmanBtn.addEventListener("click", () => {
+      loadFromUrl("../main/stickman_fireman_scene.inc", "stickman_fireman_scene");
+    });
+
+    els.playBtn.addEventListener("click", () => {
+      app.playing = !app.playing;
+      els.playBtn.textContent = app.playing ? "暂停" : "播放";
+    });
+
+    els.stepBtn.addEventListener("click", () => {
+      stepOnce();
+    });
+
+    els.resetBtn.addEventListener("click", () => {
+      if (!app.asset) return;
+      app.scene = createScene(app.asset);
+      app.accumMs = 0;
+      app.seqAccumMs = 0;
+      refreshAssetUi();
+      renderScene();
+    });
+
+    els.clipSelect.addEventListener("change", () => {
+      if (!app.scene) return;
+      const clipIndex = Number(els.clipSelect.value);
+      const seqIndex = app.asset.sequence.indexOf(clipIndex);
+      app.scene.sequenceIndex = seqIndex >= 0 ? seqIndex : 0;
+      app.seqAccumMs = 0;
+      setClip(app.scene, clipIndex, app.snapOnSelect);
+      refreshAssetUi();
+      renderScene();
+    });
+
+    els.speedInput.addEventListener("change", () => {
+      const value = Number(els.speedInput.value);
+      app.speed = Number.isFinite(value) && value > 0 ? value : 1;
+      els.speedInput.value = app.speed.toFixed(1);
+    });
+
+    els.colorInput.addEventListener("input", () => {
+      app.color = els.colorInput.value;
+      renderScene();
+    });
+
+    els.autoSeqInput.addEventListener("change", () => {
+      app.autoSequence = els.autoSeqInput.checked;
+      app.seqAccumMs = 0;
+    });
+
+    els.snapInput.addEventListener("change", () => {
+      app.snapOnSelect = els.snapInput.checked;
+    });
+
+    els.jointsInput.addEventListener("change", () => {
+      app.showJoints = els.jointsInput.checked;
+      renderScene();
+    });
+
+    window.addEventListener("resize", renderScene);
+
+    refreshAssetUi();
+    renderScene();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
