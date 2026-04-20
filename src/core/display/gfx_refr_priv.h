@@ -1,0 +1,112 @@
+/*
+ * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#pragma once
+
+#include "core/runtime/gfx_core_priv.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * @brief Invalidate an area for a specific display (internal)
+ */
+void gfx_invalidate_area_disp(gfx_disp_t *disp, const gfx_area_t *area_p);
+
+/**
+ * @brief Invalidate an area globally (mark it for redraw) - applies to first display
+ * @param handle Graphics handle
+ * @param area Pointer to the area to invalidate, or NULL to clear all invalid areas
+ *
+ * This function adds an area to the global dirty area list.
+ * - If area is NULL, clears all invalid areas on all displays
+ * - Areas are automatically clipped to screen bounds
+ * - Overlapping/adjacent areas are merged
+ * - If buffer is full, marks entire screen as dirty
+ */
+void gfx_invalidate_area(gfx_handle_t handle, const gfx_area_t *area);
+
+/**
+ * @brief Invalidate an object's area (convenience function)
+ * @param obj Pointer to the object to invalidate
+ *
+ * Marks the entire object bounds as dirty in the global invalidation list.
+ */
+void gfx_obj_invalidate(gfx_obj_t *obj);
+
+/**
+ * @brief Update layout for all objects marked as layout dirty on a display
+ * @param disp Display to update
+ */
+void gfx_refr_update_layout_dirty(gfx_disp_t *disp);
+
+/**
+ * @brief Merge overlapping/adjacent dirty areas to minimize redraw regions
+ * @param disp Display containing dirty areas
+ */
+void gfx_refr_merge_areas(gfx_disp_t *disp);
+
+/* Area utility functions (merged from gfx_area.h) */
+/**
+ * @brief Copy area from src to dest
+ * @param dest Destination area
+ * @param src Source area
+ */
+void gfx_area_copy(gfx_area_t *dest, const gfx_area_t *src);
+
+/**
+ * @brief Check if area_in is fully contained within area_parent
+ * @param area_in Area to check
+ * @param area_parent Parent area
+ * @return true if area_in is completely inside area_parent
+ */
+bool gfx_area_is_in(const gfx_area_t *area_in, const gfx_area_t *area_parent);
+
+/**
+ * @brief Get intersection of two areas
+ * @param result Result area (intersection)
+ * @param a1 First area
+ * @param a2 Second area
+ * @return true if areas intersect, false otherwise
+ */
+bool gfx_area_intersect(gfx_area_t *result, const gfx_area_t *a1, const gfx_area_t *a2);
+
+/**
+ * @brief Get intersection of two half-open areas [x1, x2) x [y1, y2)
+ * @param result Result area (intersection)
+ * @param a1 First area with exclusive x2/y2
+ * @param a2 Second area with exclusive x2/y2
+ * @return true if areas intersect, false otherwise
+ */
+bool gfx_area_intersect_exclusive(gfx_area_t *result, const gfx_area_t *a1, const gfx_area_t *a2);
+
+/**
+ * @brief Get the size (area) of a rectangular region
+ * @param area Area to calculate size for
+ * @return Size in pixels (width * height)
+ */
+uint32_t gfx_area_get_size(const gfx_area_t *area);
+
+/**
+ * @brief Check if two areas are on each other (overlap or touch)
+ * @param a1 First area
+ * @param a2 Second area
+ * @return true if areas overlap or are adjacent (touch)
+ */
+bool gfx_area_is_on(const gfx_area_t *a1, const gfx_area_t *a2);
+
+/**
+ * @brief Join two areas into a larger area (bounding box)
+ * @param result Result area (bounding box of a1 and a2)
+ * @param a1 First area
+ * @param a2 Second area
+ */
+void gfx_area_join(gfx_area_t *result, const gfx_area_t *a1, const gfx_area_t *a2);
+
+#ifdef __cplusplus
+}
+#endif

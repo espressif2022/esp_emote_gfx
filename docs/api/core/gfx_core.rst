@@ -85,3 +85,20 @@ Unlock the recursive render mutex after external operations
 **Returns:**
 
 * esp_err_t ESP_OK on success, otherwise an error code
+
+gfx_refr_now()
+~~~~~~~~~~~~~~
+
+Perform one synchronous refresh (render and flush) immediately. Holds the render mutex for the duration; safe to call from any task.
+
+.. code-block:: c
+
+   esp_err_t gfx_refr_now(gfx_handle_t handle);
+
+**Parameters:**
+
+* ``handle`` - Graphics handle
+
+**Returns:**
+
+* esp_err_t ESP_OK on success, otherwise an error code

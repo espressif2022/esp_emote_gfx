@@ -3,31 +3,29 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-/**
- * @file gfx_font_lvgl.h
- * @brief LVGL Font Compatibility Layer
- *
- * This header provides LVGL font structure definitions and compatibility
- * functions for the ESP Graphics Framework.
- */
+#pragma once
 
-#ifndef GFX_FONT_LV_PARSER_H
-#define GFX_FONT_LV_PARSER_H
+/*********************
+ *      INCLUDES
+ *********************/
+#include <stdint.h>
+
+#include "lvgl.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /*********************
- *      INCLUDES
+ *      DEFINES
  *********************/
-#include <stdint.h>
-#include <stddef.h>
-#include <stdbool.h>
-#include "lvgl.h"
 
 /**********************
- *   BINARY FONT CREATION FUNCTIONS
+ *      TYPEDEFS
+ **********************/
+
+/**********************
+ *   PUBLIC API
  **********************/
 
 /*
@@ -50,7 +48,5 @@ lv_font_t *gfx_font_lv_load_from_binary(uint8_t *bin_addr);
 void gfx_font_lv_delete(lv_font_t *font);
 
 #ifdef __cplusplus
-} /*extern "C"*/
+}
 #endif
-
-#endif /*GFX_FONT_LV_PARSER_H*/

@@ -6,10 +6,8 @@
 
 #pragma once
 
-#include <stdbool.h>
 #include <stdint.h>
 #include "esp_err.h"
-#include "driver/gpio.h"
 #include "esp_lcd_touch.h"
 
 #include "core/gfx_disp.h"
@@ -19,25 +17,19 @@ extern "C" {
 #endif
 
 /*********************
- *   OPAQUE TYPES
+ *      TYPEDEFS
  *********************/
 /** Touch handle: from gfx_touch_add(), pass to event_cb and other touch APIs */
 typedef struct gfx_touch gfx_touch_t;
 
-/*********************
- *   ENUMS
- *********************/
 typedef enum {
     GFX_TOUCH_EVENT_PRESS = 0,
     GFX_TOUCH_EVENT_RELEASE,
     GFX_TOUCH_EVENT_MOVE,   /**< Finger moved while pressed (slide) */
 } gfx_touch_event_type_t;
 
-/*********************
- *   EVENT STRUCTS
- *********************/
 /** Payload passed to gfx_touch_event_cb_t; hit_obj is set when touch is bound to a disp */
-typedef struct {
+typedef struct gfx_touch_event {
     gfx_touch_event_type_t type;
     uint16_t x;
     uint16_t y;
@@ -46,14 +38,8 @@ typedef struct {
     uint32_t timestamp_ms;
 } gfx_touch_event_t;
 
-/*********************
- *   CALLBACK TYPES
- *********************/
 typedef void (*gfx_touch_event_cb_t)(gfx_touch_t *touch, const gfx_touch_event_t *event, void *user_data);
 
-/*********************
- *   CONFIG STRUCTS
- *********************/
 /** Passed to gfx_touch_add(); NULL or no handle disables touch */
 typedef struct {
     esp_lcd_touch_handle_t handle;           /**< LCD touch driver handle */
@@ -62,6 +48,10 @@ typedef struct {
     gfx_disp_t *disp;                        /**< Display handle */
     void *user_data;                         /**< User data for callback */
 } gfx_touch_config_t;
+
+/**********************
+ *   PUBLIC API
+ **********************/
 
 /**
  * @brief Add a touch device (like gfx_disp_add; multiple touch devices supported)
@@ -72,12 +62,11 @@ typedef struct {
  */
 gfx_touch_t *gfx_touch_add(gfx_handle_t handle, const gfx_touch_config_t *cfg);
 
-
 /**
- * @brief Set the user data for a touch device
+ * @brief Bind a display to a touch device
  *
  * @param touch Touch pointer returned from gfx_touch_add
- * @param user_data User data to set
+ * @param disp Display to receive touch hit-testing and dispatch
  * @return ESP_OK on success, ESP_ERR_INVALID_ARG if touch is NULL
  */
 esp_err_t gfx_touch_set_disp(gfx_touch_t *touch, gfx_disp_t *disp);
