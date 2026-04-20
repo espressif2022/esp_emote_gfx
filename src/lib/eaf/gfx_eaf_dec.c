@@ -4,10 +4,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*********************
+ *      INCLUDES
+ *********************/
 #include <string.h>
+
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
+#define GFX_LOG_MODULE GFX_LOG_MODULE_EAF_DEC
+#include "common/gfx_log_priv.h"
+
 #include "gfx_eaf_dec.h"
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 #include "esp_jpeg_dec.h"
@@ -17,11 +24,46 @@
 #include "heatshrink_decoder.h"
 #endif // CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
 
-static const char *TAG = "eaf";
+/*********************
+ *      DEFINES
+ *********************/
+#define EAF_FRAME_VERSION_OFFSET         (3)
+#define EAF_FRAME_BIT_DEPTH_OFFSET       (9)
+#define EAF_FRAME_WIDTH_OFFSET           (10)
+#define EAF_FRAME_HEIGHT_OFFSET          (12)
+#define EAF_FRAME_BLOCKS_OFFSET          (14)
+#define EAF_FRAME_BLOCK_HEIGHT_OFFSET    (16)
+#define EAF_FRAME_BLOCK_LEN_TABLE_OFFSET (18)
+#define EAF_FRAME_BLOCK_LEN_SIZE         (4)
+#define EAF_FRAME_PALETTE_ENTRY_SIZE     (4)
 
-static eaf_block_decoder_cb_t g_eaf_decoders[EAF_ENCODING_MAX] = {0};
+/**********************
+ *      TYPEDEFS
+ **********************/
 
-static uint32_t eaf_calculate_checksum(const uint8_t *data, uint32_t length)
+/**********************
+ *  STATIC VARIABLES
+ **********************/
+
+static const char *TAG = "eaf_dec";
+static eaf_dec_block_decoder_cb_t s_eaf_decoders[EAF_DEC_ENCODING_MAX] = {0};
+
+/**********************
+ *  STATIC PROTOTYPES
+ **********************/
+
+static uint32_t dec_calculate_checksum(const uint8_t *data, uint32_t length);
+static eaf_dec_huffman_node_t *huffman_node_create(void);
+static void huffman_tree_free(eaf_dec_huffman_node_t *node);
+static esp_err_t huffman_decode_data(const uint8_t *in_data, size_t in_size,
+        const uint8_t *dict_data, size_t dict_len,
+        uint8_t *out_data, size_t *out_size);
+
+/**********************
+ *   STATIC FUNCTIONS
+ **********************/
+
+static uint32_t dec_calculate_checksum(const uint8_t *data, uint32_t length)
 {
     uint32_t checksum = 0;
     for (uint32_t i = 0; i < length; i++) {
@@ -30,38 +72,36 @@ static uint32_t eaf_calculate_checksum(const uint8_t *data, uint32_t length)
     return checksum;
 }
 
-static eaf_huffman_node_t *eaf_huffman_node_create(void)
+static eaf_dec_huffman_node_t *huffman_node_create(void)
 {
-    eaf_huffman_node_t *node = (eaf_huffman_node_t *)calloc(1, sizeof(eaf_huffman_node_t));
+    eaf_dec_huffman_node_t *node = (eaf_dec_huffman_node_t *)calloc(1, sizeof(eaf_dec_huffman_node_t));
     return node;
 }
 
-static void eaf_huffman_tree_free(eaf_huffman_node_t *node)
+static void huffman_tree_free(eaf_dec_huffman_node_t *node)
 {
     if (!node) {
         return;
     }
-    eaf_huffman_tree_free(node->left);
-    eaf_huffman_tree_free(node->right);
+    huffman_tree_free(node->left);
+    huffman_tree_free(node->right);
     free(node);
 }
 
-static esp_err_t eaf_huffman_decode_data(const uint8_t *encoded_data, size_t encoded_len,
+static esp_err_t huffman_decode_data(const uint8_t *in_data, size_t in_size,
         const uint8_t *dict_data, size_t dict_len,
-        uint8_t *decoded_data, size_t *decoded_len)
+        uint8_t *out_data, size_t *out_size)
 {
-    if (!encoded_data || !dict_data || encoded_len == 0 || dict_len == 0) {
-        *decoded_len = 0;
+    if (!in_data || !dict_data || in_size == 0 || dict_len == 0) {
+        *out_size = 0;
         return ESP_OK;
     }
 
-    // Get padding bits from dictionary
     uint8_t padding_bits = dict_data[0];
     size_t dict_pos = 1;
 
-    // Reconstruct Huffman Tree
-    eaf_huffman_node_t *root = eaf_huffman_node_create();
-    eaf_huffman_node_t *current_node = NULL;
+    eaf_dec_huffman_node_t *root = huffman_node_create();
+    eaf_dec_huffman_node_t *current_node = NULL;
 
     while (dict_pos < dict_len) {
         uint8_t symbol = dict_data[dict_pos++];
@@ -73,18 +113,17 @@ static esp_err_t eaf_huffman_decode_data(const uint8_t *encoded_data, size_t enc
             code = (code << 8) | dict_data[dict_pos++];
         }
 
-        // Insert symbol into tree
         current_node = root;
         for (int bit_pos = code_len - 1; bit_pos >= 0; --bit_pos) {
             int bit_val = (code >> bit_pos) & 1;
             if (bit_val == 0) {
                 if (!current_node->left) {
-                    current_node->left = eaf_huffman_node_create();
+                    current_node->left = huffman_node_create();
                 }
                 current_node = current_node->left;
             } else {
                 if (!current_node->right) {
-                    current_node->right = eaf_huffman_node_create();
+                    current_node->right = huffman_node_create();
                 }
                 current_node = current_node->right;
             }
@@ -93,20 +132,18 @@ static esp_err_t eaf_huffman_decode_data(const uint8_t *encoded_data, size_t enc
         current_node->symbol = symbol;
     }
 
-    // Calculate total bits to decode
-    size_t total_bits = encoded_len * 8;
+    size_t total_bits = in_size * 8;
     if (padding_bits > 0) {
         total_bits -= padding_bits;
     }
 
     current_node = root;
-    size_t decoded_pos = 0;
+    size_t out_pos = 0;
 
-    // Process each bit in the encoded data
     for (size_t bit_index = 0; bit_index < total_bits; bit_index++) {
         size_t byte_idx = bit_index / 8;
-        int bit_offset = 7 - (bit_index % 8);  // Most significant bit first
-        int bit_val = (encoded_data[byte_idx] >> bit_offset) & 1;
+        int bit_offset = 7 - (bit_index % 8);
+        int bit_val = (in_data[byte_idx] >> bit_offset) & 1;
 
         if (bit_val == 0) {
             current_node = current_node->left;
@@ -115,150 +152,150 @@ static esp_err_t eaf_huffman_decode_data(const uint8_t *encoded_data, size_t enc
         }
 
         if (current_node == NULL) {
-            ESP_LOGE(TAG, "Invalid Huffman path at bit %d", (int)bit_index);
+            GFX_LOGE(TAG, "Invalid Huffman path at bit %d", (int)bit_index);
             break;
         }
 
         if (current_node->is_leaf) {
-            decoded_data[decoded_pos++] = current_node->symbol;
+            out_data[out_pos++] = current_node->symbol;
             current_node = root;
         }
     }
 
-    *decoded_len = decoded_pos;
-    eaf_huffman_tree_free(root);
+    *out_size = out_pos;
+    huffman_tree_free(root);
     return ESP_OK;
 }
 
-eaf_format_type_t eaf_probe_frame_info(eaf_format_handle_t handle, int frame_index)
+eaf_dec_type_t eaf_dec_probe_frame_info(eaf_dec_handle_t handle, int frame_index)
 {
     if (!handle) {
-        ESP_LOGE(TAG, "Invalid handle");
-        return EAF_FORMAT_INVALID;
+        GFX_LOGE(TAG, "Invalid handle");
+        return EAF_DEC_TYPE_INVALID;
     }
 
-    const uint8_t *file_data = eaf_get_frame_data(handle, frame_index);
+    const uint8_t *file_data = eaf_dec_get_frame_data(handle, frame_index);
     if (!file_data) {
-        ESP_LOGE(TAG, "Frame %d data unavailable", frame_index);
-        return EAF_FORMAT_INVALID;
+        GFX_LOGE(TAG, "Frame %d data unavailable", frame_index);
+        return EAF_DEC_TYPE_INVALID;
     }
 
-    size_t file_size = eaf_get_frame_size(handle, frame_index);
+    size_t file_size = eaf_dec_get_frame_size(handle, frame_index);
     if (file_size <= 0) {
-        ESP_LOGE(TAG, "Frame %d invalid size", frame_index);
-        return EAF_FORMAT_INVALID;
+        GFX_LOGE(TAG, "Frame %d invalid size", frame_index);
+        return EAF_DEC_TYPE_INVALID;
     }
-    eaf_header_t header;
+    eaf_dec_header_t header;
 
-    memset(&header, 0, sizeof(eaf_header_t));
+    memset(&header, 0, sizeof(eaf_dec_header_t));
     memcpy(header.format, file_data, 2);
     header.format[2] = '\0';
 
     if (strncmp(header.format, "_S", 2) == 0) {
 
-        memcpy(header.version, file_data + 3, 6);
+        memcpy(header.version, file_data + EAF_FRAME_VERSION_OFFSET, 6);
 
-        header.bit_depth = file_data[9];
+        header.bit_depth = file_data[EAF_FRAME_BIT_DEPTH_OFFSET];
 
-        if (header.bit_depth != 4 && header.bit_depth != 8 && header.bit_depth != 24) {
-            ESP_LOGE(TAG, "Invalid bit depth: %d", header.bit_depth);
-            return EAF_FORMAT_INVALID;
+        if (header.bit_depth != EAF_COLOR_DEPTH_4BIT && header.bit_depth != EAF_COLOR_DEPTH_8BIT && header.bit_depth != EAF_COLOR_DEPTH_24BIT) {
+            GFX_LOGE(TAG, "Invalid bit depth: %d", header.bit_depth);
+            return EAF_DEC_TYPE_INVALID;
         }
 
-        header.width = *(uint16_t *)(file_data + 10);
-        header.height = *(uint16_t *)(file_data + 12);
-        header.blocks = *(uint16_t *)(file_data + 14);
-        header.block_height = *(uint16_t *)(file_data + 16);
+        header.width = *(uint16_t *)(file_data + EAF_FRAME_WIDTH_OFFSET);
+        header.height = *(uint16_t *)(file_data + EAF_FRAME_HEIGHT_OFFSET);
+        header.blocks = *(uint16_t *)(file_data + EAF_FRAME_BLOCKS_OFFSET);
+        header.block_height = *(uint16_t *)(file_data + EAF_FRAME_BLOCK_HEIGHT_OFFSET);
 
         if (header.width == 0 || header.height == 0 || header.blocks == 0 || header.block_height == 0) {
-            return EAF_FORMAT_INVALID;
+            return EAF_DEC_TYPE_INVALID;
         }
     } else if (strncmp(header.format, "_C", 2) == 0) {
-        return EAF_FORMAT_FLAG;
+        return EAF_DEC_TYPE_FLAG;
     } else {
-        return EAF_FORMAT_INVALID;
+        return EAF_DEC_TYPE_INVALID;
     }
 
-    return EAF_FORMAT_VALID;
+    return EAF_DEC_TYPE_VALID;
 }
 
-eaf_format_type_t eaf_get_frame_info(eaf_format_handle_t handle, int frame_index, eaf_header_t *frame_info)
+eaf_dec_type_t eaf_dec_get_frame_info(eaf_dec_handle_t handle, int frame_index, eaf_dec_header_t *header)
 {
     if (!handle) {
-        ESP_LOGE(TAG, "Invalid handle");
-        return EAF_FORMAT_INVALID;
+        GFX_LOGE(TAG, "Invalid handle");
+        return EAF_DEC_TYPE_INVALID;
     }
 
-    const uint8_t *file_data = eaf_get_frame_data(handle, frame_index);
+    const uint8_t *file_data = eaf_dec_get_frame_data(handle, frame_index);
     if (!file_data) {
-        ESP_LOGE(TAG, "Frame %d data unavailable", frame_index);
-        return EAF_FORMAT_INVALID;
+        GFX_LOGE(TAG, "Frame %d data unavailable", frame_index);
+        return EAF_DEC_TYPE_INVALID;
     }
 
-    size_t file_size = eaf_get_frame_size(handle, frame_index);
+    size_t file_size = eaf_dec_get_frame_size(handle, frame_index);
     if (file_size <= 0) {
-        ESP_LOGE(TAG, "Frame %d invalid size", frame_index);
-        return EAF_FORMAT_INVALID;
+        GFX_LOGE(TAG, "Frame %d invalid size", frame_index);
+        return EAF_DEC_TYPE_INVALID;
     }
 
-    memset(frame_info, 0, sizeof(eaf_header_t));
+    memset(header, 0, sizeof(eaf_dec_header_t));
 
-    memcpy(frame_info->format, file_data, 2);
-    frame_info->format[2] = '\0';
+    memcpy(header->format, file_data, 2);
+    header->format[2] = '\0';
 
-    if (strncmp(frame_info->format, "_S", 2) == 0) {
-        memcpy(frame_info->version, file_data + 3, 6);
+    if (strncmp(header->format, "_S", 2) == 0) {
+        memcpy(header->version, file_data + EAF_FRAME_VERSION_OFFSET, 6);
 
-        frame_info->bit_depth = file_data[9];
+        header->bit_depth = file_data[EAF_FRAME_BIT_DEPTH_OFFSET];
 
-        if (frame_info->bit_depth != 4 && frame_info->bit_depth != 8 && frame_info->bit_depth != 24) {
-            ESP_LOGE(TAG, "Invalid bit depth: %d", frame_info->bit_depth);
-            return EAF_FORMAT_INVALID;
+        if (header->bit_depth != EAF_COLOR_DEPTH_4BIT && header->bit_depth != EAF_COLOR_DEPTH_8BIT && header->bit_depth != EAF_COLOR_DEPTH_24BIT) {
+            GFX_LOGE(TAG, "Invalid bit depth: %d", header->bit_depth);
+            return EAF_DEC_TYPE_INVALID;
         }
 
-        frame_info->width = *(uint16_t *)(file_data + 10);
-        frame_info->height = *(uint16_t *)(file_data + 12);
-        frame_info->blocks = *(uint16_t *)(file_data + 14);
-        frame_info->block_height = *(uint16_t *)(file_data + 16);
+        header->width = *(uint16_t *)(file_data + EAF_FRAME_WIDTH_OFFSET);
+        header->height = *(uint16_t *)(file_data + EAF_FRAME_HEIGHT_OFFSET);
+        header->blocks = *(uint16_t *)(file_data + EAF_FRAME_BLOCKS_OFFSET);
+        header->block_height = *(uint16_t *)(file_data + EAF_FRAME_BLOCK_HEIGHT_OFFSET);
 
-        frame_info->block_len = (uint32_t *)malloc(frame_info->blocks * sizeof(uint32_t));
-        if (frame_info->block_len == NULL) {
-            ESP_LOGE(TAG, "No mem for block_len");
-            return EAF_FORMAT_INVALID;
+        header->block_len = (uint32_t *)malloc(header->blocks * sizeof(uint32_t));
+        if (header->block_len == NULL) {
+            GFX_LOGE(TAG, "No mem for block_len");
+            return EAF_DEC_TYPE_INVALID;
         }
 
-        for (int i = 0; i < frame_info->blocks; i++) {
-            frame_info->block_len[i] = *(uint32_t *)(file_data + 18 + i * 4);
+        for (int i = 0; i < header->blocks; i++) {
+            header->block_len[i] = *(uint32_t *)(file_data + EAF_FRAME_BLOCK_LEN_TABLE_OFFSET + i * EAF_FRAME_BLOCK_LEN_SIZE);
         }
 
-        frame_info->num_colors = 1 << frame_info->bit_depth;
+        header->num_colors = 1 << header->bit_depth;
 
-        if (frame_info->bit_depth == 24) {
-            frame_info->num_colors = 0;
-            frame_info->palette = NULL;
+        if (header->bit_depth == EAF_COLOR_DEPTH_24BIT) {
+            header->num_colors = 0;
+            header->palette = NULL;
         } else {
-            frame_info->palette = (uint8_t *)malloc(frame_info->num_colors * 4);
-            if (frame_info->palette == NULL) {
-                ESP_LOGE(TAG, "No mem for palette");
-                free(frame_info->block_len);
-                frame_info->block_len = NULL;
-                return EAF_FORMAT_INVALID;
+            header->palette = (uint8_t *)malloc(header->num_colors * EAF_FRAME_PALETTE_ENTRY_SIZE);
+            if (header->palette == NULL) {
+                GFX_LOGE(TAG, "No mem for palette");
+                free(header->block_len);
+                header->block_len = NULL;
+                return EAF_DEC_TYPE_INVALID;
             }
 
-            memcpy(frame_info->palette, file_data + 18 + frame_info->blocks * 4, frame_info->num_colors * 4);
+            memcpy(header->palette, file_data + EAF_FRAME_BLOCK_LEN_TABLE_OFFSET + header->blocks * EAF_FRAME_BLOCK_LEN_SIZE, header->num_colors * EAF_FRAME_PALETTE_ENTRY_SIZE);
         }
-        frame_info->data_offset = 18 + frame_info->blocks * 4 + frame_info->num_colors * 4;
-        return EAF_FORMAT_VALID;
+        header->data_offset = EAF_FRAME_BLOCK_LEN_TABLE_OFFSET + header->blocks * EAF_FRAME_BLOCK_LEN_SIZE + header->num_colors * EAF_FRAME_PALETTE_ENTRY_SIZE;
+        return EAF_DEC_TYPE_VALID;
 
-    } else if (strncmp(frame_info->format, "_C", 2) == 0) {
-        return EAF_FORMAT_FLAG;
+    } else if (strncmp(header->format, "_C", 2) == 0) {
+        return EAF_DEC_TYPE_FLAG;
     } else {
-        ESP_LOGE(TAG, "Invalid format: %s", frame_info->format);
-        return EAF_FORMAT_INVALID;
+        GFX_LOGE(TAG, "Invalid format: %s", header->format);
+        return EAF_DEC_TYPE_INVALID;
     }
 }
 
-void eaf_free_header(eaf_header_t *header)
+void eaf_dec_free_header(eaf_dec_header_t *header)
 {
     if (header->block_len != NULL) {
         free(header->block_len);
@@ -270,7 +307,7 @@ void eaf_free_header(eaf_header_t *header)
     }
 }
 
-void eaf_calculate_offsets(const eaf_header_t *header, uint32_t *offsets)
+void eaf_dec_calculate_offsets(const eaf_dec_header_t *header, uint32_t *offsets)
 {
     offsets[0] = header->data_offset;
     for (int i = 1; i < header->blocks; i++) {
@@ -282,23 +319,21 @@ void eaf_calculate_offsets(const eaf_header_t *header, uint32_t *offsets)
  *  PALETTE FUNCTIONS
  **********************/
 
-bool eaf_palette_get_color(const eaf_header_t *header, uint8_t color_index, bool swap_bytes, gfx_color_t *result)
+bool eaf_dec_get_palette_color(const eaf_dec_header_t *header, uint8_t color_index, bool swap_bytes, gfx_color_t *result)
 {
     const uint8_t *color_data = &header->palette[color_index * 4];
 
-    // Check if color is fully transparent (00 00 00 00)
     if (color_data[0] == 0 && color_data[1] == 0 && color_data[2] == 0 && color_data[3] == 0) {
         return true;
     }
 
-    // RGB888: R=color[2], G=color[1], B=color[0]
-    // RGB565:
-    // - R: (color[2] & 0xF8) << 8
-    // - G: (color[1] & 0xFC) << 3
-    // - B: (color[0] & 0xF8) >> 3
-    uint16_t rgb565_value = swap_bytes ? __builtin_bswap16(((color_data[2] & 0xF8) << 8) | ((color_data[1] & 0xFC) << 3) | ((color_data[0] & 0xF8) >> 3)) : \
-                            ((color_data[2] & 0xF8) << 8) | ((color_data[1] & 0xFC) << 3) | ((color_data[0] & 0xF8) >> 3);
-    result->full = rgb565_value;
+    gfx_color_t color = {
+        .full = (uint16_t)(((color_data[2] & 0xF8) << 8) |
+                           ((color_data[1] & 0xFC) << 3) |
+                           ((color_data[0] & 0xF8) >> 3)),
+    };
+
+    result->full = gfx_color_to_native_u16(color, swap_bytes);
     return false;
 }
 
@@ -306,68 +341,67 @@ bool eaf_palette_get_color(const eaf_header_t *header, uint8_t color_index, bool
  *  DECODING FUNCTIONS
  **********************/
 
-static esp_err_t eaf_decode_huffman_rle(const uint8_t *input_data, size_t input_size,
-                                        uint8_t *output_buffer, size_t *out_size,
-                                        bool swap_color)
+static esp_err_t decode_huffman_rle(const uint8_t *in_data, size_t in_size,
+                                   uint8_t *out_data, size_t *out_size,
+                                   bool swap_color)
 {
     if (out_size == NULL || *out_size == 0) {
-        ESP_LOGE(TAG, "Output size is invalid");
+        GFX_LOGE(TAG, "Output size is invalid");
         return ESP_FAIL;
     }
 
-    // Worst case, RLE stream can be 2x of the decompressed size.
-    size_t huffman_cap = *out_size * 2;
-    uint8_t *huffman_buffer = malloc(huffman_cap);
-    if (huffman_buffer == NULL) {
-        ESP_LOGE(TAG, "No mem for Huffman buffer");
+    size_t tmp_size = *out_size * 2;
+    uint8_t *tmp_data = malloc(tmp_size);
+    if (tmp_data == NULL) {
+        GFX_LOGE(TAG, "No mem for tmp buffer");
         return ESP_FAIL;
     }
 
-    size_t huffman_out_size = huffman_cap;
-    esp_err_t ret = eaf_decode_huffman(input_data, input_size, huffman_buffer, &huffman_out_size, swap_color);
+    size_t tmp_len = tmp_size;
+    esp_err_t ret = eaf_dec_decode_huffman(in_data, in_size, tmp_data, &tmp_len, swap_color);
     if (ret == ESP_OK) {
-        ret = eaf_decode_rle(huffman_buffer, huffman_out_size, output_buffer, out_size, swap_color);
+        ret = eaf_dec_decode_rle(tmp_data, tmp_len, out_data, out_size, swap_color);
     }
 
-    free(huffman_buffer);
+    free(tmp_data);
     return ret;
 }
 
-static esp_err_t eaf_register_decoder(eaf_encoding_type_t type, eaf_block_decoder_cb_t decoder)
+static esp_err_t register_decoder(eaf_dec_encoding_type_t type, eaf_dec_block_decoder_cb_t decoder)
 {
-    if (type >= EAF_ENCODING_MAX) {
-        ESP_LOGE(TAG, "Invalid encoding type: %d", type);
+    if (type >= EAF_DEC_ENCODING_MAX) {
+        GFX_LOGE(TAG, "Invalid encoding type: %d", type);
         return ESP_ERR_INVALID_ARG;
     }
 
-    if (g_eaf_decoders[type] != NULL) {
-        ESP_LOGW(TAG, "Decoder already registered for type: %d", type);
+    if (s_eaf_decoders[type] != NULL) {
+        GFX_LOGW(TAG, "Decoder already registered for type: %d", type);
     }
 
-    g_eaf_decoders[type] = decoder;
+    s_eaf_decoders[type] = decoder;
     return ESP_OK;
 }
 
-static esp_err_t eaf_init_decoders(void)
+static esp_err_t init_decoders(void)
 {
     esp_err_t ret = ESP_OK;
 
-    ret |= eaf_register_decoder(EAF_ENCODING_RLE, eaf_decode_rle);
-    ret |= eaf_register_decoder(EAF_ENCODING_HUFFMAN, eaf_decode_huffman_rle);
-    ret |= eaf_register_decoder(EAF_ENCODING_HUFFMAN_DIRECT, eaf_decode_huffman);
+    ret |= register_decoder(EAF_DEC_ENCODING_RLE, eaf_dec_decode_rle);
+    ret |= register_decoder(EAF_DEC_ENCODING_HUFFMAN, decode_huffman_rle);
+    ret |= register_decoder(EAF_DEC_ENCODING_HUFFMAN_DIRECT, eaf_dec_decode_huffman);
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
-    ret |= eaf_register_decoder(EAF_ENCODING_JPEG, eaf_decode_jpeg);
+    ret |= register_decoder(EAF_DEC_ENCODING_JPEG, eaf_dec_decode_jpeg);
 #endif
 #ifdef CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
-    ret |= eaf_register_decoder(EAF_ENCODING_HEATSHRINK, eaf_decode_heatshrink);
+    ret |= register_decoder(EAF_DEC_ENCODING_HEATSHRINK, eaf_dec_decode_heatshrink);
 #endif
-    ret |= eaf_register_decoder(EAF_ENCODING_RAW, eaf_decode_raw);
+    ret |= register_decoder(EAF_DEC_ENCODING_RAW, eaf_dec_decode_raw);
 
     return ret;
 }
 
-esp_err_t eaf_decode_block(const eaf_header_t *header, const uint8_t *block_data,
-                           int block_len, uint8_t *decode_buffer, bool swap_color)
+esp_err_t eaf_dec_decode_block(const eaf_dec_header_t *header, const uint8_t *block_data,
+                               int block_len, uint8_t *out_data, bool swap_color)
 {
     uint8_t encoding_type = block_data[0];
     int width = header->width;
@@ -375,21 +409,21 @@ esp_err_t eaf_decode_block(const eaf_header_t *header, const uint8_t *block_data
 
     esp_err_t decode_result = ESP_FAIL;
 
-    if (encoding_type >= sizeof(g_eaf_decoders) / sizeof(g_eaf_decoders[0])) {
-        ESP_LOGE(TAG, "Unknown encoding type: %02X", encoding_type);
+    if (encoding_type >= EAF_DEC_ENCODING_MAX) {
+        GFX_LOGE(TAG, "Unknown encoding type: %02X", encoding_type);
         return ESP_FAIL;
     }
 
-    eaf_block_decoder_cb_t decoder = g_eaf_decoders[encoding_type];
+    eaf_dec_block_decoder_cb_t decoder = s_eaf_decoders[encoding_type];
     if (!decoder) {
-        ESP_LOGE(TAG, "No decoder for encoding type: %02X", encoding_type);
+        GFX_LOGE(TAG, "No decoder for encoding type: %02X", encoding_type);
         return ESP_FAIL;
     }
 
     size_t out_size;
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
-    if (encoding_type == EAF_ENCODING_JPEG) {
-        out_size = width * block_height * 2; // RGB565 = 2 bytes per pixel
+    if (encoding_type == EAF_DEC_ENCODING_JPEG) {
+        out_size = width * block_height * 2;
     } else {
         out_size = width * block_height;
     }
@@ -397,7 +431,7 @@ esp_err_t eaf_decode_block(const eaf_header_t *header, const uint8_t *block_data
     out_size = width * block_height;
 #endif
 
-    decode_result = decoder(block_data + 1, block_len - 1, decode_buffer, &out_size, swap_color);
+    decode_result = decoder(block_data + 1, block_len - 1, out_data, &out_size, swap_color);
 
     if (decode_result != ESP_OK) {
         return ESP_FAIL;
@@ -406,34 +440,33 @@ esp_err_t eaf_decode_block(const eaf_header_t *header, const uint8_t *block_data
     return ESP_OK;
 }
 
-esp_err_t eaf_decode_rle(const uint8_t *input_data, size_t input_size,
-                         uint8_t *output_buffer, size_t *out_size,
-                         bool swap_color)
+esp_err_t eaf_dec_decode_rle(const uint8_t *in_data, size_t in_size,
+                             uint8_t *out_data, size_t *out_size,
+                             bool swap_color)
 {
-    (void)swap_color; // Unused parameter
+    (void)swap_color;
 
     size_t in_pos = 0;
     size_t out_pos = 0;
 
-    while (in_pos + 1 < input_size) {
-        uint8_t repeat_count = input_data[in_pos++];
-        uint8_t repeat_value = input_data[in_pos++];
+    while (in_pos + 1 < in_size) {
+        uint8_t repeat_count = in_data[in_pos++];
+        uint8_t repeat_value = in_data[in_pos++];
 
         if (out_pos + repeat_count > *out_size) {
-            ESP_LOGE(TAG, "Decompressed buffer overflow, %d > %d", out_pos + repeat_count, *out_size);
+            GFX_LOGE(TAG, "Decompressed buffer overflow, %zu > %zu", out_pos + repeat_count, *out_size);
             return ESP_FAIL;
         }
 
         uint32_t value_4bytes = repeat_value | (repeat_value << 8) | (repeat_value << 16) | (repeat_value << 24);
         while (repeat_count >= 4) {
-            // ESP_LOGI(TAG, "4 bit align:%s", ((uintptr_t)(output_buffer + out_pos) & 0x03) ? "no" : "yes");
-            *((uint32_t *)(output_buffer + out_pos)) = value_4bytes;
+            *((uint32_t *)(out_data + out_pos)) = value_4bytes;
             out_pos += 4;
             repeat_count -= 4;
         }
 
         while (repeat_count > 0) {
-            output_buffer[out_pos++] = repeat_value;
+            out_data[out_pos++] = repeat_value;
             repeat_count--;
         }
     }
@@ -442,38 +475,38 @@ esp_err_t eaf_decode_rle(const uint8_t *input_data, size_t input_size,
     return ESP_OK;
 }
 
-esp_err_t eaf_decode_raw(const uint8_t *input_data, size_t input_size,
-                         uint8_t *output_buffer, size_t *out_size,
-                         bool swap_color)
+esp_err_t eaf_dec_decode_raw(const uint8_t *in_data, size_t in_size,
+                             uint8_t *out_data, size_t *out_size,
+                             bool swap_color)
 {
     (void)swap_color;
 
-    if (!input_data || !output_buffer || !out_size) {
-        ESP_LOGE(TAG, "Invalid parameters");
+    if (!in_data || !out_data || !out_size) {
+        GFX_LOGE(TAG, "Invalid parameters");
         return ESP_FAIL;
     }
 
-    if (*out_size < input_size) {
-        ESP_LOGE(TAG, "Output buffer too small: need %zu, got %zu", input_size, *out_size);
+    if (*out_size < in_size) {
+        GFX_LOGE(TAG, "Output buffer too small: need %zu, got %zu", in_size, *out_size);
         return ESP_ERR_INVALID_SIZE;
     }
 
-    if (input_size > 0) {
-        memcpy(output_buffer, input_data, input_size);
+    if (in_size > 0) {
+        memcpy(out_data, in_data, in_size);
     }
-    *out_size = input_size;
+    *out_size = in_size;
     return ESP_OK;
 }
 
 #ifdef CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
-esp_err_t eaf_decode_heatshrink(const uint8_t *input_data, size_t input_size,
-                                uint8_t *output_buffer, size_t *out_size,
-                                bool swap_color)
+esp_err_t eaf_dec_decode_heatshrink(const uint8_t *in_data, size_t in_size,
+                                    uint8_t *out_data, size_t *out_size,
+                                    bool swap_color)
 {
     (void)swap_color;
 
-    if (!input_data || !output_buffer || !out_size) {
-        ESP_LOGE(TAG, "Invalid parameters");
+    if (!in_data || !out_data || !out_size) {
+        GFX_LOGE(TAG, "Invalid parameters");
         return ESP_FAIL;
     }
 
@@ -485,7 +518,7 @@ esp_err_t eaf_decode_heatshrink(const uint8_t *input_data, size_t input_size,
 #if CONFIG_HEATSHRINK_DYNAMIC_ALLOC
     heatshrink_decoder *hsd = heatshrink_decoder_alloc(32, 8, 4);
     if (!hsd) {
-        ESP_LOGE(TAG, "No mem for heatshrink decoder");
+        GFX_LOGE(TAG, "No mem for heatshrink decoder");
         return ESP_ERR_NO_MEM;
     }
 #else
@@ -497,12 +530,12 @@ esp_err_t eaf_decode_heatshrink(const uint8_t *input_data, size_t input_size,
 
     size_t in_pos = 0;
     size_t out_pos = 0;
-    while (in_pos < input_size) {
+    while (in_pos < in_size) {
         size_t sunk = 0;
-        HSD_sink_res sres = heatshrink_decoder_sink(hsd, (uint8_t *)(input_data + in_pos),
-                            input_size - in_pos, &sunk);
+        HSD_sink_res sres = heatshrink_decoder_sink(hsd, (uint8_t *)(in_data + in_pos),
+                            in_size - in_pos, &sunk);
         if (sres < 0) {
-            ESP_LOGE(TAG, "Heatshrink sink error: %d", sres);
+            GFX_LOGE(TAG, "Heatshrink sink error: %d", sres);
             goto hs_fail;
         }
         in_pos += sunk;
@@ -511,12 +544,12 @@ esp_err_t eaf_decode_heatshrink(const uint8_t *input_data, size_t input_size,
             size_t produced = 0;
             size_t remain = out_capacity - out_pos;
             if (remain == 0) {
-                ESP_LOGE(TAG, "Heatshrink output overflow");
+                GFX_LOGE(TAG, "Heatshrink output overflow");
                 goto hs_fail;
             }
-            HSD_poll_res press = heatshrink_decoder_poll(hsd, output_buffer + out_pos, remain, &produced);
+            HSD_poll_res press = heatshrink_decoder_poll(hsd, out_data + out_pos, remain, &produced);
             if (press < 0) {
-                ESP_LOGE(TAG, "Heatshrink poll error: %d", press);
+                GFX_LOGE(TAG, "Heatshrink poll error: %d", press);
                 goto hs_fail;
             }
             out_pos += produced;
@@ -529,7 +562,7 @@ esp_err_t eaf_decode_heatshrink(const uint8_t *input_data, size_t input_size,
     while (true) {
         HSD_finish_res fres = heatshrink_decoder_finish(hsd);
         if (fres < 0) {
-            ESP_LOGE(TAG, "Heatshrink finish error: %d", fres);
+            GFX_LOGE(TAG, "Heatshrink finish error: %d", fres);
             goto hs_fail;
         }
 
@@ -537,12 +570,12 @@ esp_err_t eaf_decode_heatshrink(const uint8_t *input_data, size_t input_size,
             size_t produced = 0;
             size_t remain = out_capacity - out_pos;
             if (remain == 0) {
-                ESP_LOGE(TAG, "Heatshrink output overflow");
+                GFX_LOGE(TAG, "Heatshrink output overflow");
                 goto hs_fail;
             }
-            HSD_poll_res press = heatshrink_decoder_poll(hsd, output_buffer + out_pos, remain, &produced);
+            HSD_poll_res press = heatshrink_decoder_poll(hsd, out_data + out_pos, remain, &produced);
             if (press < 0) {
-                ESP_LOGE(TAG, "Heatshrink poll error: %d", press);
+                GFX_LOGE(TAG, "Heatshrink poll error: %d", press);
                 goto hs_fail;
             }
             out_pos += produced;
@@ -571,8 +604,8 @@ hs_fail:
 #endif // CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
 
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
-esp_err_t eaf_decode_jpeg(const uint8_t *jpeg_data, size_t jpeg_size,
-                          uint8_t *decode_buffer, size_t *out_size, bool swap_color)
+esp_err_t eaf_dec_decode_jpeg(const uint8_t *in_data, size_t in_size,
+                             uint8_t *out_data, size_t *out_size, bool swap_color)
 {
     esp_err_t ret = ESP_OK;
     uint32_t w, h;
@@ -593,8 +626,8 @@ esp_err_t eaf_decode_jpeg(const uint8_t *jpeg_data, size_t jpeg_size,
     out_info = malloc(sizeof(jpeg_dec_header_info_t));
     ESP_GOTO_ON_FALSE(out_info, ESP_ERR_NO_MEM, err, TAG, "No mem for out_info");
 
-    jpeg_io->inbuf = (unsigned char *)jpeg_data;
-    jpeg_io->inbuf_len = jpeg_size;
+    jpeg_io->inbuf = (unsigned char *)in_data;
+    jpeg_io->inbuf_len = in_size;
 
     jpeg_error_t jpeg_ret = jpeg_dec_parse_header(jpeg_dec, jpeg_io, out_info);
     ESP_GOTO_ON_FALSE(jpeg_ret == JPEG_ERR_OK, ESP_FAIL, err, TAG, "JPEG header parse failed");
@@ -602,11 +635,11 @@ esp_err_t eaf_decode_jpeg(const uint8_t *jpeg_data, size_t jpeg_size,
     w = out_info->width;
     h = out_info->height;
 
-    size_t required_size = w * h * 2; // RGB565 = 2 bytes per pixel
+    size_t required_size = w * h * 2;
     ESP_GOTO_ON_FALSE(*out_size >= required_size, ESP_ERR_INVALID_SIZE, err, TAG,
                       "Buffer too small: need %zu, got %zu", required_size, *out_size);
 
-    jpeg_io->outbuf = decode_buffer;
+    jpeg_io->outbuf = out_data;
     jpeg_ret = jpeg_dec_process(jpeg_dec, jpeg_io);
     ESP_GOTO_ON_FALSE(jpeg_ret == JPEG_ERR_OK, ESP_FAIL, err, TAG, "JPEG decode failed: %d", jpeg_ret);
 
@@ -631,25 +664,25 @@ err:
 }
 #endif // CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 
-esp_err_t eaf_decode_huffman(const uint8_t *input_data, size_t input_size,
-                             uint8_t *output_buffer, size_t *out_size,
-                             bool swap_color)
+esp_err_t eaf_dec_decode_huffman(const uint8_t *in_data, size_t in_size,
+                                     uint8_t *out_data, size_t *out_size,
+                                     bool swap_color)
 {
-    (void)swap_color; // Unused parameter
-    size_t decoded_size = *out_size;
+    (void)swap_color;
+    size_t out_len = *out_size;
 
-    if (!input_data || input_size < 3 || !output_buffer) {
-        ESP_LOGE(TAG, "Invalid parameters");
+    if (!in_data || in_size < 3 || !out_data) {
+        GFX_LOGE(TAG, "Invalid parameters");
         return ESP_FAIL;
     }
 
-    uint16_t dict_size = (input_data[1] << 8) | input_data[0];
-    if (input_size < 2 + dict_size) {
-        ESP_LOGE(TAG, "Compressed data too short for dictionary");
+    uint16_t dict_size = (in_data[1] << 8) | in_data[0];
+    if (in_size < 2 + dict_size) {
+        GFX_LOGE(TAG, "Compressed data too short for dictionary");
         return ESP_FAIL;
     }
 
-    size_t encoded_size = input_size - 2 - dict_size;
+    size_t encoded_size = in_size - 2 - dict_size;
     esp_err_t ret = ESP_OK;
 
     // Special case: when the block is single color, the dictionary may contain only one symbol and the data length is 0
@@ -658,7 +691,7 @@ esp_err_t eaf_decode_huffman(const uint8_t *input_data, size_t input_size,
         size_t dict_pos = 1; // dict_bytes[0] is padding
         int symbol_count = 0;
         uint8_t single_symbol = 0;
-        const uint8_t *dict_bytes = input_data + 2;
+        const uint8_t *dict_bytes = in_data + 2;
 
         while (dict_pos < dict_size) {
             uint8_t byte_val = dict_bytes[dict_pos++];
@@ -676,24 +709,24 @@ esp_err_t eaf_decode_huffman(const uint8_t *input_data, size_t input_size,
         }
 
         if (symbol_count == 1) {
-            memset(output_buffer, single_symbol, decoded_size);
+            memset(out_data, single_symbol, out_len);
         }
     } else {
-        ret = eaf_huffman_decode_data(input_data + 2 + dict_size, encoded_size,
-                                      input_data + 2, dict_size,
-                                      output_buffer, &decoded_size);
+        ret = huffman_decode_data(in_data + 2 + dict_size, encoded_size,
+                                  in_data + 2, dict_size,
+                                  out_data, &out_len);
     }
 
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Huffman decoding failed: %d", ret);
+        GFX_LOGE(TAG, "Huffman decoding failed: %d", ret);
         return ESP_FAIL;
     }
 
-    if (decoded_size > *out_size) {
-        ESP_LOGE(TAG, "Decoded data too large: %d > %d", decoded_size, *out_size);
+    if (out_len > *out_size) {
+        GFX_LOGE(TAG, "Decoded data too large: %zu > %zu", out_len, *out_size);
         return ESP_FAIL;
     }
-    *out_size = decoded_size;
+    *out_size = out_len;
 
     return ESP_OK;
 }
@@ -702,23 +735,23 @@ esp_err_t eaf_decode_huffman(const uint8_t *input_data, size_t input_size,
  *  FORMAT FUNCTIONS
  **********************/
 
-esp_err_t eaf_init(const uint8_t *data, size_t data_len, eaf_format_handle_t *ret_parser)
+esp_err_t eaf_dec_init(const uint8_t *data, size_t data_len, eaf_dec_handle_t *ret_parser)
 {
     static bool decoders_initialized = false;
 
     if (!decoders_initialized) {
-        esp_err_t ret = eaf_init_decoders();
+        esp_err_t ret = init_decoders();
         if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Decoder init failed");
+            GFX_LOGE(TAG, "Decoder init failed");
             return ret;
         }
         decoders_initialized = true;
     }
 
     esp_err_t ret = ESP_OK;
-    eaf_frame_entry_t *entries = NULL;
+    eaf_dec_frame_entry_t *entries = NULL;
 
-    eaf_format_ctx_t *parser = (eaf_format_ctx_t *)calloc(1, sizeof(eaf_format_ctx_t));
+    eaf_dec_ctx_t *parser = (eaf_dec_ctx_t *)calloc(1, sizeof(eaf_dec_ctx_t));
     ESP_GOTO_ON_FALSE(parser, ESP_ERR_NO_MEM, err, TAG, "no mem for parser handle");
 
     ESP_GOTO_ON_FALSE(data[EAF_FORMAT_OFFSET] == EAF_FORMAT_MAGIC, ESP_ERR_INVALID_CRC, err, TAG, "bad file format magic");
@@ -731,15 +764,15 @@ esp_err_t eaf_init(const uint8_t *data, size_t data_len, eaf_format_handle_t *re
     uint32_t stored_chk = *(uint32_t *)(data + EAF_CHECKSUM_OFFSET);
     uint32_t stored_len = *(uint32_t *)(data + EAF_TABLE_LEN);
 
-    uint32_t calculated_chk = eaf_calculate_checksum((uint8_t *)(data + EAF_TABLE_OFFSET), stored_len);
+    uint32_t calculated_chk = dec_calculate_checksum((uint8_t *)(data + EAF_TABLE_OFFSET), stored_len);
     ESP_GOTO_ON_FALSE(calculated_chk == stored_chk, ESP_ERR_INVALID_CRC, err, TAG, "bad full checksum");
 
-    entries = (eaf_frame_entry_t *)malloc(sizeof(eaf_frame_entry_t) * total_frames);
+    entries = (eaf_dec_frame_entry_t *)malloc(sizeof(eaf_dec_frame_entry_t) * total_frames);
 
-    eaf_frame_table_entry_t *table = (eaf_frame_table_entry_t *)(data + EAF_TABLE_OFFSET);
+    eaf_dec_frame_table_entry_t *table = (eaf_dec_frame_table_entry_t *)(data + EAF_TABLE_OFFSET);
     for (int i = 0; i < total_frames; i++) {
         (entries + i)->table = (table + i);
-        (entries + i)->frame_mem = (void *)(data + EAF_TABLE_OFFSET + total_frames * sizeof(eaf_frame_table_entry_t) + table[i].frame_offset);
+        (entries + i)->frame_mem = (void *)(data + EAF_TABLE_OFFSET + total_frames * sizeof(eaf_dec_frame_table_entry_t) + table[i].frame_offset);
 
         uint16_t *magic_ptr = (uint16_t *)(entries + i)->frame_mem;
         ESP_GOTO_ON_FALSE(*magic_ptr == EAF_MAGIC_HEAD, ESP_ERR_INVALID_CRC, err, TAG, "bad file magic header");
@@ -748,7 +781,7 @@ esp_err_t eaf_init(const uint8_t *data, size_t data_len, eaf_format_handle_t *re
     parser->entries = entries;
     parser->total_frames = total_frames;
 
-    *ret_parser = (eaf_format_handle_t)parser;
+    *ret_parser = (eaf_dec_handle_t)parser;
 
     return ESP_OK;
 
@@ -764,13 +797,13 @@ err:
     return ret;
 }
 
-esp_err_t eaf_deinit(eaf_format_handle_t handle)
+esp_err_t eaf_dec_deinit(eaf_dec_handle_t handle)
 {
     if (handle == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    eaf_format_ctx_t *parser = (eaf_format_ctx_t *)(handle);
+    eaf_dec_ctx_t *parser = (eaf_dec_ctx_t *)(handle);
     if (parser) {
         if (parser->entries) {
             free(parser->entries);
@@ -780,127 +813,127 @@ esp_err_t eaf_deinit(eaf_format_handle_t handle)
     return ESP_OK;
 }
 
-int eaf_get_total_frames(eaf_format_handle_t handle)
+int eaf_dec_get_total_frames(eaf_dec_handle_t handle)
 {
     if (handle == NULL) {
-        ESP_LOGE(TAG, "Handle is invalid");
+        GFX_LOGE(TAG, "Handle is invalid");
         return -1;
     }
 
-    eaf_format_ctx_t *parser = (eaf_format_ctx_t *)(handle);
+    eaf_dec_ctx_t *parser = (eaf_dec_ctx_t *)(handle);
     return parser->total_frames;
 }
 
-const uint8_t *eaf_get_frame_data(eaf_format_handle_t handle, int index)
+const uint8_t *eaf_dec_get_frame_data(eaf_dec_handle_t handle, int index)
 {
     if (handle == NULL) {
-        ESP_LOGE(TAG, "Handle is invalid");
+        GFX_LOGE(TAG, "Handle is invalid");
         return NULL;
     }
 
-    eaf_format_ctx_t *parser = (eaf_format_ctx_t *)(handle);
+    eaf_dec_ctx_t *parser = (eaf_dec_ctx_t *)(handle);
 
     if (parser->total_frames > index) {
         return (const uint8_t *)((parser->entries + index)->frame_mem + EAF_MAGIC_LEN);
     } else {
-        ESP_LOGE(TAG, "Invalid index: %d. Maximum index is %d.", index, parser->total_frames);
+        GFX_LOGE(TAG, "Invalid index: %d. Maximum index is %d.", index, parser->total_frames);
         return NULL;
     }
 }
 
-int eaf_get_frame_size(eaf_format_handle_t handle, int index)
+int eaf_dec_get_frame_size(eaf_dec_handle_t handle, int index)
 {
     if (handle == NULL) {
-        ESP_LOGE(TAG, "Handle is invalid");
+        GFX_LOGE(TAG, "Handle is invalid");
         return -1;
     }
 
-    eaf_format_ctx_t *parser = (eaf_format_ctx_t *)(handle);
+    eaf_dec_ctx_t *parser = (eaf_dec_ctx_t *)(handle);
 
     if (parser->total_frames > index) {
         return ((parser->entries + index)->table->frame_size - EAF_MAGIC_LEN);
     } else {
-        ESP_LOGE(TAG, "Invalid index: %d. Maximum index is %d.", index, parser->total_frames);
+        GFX_LOGE(TAG, "Invalid index: %d. Maximum index is %d.", index, parser->total_frames);
         return -1;
     }
 }
 
-esp_err_t eaf_frame_decode(eaf_format_handle_t handle, int frame_index,
-                           uint8_t *frame_buffer, size_t frame_buffer_size,
-                           bool swap_bytes)
+esp_err_t eaf_dec_decode_frame(eaf_dec_handle_t handle, int frame_index,
+                                  uint8_t *out_data, size_t out_size,
+                                  bool swap_bytes)
 {
-    if (!handle || !frame_buffer) {
+    if (!handle || !out_data) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    const uint8_t *frame_data = eaf_get_frame_data(handle, frame_index);
+    const uint8_t *frame_data = eaf_dec_get_frame_data(handle, frame_index);
     if (!frame_data) {
-        ESP_LOGE(TAG, "Frame %d data unavailable", frame_index);
+        GFX_LOGE(TAG, "Frame %d data unavailable", frame_index);
         return ESP_FAIL;
     }
 
-    eaf_header_t frame_header;
-    eaf_format_type_t format = eaf_get_frame_info(handle, frame_index, &frame_header);
-    if (format != EAF_FORMAT_VALID) {
-        ESP_LOGE(TAG, "Frame %d header parse failed", frame_index);
+    eaf_dec_header_t header;
+    eaf_dec_type_t format = eaf_dec_get_frame_info(handle, frame_index, &header);
+    if (format != EAF_DEC_TYPE_VALID) {
+        GFX_LOGE(TAG, "Frame %d header parse failed", frame_index);
         return ESP_FAIL;
     }
 
-    size_t block_height = frame_header.block_height;
-    size_t width = frame_header.width;
-    size_t height = frame_header.height;
-    uint8_t bit_depth = frame_header.bit_depth;
+    size_t block_height = header.block_height;
+    size_t width = header.width;
+    size_t height = header.height;
+    uint8_t bit_depth = header.bit_depth;
 
     size_t block_size = width * block_height;
-    block_size = (bit_depth == 24) ? block_size * 2 : block_size;
+    block_size = (bit_depth == EAF_COLOR_DEPTH_24BIT) ? block_size * 2 : block_size;
 
-    uint32_t *offsets = (uint32_t *)malloc(frame_header.blocks * sizeof(uint32_t));
+    uint32_t *offsets = (uint32_t *)malloc(header.blocks * sizeof(uint32_t));
     if (offsets == NULL) {
-        ESP_LOGE(TAG, "No mem for block offsets");
-        eaf_free_header(&frame_header);
+        GFX_LOGE(TAG, "No mem for block offsets");
+        eaf_dec_free_header(&header);
         return ESP_ERR_NO_MEM;
     }
-    eaf_calculate_offsets(&frame_header, offsets);
+    eaf_dec_calculate_offsets(&header, offsets);
 
-    uint8_t *compressed_buffer = malloc(block_size);
-    if (!compressed_buffer) {
-        ESP_LOGE(TAG, "No mem for compressed buffer");
+    uint8_t *tmp_data = malloc(block_size);
+    if (!tmp_data) {
+        GFX_LOGE(TAG, "No mem for block buffer");
         free(offsets);
-        eaf_free_header(&frame_header);
+        eaf_dec_free_header(&header);
         return ESP_ERR_NO_MEM;
     }
 
     uint32_t palette_cache[256];
     memset(palette_cache, 0xFF, sizeof(palette_cache));
 
-    for (int block = 0; block < frame_header.blocks; block++) {
+    for (int block = 0; block < header.blocks; block++) {
         const uint8_t *block_data = frame_data + offsets[block];
-        int block_len = frame_header.block_len[block];
-        esp_err_t ret = eaf_decode_block(&frame_header, block_data, block_len, compressed_buffer, swap_bytes);
+        int block_len = header.block_len[block];
+        esp_err_t ret = eaf_dec_decode_block(&header, block_data, block_len, tmp_data, swap_bytes);
 
         if (ret != ESP_OK) {
-            ESP_LOGD(TAG, "Block %d decode failed", block);
+            GFX_LOGD(TAG, "Block %d decode failed", block);
             continue;
         }
 
-        uint16_t *block_buffer = (uint16_t *)frame_buffer + (block * block_height * width);
+        uint16_t *block_buffer = (uint16_t *)out_data + (block * block_height * width);
 
         size_t valid_size;
         if ((block + 1) * block_height > height) {
             valid_size = (height - block * block_height) * width;
-            valid_size = (bit_depth == 24) ? valid_size * 2 : valid_size;
+            valid_size = (bit_depth == EAF_COLOR_DEPTH_24BIT) ? valid_size * 2 : valid_size;
         } else {
             valid_size = block_size;
         }
 
-        if (bit_depth == 8) {
+        if (bit_depth == EAF_COLOR_DEPTH_8BIT) {
             for (size_t i = 0; i < valid_size; i++) {
-                uint8_t index = compressed_buffer[i];
+                uint8_t index = tmp_data[i];
                 uint16_t color;
 
                 if (palette_cache[index] == 0xFFFFFFFF) {
                     gfx_color_t eaf_color;
-                    eaf_palette_get_color(&frame_header, index, swap_bytes, &eaf_color);
+                    eaf_dec_get_palette_color(&header, index, swap_bytes, &eaf_color);
                     palette_cache[index] = eaf_color.full;
                     color = eaf_color.full;
                 } else {
@@ -908,16 +941,16 @@ esp_err_t eaf_frame_decode(eaf_format_handle_t handle, int frame_index,
                 }
                 block_buffer[i] = color;
             }
-        } else if (bit_depth == 4) {
-            ESP_LOGW(TAG, "4-bit depth not supported");
-        } else if (bit_depth == 24) {
-            memcpy(block_buffer, compressed_buffer, valid_size);
+        } else if (bit_depth == EAF_COLOR_DEPTH_4BIT) {
+            GFX_LOGW(TAG, "%d-bit depth not supported", EAF_COLOR_DEPTH_4BIT);
+        } else if (bit_depth == EAF_COLOR_DEPTH_24BIT) {
+            memcpy(block_buffer, tmp_data, valid_size);
         }
     }
 
-    free(compressed_buffer);
+    free(tmp_data);
     free(offsets);
-    eaf_free_header(&frame_header);
+    eaf_dec_free_header(&header);
 
     return ESP_OK;
 }

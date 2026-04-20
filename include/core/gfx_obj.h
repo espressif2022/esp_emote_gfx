@@ -8,9 +8,7 @@
 
 #include "esp_err.h"
 #include "gfx_types.h"
-#include "gfx_core.h"
 #include "core/gfx_disp.h"
-#include "core/gfx_touch.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,6 +24,14 @@ extern "C" {
 #define GFX_OBJ_TYPE_LABEL       0x02
 #define GFX_OBJ_TYPE_ANIMATION   0x03
 #define GFX_OBJ_TYPE_QRCODE      0x04
+#define GFX_OBJ_TYPE_BUTTON      0x05
+#define GFX_OBJ_TYPE_MESH_IMAGE  0x06
+#define GFX_OBJ_TYPE_LIST        0x07
+#define GFX_OBJ_TYPE_FACE_EMOTE  0x08
+/* 0x09 reserved for removed dragon emote */
+#define GFX_OBJ_TYPE_LOBSTER_EMOTE 0x0A
+/* 0x0B reserved for removed lobster face emote */
+#define GFX_OBJ_TYPE_STICKMAN_EMOTE 0x0C
 
 /* Alignment constants (similar to LVGL) */
 #define GFX_ALIGN_DEFAULT         0x00
@@ -57,6 +63,7 @@ extern "C" {
 
 /* Opaque object type - actual definition in gfx_obj_priv.h */
 typedef struct gfx_obj gfx_obj_t;
+typedef struct gfx_touch_event gfx_touch_event_t;
 
 /**
  * @brief Application-level touch callback (register with gfx_obj_set_touch_cb)
@@ -67,12 +74,8 @@ typedef struct gfx_obj gfx_obj_t;
 typedef void (*gfx_obj_touch_cb_t)(gfx_obj_t *obj, const gfx_touch_event_t *event, void *user_data);
 
 /**********************
- * GLOBAL PROTOTYPES
+ *   PUBLIC API
  **********************/
-
-/*=====================
- * Object setter functions
- *====================*/
 
 /**
  * @brief Set the position of an object
@@ -100,6 +103,17 @@ esp_err_t gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h);
 esp_err_t gfx_obj_align(gfx_obj_t *obj, uint8_t align, gfx_coord_t x_ofs, gfx_coord_t y_ofs);
 
 /**
+ * @brief Align an object relative to another object
+ * @param obj Pointer to the object to align
+ * @param base Reference object; NULL means align to the display
+ * @param align Alignment type (see GFX_ALIGN_* constants)
+ * @param x_ofs X offset from the alignment position
+ * @param y_ofs Y offset from the alignment position
+ * @return ESP_OK on success
+ */
+esp_err_t gfx_obj_align_to(gfx_obj_t *obj, gfx_obj_t *base, uint8_t align, gfx_coord_t x_ofs, gfx_coord_t y_ofs);
+
+/**
  * @brief Set object visibility
  * @param obj Object to set visibility for
  * @param visible True to make object visible, false to hide
@@ -121,9 +135,7 @@ bool gfx_obj_get_visible(gfx_obj_t *obj);
  */
 void gfx_obj_update_layout(gfx_obj_t *obj);
 
-/*=====================
- * Object getter functions
- *====================*/
+/* Object getters */
 
 /**
  * @brief Get the position of an object
@@ -141,9 +153,7 @@ esp_err_t gfx_obj_get_pos(gfx_obj_t *obj, gfx_coord_t *x, gfx_coord_t *y);
  */
 esp_err_t gfx_obj_get_size(gfx_obj_t *obj, uint16_t *w, uint16_t *h);
 
-/*=====================
- * Object management functions
- *====================*/
+/* Object management */
 
 /**
  * @brief Delete an object
@@ -163,6 +173,27 @@ esp_err_t gfx_obj_delete(gfx_obj_t *obj);
  * @return ESP_OK on success
  */
 esp_err_t gfx_obj_set_touch_cb(gfx_obj_t *obj, gfx_obj_touch_cb_t cb, void *user_data);
+
+/**
+ * @brief Get object creation sequence id (monotonic per process lifetime)
+ * @param obj Object pointer
+ * @return uint32_t Sequence id, 0 if obj is NULL
+ */
+uint32_t gfx_obj_get_trace_id(gfx_obj_t *obj);
+
+/**
+ * @brief Get object class name (from registered widget class metadata)
+ * @param obj Object pointer
+ * @return const char* Class name string, or NULL
+ */
+const char *gfx_obj_get_class_name(gfx_obj_t *obj);
+
+/**
+ * @brief Get object creation tag (creation-site annotation)
+ * @param obj Object pointer
+ * @return const char* Creation tag string, or NULL
+ */
+const char *gfx_obj_get_trace_tag(gfx_obj_t *obj);
 
 #ifdef __cplusplus
 }

@@ -3,6 +3,7 @@
  *
  * SPDX-License-Identifier: CC0-1.0
  */
+#include <inttypes.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -19,6 +20,10 @@
 #include "common.h"
 
 static const char *TAG = "common";
+static test_app_touch_event_cb_t s_test_app_touch_event_cb = NULL;
+static void *s_test_app_touch_event_user_data = NULL;
+static test_app_disp_update_cb_t s_test_app_disp_update_cb = NULL;
+static void *s_test_app_disp_update_user_data = NULL;
 
 /* Shared globals (declared in common.h) */
 gfx_handle_t emote_handle = NULL;
@@ -29,6 +34,22 @@ esp_lcd_panel_io_handle_t io_handle = NULL;
 esp_lcd_panel_handle_t panel_handle = NULL;
 
 static esp_lcd_touch_handle_t touch_handle = NULL;   // LCD touch handle
+
+static void test_app_configure_gfx_log_levels(void)
+{
+    gfx_log_set_level_all(GFX_LOG_LEVEL_INFO);
+
+    gfx_log_set_level(GFX_LOG_MODULE_DRAW_LABEL, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_LABEL, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_LABEL_OBJ, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_FONT_FT, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_FONT_LV, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_ANIM, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_IMG, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_QRCODE, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_BUTTON, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_INFO);
+}
 
 #if CONFIG_IDF_TARGET_ESP32S3
 static bool flush_io_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
@@ -57,8 +78,21 @@ static void disp_flush_callback(gfx_disp_t *disp, int x1, int y1, int x2, int y2
     esp_lcd_panel_draw_bitmap(panel, x1, y1, x2, y2, data);
 }
 
+static void disp_update_callback(gfx_disp_t *disp, gfx_disp_event_t event, const void *obj)
+{
+    if (s_test_app_disp_update_cb != NULL) {
+        s_test_app_disp_update_cb(disp, event, obj, s_test_app_disp_update_user_data);
+    }
+}
+
 static void touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t *event, void *user_data)
 {
+    (void)user_data;
+
+    if (s_test_app_touch_event_cb != NULL) {
+        s_test_app_touch_event_cb(touch, event, s_test_app_touch_event_user_data);
+    }
+
     switch (event->type) {
     case GFX_TOUCH_EVENT_PRESS:
         ESP_LOGI(TAG, "touch press  : %p, (%d, %d)", touch, event->x, event->y);
@@ -69,6 +103,75 @@ static void touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t *event, v
     default:
         break;
     }
+}
+
+void test_app_set_touch_event_cb(test_app_touch_event_cb_t cb, void *user_data)
+{
+    s_test_app_touch_event_cb = cb;
+    s_test_app_touch_event_user_data = user_data;
+}
+
+void test_app_set_disp_update_cb(test_app_disp_update_cb_t cb, void *user_data)
+{
+    s_test_app_disp_update_cb = cb;
+    s_test_app_disp_update_user_data = user_data;
+}
+
+esp_err_t test_app_runtime_open(test_app_runtime_t *runtime, const char *partition_label)
+{
+    ESP_RETURN_ON_FALSE(runtime != NULL, ESP_ERR_INVALID_ARG, TAG, "runtime is NULL");
+    ESP_RETURN_ON_FALSE(partition_label != NULL && partition_label[0] != '\0', ESP_ERR_INVALID_ARG, TAG,
+                        "partition_label is NULL or empty");
+
+    runtime->assets_handle = NULL;
+    test_app_configure_gfx_log_levels();
+    test_app_set_touch_event_cb(NULL, NULL);
+    test_app_set_disp_update_cb(NULL, NULL);
+    return display_and_graphics_init(partition_label, MMAP_ASSETS_TEST_FILES, MMAP_ASSETS_TEST_CHECKSUM, &runtime->assets_handle);
+}
+
+void test_app_runtime_close(test_app_runtime_t *runtime)
+{
+    if (runtime == NULL) {
+        return;
+    }
+
+    display_and_graphics_clean(runtime->assets_handle);
+    runtime->assets_handle = NULL;
+    test_app_set_touch_event_cb(NULL, NULL);
+    test_app_set_disp_update_cb(NULL, NULL);
+}
+
+esp_err_t test_app_lock(void)
+{
+    return gfx_emote_lock(emote_handle);
+}
+
+void test_app_unlock(void)
+{
+    gfx_emote_unlock(emote_handle);
+}
+
+void test_app_wait_ms(uint32_t delay_ms)
+{
+    vTaskDelay(pdMS_TO_TICKS(delay_ms));
+}
+
+void test_app_wait_for_observe(uint32_t delay_ms)
+{
+    if (delay_ms > 0) {
+        test_app_wait_ms(delay_ms);
+    }
+}
+
+void test_app_log_case(const char *tag, const char *case_name)
+{
+    ESP_LOGI(tag, "=== %s ===", case_name ? case_name : "case");
+}
+
+void test_app_log_step(const char *tag, const char *step_name)
+{
+    ESP_LOGI(tag, "--- %s ---", step_name ? step_name : "step");
 }
 
 void clock_tm_callback(void *user_data)
@@ -159,7 +262,7 @@ esp_err_t display_and_graphics_init(const char *partition_label, uint32_t max_fi
         .h_res = BSP_LCD_H_RES,
         .v_res = BSP_LCD_V_RES,
         .flush_cb = disp_flush_callback,
-        .update_cb = NULL,
+        .update_cb = disp_update_callback,
         .user_data = (void *)panel_handle,
 #if CONFIG_IDF_TARGET_ESP32S3
         .flags = { .swap = true, .buff_dma = true, .buff_spiram = false, .double_buffer = true },
