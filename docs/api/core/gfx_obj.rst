@@ -54,6 +54,27 @@ Align an object relative to the screen or another object
 * ``x_ofs`` - X offset from the alignment position
 * ``y_ofs`` - Y offset from the alignment position
 
+gfx_obj_align_to()
+~~~~~~~~~~~~~~~~~~
+
+Align an object relative to another object
+
+.. code-block:: c
+
+   esp_err_t gfx_obj_align_to(gfx_obj_t *obj, gfx_obj_t *base, uint8_t align, gfx_coord_t x_ofs, gfx_coord_t y_ofs);
+
+**Parameters:**
+
+* ``obj`` - Pointer to the object to align
+* ``base`` - Reference object; NULL means align to the display
+* ``align`` - Alignment type (see GFX_ALIGN_* constants)
+* ``x_ofs`` - X offset from the alignment position
+* ``y_ofs`` - Y offset from the alignment position
+
+**Returns:**
+
+* ESP_OK on success
+
 gfx_obj_set_visible()
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -163,3 +184,20 @@ Register application touch callback for an object
 **Returns:**
 
 * ESP_OK on success
+
+gfx_obj_get_trace_id()
+~~~~~~~~~~~~~~~~~~~~~~
+
+Get object creation sequence id (monotonic per process lifetime)
+
+.. code-block:: c
+
+   uint32_t gfx_obj_get_trace_id(gfx_obj_t *obj);
+
+**Parameters:**
+
+* ``obj`` - Object pointer
+
+**Returns:**
+
+* uint32_t Sequence id, 0 if obj is NULL

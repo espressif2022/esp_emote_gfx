@@ -11,12 +11,11 @@
     3. 支持结构体、枚举、函数、宏等
 """
 
-import os
 import re
 import argparse
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple
 
 @dataclass
 class DocItem:
@@ -244,6 +243,10 @@ class RstGenerator:
     
     def add_items(self, items: List[DocItem]):
         self.items.extend(items)
+
+    @staticmethod
+    def _underline(text: str, char: str) -> str:
+        return char * max(len(text), 3)
     
     def generate(self) -> str:
         """生成 RST 内容"""
@@ -251,7 +254,7 @@ class RstGenerator:
         
         # 标题
         lines.append(self.title)
-        lines.append('=' * len(self.title))
+        lines.append(self._underline(self.title, '='))
         lines.append('')
         
         # 按类型分组
@@ -264,7 +267,7 @@ class RstGenerator:
         # 类型定义
         if typedefs or enums or structs:
             lines.append('Types')
-            lines.append('-----')
+            lines.append(self._underline('Types', '-'))
             lines.append('')
             
             for item in typedefs:
@@ -279,7 +282,7 @@ class RstGenerator:
         # 宏
         if macros:
             lines.append('Macros')
-            lines.append('------')
+            lines.append(self._underline('Macros', '-'))
             lines.append('')
             
             for item in macros:
@@ -288,7 +291,7 @@ class RstGenerator:
         # 函数
         if functions:
             lines.append('Functions')
-            lines.append('---------')
+            lines.append(self._underline('Functions', '-'))
             lines.append('')
             
             for item in functions:
@@ -371,18 +374,19 @@ class RstGenerator:
         return lines
 
 
-# 定义要处理的头文件映射
-HEADER_MAPPING = {
-    'include/core/gfx_core.h': ('api/core/gfx_core.rst', 'Core System (gfx_core)'),
-    'include/core/gfx_types.h': ('api/core/gfx_types.rst', 'Type (gfx_types)'),
-    'include/core/gfx_disp.h': ('api/core/gfx_disp.rst', 'Display (gfx_disp)'),
-    'include/core/gfx_touch.h': ('api/core/gfx_touch.rst', 'Touch (gfx_touch)'),
-    'include/core/gfx_obj.h': ('api/core/gfx_obj.rst', 'Object (gfx_obj)'),
-    'include/core/gfx_timer.h': ('api/core/gfx_timer.rst', 'Timer (gfx_timer)'),
-    'include/widget/gfx_img.h': ('api/widgets/gfx_img.rst', 'Image (gfx_img)'),
-    'include/widget/gfx_label.h': ('api/widgets/gfx_label.rst', 'Label (gfx_label)'),
-    'include/widget/gfx_anim.h': ('api/widgets/gfx_anim.rst', 'Animation (gfx_anim)'),
-    'include/widget/gfx_qrcode.h': ('api/widgets/gfx_qrcode.rst', 'QR Code (gfx_qrcode)'),
+TITLE_OVERRIDES = {
+    'gfx_core': 'Core System',
+    'gfx_types': 'Types',
+    'gfx_disp': 'Display',
+    'gfx_touch': 'Touch',
+    'gfx_obj': 'Object',
+    'gfx_timer': 'Timer',
+    'gfx_img': 'Image',
+    'gfx_label': 'Label',
+    'gfx_anim': 'Animation',
+    'gfx_qrcode': 'QR Code',
+    'gfx_button': 'Button',
+    'gfx_font_lvgl': 'LVGL Font Compatibility',
 }
 
 # 各 API 子目录的 index 配置：(子目录名, 页面标题, 引言段落, “模块列表”小节标题)
@@ -400,6 +404,42 @@ INDEX_CONFIG = [
         'Widget Modules',
     ),
 ]
+
+
+def stem_to_display_name(stem: str) -> str:
+    """Convert `gfx_button` to `Button` as a fallback title."""
+    name = stem
+    if name.startswith('gfx_'):
+        name = name[4:]
+    return name.replace('_', ' ').title()
+
+
+def title_for_header(stem: str) -> str:
+    if stem in TITLE_OVERRIDES:
+        return f"{TITLE_OVERRIDES[stem]} ({stem})"
+    fallback = stem_to_display_name(stem)
+    return f"{fallback} ({stem})"
+
+
+def discover_header_mapping(repo_root: Path) -> List[Tuple[str, str, str]]:
+    mapping: List[Tuple[str, str, str]] = []
+    search_roots = [
+        ('include/core', 'api/core'),
+        ('include/widget', 'api/widgets'),
+    ]
+
+    for header_dir, rst_dir in search_roots:
+        full_dir = repo_root / header_dir
+        if not full_dir.is_dir():
+            continue
+
+        for header_path in sorted(full_dir.glob('*.h')):
+            stem = header_path.stem
+            rel_header = str(Path(header_dir) / header_path.name)
+            rel_rst = str(Path(rst_dir) / f'{stem}.rst')
+            mapping.append((rel_header, rel_rst, title_for_header(stem)))
+
+    return mapping
 
 
 def md_to_rst_line(line: str) -> str:
@@ -448,6 +488,9 @@ def update_index_rst(api_dir: Path, subdir: str, title: str, intro: str, modules
     每个条目的描述取自对应 .rst 文件的第一行（标题行）。
     返回是否写入了文件。
     """
+    def underline(text: str, char: str) -> str:
+        return char * max(len(text), 3)
+
     index_dir = api_dir / subdir
     if not index_dir.is_dir():
         return False
@@ -471,7 +514,7 @@ def update_index_rst(api_dir: Path, subdir: str, title: str, intro: str, modules
 
     lines = [
         title,
-        '=' * len(title),
+        underline(title, '='),
         '',
         intro,
         '',
@@ -481,7 +524,7 @@ def update_index_rst(api_dir: Path, subdir: str, title: str, intro: str, modules
     ]
     for stem in rst_files:
         lines.append(f'   {stem}')
-    lines.extend(['', modules_heading, '-' * len(modules_heading), ''])
+    lines.extend(['', modules_heading, underline(modules_heading, '-'), ''])
     for stem in rst_files:
         desc = descriptions[stem]
         lines.append(f'* :doc:`{stem}` - {desc}')
@@ -493,27 +536,21 @@ def update_index_rst(api_dir: Path, subdir: str, title: str, intro: str, modules
     return True
 
 
-def main():
-    parser = argparse.ArgumentParser(description='从 C 头文件生成 RST 文档')
-    parser.add_argument('--output-dir', '-o', default='docs',
-                       help='输出目录 (默认: docs)')
-    parser.add_argument('--dry-run', '-n', action='store_true',
-                       help='只显示将要生成的文件，不实际写入')
-    parser.add_argument('--header', '-H', 
-                       help='只处理指定的头文件')
-    args = parser.parse_args()
-    
+def run(args) -> int:
     # 确定项目根目录
     script_dir = Path(__file__).parent
     repo_root = script_dir.parent.parent
+
+    if not args.quiet:
+        print("=" * 50)
+        print("  ESP Emote GFX API 文档生成器")
+        print("=" * 50)
+        print()
     
-    print("=" * 50)
-    print("  ESP Emote GFX API 文档生成器")
-    print("=" * 50)
-    print()
-    
+    header_mapping = discover_header_mapping(repo_root)
+
     generated = 0
-    for header_path, (rst_path, title) in HEADER_MAPPING.items():
+    for header_path, rst_path, title in header_mapping:
         if args.header and args.header not in header_path:
             continue
         
@@ -521,11 +558,13 @@ def main():
         full_rst_path = repo_root / args.output_dir / rst_path
         
         if not full_header_path.exists():
-            print(f"⚠ 跳过: {header_path} (文件不存在)")
+            if not args.quiet:
+                print(f"⚠ 跳过: {header_path} (文件不存在)")
             continue
-        
-        print(f"处理: {header_path}")
-        print(f"  → {rst_path}")
+
+        if not args.quiet:
+            print(f"处理: {header_path}")
+            print(f"  → {rst_path}")
         
         # 解析头文件
         parser_obj = HeaderParser(str(full_header_path))
@@ -537,7 +576,8 @@ def main():
             counts[item.kind] = counts.get(item.kind, 0) + 1
         
         count_str = ', '.join(f"{v} {k}" for k, v in counts.items())
-        print(f"  发现: {count_str}")
+        if not args.quiet:
+            print(f"  发现: {count_str}")
         
         # 生成 RST
         generator = RstGenerator(header_path, title)
@@ -545,15 +585,18 @@ def main():
         rst_content = generator.generate()
         
         if args.dry_run:
-            print(f"  [dry-run] 将生成 {len(rst_content)} 字节")
+            if not args.quiet:
+                print(f"  [dry-run] 将生成 {len(rst_content)} 字节")
         else:
             full_rst_path.parent.mkdir(parents=True, exist_ok=True)
             with open(full_rst_path, 'w', encoding='utf-8') as f:
                 f.write(rst_content)
-            print(f"  ✓ 已生成")
+            if not args.quiet:
+                print(f"  ✓ 已生成")
         
         generated += 1
-        print()
+        if not args.quiet:
+            print()
 
     # 根据 api/core 和 api/widgets 下的 .rst 自动更新 index.rst
     api_dir = repo_root / args.output_dir / 'api'
@@ -562,19 +605,40 @@ def main():
             index_dir = api_dir / subdir
             if index_dir.is_dir():
                 if update_index_rst(api_dir, subdir, title, intro, modules_heading):
-                    print(f"更新索引: api/{subdir}/index.rst")
-                print()
+                    if not args.quiet:
+                        print(f"更新索引: api/{subdir}/index.rst")
+                if not args.quiet:
+                    print()
 
     # 从 CHANGELOG.md 生成 docs/changelog.rst
     docs_dir = repo_root / args.output_dir
     if not args.dry_run:
         if generate_changelog_rst(repo_root, docs_dir):
-            print("更新: changelog.rst (来自 CHANGELOG.md)")
-        print()
+            if not args.quiet:
+                print("更新: changelog.rst (来自 CHANGELOG.md)")
+        if not args.quiet:
+            print()
 
-    print("=" * 50)
-    print(f"完成! 共处理 {generated} 个文件")
-    print("=" * 50)
+    if not args.quiet:
+        print("=" * 50)
+        print(f"完成! 共处理 {generated} 个文件")
+        print("=" * 50)
+
+    return generated
+
+
+def main():
+    parser = argparse.ArgumentParser(description='从 C 头文件生成 RST 文档')
+    parser.add_argument('--output-dir', '-o', default='docs',
+                        help='输出目录 (默认: docs)')
+    parser.add_argument('--dry-run', '-n', action='store_true',
+                        help='只显示将要生成的文件，不实际写入')
+    parser.add_argument('--header', '-H',
+                        help='只处理指定的头文件')
+    parser.add_argument('--quiet', '-q', action='store_true',
+                        help='静默模式，仅在失败时输出')
+    args = parser.parse_args()
+    run(args)
 
 
 if __name__ == '__main__':

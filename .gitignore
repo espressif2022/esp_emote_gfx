@@ -105,6 +105,12 @@ sdkconfig.old
 
 # Generated documentation
 docs/_build/
+# Babel/gettext catalogs built by docs/scripts/sync_locale_zh.py
+docs/locale/zh_CN/LC_MESSAGES/
 docs/doxygen_output/
 Doxyfile
 API_REFERENCE.md
+
+# Python cache (docs scripts / locale imports)
+**/__pycache__/
+*.py[cod]

@@ -4,9 +4,9 @@ Overview
 ESP Emote GFX is a lightweight graphics framework for ESP-IDF that provides a simple yet powerful API for rendering graphics on embedded displays. It is designed with memory efficiency and performance in mind, making it ideal for resource-constrained embedded systems.
 
 Architecture
------------
+------------
 
-The framework is built around a core object system where all graphical elements (images, labels, animations, QR codes) are treated as objects. These objects share common properties like position, size, visibility, and alignment.
+The framework is built around a core object system where all graphical elements (images, labels, animations, buttons, QR codes) are treated as objects. These objects share common properties like position, size, visibility, and alignment.
 
 Core Components
 ---------------
@@ -67,6 +67,16 @@ The label widget provides:
 * Text alignment (left, center, right)
 * Long text handling (wrap, scroll, clip)
 * Background colors and opacity
+
+Button Widget
+~~~~~~~~~~~~~
+
+The button widget provides:
+
+* Text label management
+* Normal and pressed background colors
+* Border color and width configuration
+* Font and text alignment control
 
 Animation Widget
 ~~~~~~~~~~~~~~~~
@@ -132,4 +142,3 @@ License
 -------
 
 This project is licensed under the Apache License 2.0.
-

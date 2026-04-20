@@ -3,6 +3,14 @@ Changelog
 
 All notable changes to the ESP Emote GFX component will be documented in this file.
 
+[3.0.3] - 2026-04-20
+--------------------
+-
+
+[3.0.2] - 2026-04-17
+--------------------
+* Update version of esp_new_jpeg
+
 [3.0.1] - 2026-02-13
 --------------------
 * Add CI build action for P4

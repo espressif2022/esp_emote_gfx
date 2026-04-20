@@ -35,39 +35,38 @@ else
     echo "  ✓ Sphinx 已安装"
 fi
 
-# 构建 Sphinx 文档
-echo "[2/4] 构建 Sphinx 文档..."
-make -C docs html 2>&1 | grep -E "(warning|error|Writing|building)" || true
-echo "  ✓ Sphinx 构建完成"
-
-# 运行后处理脚本（Doxygen）
-echo "[3/4] 生成 Doxygen API 文档..."
+# 自动生成 API RST + 构建 Sphinx + 后处理 Doxygen
+echo "[2/4] 自动生成并构建文档..."
 if command -v doxygen >/dev/null 2>&1; then
-    bash docs/scripts/postprocess_docs.sh >/dev/null 2>&1
-    echo "  ✓ Doxygen 文档生成完成"
+    bash docs/scripts/postprocess_docs.sh
+    echo "  ✓ API 文档、Sphinx、Doxygen 全部完成"
 else
+    bash docs/scripts/postprocess_docs.sh --skip-doxygen
+    echo "  ✓ API 文档和 Sphinx 构建完成"
     echo "  ⚠ Doxygen 未安装，跳过 C/C++ API 文档"
     echo "    安装方式: sudo apt-get install doxygen graphviz"
 fi
 
 # 启动本地服务器
-echo "[4/4] 启动本地预览服务器..."
+echo "[3/4] 启动本地预览服务器..."
 echo ""
 echo "=========================================="
 echo "  文档预览地址："
 echo ""
-echo "    http://10.18.20.57:$PORT"
+echo "    http://127.0.0.1:$PORT"
 echo ""
-echo "  主要页面："
-echo "    - 主页:       http://10.18.20.57:$PORT/index.html"
-echo "    - Core API:   http://10.18.20.57:$PORT/api/core/index.html"
-echo "    - Widget API: http://10.18.20.57:$PORT/api/widgets/index.html"
-echo "    - Doxygen:    http://10.18.20.57:$PORT/doxygen/index.html"
+echo "  主要页面（EN / 中文 分目录；顶部可切换语言）："
+echo "    - 语言选择:   http://127.0.0.1:$PORT/index.html"
+echo "    - English:    http://127.0.0.1:$PORT/en/index.html"
+echo "    - 中文:       http://127.0.0.1:$PORT/zh_CN/index.html"
+echo "    - Core API:   http://127.0.0.1:$PORT/en/api/core/index.html"
+echo "    - Widget API: http://127.0.0.1:$PORT/en/api/widgets/index.html"
+echo "    - Doxygen:    http://127.0.0.1:$PORT/doxygen/index.html"
 echo ""
 echo "  按 Ctrl+C 停止服务器"
 echo "=========================================="
 echo ""
 
 cd docs/_build/html
-python3 -m http.server "$PORT" --bind 10.18.20.57
+python3 -m http.server "$PORT" --bind 127.0.0.1
 

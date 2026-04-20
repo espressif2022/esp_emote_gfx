@@ -1,0 +1,11 @@
+{# Extends sphinx_idf_theme: ZH/EN bar + theme CSS (see conf.py html_css_files). #}
+{% extends "!layout.html" %}
+
+{% block extrabody %}
+{{ super() }}
+<div id="gfx-langbar" class="gfx-langbar" role="navigation" aria-label="Language">
+  <a id="gfx-lang-en" class="gfx-lang-btn" href="#">EN</a>
+  <span class="gfx-lang-sep" aria-hidden="true">|</span>
+  <a id="gfx-lang-zh" class="gfx-lang-btn" href="#">中文</a>
+</div>
+{% endblock %}
