@@ -9,10 +9,12 @@
 #include <string.h>
 #include <esp_err.h>
 #include <esp_log.h>
+#define GFX_LOG_MODULE GFX_LOG_MODULE_QRCODE_LIB
+#include "common/gfx_log_priv.h"
 #include "qrcodegen.h"
 #include "qrcode_wrapper.h"
 
-static const char *TAG = "QRCODE_WRAPPER";
+static const char *TAG = "qrcode_lib";
 
 static const char *lt[] = {
     /* 0 */ "  ",
@@ -111,8 +113,8 @@ esp_err_t qrcode_wrapper_generate(qrcode_wrapper_config_t *cfg, const char *text
         break;
     }
 
-    ESP_LOGD(TAG, "Encoding text with ECC LVL %d & QR Code Version %d", ecc_lvl, cfg->max_qrcode_version);
-    ESP_LOGD(TAG, "%s", text);
+    GFX_LOGD(TAG, "Encoding text with ECC LVL %d & QR Code Version %d", ecc_lvl, cfg->max_qrcode_version);
+    GFX_LOGD(TAG, "%s", text);
 
     // Make and print the QR Code symbol
     bool ok = qrcodegen_encodeText(text, tempbuf, qrcode, ecc_lvl,
@@ -122,7 +124,7 @@ esp_err_t qrcode_wrapper_generate(qrcode_wrapper_config_t *cfg, const char *text
         cfg->display_func((qrcode_wrapper_handle_t)qrcode, cfg->user_data);
         err = ESP_OK;
     } else if (!ok) {
-        ESP_LOGE(TAG, "Failed to encode QR Code");
+        GFX_LOGE(TAG, "Failed to encode QR Code");
         err = ESP_FAIL;
     }
 

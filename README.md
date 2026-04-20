@@ -1,7 +1,9 @@
 # ESP Emote GFX
 
 ## Introduction
-A lightweight graphics framework for ESP-IDF with support for images, labels, animations, and fonts.
+A lightweight graphics framework for ESP-IDF with support for images, labels, animations, buttons, QR codes, and fonts. Online documentation is published in **English** and **Simplified Chinese** (switch language from the docs header).
+
+面向 ESP-IDF 的轻量级图形框架，支持图像、标签、动画、按钮、二维码与字体。在线文档提供**英文**与**简体中文**，可在文档页顶切换语言。
 
 [![Component Registry](https://components.espressif.com/components/espressif2022/esp_emote_gfx/badge.svg)](https://components.espressif.com/components/espressif2022/esp_emote_gfx)
 
@@ -9,6 +11,7 @@ A lightweight graphics framework for ESP-IDF with support for images, labels, an
 
 - **Images**: Display images in RGB565A8 format
 - **Animations**: GIF animations with [ESP32 tools](https://esp32-gif.espressif.com/)
+- **Buttons**: Interactive button widgets with text and state styling
 - **Fonts**: LVGL fonts and FreeType TTF/OTF support
 - **QR Codes**: Dynamic QR code generation and display
 - **Timers**: Built-in timing system for smooth animations
@@ -31,7 +34,7 @@ A lightweight graphics framework for ESP-IDF with support for images, labels, an
 - Widgets are created on a display (`gfx_label_create(disp)`, etc.).
 - When modifying widgets from another task, use `gfx_emote_lock()` / `gfx_emote_unlock()`.
 
-For step-by-step setup and code examples, see the [Quick Start Guide](https://espressif2022.github.io/esp_emote_gfx/quickstart.html) in the docs.
+For step-by-step setup and code examples, see the [Quick Start Guide](https://espressif2022.github.io/esp_emote_gfx/en/quickstart.html) in the docs (Chinese: [快速入门](https://espressif2022.github.io/esp_emote_gfx/zh_CN/quickstart.html)).
 
 ## Examples
 
@@ -40,7 +43,7 @@ The documentation includes:
 - Advanced examples (Multiple Widgets, Text Scrolling, FreeType Font Usage, Timer-Based Updates, QR Code Generation, Thread-Safe Operations)
 - Complete application examples
 
-See the [documentation](https://espressif2022.github.io/esp_emote_gfx/examples.html) for runnable examples and full API reference.
+See the [documentation](https://espressif2022.github.io/esp_emote_gfx/en/examples.html) for runnable examples and full API reference.
 
 ### Running Test Applications
 
@@ -81,14 +84,26 @@ The main API is exposed through the `gfx.h` header file, which includes:
 
 - `core/gfx_types.h` - Type definitions and constants
 - `core/gfx_core.h` - Core graphics functions
+- `core/gfx_disp.h` - Display setup and flush
+- `core/gfx_log.h` - Log level configuration
 - `core/gfx_timer.h` - Timer and timing utilities
+- `core/gfx_touch.h` - Touch input
 - `core/gfx_obj.h` - Graphics object system
 - `widget/gfx_img.h` - Image widget functionality
 - `widget/gfx_label.h` - Label widget functionality
 - `widget/gfx_anim.h` - Animation framework
+- `widget/gfx_button.h` - Button widget functionality
 - `widget/gfx_qrcode.h` - QR Code widget functionality
+- `widget/gfx_font_lvgl.h` - LVGL font compatibility
 
-For the full API reference of these modules, see the [documentation](https://espressif2022.github.io/esp_emote_gfx/).
+For the full API reference, see the English [documentation index](https://espressif2022.github.io/esp_emote_gfx/en/index.html) or [简体中文首页](https://espressif2022.github.io/esp_emote_gfx/zh_CN/index.html).
+
+To build the docs locally:
+
+```bash
+./docs/preview.sh
+# then open http://127.0.0.1:8090/  (or run: bash docs/scripts/postprocess_docs.sh)
+```
 
 ## License
 

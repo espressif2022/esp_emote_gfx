@@ -45,27 +45,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y doxygen graphviz
 
-      - name: Build documentation (Sphinx)
+      - name: Generate API docs, gettext, Sphinx (en + zh_CN), Doxygen
         shell: bash
         run: |
-          set -e
-          if [ -f docs/Makefile ]; then
-            make -C docs html
-          elif python -c "import sphinx" 2>/dev/null; then
-            sphinx-build -b html docs docs/_build/html
-          else
-            echo "Sphinx not available; skipping."
-          fi
+          bash docs/scripts/postprocess_docs.sh
 
       - name: Ensure .nojekyll
         run: |
           mkdir -p docs/_build/html
           touch docs/_build/html/.nojekyll
-
-      - name: Generate API docs & finalize site
-        shell: bash
-        run: |
-          bash docs/scripts/postprocess_docs.sh
 
       - name: Show documentation tree
         shell: bash

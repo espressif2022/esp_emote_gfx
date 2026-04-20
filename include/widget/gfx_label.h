@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stddef.h>
 #include "sdkconfig.h"
 #include "core/gfx_obj.h"
 
@@ -19,14 +20,6 @@ extern "C" {
 
 /* Font handle type - hides internal FreeType implementation */
 typedef void *gfx_font_t;
-
-/* Label configuration structure */
-typedef struct {
-    const char *name;       /**< The name of the font file */
-    const void *mem;        /**< The pointer to the font file */
-    size_t mem_size;        /**< The size of the memory */
-    uint16_t font_size;     /**< The size of the font */
-} gfx_label_cfg_t;
 
 /**********************
  *      TYPEDEFS
@@ -52,13 +45,16 @@ typedef enum {
     GFX_LABEL_LONG_SCROLL_SNAP,  /**< Jump to next section after interval (horizontal paging) */
 } gfx_label_long_mode_t;
 
-/**********************
- * GLOBAL PROTOTYPES
- **********************/
+typedef struct {
+    const char *name;       /**< The name of the font file */
+    const void *mem;        /**< The pointer to the font file */
+    size_t mem_size;        /**< The size of the memory */
+    uint16_t font_size;     /**< The size of the font */
+} gfx_label_cfg_t;
 
-/*=====================
- * Label object creation
- *====================*/
+/**********************
+ *   PUBLIC API
+ **********************/
 
 /**
  * @brief Create a label object on a display
@@ -68,6 +64,8 @@ typedef enum {
 gfx_obj_t *gfx_label_create(gfx_disp_t *disp);
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
+/* Font management */
+
 /**
  * @brief Create a new font
  * @param cfg Font configuration
@@ -84,9 +82,7 @@ esp_err_t gfx_label_new_font(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font);
 esp_err_t gfx_label_delete_font(gfx_font_t font);
 #endif
 
-/*=====================
- * Label setter functions
- *====================*/
+/* Label setters */
 
 /**
  * @brief Set the text for a label object

@@ -3,6 +3,17 @@ Changelog
 
 All notable changes to the ESP Emote GFX component will be documented in this file.
 
+[3.0.3] - 2026-04-20
+--------------------
+* Add `gfx_button` widget (text, font, normal/pressed colors, border)
+* Add `gfx_log` API for log level configuration
+* Documentation: separate English and Simplified Chinese HTML builds (gettext), language switcher, unified `postprocess_docs.sh` pipeline (API RST, Sphinx, Doxygen)
+* Simplify GitHub Actions documentation job to a single build step
+
+[3.0.2] - 2026-04-17
+--------------------
+* Update version of esp_new_jpeg
+
 [3.0.1] - 2026-02-13
 --------------------
 * Add CI build action for P4

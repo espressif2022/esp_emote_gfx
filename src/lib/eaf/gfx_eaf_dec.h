@@ -4,54 +4,29 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/**
- * @file gfx_eaf_dec.h
- * @brief EAF (Emote Animation Format) Decoder
- *
- * This module provides functionality for decoding EAF format files, including:
- * - File format parsing and validation
- * - Frame data extraction and management
- * - Multiple encoding format support (RLE, Huffman, JPEG)
- * - Color palette handling
- */
-
 #pragma once
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+
+#include "sdkconfig.h"
 #include "esp_err.h"
 #include "core/gfx_types.h"
-#include "sdkconfig.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /**********************
- *  FILE FORMAT DEFINITIONS
+ *      DEFINES
  **********************/
 
-/*
- * EAF File Format Structure:
- *
- * Offset  Size    Description
- * 0       1       Magic number (0x89)
- * 1       3       Format string ("EAF")
- * 4       4       Total number of frames
- * 8       4       Checksum of table + data
- * 12      4       Length of table + data
-* 16      N       Frame table (N = total_frames * 8)
-* 16+N    M       Frame data (M = sum of all frame sizes)
- */
-
-/* Magic numbers and identifiers */
 #define EAF_MAGIC_HEAD          0x5A5A
 #define EAF_MAGIC_LEN           2
 #define EAF_FORMAT_MAGIC        0x89
 #define EAF_FORMAT_STR          "EAF"
 #define AAF_FORMAT_STR          "AAF"
 
-/* File structure offsets */
 #define EAF_FORMAT_OFFSET       0
 #define EAF_STR_OFFSET          1
 #define EAF_NUM_OFFSET          4
@@ -59,66 +34,48 @@ extern "C" {
 #define EAF_TABLE_LEN           12
 #define EAF_TABLE_OFFSET        16
 
+#define EAF_COLOR_DEPTH_4BIT    4
+#define EAF_COLOR_DEPTH_8BIT    8
+#define EAF_COLOR_DEPTH_24BIT   24
+
 /**********************
- *  INTERNAL STRUCTURES
+ *      TYPEDEFS
  **********************/
 
-/**
- * @brief Frame table entry structure
- */
 #pragma pack(1)
 typedef struct {
     uint32_t frame_size;          /*!< Size of the frame */
     uint32_t frame_offset;        /*!< Offset of the frame */
-} eaf_frame_table_entry_t;
+} eaf_dec_frame_table_entry_t;
 #pragma pack()
 
-/**
- * @brief Frame entry with memory and table information
- */
 typedef struct {
     const char *frame_mem;
-    const eaf_frame_table_entry_t *table;
-} eaf_frame_entry_t;
+    const eaf_dec_frame_table_entry_t *table;
+} eaf_dec_frame_entry_t;
 
-/**
- * @brief EAF format context structure
- */
 typedef struct {
-    eaf_frame_entry_t *entries;
+    eaf_dec_frame_entry_t *entries;
     int total_frames;
-} eaf_format_ctx_t;
+} eaf_dec_ctx_t;
 
-/**********************
- *  PUBLIC TYPES
- **********************/
-
-/**
- * @brief EAF format type enumeration
- */
 typedef enum {
-    EAF_FORMAT_VALID = 0,      /*!< Valid EAF format with split BMP data */
-    EAF_FORMAT_REDIRECT = 1,    /*!< Redirect format pointing to another file */
-    EAF_FORMAT_INVALID = 2,      /*!< Invalid or unsupported format */
-    EAF_FORMAT_FLAG = 3         /*!< Invalid format */
-} eaf_format_type_t;
+    EAF_DEC_TYPE_VALID = 0,      /*!< Valid EAF format with split BMP data */
+    EAF_DEC_TYPE_REDIRECT = 1,    /*!< Redirect format pointing to another file */
+    EAF_DEC_TYPE_INVALID = 2,      /*!< Invalid or unsupported format */
+    EAF_DEC_TYPE_FLAG = 3         /*!< Invalid format */
+} eaf_dec_type_t;
 
-/**
- * @brief EAF encoding type enumeration
- */
 typedef enum {
-    EAF_ENCODING_RLE = 0,           /*!< Run-Length Encoding */
-    EAF_ENCODING_HUFFMAN = 1,       /*!< Huffman encoding with RLE */
-    EAF_ENCODING_JPEG = 2,          /*!< JPEG encoding */
-    EAF_ENCODING_HUFFMAN_DIRECT = 3, /*!< Direct Huffman encoding without RLE */
-    EAF_ENCODING_HEATSHRINK = 4,    /*!< Heatshrink encoding */
-    EAF_ENCODING_RAW = 5,           /*!< Raw (uncompressed) */
-    EAF_ENCODING_MAX                /*!< Maximum number of encoding types */
-} eaf_encoding_type_t;
+    EAF_DEC_ENCODING_RLE = 0,           /*!< Run-Length Encoding */
+    EAF_DEC_ENCODING_HUFFMAN = 1,       /*!< Huffman encoding with RLE */
+    EAF_DEC_ENCODING_JPEG = 2,          /*!< JPEG encoding */
+    EAF_DEC_ENCODING_HUFFMAN_DIRECT = 3, /*!< Direct Huffman encoding without RLE */
+    EAF_DEC_ENCODING_HEATSHRINK = 4,    /*!< Heatshrink encoding */
+    EAF_DEC_ENCODING_RAW = 5,           /*!< Raw (uncompressed) */
+    EAF_DEC_ENCODING_MAX                /*!< Maximum number of encoding types */
+} eaf_dec_encoding_type_t;
 
-/**
- * @brief EAF image header structure
- */
 typedef struct {
     char format[3];        /*!< Format identifier (e.g., "_S") */
     char version[6];       /*!< Version string */
@@ -131,25 +88,22 @@ typedef struct {
     uint16_t data_offset;  /*!< Offset to data segment */
     uint8_t *palette;      /*!< Color palette (dynamically allocated) */
     int num_colors;        /*!< Number of colors in palette */
-} eaf_header_t;
+} eaf_dec_header_t;
 
-/**
- * @brief Huffman tree node structure
- */
-typedef struct eaf_huffman_node {
+typedef struct eaf_dec_huffman_node {
     uint8_t is_leaf;              /*!< Whether this node is a leaf node */
     uint8_t symbol;               /*!< Symbol value for leaf nodes */
-    struct eaf_huffman_node *left;     /*!< Left child node */
-    struct eaf_huffman_node *right;    /*!< Right child node */
-} eaf_huffman_node_t;
+    struct eaf_dec_huffman_node *left;     /*!< Left child node */
+    struct eaf_dec_huffman_node *right;    /*!< Right child node */
+} eaf_dec_huffman_node_t;
 
 /**
  * @brief EAF format parser handle
  */
-typedef void *eaf_format_handle_t;
+typedef void *eaf_dec_handle_t;
 
 /**********************
- *  HEADER OPERATIONS
+ *   PUBLIC API
  **********************/
 
 /**
@@ -158,29 +112,29 @@ typedef void *eaf_format_handle_t;
  * @param frame_index Frame index
  * @return Image format type (VALID, FLAG, or INVALID)
  */
-eaf_format_type_t eaf_probe_frame_info(eaf_format_handle_t handle, int frame_index);
+eaf_dec_type_t eaf_dec_probe_frame_info(eaf_dec_handle_t handle, int frame_index);
 
 /**
  * @brief Parse the header of an EAF file
- * @param file_data Pointer to the image file data
- * @param file_size Size of the image file data
+ * @param handle Parser handle
+ * @param frame_index Frame index
  * @param header Pointer to store the parsed header information
  * @return Image format type (VALID, REDIRECT, or INVALID)
  */
-eaf_format_type_t eaf_get_frame_info(eaf_format_handle_t handle, int frame_index, eaf_header_t *frame_info);
+eaf_dec_type_t eaf_dec_get_frame_info(eaf_dec_handle_t handle, int frame_index, eaf_dec_header_t *header);
 
 /**
  * @brief Free resources allocated for EAF header
  * @param header Pointer to the header structure
  */
-void eaf_free_header(eaf_header_t *header);
+void eaf_dec_free_header(eaf_dec_header_t *header);
 
 /**
  * @brief Calculate block offsets from header information
  * @param header Pointer to the header structure
  * @param offsets Array to store calculated offsets
  */
-void eaf_calculate_offsets(const eaf_header_t *header, uint32_t *offsets);
+void eaf_dec_calculate_offsets(const eaf_dec_header_t *header, uint32_t *offsets);
 
 /**********************
  *  COLOR OPERATIONS
@@ -190,94 +144,90 @@ void eaf_calculate_offsets(const eaf_header_t *header, uint32_t *offsets);
  * @brief Get color from palette at specified index
  * @param header Pointer to the header structure containing palette
  * @param color_index Index in the palette
- * @param swap_bytes Whether to swap color bytes
- * @param result Output parameter for color value in RGB565 format
+ * @param swap_bytes Whether the returned RGB565 value should be converted to
+ *        native framebuffer byte order for the current draw target
+ * @param result Output parameter for semantic/native RGB565 color value
  * @return true if color is fully transparent (00 00 00 00), false otherwise
  */
-bool eaf_palette_get_color(const eaf_header_t *header, uint8_t color_index, bool swap_bytes, gfx_color_t *result);
+bool eaf_dec_get_palette_color(const eaf_dec_header_t *header, uint8_t color_index, bool swap_bytes, gfx_color_t *result);
 
 /**********************
  *  COMPRESSION OPERATIONS
  **********************/
 
-/**
- * @brief Function pointer type for block decoders
- * @param input_data Input compressed data
- * @param input_size Size of input data
- * @param output_buffer Output buffer for decompressed data
- * @param out_size Size of output buffer
- * @param swap_color Whether to swap color bytes (only used by JPEG decoder)
- * @return ESP_OK on success, ESP_FAIL on failure
- */
-typedef esp_err_t (*eaf_block_decoder_cb_t)(const uint8_t *input_data, size_t input_size,
-        uint8_t *output_buffer, size_t *out_size,
+typedef esp_err_t (*eaf_dec_block_decoder_cb_t)(const uint8_t *in_data, size_t in_size,
+        uint8_t *out_data, size_t *out_size,
         bool swap_color);
 
 /**
  * @brief Decode RLE compressed data
- * @param compressed_data Input compressed data
- * @param compressed_size Size of compressed data
- * @param decompressed_data Output buffer for decompressed data
- * @param decompressed_size Size of output buffer
+ * @param in_data Input compressed data
+ * @param in_size Size of compressed data
+ * @param out_data Output buffer for decompressed data
+ * @param out_size Size of output buffer
  * @return ESP_OK on success, ESP_FAIL on failure
  */
-esp_err_t eaf_decode_rle(const uint8_t *input_data, size_t input_size,
-                         uint8_t *output_buffer, size_t *out_size,
-                         bool swap_color);
+esp_err_t eaf_dec_decode_rle(const uint8_t *in_data, size_t in_size,
+                             uint8_t *out_data, size_t *out_size,
+                             bool swap_color);
 
 /**
  * @brief Decode Huffman compressed data
- * @param input_data Input compressed data
- * @param input_size Size of input data
- * @param output_buffer Output buffer for decompressed data
+ * @param in_data Input compressed data
+ * @param in_size Size of input data
+ * @param out_data Output buffer for decompressed data
  * @param out_size Size of output buffer
- * @param swap_color Whether to swap color bytes (unused)
+ * @param swap_color Whether decoded RGB565 data should be written in native
+ *        framebuffer byte order for the current draw target (unused here)
  * @return ESP_OK on success, ESP_FAIL on failure
  */
-esp_err_t eaf_decode_huffman(const uint8_t *input_data, size_t input_size,
-                             uint8_t *output_buffer, size_t *out_size,
-                             bool swap_color);
+esp_err_t eaf_dec_decode_huffman(const uint8_t *in_data, size_t in_size,
+                                 uint8_t *out_data, size_t *out_size,
+                                 bool swap_color);
 
 #ifdef CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
 /**
  * @brief Decode heatshrink compressed data
- * @param input_data Input compressed data
- * @param input_size Size of input data
- * @param output_buffer Output buffer for decompressed data
+ * @param in_data Input compressed data
+ * @param in_size Size of input data
+ * @param out_data Output buffer for decompressed data
  * @param out_size Size of output buffer
- * @param swap_color Whether to swap color bytes (unused)
+ * @param swap_color Whether decoded RGB565 data should be written in native
+ *        framebuffer byte order for the current draw target (unused here)
  * @return ESP_OK on success, ESP_FAIL on failure
  */
-esp_err_t eaf_decode_heatshrink(const uint8_t *input_data, size_t input_size,
-                                uint8_t *output_buffer, size_t *out_size,
-                                bool swap_color);
+esp_err_t eaf_dec_decode_heatshrink(const uint8_t *in_data, size_t in_size,
+                                    uint8_t *out_data, size_t *out_size,
+                                    bool swap_color);
 #endif // CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
 
 /**
  * @brief Decode raw (uncompressed) data
- * @param input_data Input data
- * @param input_size Size of input data
- * @param output_buffer Output buffer for data
+ * @param in_data Input data
+ * @param in_size Size of input data
+ * @param out_data Output buffer for data
  * @param out_size Size of output buffer
- * @param swap_color Whether to swap color bytes (unused)
+ * @param swap_color Whether decoded RGB565 data should be written in native
+ *        framebuffer byte order for the current draw target (unused here)
  * @return ESP_OK on success, ESP_FAIL on failure
  */
-esp_err_t eaf_decode_raw(const uint8_t *input_data, size_t input_size,
-                         uint8_t *output_buffer, size_t *out_size,
-                         bool swap_color);
+esp_err_t eaf_dec_decode_raw(const uint8_t *in_data, size_t in_size,
+                             uint8_t *out_data, size_t *out_size,
+                             bool swap_color);
 
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 /**
  * @brief Decode JPEG compressed data
- * @param input_data Input JPEG data
- * @param input_size Size of input data
- * @param output_buffer Output buffer for decoded data
+ * @param in_data Input JPEG data
+ * @param in_size Size of input data
+ * @param out_data Output buffer for decoded data
  * @param out_size Size of output buffer
- * @param swap_color Whether to swap color bytes
+ * @param swap_color Whether decoded RGB565 data should be written in native
+ *        framebuffer byte order for the current draw target
  * @return ESP_OK on success, ESP_FAIL on failure
  */
-esp_err_t eaf_decode_jpeg(const uint8_t *input_data, size_t input_size,
-                          uint8_t *output_buffer, size_t *out_size, bool swap_color);
+esp_err_t eaf_dec_decode_jpeg(const uint8_t *in_data, size_t in_size,
+                              uint8_t *out_data, size_t *out_size, bool swap_color);
 #endif // CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 
 /**********************
@@ -287,14 +237,15 @@ esp_err_t eaf_decode_jpeg(const uint8_t *input_data, size_t input_size,
 /**
  * @brief Decode a block of EAF data
  * @param header EAF header information
- * @param frame_data Pointer to the frame data
- * @param block_index Index of the block to decode
- * @param decode_buffer Buffer to store decoded data
- * @param swap_color Whether to swap color bytes
+ * @param block_data Pointer to the block data
+ * @param block_len Length of the block
+ * @param out_data Buffer to store decoded data
+ * @param swap_color Whether decoded RGB565 data should be written in native
+ *        framebuffer byte order for the current draw target
  * @return ESP_OK on success, ESP_FAIL on failure
  */
-esp_err_t eaf_decode_block(const eaf_header_t *header, const uint8_t *block_data,
-                           int block_len, uint8_t *decode_buffer, bool swap_color);
+esp_err_t eaf_dec_decode_block(const eaf_dec_header_t *header, const uint8_t *block_data,
+                              int block_len, uint8_t *out_data, bool swap_color);
 
 /**********************
  *  FORMAT OPERATIONS
@@ -307,21 +258,21 @@ esp_err_t eaf_decode_block(const eaf_header_t *header, const uint8_t *block_data
  * @param ret_parser Pointer to store the parser handle
  * @return ESP_OK on success, ESP_FAIL on failure
  */
-esp_err_t eaf_init(const uint8_t *data, size_t data_len, eaf_format_handle_t *ret_parser);
+esp_err_t eaf_dec_init(const uint8_t *data, size_t data_len, eaf_dec_handle_t *ret_parser);
 
 /**
  * @brief Deinitialize EAF format parser
  * @param handle Parser handle
  * @return ESP_OK on success, ESP_FAIL on failure
  */
-esp_err_t eaf_deinit(eaf_format_handle_t handle);
+esp_err_t eaf_dec_deinit(eaf_dec_handle_t handle);
 
 /**
  * @brief Get total number of frames in EAF file
  * @param handle Parser handle
  * @return Total number of frames
  */
-int eaf_get_total_frames(eaf_format_handle_t handle);
+int eaf_dec_get_total_frames(eaf_dec_handle_t handle);
 
 /**
  * @brief Get frame data at specified index
@@ -329,7 +280,7 @@ int eaf_get_total_frames(eaf_format_handle_t handle);
  * @param index Frame index
  * @return Pointer to frame data, NULL on failure
  */
-const uint8_t *eaf_get_frame_data(eaf_format_handle_t handle, int index);
+const uint8_t *eaf_dec_get_frame_data(eaf_dec_handle_t handle, int index);
 
 /**
  * @brief Get frame size at specified index
@@ -337,20 +288,20 @@ const uint8_t *eaf_get_frame_data(eaf_format_handle_t handle, int index);
  * @param index Frame index
  * @return Frame size in bytes, -1 on failure
  */
-int eaf_get_frame_size(eaf_format_handle_t handle, int index);
+int eaf_dec_get_frame_size(eaf_dec_handle_t handle, int index);
 
 /**
  * @brief Decode a full EAF frame
  * @param handle Format handle
  * @param frame_index Index of the frame to decode
- * @param frame_buffer Output buffer for decoded frame
- * @param frame_buffer_size Size of output buffer
+ * @param out_data Output buffer for decoded frame
+ * @param out_size Size of output buffer
  * @param swap_bytes Whether to swap color bytes
  * @return ESP_OK on success, ESP_FAIL on failure
  */
-esp_err_t eaf_frame_decode(eaf_format_handle_t handle, int frame_index,
-                           uint8_t *frame_buffer, size_t frame_buffer_size,
-                           bool swap_bytes);
+esp_err_t eaf_dec_decode_frame(eaf_dec_handle_t handle, int frame_index,
+                              uint8_t *out_data, size_t out_size,
+                              bool swap_bytes);
 
 #ifdef __cplusplus
 }

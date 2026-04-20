@@ -14,6 +14,17 @@ gfx_color_format_t
        GFX_COLOR_FORMAT_RGB565A8 = 0x0A,  /**< RGB565 format with separate alpha channel */
    } gfx_color_format_t;
 
+gfx_img_src_type_t
+~~~~~~~~~~~~~~~~~~
+
+Public image source type.
+
+.. code-block:: c
+
+   typedef enum {
+       GFX_IMG_SRC_TYPE_IMAGE_DSC = 0, /**< In-memory gfx_image_dsc_t payload */
+   } gfx_img_src_type_t;
+
 gfx_image_header_t
 ~~~~~~~~~~~~~~~~~~
 
@@ -42,6 +53,18 @@ gfx_image_dsc_t
        const void *reserved_2;     /**< Reserved field for future use */
    } gfx_image_dsc_t;
 
+gfx_img_src_t
+~~~~~~~~~~~~~
+
+Typed image source descriptor.
+
+.. code-block:: c
+
+   typedef struct {
+       gfx_img_src_type_t type;    /**< Source payload type */
+       const void *data;           /**< Type-specific payload pointer */
+   } gfx_img_src_t;
+
 Functions
 ---------
 
@@ -51,6 +74,24 @@ gfx_img_create()
 .. code-block:: c
 
    gfx_obj_t * gfx_img_create(gfx_disp_t *disp);
+
+gfx_img_set_src_desc()
+~~~~~~~~~~~~~~~~~~~~~~
+
+Set the typed source descriptor for an image object
+
+.. code-block:: c
+
+   esp_err_t gfx_img_set_src_desc(gfx_obj_t *obj, const gfx_img_src_t *src);
+
+**Parameters:**
+
+* ``obj`` - Pointer to the image object
+* ``src`` - Pointer to the typed source descriptor
+
+**Returns:**
+
+* ESP_OK on success, ESP_ERR_* otherwise
 
 gfx_img_set_src()
 ~~~~~~~~~~~~~~~~~
@@ -68,4 +109,4 @@ Set the source data for an image object
 
 **Returns:**
 
-* Pointer to the object
+* ESP_OK on success, ESP_ERR_* otherwise

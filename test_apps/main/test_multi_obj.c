@@ -28,8 +28,8 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
     TEST_ASSERT_NOT_NULL(img_obj);
     TEST_ASSERT_NOT_NULL(timer);
 
-    const void *anim_data = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF);
-    size_t anim_size = mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_MI_2_EYE_8BIT_AAF);
+    const void *anim_data = mmap_assets_get_mem(assets_handle, MMAP_ASSETS_TEST_MI_2_EYE_8BIT_AAF);
+    size_t anim_size = mmap_assets_get_size(assets_handle, MMAP_ASSETS_TEST_MI_2_EYE_8BIT_AAF);
 
     gfx_anim_set_src(anim_obj, anim_data, anim_size);
     gfx_obj_align(anim_obj, GFX_ALIGN_CENTER, 0, 0);
@@ -39,8 +39,8 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
     gfx_label_cfg_t font_cfg = {
         .name = "DejaVuSans.ttf",
-        .mem = mmap_assets_get_mem(assets_handle, MMAP_TEST_ASSETS_DEJAVUSANS_TTF),
-        .mem_size = (size_t)mmap_assets_get_size(assets_handle, MMAP_TEST_ASSETS_DEJAVUSANS_TTF),
+        .mem = mmap_assets_get_mem(assets_handle, MMAP_ASSETS_TEST_DEJAVUSANS_TTF),
+        .mem_size = (size_t)mmap_assets_get_size(assets_handle, MMAP_ASSETS_TEST_DEJAVUSANS_TTF),
         .font_size = 20,
     };
 
@@ -60,7 +60,7 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
     gfx_label_set_long_mode(label_obj, GFX_LABEL_LONG_SCROLL);
 
     gfx_image_dsc_t img_dsc;
-    load_image(assets_handle, MMAP_TEST_ASSETS_ICON_RGB565_BIN, &img_dsc);
+    load_image(assets_handle, MMAP_ASSETS_TEST_ICON_RGB565_BIN, &img_dsc);
     gfx_img_set_src(img_obj, (void *)&img_dsc); // Use BIN format image
     gfx_obj_align(img_obj, GFX_ALIGN_TOP_MID, 0, 0);
 
@@ -81,11 +81,11 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
 
 TEST_CASE("test function obj multi", "")
 {
-    mmap_assets_handle_t assets_handle = NULL;
-    esp_err_t ret = display_and_graphics_init("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
-    TEST_ASSERT_EQUAL(ESP_OK, ret);
+    test_app_runtime_t runtime;
 
-    test_multiple_objects_function(assets_handle);
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, TEST_APP_ASSETS_PARTITION_DEFAULT));
 
-    display_and_graphics_clean(assets_handle);
+    test_multiple_objects_function(runtime.assets_handle);
+
+    test_app_runtime_close(&runtime);
 }

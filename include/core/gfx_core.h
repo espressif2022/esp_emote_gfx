@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -8,6 +8,7 @@
 
 #include <stdbool.h>
 #include "esp_err.h"
+#include "esp_heap_caps.h"
 #include "gfx_types.h"
 
 #ifdef __cplusplus
@@ -15,7 +16,7 @@ extern "C" {
 #endif
 
 /*********************
- *   DEFAULT CONFIG MACRO
+ *      DEFINES
  *********************/
 /** Use as .task = GFX_EMOTE_INIT_CONFIG() when initializing gfx_core_config_t */
 #define GFX_EMOTE_INIT_CONFIG()                   \
@@ -27,7 +28,7 @@ extern "C" {
     }
 
 /*********************
- *   CONFIG STRUCTS
+ *      TYPEDEFS
  *********************/
 /** Passed to gfx_emote_init(); add displays with gfx_disp_add() after init */
 typedef struct {
@@ -41,12 +42,8 @@ typedef struct {
 } gfx_core_config_t;
 
 /**********************
- *   GLOBAL PROTOTYPES
+ *   PUBLIC API
  **********************/
-
-/*=====================
- * Core initialization
- *====================*/
 
 /**
  * @brief Initialize graphics context
@@ -82,6 +79,14 @@ esp_err_t gfx_emote_lock(gfx_handle_t handle);
  */
 esp_err_t gfx_emote_unlock(gfx_handle_t handle);
 
+/**
+ * @brief Perform one synchronous refresh (render and flush) immediately.
+ *        Holds the render mutex for the duration; safe to call from any task.
+ *
+ * @param handle Graphics handle
+ * @return esp_err_t ESP_OK on success, otherwise an error code
+ */
+esp_err_t gfx_refr_now(gfx_handle_t handle);
 
 #ifdef __cplusplus
 }
