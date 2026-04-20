@@ -7,6 +7,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PORT="${1:-8090}"
+# Bind all interfaces by default so LAN URLs (e.g. http://10.x.x.x:PORT/) work; use 127.0.0.1 for local-only.
+BIND_ADDR="${DOCS_PREVIEW_BIND:-0.0.0.0}"
 
 cd "$REPO_ROOT"
 
@@ -53,7 +55,8 @@ echo ""
 echo "=========================================="
 echo "  文档预览地址："
 echo ""
-echo "    http://127.0.0.1:$PORT"
+echo "    http://127.0.0.1:$PORT  (same host)"
+echo "    http://<this-machine-LAN-ip>:$PORT  (other devices; server binds $BIND_ADDR)"
 echo ""
 echo "  主要页面（EN / 中文 分目录；顶部可切换语言）："
 echo "    - 语言选择:   http://127.0.0.1:$PORT/index.html"
@@ -68,5 +71,5 @@ echo "=========================================="
 echo ""
 
 cd docs/_build/html
-python3 -m http.server "$PORT" --bind 127.0.0.1
+python3 -m http.server "$PORT" --bind "$BIND_ADDR"
 
