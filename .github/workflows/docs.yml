@@ -1,10 +1,20 @@
+# Publishes Sphinx + Doxygen output from docs/scripts/postprocess_docs.sh to GitHub Pages.
+#
+# We intentionally do NOT use actions/configure-pages: it calls the REST API to fetch the Pages
+# site metadata and returns 404 "Not Found" in some org/repo setups. Pre-built static HTML only
+# needs upload-pages-artifact + deploy-pages.
+#
+# Still required once per repo: Settings → Pages → Source: GitHub Actions (see GitHub Pages docs).
+#
+# Do not add a second workflow that also deploys to the same "pages" environment (same concurrency group).
+
 name: Build and Deploy Documentation
 
 on:
   push:
     branches:
       - main
-      - feat/delete_assets
+      - feat/update_anim
   workflow_dispatch:
 
 permissions:
@@ -64,9 +74,6 @@ jobs:
           else
             ls -R docs/_build/html
           fi
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
