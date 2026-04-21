@@ -2,6 +2,9 @@
 
 All notable changes to the ESP Emote GFX component will be documented in this file.
 
+## [3.0.4] - 2026-04-21
+- restore gfx_disp_event_t
+
 ## [3.0.3] - 2026-04-20
 - Add `gfx_button` widget (text, font, normal/pressed colors, border)
 - Add `gfx_log` API for log level configuration

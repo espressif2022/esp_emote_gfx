@@ -93,9 +93,9 @@ static const char *test_anim_disp_event_str(gfx_disp_event_t event)
         return "IDLE";
     case GFX_DISP_EVENT_ONE_FRAME_DONE:
         return "ONE_FRAME_DONE";
-    case GFX_DISP_EVENT_PART_DONE:
+    case GFX_DISP_EVENT_PART_FRAME_DONE:
         return "PART_DONE";
-    case GFX_DISP_EVENT_ALL_DONE:
+    case GFX_DISP_EVENT_ALL_FRAME_DONE:
         return "ALL_DONE";
     default:
         return "UNKNOWN";
@@ -122,12 +122,12 @@ static void test_anim_disp_update_cb(gfx_disp_t *disp, gfx_disp_event_t event, c
         return;
     }
 
-    if (event == GFX_DISP_EVENT_PART_DONE) {
+    if (event == GFX_DISP_EVENT_PART_FRAME_DONE) {
         ESP_LOGI("", "disp_update_cb(%p): event:%s", obj, test_anim_disp_event_str(event));
         return;
     }
 
-    if (event == GFX_DISP_EVENT_ALL_DONE) {
+    if (event == GFX_DISP_EVENT_ALL_FRAME_DONE) {
         ESP_LOGI("", "disp_update_cb(%p): event:%s", obj, test_anim_disp_event_str(event));
         xEventGroupSetBits(s_anim_events, TEST_ANIM_EVENT_END);
     }
