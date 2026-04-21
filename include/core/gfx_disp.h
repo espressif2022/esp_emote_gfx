@@ -23,8 +23,8 @@ typedef struct gfx_disp gfx_disp_t;
 typedef enum {
     GFX_DISP_EVENT_IDLE = 0,
     GFX_DISP_EVENT_ONE_FRAME_DONE,
-    GFX_DISP_EVENT_PART_DONE,
-    GFX_DISP_EVENT_ALL_DONE,
+    GFX_DISP_EVENT_PART_FRAME_DONE,
+    GFX_DISP_EVENT_ALL_FRAME_DONE,
 } gfx_disp_event_t;
 
 typedef struct {
