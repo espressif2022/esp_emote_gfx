@@ -3,185 +3,159 @@
  *
  * SPDX-License-Identifier: CC0-1.0
  */
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_log.h"
 #include "unity.h"
 #include "common.h"
 #include "widget/gfx_qrcode.h"
 
 static const char *TAG = "test_qrcode";
 
-static void test_qrcode_function(mmap_assets_handle_t assets_handle)
+typedef struct {
+    const char *step_name;
+    const char *payload;
+    uint16_t size;
+    gfx_qrcode_ecc_t ecc;
+    uint32_t fg_rgb;
+    uint32_t bg_rgb;
+    uint8_t align;
+    gfx_coord_t x_ofs;
+    gfx_coord_t y_ofs;
+    uint32_t observe_ms;
+} test_qrcode_case_t;
+
+typedef struct {
+    gfx_obj_t *code_obj;
+    gfx_obj_t *status_label;
+} test_qrcode_scene_t;
+
+static void test_qrcode_scene_cleanup(test_qrcode_scene_t *scene)
 {
-    ESP_LOGI(TAG, "=== Testing QR Code Function ===");
+    if (scene == NULL) {
+        return;
+    }
 
-    gfx_emote_lock(emote_handle);
-
-    TEST_ASSERT_NOT_NULL(disp_default);
-
-    // Test 1: Basic QR Code creation and data setting
-    ESP_LOGI(TAG, "--- Test 1: Basic QR Code ---");
-    gfx_obj_t *qrcode_obj1 = gfx_qrcode_create(disp_default);
-    TEST_ASSERT_NOT_NULL(qrcode_obj1);
-
-    esp_err_t ret = gfx_qrcode_set_data(qrcode_obj1, "https://www.espressif.com");
-    TEST_ASSERT_EQUAL(ESP_OK, ret);
-
-    ret = gfx_qrcode_set_size(qrcode_obj1, 150);
-    TEST_ASSERT_EQUAL(ESP_OK, ret);
-
-    gfx_qrcode_set_color(qrcode_obj1, GFX_COLOR_HEX(0x000000));
-    gfx_qrcode_set_bg_color(qrcode_obj1, GFX_COLOR_HEX(0xFFFFFF));
-    gfx_obj_align(qrcode_obj1, GFX_ALIGN_CENTER, 0, 0);
-
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(3 * 1000));
-
-    // Test 2: Different error correction levels
-    ESP_LOGI(TAG, "--- Test 2: Different ECC Levels ---");
-    gfx_emote_lock(emote_handle);
-
-    gfx_obj_t *qrcode_obj2 = gfx_qrcode_create(disp_default);
-    TEST_ASSERT_NOT_NULL(qrcode_obj2);
-
-    gfx_qrcode_set_data(qrcode_obj2, "Hello, QR Code!");
-    gfx_qrcode_set_size(qrcode_obj2, 120);
-    gfx_qrcode_set_ecc(qrcode_obj2, GFX_QRCODE_ECC_LOW);
-    gfx_qrcode_set_color(qrcode_obj2, GFX_COLOR_HEX(0xFF0000));
-    gfx_qrcode_set_bg_color(qrcode_obj2, GFX_COLOR_HEX(0xFFFFFF));
-    gfx_obj_align(qrcode_obj2, GFX_ALIGN_CENTER, 0, 0);
-
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
-
-    gfx_emote_lock(emote_handle);
-    gfx_qrcode_set_ecc(qrcode_obj2, GFX_QRCODE_ECC_MEDIUM);
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
-
-    gfx_emote_lock(emote_handle);
-    gfx_qrcode_set_ecc(qrcode_obj2, GFX_QRCODE_ECC_QUARTILE);
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
-
-    gfx_emote_lock(emote_handle);
-    gfx_qrcode_set_ecc(qrcode_obj2, GFX_QRCODE_ECC_HIGH);
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
-
-    // Test 3: Different sizes
-    ESP_LOGI(TAG, "--- Test 3: Different Sizes ---");
-    gfx_emote_lock(emote_handle);
-
-    gfx_obj_t *qrcode_obj3 = gfx_qrcode_create(disp_default);
-    TEST_ASSERT_NOT_NULL(qrcode_obj3);
-
-    gfx_qrcode_set_data(qrcode_obj3, "Size Test");
-    gfx_qrcode_set_size(qrcode_obj3, 100);
-    gfx_qrcode_set_color(qrcode_obj3, GFX_COLOR_HEX(0x0000FF));
-    gfx_qrcode_set_bg_color(qrcode_obj3, GFX_COLOR_HEX(0xFFFF00));
-    gfx_obj_align(qrcode_obj3, GFX_ALIGN_CENTER, 0, 0);
-
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
-
-    gfx_emote_lock(emote_handle);
-    gfx_qrcode_set_size(qrcode_obj3, 180);
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
-
-    gfx_emote_lock(emote_handle);
-    gfx_qrcode_set_size(qrcode_obj3, 80);
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
-
-    // Test 4: Different colors
-    ESP_LOGI(TAG, "--- Test 4: Different Colors ---");
-    gfx_emote_lock(emote_handle);
-
-    gfx_obj_t *qrcode_obj4 = gfx_qrcode_create(disp_default);
-    TEST_ASSERT_NOT_NULL(qrcode_obj4);
-
-    gfx_qrcode_set_data(qrcode_obj4, "Color Test");
-    gfx_qrcode_set_size(qrcode_obj4, 130);
-    gfx_qrcode_set_color(qrcode_obj4, GFX_COLOR_HEX(0x00FF00));
-    gfx_qrcode_set_bg_color(qrcode_obj4, GFX_COLOR_HEX(0x000000));
-    gfx_obj_align(qrcode_obj4, GFX_ALIGN_CENTER, 0, 0);
-
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
-
-    gfx_emote_lock(emote_handle);
-    gfx_qrcode_set_color(qrcode_obj4, GFX_COLOR_HEX(0xFF00FF));
-    gfx_qrcode_set_bg_color(qrcode_obj4, GFX_COLOR_HEX(0x00FFFF));
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
-
-    // Test 5: Alignment and positioning
-    ESP_LOGI(TAG, "--- Test 5: Alignment and Positioning ---");
-    gfx_emote_lock(emote_handle);
-
-    gfx_obj_t *qrcode_obj5 = gfx_qrcode_create(disp_default);
-    TEST_ASSERT_NOT_NULL(qrcode_obj5);
-
-    gfx_qrcode_set_data(qrcode_obj5, "Alignment Test");
-    gfx_qrcode_set_size(qrcode_obj5, 100);
-    gfx_qrcode_set_ecc(qrcode_obj5, GFX_QRCODE_ECC_HIGH);
-    gfx_obj_align(qrcode_obj5, GFX_ALIGN_CENTER, 0, 0);
-
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
-
-    gfx_emote_lock(emote_handle);
-    gfx_obj_align(qrcode_obj5, GFX_ALIGN_TOP_LEFT, 0, 0);
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
-
-    gfx_emote_lock(emote_handle);
-    gfx_obj_align(qrcode_obj5, GFX_ALIGN_BOTTOM_RIGHT, 0, 0);
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
-
-    // Test 6: Long text data
-    ESP_LOGI(TAG, "--- Test 6: Long Text Data ---");
-    gfx_emote_lock(emote_handle);
-
-    gfx_obj_t *qrcode_obj6 = gfx_qrcode_create(disp_default);
-    TEST_ASSERT_NOT_NULL(qrcode_obj6);
-
-    const char *long_text = "This is a longer text to test QR code";
-    gfx_qrcode_set_data(qrcode_obj6, long_text);
-    gfx_qrcode_set_size(qrcode_obj6, 200);
-    gfx_qrcode_set_ecc(qrcode_obj6, GFX_QRCODE_ECC_HIGH);
-    gfx_qrcode_set_color(qrcode_obj6, GFX_COLOR_HEX(0x000000));
-    gfx_qrcode_set_bg_color(qrcode_obj6, GFX_COLOR_HEX(0xFFFFFF));
-    gfx_obj_align(qrcode_obj6, GFX_ALIGN_CENTER, 0, 0);
-
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(3 * 1000));
-
-    // Cleanup
-    ESP_LOGI(TAG, "--- Cleanup ---");
-    gfx_emote_lock(emote_handle);
-    gfx_obj_delete(qrcode_obj1);
-    gfx_obj_delete(qrcode_obj2);
-    gfx_obj_delete(qrcode_obj3);
-    gfx_obj_delete(qrcode_obj4);
-    gfx_obj_delete(qrcode_obj5);
-    gfx_obj_delete(qrcode_obj6);
-    gfx_emote_unlock(emote_handle);
-
-    ESP_LOGI(TAG, "=== QR Code Function Testing Completed ===");
+    if (scene->status_label != NULL) {
+        gfx_obj_delete(scene->status_label);
+        scene->status_label = NULL;
+    }
+    if (scene->code_obj != NULL) {
+        gfx_obj_delete(scene->code_obj);
+        scene->code_obj = NULL;
+    }
 }
 
-TEST_CASE("test function obj qrcode", "")
+static void test_qrcode_apply_case(test_qrcode_scene_t *scene, const test_qrcode_case_t *test_case)
 {
-    mmap_assets_handle_t assets_handle = NULL;
-    esp_err_t ret = display_and_graphics_init("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
-    TEST_ASSERT_EQUAL(ESP_OK, ret);
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_qrcode_set_data(scene->code_obj, test_case->payload));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_qrcode_set_size(scene->code_obj, test_case->size));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_qrcode_set_ecc(scene->code_obj, test_case->ecc));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_qrcode_set_color(scene->code_obj, GFX_COLOR_HEX(test_case->fg_rgb)));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_qrcode_set_bg_color(scene->code_obj, GFX_COLOR_HEX(test_case->bg_rgb)));
+    gfx_obj_align(scene->code_obj, test_case->align, test_case->x_ofs, test_case->y_ofs);
+    gfx_label_set_text(scene->status_label, test_case->step_name);
+}
 
-    test_qrcode_function(assets_handle);
+static void test_qrcode_run(void)
+{
+    static const test_qrcode_case_t s_cases[] = {
+        {
+            .step_name = "Basic URL / ECC-M",
+            .payload = "https://www.espressif.com",
+            .size = 150,
+            .ecc = GFX_QRCODE_ECC_MEDIUM,
+            .fg_rgb = 0x000000,
+            .bg_rgb = 0xFFFFFF,
+            .align = GFX_ALIGN_CENTER,
+            .x_ofs = 0,
+            .y_ofs = -12,
+            .observe_ms = 1800,
+        },
+        {
+            .step_name = "ECC-H / warning palette",
+            .payload = "Hello, QR Code!",
+            .size = 128,
+            .ecc = GFX_QRCODE_ECC_HIGH,
+            .fg_rgb = 0xFF5A36,
+            .bg_rgb = 0xFFF5E8,
+            .align = GFX_ALIGN_CENTER,
+            .x_ofs = 0,
+            .y_ofs = -12,
+            .observe_ms = 1800,
+        },
+        {
+            .step_name = "Compact layout / ECC-L",
+            .payload = "Size Test",
+            .size = 96,
+            .ecc = GFX_QRCODE_ECC_LOW,
+            .fg_rgb = 0x1C5D99,
+            .bg_rgb = 0xF2F7FF,
+            .align = GFX_ALIGN_TOP_LEFT,
+            .x_ofs = 12,
+            .y_ofs = 12,
+            .observe_ms = 1800,
+        },
+        {
+            .step_name = "Large layout / ECC-Q",
+            .payload = "Alignment Test",
+            .size = 180,
+            .ecc = GFX_QRCODE_ECC_QUARTILE,
+            .fg_rgb = 0x0F7B0F,
+            .bg_rgb = 0xF7FFF0,
+            .align = GFX_ALIGN_BOTTOM_RIGHT,
+            .x_ofs = -12,
+            .y_ofs = -56,
+            .observe_ms = 1800,
+        },
+        {
+            .step_name = "Long payload / ECC-H",
+            .payload = "This is a longer text payload used to validate QR generation stability.",
+            .size = 196,
+            .ecc = GFX_QRCODE_ECC_HIGH,
+            .fg_rgb = 0x000000,
+            .bg_rgb = 0xFFFFFF,
+            .align = GFX_ALIGN_CENTER,
+            .x_ofs = 0,
+            .y_ofs = -12,
+            .observe_ms = 2200,
+        },
+    };
 
-    display_and_graphics_clean(assets_handle);
+    test_qrcode_scene_t scene = {0};
+
+    test_app_log_case(TAG, "QR code widget validation");
+
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
+    TEST_ASSERT_NOT_NULL(disp_default);
+
+    scene.code_obj = gfx_qrcode_create(disp_default);
+    scene.status_label = gfx_label_create(disp_default);
+    TEST_ASSERT_NOT_NULL(scene.code_obj);
+    TEST_ASSERT_NOT_NULL(scene.status_label);
+
+    gfx_obj_set_size(scene.status_label, 260, 28);
+    gfx_obj_align(scene.status_label, GFX_ALIGN_BOTTOM_MID, 0, -10);
+    gfx_label_set_font(scene.status_label, (gfx_font_t)&font_puhui_16_4);
+    gfx_label_set_text_align(scene.status_label, GFX_TEXT_ALIGN_CENTER);
+    gfx_label_set_long_mode(scene.status_label, GFX_LABEL_LONG_WRAP);
+    test_app_unlock();
+
+    for (size_t i = 0; i < TEST_APP_ARRAY_SIZE(s_cases); ++i) {
+        test_app_log_step(TAG, s_cases[i].step_name);
+        TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
+        test_qrcode_apply_case(&scene, &s_cases[i]);
+        test_app_unlock();
+        test_app_wait_for_observe(s_cases[i].observe_ms);
+    }
+
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
+    test_qrcode_scene_cleanup(&scene);
+    test_app_unlock();
+}
+
+TEST_CASE("widget qrcode", "[widget][qrcode]")
+{
+    test_app_runtime_t runtime;
+
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, TEST_APP_ASSETS_PARTITION_DEFAULT));
+    test_qrcode_run();
+    test_app_runtime_close(&runtime);
 }

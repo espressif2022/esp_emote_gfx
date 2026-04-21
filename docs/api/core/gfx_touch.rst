@@ -22,20 +22,6 @@ gfx_touch_event_type_t
        GFX_TOUCH_EVENT_MOVE,   /**< Finger moved while pressed (slide) */
    } gfx_touch_event_type_t;
 
-gfx_touch_event_t
-~~~~~~~~~~~~~~~~~
-
-.. code-block:: c
-
-   typedef struct {
-       gfx_touch_event_type_t type;
-       uint16_t x;
-       uint16_t y;
-       uint16_t strength;
-       uint8_t track_id;
-       uint32_t timestamp_ms;
-   } gfx_touch_event_t;
-
 gfx_touch_config_t
 ~~~~~~~~~~~~~~~~~~
 
@@ -62,7 +48,7 @@ gfx_touch_add()
 gfx_touch_set_disp()
 ~~~~~~~~~~~~~~~~~~~~
 
-Set the user data for a touch device
+Bind a display to a touch device
 
 .. code-block:: c
 
@@ -71,7 +57,7 @@ Set the user data for a touch device
 **Parameters:**
 
 * ``touch`` - Touch pointer returned from gfx_touch_add
-* ``user_data`` - User data to set
+* ``disp`` - Display to receive touch hit-testing and dispatch
 
 **Returns:**
 

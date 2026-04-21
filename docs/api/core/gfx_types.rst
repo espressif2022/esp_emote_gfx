@@ -1,5 +1,5 @@
-Type (gfx_types)
-================
+Types (gfx_types)
+=================
 
 Types
 -----

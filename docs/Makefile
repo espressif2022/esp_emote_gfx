@@ -6,7 +6,8 @@
 SPHINXOPTS    ?=
 SPHINXBUILD  ?= sphinx-build
 SOURCEDIR    = .
-BUILDDIR     = _build
+# Default HTML output matches postprocess_docs.sh (English under html/en/)
+BUILDDIR     = _build/html/en
 
 # Put it first so that "make" without argument is like "make help".
 help:

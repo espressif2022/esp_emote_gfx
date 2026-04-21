@@ -3,100 +3,124 @@
  *
  * SPDX-License-Identifier: CC0-1.0
  */
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_log.h"
 #include "unity.h"
 #include "common.h"
 
 static const char *TAG = "test_image";
 
-static void test_image_function(mmap_assets_handle_t assets_handle)
+typedef struct {
+    gfx_obj_t *img_primary;
+    gfx_obj_t *img_secondary;
+} test_image_scene_t;
+
+static void test_image_scene_cleanup(test_image_scene_t *scene)
 {
-    gfx_image_dsc_t img_dsc;
+    if (scene == NULL) {
+        return;
+    }
 
-    ESP_LOGI(TAG, "=== Testing Image Function ===");
-
-    gfx_emote_lock(emote_handle);
-
-    TEST_ASSERT_NOT_NULL(disp_default);
-    gfx_obj_t *img_obj_c_array = gfx_img_create(disp_default);
-    TEST_ASSERT_NOT_NULL(img_obj_c_array);
-
-    gfx_img_set_src(img_obj_c_array, (void *)&icon_rgb565);
-    gfx_obj_set_pos(img_obj_c_array, 100, 100);
-
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
-
-    //test different pos
-    ESP_LOGI(TAG, "--- Test different pos with set_pos ---");
-    gfx_emote_lock(emote_handle);
-    gfx_obj_set_pos(img_obj_c_array, 200, 100);
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
-
-    ESP_LOGI(TAG, "--- Test different pos with align ---");
-    gfx_emote_lock(emote_handle);
-    gfx_obj_align(img_obj_c_array, GFX_ALIGN_CENTER, 0, 0);
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
-
-    gfx_emote_lock(emote_handle);
-    gfx_obj_delete(img_obj_c_array);
-
-    gfx_obj_t *img_obj_bin = gfx_img_create(disp_default);
-    TEST_ASSERT_NOT_NULL(img_obj_bin);
-
-    esp_err_t ret = load_image(assets_handle, MMAP_TEST_ASSETS_ICON_RGB565A8_BIN, &img_dsc);
-    TEST_ASSERT_EQUAL(ESP_OK, ret);
-    gfx_img_set_src(img_obj_bin, (void *)&img_dsc);
-    gfx_obj_set_pos(img_obj_bin, 100, 180);
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(2 * 1000));
-
-    ESP_LOGI(TAG, "--- Test from big to small image ---");
-    gfx_emote_lock(emote_handle);
-    load_image(assets_handle, MMAP_TEST_ASSETS_ICON_RGB565A8_BIN, &img_dsc);
-    gfx_img_set_src(img_obj_bin, (void *)&img_dsc);
-    gfx_emote_unlock(emote_handle);
-    vTaskDelay(pdMS_TO_TICKS(6 * 1000));
-
-    gfx_emote_lock(emote_handle);
-    gfx_obj_delete(img_obj_bin);
-
-    ESP_LOGI(TAG, "--- Testing multiple images with different formats ---");
-    gfx_obj_t *img_obj1 = gfx_img_create(disp_default);
-    gfx_obj_t *img_obj2 = gfx_img_create(disp_default);
-    TEST_ASSERT_NOT_NULL(img_obj1);
-    TEST_ASSERT_NOT_NULL(img_obj2);
-
-    gfx_img_set_src(img_obj1, (void *)&icon_rgb565A8); // C_ARRAY format
-
-    ret = load_image(assets_handle, MMAP_TEST_ASSETS_ICON_RGB565_BIN, &img_dsc);
-    TEST_ASSERT_EQUAL(ESP_OK, ret);
-    gfx_img_set_src(img_obj2, (void *)&img_dsc); // BIN format
-
-    gfx_obj_set_pos(img_obj1, 150, 100);
-    gfx_obj_set_pos(img_obj2, 150, 180);
-
-    gfx_emote_unlock(emote_handle);
-
-    vTaskDelay(pdMS_TO_TICKS(3 * 1000));
-
-    gfx_emote_lock(emote_handle);
-    gfx_obj_delete(img_obj1);
-    gfx_obj_delete(img_obj2);
-    gfx_emote_unlock(emote_handle);
+    if (scene->img_primary != NULL) {
+        gfx_obj_delete(scene->img_primary);
+        scene->img_primary = NULL;
+    }
+    if (scene->img_secondary != NULL) {
+        gfx_obj_delete(scene->img_secondary);
+        scene->img_secondary = NULL;
+    }
 }
 
-TEST_CASE("test function obj image", "")
+static void test_image_run(mmap_assets_handle_t assets_handle)
 {
-    mmap_assets_handle_t assets_handle = NULL;
-    esp_err_t ret = display_and_graphics_init("test_assets", MMAP_TEST_ASSETS_FILES, MMAP_TEST_ASSETS_CHECKSUM, &assets_handle);
-    TEST_ASSERT_EQUAL(ESP_OK, ret);
+    gfx_image_dsc_t img_dsc = {0};
+    const gfx_img_src_t c_array_src = {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = &icon_rgb565,
+    };
+    const gfx_img_src_t c_array_a8_src = {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = &icon_rgb565A8,
+    };
+    test_image_scene_t scene = {0};
 
-    test_image_function(assets_handle);
+    test_app_log_case(TAG, "Image widget validation");
 
-    display_and_graphics_clean(assets_handle);
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
+    TEST_ASSERT_NOT_NULL(disp_default);
+
+    scene.img_primary = gfx_img_create(disp_default);
+    TEST_ASSERT_NOT_NULL(scene.img_primary);
+    gfx_img_set_src_desc(scene.img_primary, &c_array_src);
+    gfx_obj_set_pos(scene.img_primary, 100, 100);
+    test_app_unlock();
+
+    test_app_wait_for_observe(1500);
+
+    test_app_log_step(TAG, "Move C-array image");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
+    gfx_obj_set_pos(scene.img_primary, 200, 100);
+    test_app_unlock();
+
+    test_app_wait_for_observe(1500);
+
+    test_app_log_step(TAG, "Center align C-array image");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
+    gfx_obj_align(scene.img_primary, GFX_ALIGN_CENTER, 0, -40);
+    test_app_unlock();
+
+    test_app_wait_for_observe(1500);
+
+    test_app_log_step(TAG, "Switch to mmap-backed source");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
+    gfx_obj_delete(scene.img_primary);
+    scene.img_primary = gfx_img_create(disp_default);
+    TEST_ASSERT_NOT_NULL(scene.img_primary);
+    TEST_ASSERT_EQUAL(ESP_OK, load_image(assets_handle, MMAP_ASSETS_TEST_ICON_RGB565A8_BIN, &img_dsc));
+    gfx_img_set_src_desc(scene.img_primary, &(gfx_img_src_t) {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = &img_dsc,
+    });
+    gfx_obj_set_pos(scene.img_primary, 100, 160);
+    test_app_unlock();
+
+    test_app_wait_for_observe(1800);
+
+    test_app_log_step(TAG, "Reload mmap-backed source");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
+    TEST_ASSERT_EQUAL(ESP_OK, load_image(assets_handle, MMAP_ASSETS_TEST_ICON_RGB565A8_BIN, &img_dsc));
+    gfx_img_set_src_desc(scene.img_primary, &(gfx_img_src_t) {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = &img_dsc,
+    });
+    test_app_unlock();
+
+    test_app_wait_for_observe(1800);
+
+    test_app_log_step(TAG, "Compare RGB565 and RGB565A8");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
+    scene.img_secondary = gfx_img_create(disp_default);
+    TEST_ASSERT_NOT_NULL(scene.img_secondary);
+    gfx_img_set_src_desc(scene.img_primary, &c_array_a8_src);
+    TEST_ASSERT_EQUAL(ESP_OK, load_image(assets_handle, MMAP_ASSETS_TEST_ICON_RGB565_BIN, &img_dsc));
+    gfx_img_set_src_desc(scene.img_secondary, &(gfx_img_src_t) {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = &img_dsc,
+    });
+    gfx_obj_set_pos(scene.img_primary, 90, 90);
+    gfx_obj_set_pos(scene.img_secondary, 90, 180);
+    test_app_unlock();
+
+    test_app_wait_for_observe(2500);
+
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
+    test_image_scene_cleanup(&scene);
+    test_app_unlock();
+}
+
+TEST_CASE("widget image sources", "[widget][image]")
+{
+    test_app_runtime_t runtime;
+
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, TEST_APP_ASSETS_PARTITION_DEFAULT));
+    test_image_run(runtime.assets_handle);
+    test_app_runtime_close(&runtime);
 }
