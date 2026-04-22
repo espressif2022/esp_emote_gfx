@@ -644,6 +644,108 @@
     .compact-fold .fold-body {
       padding: 12px;
     }
+
+    /* ---- Rig dual-frame slots ---- */
+    .rig-slots {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .rig-slot {
+      border: 1px solid rgba(66, 52, 36, 0.12);
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.5);
+      display: grid;
+      gap: 8px;
+    }
+
+    .rig-slot.loaded {
+      border-color: rgba(20, 110, 120, 0.30);
+      background: rgba(20, 110, 120, 0.05);
+    }
+
+    .rig-slot-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .rig-slot-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .rig-slot-badge {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(66, 52, 36, 0.08);
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 120px;
+    }
+
+    .rig-slot.loaded .rig-slot-badge {
+      background: rgba(20, 110, 120, 0.12);
+      color: var(--accent);
+    }
+
+    /* ---- Rig layer transform editor ---- */
+    .rig-layers {
+      display: grid;
+      gap: 5px;
+      margin-bottom: 10px;
+    }
+
+    .rig-layer-row {
+      display: grid;
+      grid-template-columns: minmax(80px, 1fr) repeat(3, 72px);
+      gap: 6px;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.55);
+      border: 1px solid rgba(66, 52, 36, 0.10);
+      border-radius: 10px;
+      padding: 5px 10px;
+    }
+
+    .rig-layer-head {
+      background: transparent !important;
+      border-color: transparent !important;
+      padding: 2px 10px !important;
+    }
+
+    .rig-layer-head span {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .rig-nm {
+      font-size: 12px;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .rig-layer-row input[type="number"] {
+      width: 100%;
+      padding: 5px 7px;
+      font-size: 11px;
+      border-radius: 8px;
+      min-height: auto;
+    }
+
+    #rig-editor {
+      min-height: 260px;
+    }
   </style>
 </head>
 <body>
@@ -737,6 +839,47 @@
   "name": "demo_scene",
   "prefix": "s_demo"
 }'></textarea>
+          </div>
+        </details>
+
+        <details class="fold" id="rig-fold">
+          <summary>Rig 双帧合并 → 标准场景</summary>
+          <div class="fold-body">
+
+            <div class="rig-slots">
+              <div class="rig-slot" id="rig-slot-1">
+                <div class="rig-slot-head">
+                  <span class="rig-slot-label">Frame 1</span>
+                  <span class="rig-slot-badge" id="rig1-badge">未加载</span>
+                </div>
+                <div class="btn-row">
+                  <button class="ghost" id="load-rig1-btn" type="button">加载 Frame 1</button>
+                  <button class="ghost" id="export-rig1-btn" type="button" disabled>导出</button>
+                </div>
+              </div>
+              <div class="rig-slot" id="rig-slot-2">
+                <div class="rig-slot-head">
+                  <span class="rig-slot-label">Frame 2</span>
+                  <span class="rig-slot-badge" id="rig2-badge">未加载</span>
+                </div>
+                <div class="btn-row">
+                  <button class="ghost" id="load-rig2-btn" type="button">加载 Frame 2</button>
+                  <button class="ghost" id="export-rig2-btn" type="button" disabled>导出</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="btn-row" style="margin-top:10px;">
+              <button id="merge-rig-btn" type="button" disabled>两帧合并 → 标准场景 ↓</button>
+            </div>
+            <p class="mini" style="margin-top:4px;">
+              两帧都加载后点 "合并"，自动生成含 <code>pose_f1 / pose_f2</code> 的双步
+              <code>active</code> clip，并载入设计区。也可单独点任意帧查看/编辑各层变换后导出。
+            </p>
+
+            <div id="rig-layer-panel"></div>
+            <textarea id="rig-editor" spellcheck="false"
+              placeholder="点击 '加载 Frame N' 加载后可在此查看/编辑原始 JSON..."></textarea>
           </div>
         </details>
 
@@ -1031,6 +1174,18 @@
       dropzone: document.getElementById("dropzone"),
       fileInput: document.getElementById("file-input"),
       loadLottieBtn: document.getElementById("load-lottie-btn"),
+      rigFold: document.getElementById("rig-fold"),
+      loadRig1Btn: document.getElementById("load-rig1-btn"),
+      loadRig2Btn: document.getElementById("load-rig2-btn"),
+      exportRig1Btn: document.getElementById("export-rig1-btn"),
+      exportRig2Btn: document.getElementById("export-rig2-btn"),
+      mergeRigBtn: document.getElementById("merge-rig-btn"),
+      rig1Badge: document.getElementById("rig1-badge"),
+      rig2Badge: document.getElementById("rig2-badge"),
+      rig1Slot: document.getElementById("rig-slot-1"),
+      rig2Slot: document.getElementById("rig-slot-2"),
+      rigEditor: document.getElementById("rig-editor"),
+      rigLayerPanel: document.getElementById("rig-layer-panel"),
       normalizeBtn: document.getElementById("normalize-btn"),
       compileBtn: document.getElementById("compile-btn"),
       exportSceneBtn: document.getElementById("export-scene-btn"),
@@ -1104,6 +1259,10 @@
       asset: null,
       scene: null,
       sourceText: "",
+      rigDoc: null,
+      rigName: "",
+      rigDoc2: null,
+      rigName2: "",
       playing: true,
       autoSequence: true,
       speed: 1,
@@ -1227,15 +1386,17 @@
     }
 
     function findShapePathKs(layer) {
-      for (const shape of layer.shapes || []) {
-        if (shape.ty === "sh") return shape.ks;
-        if (shape.ty === "gr") {
-          for (const item of shape.it || []) {
-            if (item.ty === "sh") return item.ks;
+      function searchItems(items) {
+        for (const item of items || []) {
+          if (item.ty === "sh") return item.ks;
+          if (item.ty === "gr") {
+            const found = searchItems(item.it || []);
+            if (found) return found;
           }
         }
+        return null;
       }
-      return null;
+      return searchItems(layer.shapes || []);
     }
 
     function getShapeAtFrame(ks, frame) {
@@ -1300,7 +1461,10 @@
           }
         }
       }
-      return [...times].sort((a, b) => a - b).map((tm, index) => ({
+      const sorted = [...times].sort((a, b) => a - b);
+      // Fallback: single static frame — treat frame 0 as the only pose
+      if (!sorted.length) sorted.push(0);
+      return sorted.map((tm, index) => ({
         tm,
         cm: `pose_${index}`,
         dr: 30,
@@ -2856,6 +3020,394 @@
       };
       reader.readAsText(file, "utf-8");
     }
+
+    /* -------- Rig JSON editor + dual-frame merge -------- */
+
+    function updateRigSlotUi() {
+      const has1 = !!state.rigDoc;
+      const has2 = !!state.rigDoc2;
+      els.rig1Badge.textContent = has1 ? state.rigName : "未加载";
+      els.rig2Badge.textContent = has2 ? state.rigName2 : "未加载";
+      els.rig1Slot.classList.toggle("loaded", has1);
+      els.rig2Slot.classList.toggle("loaded", has2);
+      els.exportRig1Btn.disabled = !has1;
+      els.exportRig2Btn.disabled = !has2;
+      els.mergeRigBtn.disabled = !(has1 && has2);
+    }
+
+    function renderRigLayerPanel(doc) {
+      const container = els.rigLayerPanel;
+      container.innerHTML = "";
+      if (!doc || !Array.isArray(doc.layers)) return;
+
+      const layers = doc.layers.filter((l) => l.ty === 4 && l.nm && l.ks);
+      if (!layers.length) return;
+
+      const grid = document.createElement("div");
+      grid.className = "rig-layers";
+
+      const hdr = document.createElement("div");
+      hdr.className = "rig-layer-row rig-layer-head";
+      hdr.innerHTML = "<span>层名 (nm)</span><span>旋转 r°</span><span>位置 X</span><span>位置 Y</span>";
+      grid.appendChild(hdr);
+
+      layers.forEach((layer) => {
+        const ks = layer.ks;
+        const getStatic = (prop) => (prop && prop.a === 0) ? prop.k : null;
+        const rVal = getStatic(ks.r);
+        const pVal = getStatic(ks.p);
+
+        const row = document.createElement("div");
+        row.className = "rig-layer-row";
+
+        const nm = document.createElement("span");
+        nm.className = "rig-nm";
+        nm.title = `ind: ${layer.ind}  ${layer.nm}`;
+        nm.textContent = layer.nm;
+        row.appendChild(nm);
+
+        function makeNumInput(val, onInput) {
+          const inp = document.createElement("input");
+          inp.type = "number";
+          inp.step = "any";
+          if (val != null) {
+            inp.value = String(val);
+          } else {
+            inp.disabled = true;
+            inp.placeholder = "anim";
+          }
+          inp.addEventListener("input", () => {
+            onInput(parseFloat(inp.value) || 0);
+            syncRigEditorFromDoc();
+          });
+          return inp;
+        }
+
+        row.appendChild(makeNumInput(rVal, (v) => {
+          if (ks.r && ks.r.a === 0) ks.r.k = v;
+        }));
+        row.appendChild(makeNumInput(pVal != null ? pVal[0] : null, (v) => {
+          if (ks.p && ks.p.a === 0 && Array.isArray(ks.p.k)) ks.p.k[0] = v;
+        }));
+        row.appendChild(makeNumInput(pVal != null ? pVal[1] : null, (v) => {
+          if (ks.p && ks.p.a === 0 && Array.isArray(ks.p.k)) ks.p.k[1] = v;
+        }));
+
+        grid.appendChild(row);
+      });
+
+      container.appendChild(grid);
+    }
+
+    function syncRigEditorFromDoc() {
+      if (state.rigDoc) {
+        els.rigEditor.value = JSON.stringify(state.rigDoc, null, 2);
+      }
+    }
+
+    function applyRigFile(text, name, slot) {
+      try {
+        const doc = JSON.parse(text);
+        if (slot === 2) {
+          state.rigDoc2 = doc;
+          state.rigName2 = name;
+        } else {
+          state.rigDoc = doc;
+          state.rigName = name;
+        }
+        /* Show the last loaded frame in the layer panel / textarea */
+        els.rigEditor.value = JSON.stringify(doc, null, 2);
+        renderRigLayerPanel(doc);
+        els.rigFold.open = true;
+        updateRigSlotUi();
+        setStatus(`已加载 Frame ${slot}：${name}（${doc.layers ? doc.layers.length : 0} 层）`);
+      } catch (err) {
+        setStatus(`Rig 解析失败：${err.message}`, true);
+      }
+    }
+
+    async function loadRigUrl(url, name, slot) {
+      try {
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        applyRigFile(await response.text(), name, slot);
+      } catch (err) {
+        setStatus(`Rig 加载失败：${err.message}`, true);
+      }
+    }
+
+    /* ---- Rig world-space transform helpers ---- */
+
+    /* Read a Lottie animated-property value at the static/first-keyframe.
+       Handles both static (a=0, k=value) and animated (a=1, k=[{t,s,e,...}]) forms. */
+    function lottiePropStatic(prop, fallback) {
+      if (prop == null) return fallback;
+      if (prop.a === 0) return prop.k;
+      const kf = prop.k;
+      if (!Array.isArray(kf) || !kf.length) return fallback;
+      const s = kf[0].s;
+      return s != null ? s : fallback;
+    }
+
+    /* Apply a Lottie transform {p,a,r,s} to a list of [x,y] ABSOLUTE points.
+       Transform order: scale around anchor, rotate around anchor, translate. */
+    function trPtsWorld(pts, tr) {
+      if (!tr || !pts.length) return pts;
+      const p    = lottiePropStatic(tr.p, [0, 0]);
+      const anc  = lottiePropStatic(tr.a, [0, 0]);
+      const rDeg = lottiePropStatic(tr.r, 0);
+      const scl  = lottiePropStatic(tr.s, [100, 100, 100]);
+      const px = Array.isArray(p) ? p[0] : 0;
+      const py = Array.isArray(p) ? p[1] : 0;
+      const ax = Array.isArray(anc) ? anc[0] : 0;
+      const ay = Array.isArray(anc) ? anc[1] : 0;
+      const sx = (Array.isArray(scl) ? scl[0] : 100) / 100;
+      const sy = (Array.isArray(scl) ? scl[1] : 100) / 100;
+      const rad = (Array.isArray(rDeg) ? rDeg[0] : (rDeg || 0)) * Math.PI / 180;
+      const cr = Math.cos(rad), sr = Math.sin(rad);
+      return pts.map(([x, y]) => {
+        const dx = (x - ax) * sx, dy = (y - ay) * sy;
+        return [
+          dx * cr - dy * sr + ax + px - ax,
+          dx * sr + dy * cr + ay + py - ay,
+        ];
+      });
+    }
+
+    /* Apply transform rotation+scale ONLY to relative tangent vectors (no translation). */
+    function trVecsRot(vecs, tr) {
+      if (!tr || !vecs.length) return vecs;
+      const rDeg = lottiePropStatic(tr.r, 0);
+      const scl  = lottiePropStatic(tr.s, [100, 100, 100]);
+      const sx = (Array.isArray(scl) ? scl[0] : 100) / 100;
+      const sy = (Array.isArray(scl) ? scl[1] : 100) / 100;
+      const rad = (Array.isArray(rDeg) ? rDeg[0] : (rDeg || 0)) * Math.PI / 180;
+      const cr = Math.cos(rad), sr = Math.sin(rad);
+      return vecs.map(([x, y]) => {
+        const dx = x * sx, dy = y * sy;
+        return [dx * cr - dy * sr, dx * sr + dy * cr];
+      });
+    }
+
+    /* Apply a Lottie transform to a path shape object {v,i,o,c}.
+       v[] are absolute anchor points → full transform.
+       i[],o[] are relative tangent vectors → rotation+scale only. */
+    function trLottieShape(shape, tr) {
+      if (!tr || !shape) return shape;
+      return {
+        v: trPtsWorld(shape.v || [], tr),
+        i: trVecsRot(shape.i || [], tr),
+        o: trVecsRot(shape.o || [], tr),
+        c: shape.c,
+      };
+    }
+
+    /* Recursively search Lottie shape items for the first 'sh' path,
+       applying each encountered group transform as we descend.
+       Returns a path shape in the coordinate space of the caller's context. */
+    function collectGroupWorldShape(items, outerGroupTr) {
+      for (const item of items || []) {
+        if (item.ty === "sh") {
+          const ks = item.ks;
+          if (!ks) continue;
+          let shapeData = null;
+          if (ks.a === 0) {
+            shapeData = ks.k;
+          } else {
+            const kf = ks.k || [];
+            const first = kf[0];
+            if (first && first.s) {
+              const s = first.s;
+              shapeData = Array.isArray(s) ? s[0] : s;
+            }
+          }
+          if (!shapeData || !shapeData.v) continue;
+          const raw = { v: shapeData.v, i: shapeData.i, o: shapeData.o, c: shapeData.c };
+          return outerGroupTr ? trLottieShape(raw, outerGroupTr) : raw;
+        }
+        if (item.ty === "gr") {
+          const sub = item.it || [];
+          const trItem = sub.find((x) => x.ty === "tr");
+          const childTr = trItem
+            ? { p: trItem.p, a: trItem.a, r: trItem.r, s: trItem.s }
+            : null;
+          /* Recurse with child's own group transform; compose outer on top */
+          const found = collectGroupWorldShape(sub, childTr);
+          if (!found) continue;
+          return outerGroupTr ? trLottieShape(found, outerGroupTr) : found;
+        }
+      }
+      return null;
+    }
+
+    /* Extract the first path shape from a Lottie layer in WORLD-SPACE.
+       Pipeline: shape-local → group tr(s) → layer ks → parent-layer chain. */
+    function layerWorldShape(layer, layerMapByInd) {
+      let shape = collectGroupWorldShape(layer.shapes || [], null);
+      if (!shape) return null;
+
+      /* Apply this layer's own ks transform */
+      if (layer.ks) shape = trLottieShape(shape, layer.ks);
+
+      /* Walk parent chain */
+      let parentInd = layer.parent;
+      let depth = 0;
+      while (parentInd != null && depth < 8) {
+        const parent = layerMapByInd.get(parentInd);
+        if (!parent) break;
+        if (parent.ks) shape = trLottieShape(shape, parent.ks);
+        parentInd = parent.parent;
+        depth++;
+      }
+      return shape;
+    }
+
+    /* ---- Merge two static rig frames into one standard scene doc ---- */
+    function mergeRigFramesToSceneDoc(rig1, rig2) {
+      const viewbox = [0, 0, Number(rig1.w || 200), Number(rig1.h || 200)];
+
+      /* Build lookup maps by layer ind */
+      const map1 = new Map((rig1.layers || []).map((l) => [l.ind, l]));
+      const map2 = new Map((rig2.layers || []).map((l) => [l.ind, l]));
+
+      /*
+       * Stroke normalization: Lottie designs on large canvases (e.g. 1200×900)
+       * use thin strokes (3-15px) that scale to <1-5px on embedded displays.
+       * Normalize relative to a 200px reference viewbox so visual weight matches
+       * the stickman/face assets.
+       *
+       * strokeNorm = clamp(round(min(w,h) / REF_VB), 1, 8)
+       * Per-segment cap: result clamped to 2× the layout default to avoid
+       * excessively thick antenna/strip strokes on large-canvas designs.
+       */
+      const REF_VB = 200;
+      const strokeNorm = Math.min(8, Math.max(1,
+        Math.round(Math.min(viewbox[2], viewbox[3]) / REF_VB)));
+      const layoutSW = Math.round(4 * strokeNorm);
+      const normSW = (sw) => sw ? Math.min(layoutSW * 2, Math.round(sw * strokeNorm)) : 0;
+
+      /* Skip non-rig decorative layers by name */
+      const SKIP_NAMES = new Set(["lottielab.com", "Group Layer 8"]);
+
+      /* Process all shape layers (ty=4) that are not decorative */
+      const shapeLayers1 = (rig1.layers || []).filter(
+        (l) => l.ty === 4 && !SKIP_NAMES.has(l.nm)
+      );
+
+      const parts = [];
+      const poseF1 = { id: "pose_f1", label: "Frame 1", label_cn: "帧 1", parts: {} };
+      const poseF2 = { id: "pose_f2", label: "Frame 2", label_cn: "帧 2", parts: {} };
+
+      for (const layer1 of shapeLayers1) {
+        /* World-space path for frame 1: group transforms + ks + parent chain */
+        const shape1 = layerWorldShape(layer1, map1);
+        if (!shape1 || !shape1.v || !shape1.v.length) continue;
+
+        const conv1 = lottieShapeToCtrlPts(shape1);
+        if (!conv1 || !conv1.points.length) continue;
+
+        /* Match layer in rig2 by ind (more reliable than name for unnamed layers) */
+        const layer2 = map2.get(layer1.ind);
+        const shape2 = layer2 ? layerWorldShape(layer2, map2) : null;
+        const conv2  = shape2 ? lottieShapeToCtrlPts(shape2) : null;
+
+        /* Skip if vertex count differs (incompatible topology) */
+        if (conv2 && conv2.points.length !== conv1.points.length) continue;
+
+        const partId = layer1.nm
+          ? slugify(layer1.nm, `part_${parts.length}`)
+          : `part_ind${layer1.ind}`;
+
+        parts.push({
+          id: partId,
+          label: layer1.nm || `ind${layer1.ind}`,
+          kind: detectKind(layer1, conv1.closed),
+          stroke_width: normSW(layerStrokeWidth(layer1)),
+          radius_hint: 0,
+        });
+
+        const round2 = (pts) => pts.map((pt) => [Math.round(pt[0]), Math.round(pt[1])]);
+        poseF1.parts[partId] = round2(conv1.points);
+        poseF2.parts[partId] = conv2 ? round2(conv2.points) : round2(conv1.points);
+      }
+
+      if (!parts.length) {
+        throw new Error(
+          "两帧中没有找到可处理的路径层。请确认 JSON 为龙虾 rig 格式（含 ty=4 形状层）。"
+        );
+      }
+
+      return {
+        schema: SCENE_SCHEMA,
+        name: "rig_active",
+        prefix: "s_rig",
+        meta: { viewbox },
+        layout: {
+          stroke_width: layoutSW,
+          mirror_x: 0,
+          ground_y: viewbox[1] + viewbox[3],
+          timer_period_ms: 33,
+          damping_div: 4,
+        },
+        parts,
+        poses: [poseF1, poseF2],
+        clips: [{
+          id: "active",
+          label: "active",
+          label_cn: "动作",
+          loop: true,
+          steps: [
+            { pose: "pose_f1", hold_ticks: 30, facing: 1, interp: "DAMPED" },
+            { pose: "pose_f2", hold_ticks: 30, facing: 1, interp: "DAMPED" },
+          ],
+        }],
+        sequence: ["active"],
+      };
+    }
+
+    /* ---- Rig event listeners ---- */
+
+    els.rigEditor.addEventListener("input", () => {
+      try {
+        const doc = JSON.parse(els.rigEditor.value);
+        state.rigDoc = doc;
+        state.rigName = state.rigName || "edited.json";
+        renderRigLayerPanel(doc);
+        updateRigSlotUi();
+      } catch (_) {
+        /* ignore parse errors while typing */
+      }
+    });
+
+    els.loadRig1Btn.addEventListener("click", () => {
+      loadRigUrl("./rig/active_frame1.json", "active_frame1.json", 1);
+    });
+
+    els.loadRig2Btn.addEventListener("click", () => {
+      loadRigUrl("./rig/active_frame2.json", "active_frame2.json", 2);
+    });
+
+    els.exportRig1Btn.addEventListener("click", () => {
+      if (!state.rigDoc) return;
+      downloadText(state.rigName || "frame1.json", JSON.stringify(state.rigDoc, null, 2));
+      setStatus(`已导出 ${state.rigName}`);
+    });
+
+    els.exportRig2Btn.addEventListener("click", () => {
+      if (!state.rigDoc2) return;
+      downloadText(state.rigName2 || "frame2.json", JSON.stringify(state.rigDoc2, null, 2));
+      setStatus(`已导出 ${state.rigName2}`);
+    });
+
+    els.mergeRigBtn.addEventListener("click", () => {
+      try {
+        const doc = mergeRigFramesToSceneDoc(state.rigDoc, state.rigDoc2);
+        writeSceneDoc(doc, `已合并两帧 → 标准场景 "${doc.name}"，${doc.parts.length} 个部件，2 个 pose。`);
+      } catch (err) {
+        setStatus(`合并失败：${err.message}`, true);
+        console.error(err);
+      }
+    });
 
     els.fileInput.addEventListener("change", (event) => {
       handleFile(event.target.files && event.target.files[0]);

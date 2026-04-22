@@ -28,8 +28,10 @@
 static const char *TAG = "test_sm_scene";
 
 #include "stickman_fireman_scene.inc"
-// #include "face_emote_scene.inc"
 #include "face_emote_scene2.inc"
+#include "rig_active.inc"
+
+#define TEST_HAVE_RIG_ACTIVE 1
 
 /* ------------------------------------------------------------------ */
 /*  Shared helpers                                                      */
@@ -85,6 +87,7 @@ static void s_clip_timer_cb(void *user_data)
 
 static test_sm_slot_t s_slot_skel;   /* stickman — left half  */
 static test_sm_slot_t s_slot_face;   /* face     — right half */
+static test_sm_slot_t s_slot_rig;    /* lobster rig — full or 1/3 */
 
 static void test_sm_dual_run(void)
 {
@@ -158,6 +161,55 @@ static void test_sm_dual_run(void)
 }
 
 /* ------------------------------------------------------------------ */
+/*  Rig test: lobster two-pose animation on full display               */
+/* ------------------------------------------------------------------ */
+
+#ifdef TEST_HAVE_RIG_ACTIVE
+static void test_sm_rig_run(void)
+{
+    uint16_t disp_w, disp_h;
+
+    test_app_log_case(TAG, "gfx_sm_runtime rig: lobster active pose — two-frame DAMPED");
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
+    TEST_ASSERT_NOT_NULL(disp_default);
+
+    disp_w = (uint16_t)gfx_disp_get_hor_res(disp_default);
+    disp_h = (uint16_t)gfx_disp_get_ver_res(disp_default);
+
+    gfx_disp_set_bg_color(disp_default, GFX_COLOR_HEX(0x0A0A0A));
+
+    memset(&s_slot_rig, 0, sizeof(s_slot_rig));
+    s_slot_rig.asset = &s_rig_scene_asset;
+
+    TEST_ASSERT_EQUAL(ESP_OK,
+        gfx_sm_runtime_init(&s_slot_rig.rt, disp_default, &s_rig_scene_asset));
+    TEST_ASSERT_EQUAL(ESP_OK,
+        gfx_sm_runtime_set_canvas(&s_slot_rig.rt, 0, 0, disp_w, disp_h));
+    TEST_ASSERT_EQUAL(ESP_OK,
+        gfx_sm_runtime_set_color(&s_slot_rig.rt, GFX_COLOR_HEX(0xFF6020)));
+
+    s_slot_rig.seq_index = 0;
+    uint16_t ci_rig0 = s_rig_scene_asset.sequence[0];
+    gfx_sm_runtime_set_clip(&s_slot_rig.rt, ci_rig0, true);
+
+    s_slot_rig.clip_timer = gfx_timer_create(emote_handle, s_clip_timer_cb,
+                                             s_clip_hold_ms(&s_rig_scene_asset, ci_rig0),
+                                             &s_slot_rig);
+    TEST_ASSERT_NOT_NULL(s_slot_rig.clip_timer);
+
+    test_app_unlock();
+
+    test_app_log_step(TAG, "Full display: lobster rig oscillating between pose_f1 ↔ pose_f2");
+    test_app_wait_for_observe(1000 * 10000);
+
+    TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
+    gfx_timer_delete(emote_handle, s_slot_rig.clip_timer);
+    gfx_sm_runtime_deinit(&s_slot_rig.rt);
+    test_app_unlock();
+}
+#endif /* TEST_HAVE_RIG_ACTIVE */
+
+/* ------------------------------------------------------------------ */
 /*  Entry point                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -166,6 +218,10 @@ void test_gfx_sm_scene_run_case(void)
     test_app_runtime_t runtime;
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_runtime_open(&runtime, TEST_APP_ASSETS_PARTITION_DEFAULT));
+#ifdef TEST_HAVE_RIG_ACTIVE
+    test_sm_rig_run();
+#else
     test_sm_dual_run();
+#endif
     test_app_runtime_close(&runtime);
 }

@@ -199,8 +199,12 @@ static bool s_nvg_resample(int32_t src_n, uint16_t dst_n, s_spt_t *dst)
 
 #define SM_RING_SEGS_MIN  16U
 #define SM_RING_SEGS_MAX  48U
-/* Max control points in one segment (joint_count ≤ GFX_SM_SCENE_MAX_JOINTS). */
-#define SM_BEZIER_MAX_PTS       GFX_SM_SCENE_MAX_JOINTS
+/*
+ * Max control points in a SINGLE segment (not total joints across all segments).
+ * Cubic-bezier closed loop with N anchors has 3N+1 control points; N=20 → 61.
+ * Decoupled from GFX_SM_SCENE_MAX_JOINTS to keep per-call stack buffers small.
+ */
+#define SM_BEZIER_MAX_PTS       64U
 /*
  * Control points use the cubic-Bezier polygon format: n = 3k+1
  * (k segments, adjacent segments share one endpoint).
@@ -711,7 +715,8 @@ static esp_err_t s_rig_apply(gfx_rig_t *rig, void *user_data, bool force)
         case GFX_SM_SEG_BEZIER_STRIP:
         case GFX_SM_SEG_BEZIER_LOOP: {
             uint8_t n = seg->joint_count;
-            if (n < 2U || (uint32_t)seg->joint_a + n > asset->joint_count) {
+            if (n < 2U || n > SM_BEZIER_MAX_PTS ||
+                    (uint32_t)seg->joint_a + n > asset->joint_count) {
                 continue;
             }
             s_spt_t ctrl_pts[SM_BEZIER_MAX_PTS];
@@ -730,7 +735,8 @@ static esp_err_t s_rig_apply(gfx_rig_t *rig, void *user_data, bool force)
 
         case GFX_SM_SEG_BEZIER_FILL: {
             uint8_t n = seg->joint_count;
-            if (n < 3U || (uint32_t)seg->joint_a + n > asset->joint_count) {
+            if (n < 3U || n > SM_BEZIER_MAX_PTS ||
+                    (uint32_t)seg->joint_a + n > asset->joint_count) {
                 continue;
             }
             s_spt_t ctrl_pts[SM_BEZIER_MAX_PTS];

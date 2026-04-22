@@ -226,8 +226,13 @@ typedef struct {
 /*  Layer 2 — PARSER runtime state                                    */
 /* ------------------------------------------------------------------ */
 
-/** Maximum joints per asset (covers stickman ≤12 and face ≤31). */
-#define GFX_SM_SCENE_MAX_JOINTS 64U
+/**
+ * Maximum total joints per asset (sum of all segment control points).
+ * Stickman ≤ 12, face ≤ 64, rig ≤ 207 — keep at 256 to accommodate rigs.
+ * NOTE: per-segment buffer (SM_BEZIER_MAX_PTS in gfx_sm_runtime.c) is
+ * independent and capped separately to limit stack usage.
+ */
+#define GFX_SM_SCENE_MAX_JOINTS 256U
 
 typedef struct {
     int16_t x;
