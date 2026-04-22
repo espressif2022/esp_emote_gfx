@@ -4,6 +4,7 @@ All notable changes to the ESP Emote GFX component will be documented in this fi
 
 ## [3.0.4] - 2026-04-21
 - restore gfx_disp_event_t
+- Render loop: sleep `GFX_RENDER_TASK_IDLE_SLEEP_MS` once before the main loop so the first frame is not driven until the caller can finish setup after `add_disp()` (avoids a startup deadlock)
 
 ## [3.0.3] - 2026-04-20
 - Add `gfx_button` widget (text, font, normal/pressed colors, border)

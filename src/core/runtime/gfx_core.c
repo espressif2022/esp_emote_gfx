@@ -104,6 +104,13 @@ static void gfx_render_loop_task(void *arg)
     SemaphoreHandle_t mutex = ctx->sync.render_mutex;
     uint32_t next_sleep_ms = GFX_RENDER_TASK_IDLE_SLEEP_MS;
 
+    /**
+     * If this task runs too early, add_disp() can fire the first frame before the
+     * caller / external code is ready, which can lead to a deadlock. Delay so the
+     * rest of the system can finish setup first.
+     */
+    vTaskDelay(pdMS_TO_TICKS(GFX_RENDER_TASK_IDLE_SLEEP_MS));
+
     for (;;) {
         EventBits_t evt_invalidate;
         gfx_wait_for_work(ctx, next_sleep_ms, &evt_invalidate);
