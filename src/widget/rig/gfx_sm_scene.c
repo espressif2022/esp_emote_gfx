@@ -58,9 +58,9 @@ static void s_load_target(gfx_sm_scene_t *scene, uint16_t pose_index, int8_t fac
     const gfx_sm_asset_t   *asset  = scene->asset;
     const gfx_sm_pose_t    *pose   = &asset->poses[pose_index];
     const gfx_sm_layout_t  *layout = asset->layout;
-    uint8_t                 n      = asset->joint_count;
+    uint16_t                n      = asset->joint_count;
 
-    for (uint8_t i = 0; i < n; i++) {
+    for (uint16_t i = 0; i < n; i++) {
         int16_t x = pose->coords[i * 2 + 0];
         int16_t y = pose->coords[i * 2 + 1];
         if (facing < 0) {
@@ -170,7 +170,7 @@ esp_err_t gfx_sm_scene_set_clip_name(gfx_sm_scene_t *scene, const char *name, bo
 
 bool gfx_sm_scene_tick(gfx_sm_scene_t *scene)
 {
-    uint8_t  n;
+    uint16_t n;
     int16_t  div;
     bool     changed = false;
 
@@ -181,7 +181,7 @@ bool gfx_sm_scene_tick(gfx_sm_scene_t *scene)
     n   = scene->asset->joint_count;
     div = (scene->asset->layout->damping_div > 0) ? scene->asset->layout->damping_div : 4;
 
-    for (uint8_t i = 0; i < n; i++) {
+    for (uint16_t i = 0; i < n; i++) {
         int16_t nx = s_ease(scene->pose_cur[i].x, scene->pose_tgt[i].x, div);
         int16_t ny = s_ease(scene->pose_cur[i].y, scene->pose_tgt[i].y, div);
 

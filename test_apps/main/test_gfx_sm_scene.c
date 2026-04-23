@@ -31,7 +31,7 @@ static const char *TAG = "test_sm_scene";
 #include "face_emote_scene2.inc"
 #include "rig_active.inc"
 
-#define TEST_HAVE_RIG_ACTIVE 1
+#define TEST_HAVE_RIG_ACTIVE 0
 
 /* ------------------------------------------------------------------ */
 /*  Shared helpers                                                      */

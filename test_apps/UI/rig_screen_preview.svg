@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 390" width="780" height="780" style="background:#1a1a2e">
+<path d="M 252.8,109.4 L 252.8,104.8 L 261.9,85.2 L 269.4,82.7 L 289.9,115.8 L 301.0,145.5 L 294.9,157.0 L 280.0,157.5 L 275.9,154.9 L 266.7,131.6 L 252.8,109.4 Z" fill="none" stroke="#ff595e" stroke-width="1.5" opacity="0.7"/>
+<text x="273" y="123" font-size="7" fill="#ff595e" text-anchor="middle" font-family="sans-serif">右翼</text>
+<path d="M 216.6,137.8 L 229.0,128.9 L 235.5,129.5 L 246.8,146.8 L 256.8,171.7 L 253.7,178.5 L 243.2,192.9 L 242.1,190.2 L 234.8,161.7 L 216.2,139.5 L 216.6,137.8 Z" fill="none" stroke="#a855f7" stroke-width="1.5" opacity="0.7"/>
+<text x="236" y="156" font-size="7" fill="#a855f7" text-anchor="middle" font-family="sans-serif">左翼</text>
+<path d="M 235.9,124.9 L 236.8,122.8 L 248.1,116.3 L 257.9,123.9 L 271.3,150.4 L 271.1,159.3 L 262.4,169.3 L 259.0,169.2 L 248.8,145.0 L 235.9,124.9 Z" fill="none" stroke="#3b82f6" stroke-width="1.5" opacity="0.7"/>
+<text x="253" y="141" font-size="7" fill="#3b82f6" text-anchor="middle" font-family="sans-serif">中翼</text>
+<path d="M 183.4,264.0 L 165.8,270.9 L 154.3,273.1 L 153.8,253.0 L 175.9,224.0 L 210.2,243.0 L 208.3,288.2 L 179.0,304.4 L 160.9,292.1 L 161.9,283.3 L 183.4,264.0 Z" fill="none" stroke="#84cc16" stroke-width="1.5" opacity="0.7"/>
+<text x="176" y="269" font-size="7" fill="#84cc16" text-anchor="middle" font-family="sans-serif">腹部</text>
+<path d="M 181.6,142.3 L 187.7,137.7 L 195.3,142.3 L 181.6,142.3 Z" fill="none" stroke="#fb923c" stroke-width="1.5" opacity="0.7"/>
+<text x="187" y="141" font-size="7" fill="#fb923c" text-anchor="middle" font-family="sans-serif">右嘴</text>
+<path d="M 153.0,142.3 L 159.2,137.7 L 167.0,142.3 L 153.0,142.3 Z" fill="none" stroke="#c084fc" stroke-width="1.5" opacity="0.7"/>
+<text x="158" y="141" font-size="7" fill="#c084fc" text-anchor="middle" font-family="sans-serif">左嘴</text>
+<path d="M 201.5,101.4 L 191.8,114.6 L 188.5,142.3" fill="none" stroke="#ec4899" stroke-width="1.5" opacity="0.7"/>
+<text x="194" y="119" font-size="7" fill="#ec4899" text-anchor="middle" font-family="sans-serif">右触须</text>
+<path d="M 125.3,207.5 L 107.3,211.9 L 95.6,212.5 L 96.7,192.4 L 121.0,166.7 L 153.6,190.3 L 148.2,235.0 L 117.8,247.1 L 100.7,232.3 L 102.5,223.7 L 125.3,207.5 Z" fill="none" stroke="#22d3ee" stroke-width="1.5" opacity="0.7"/>
+<text x="118" y="212" font-size="7" fill="#22d3ee" text-anchor="middle" font-family="sans-serif">左体</text>
+<path d="M 172.1,101.4 L 162.4,114.6 L 159.1,142.3" fill="none" stroke="#34d399" stroke-width="1.5" opacity="0.7"/>
+<text x="165" y="119" font-size="7" fill="#34d399" text-anchor="middle" font-family="sans-serif">左触须</text>
+<ellipse cx="191.6" cy="197.8" rx="48.3" ry="64.3" fill="none" fill-opacity="0.5" stroke="#ff6b6b" stroke-width="1.5"/>
+<text x="192" y="129" font-size="8" fill="#ff6b6b" text-anchor="middle" font-family="monospace">头圆</text>
+<ellipse cx="188.3" cy="159.2" rx="10.9" ry="21.0" fill="none" fill-opacity="0.5" stroke="#81d4fa" stroke-width="1.0"/>
+<text x="188" y="134" font-size="8" fill="#81d4fa" text-anchor="middle" font-family="monospace">右眼</text>
+<ellipse cx="182.6" cy="164.2" rx="2.9" ry="3.9" fill="none" fill-opacity="0.5" stroke="#4fc3f7" stroke-width="0.8"/>
+<text x="183" y="156" font-size="8" fill="#4fc3f7" text-anchor="middle" font-family="monospace">右眼点</text>
+<ellipse cx="160.0" cy="159.2" rx="10.9" ry="21.0" fill="none" fill-opacity="0.5" stroke="#81d4fa" stroke-width="1.0"/>
+<text x="160" y="134" font-size="8" fill="#81d4fa" text-anchor="middle" font-family="monospace">左眼</text>
+<ellipse cx="153.0" cy="162.5" rx="2.9" ry="3.9" fill="none" fill-opacity="0.5" stroke="#4fc3f7" stroke-width="0.8"/>
+<text x="153" y="155" font-size="8" fill="#4fc3f7" text-anchor="middle" font-family="monospace">左眼点</text>
+<ellipse cx="246.8" cy="216.8" rx="5.4" ry="7.4" fill="#ffd54f" fill-opacity="0.5" stroke="#ffd54f" stroke-width="1.5"/>
+<text x="247" y="205" font-size="8" fill="#ffd54f" text-anchor="middle" font-family="monospace">脚1</text>
+<ellipse cx="242.6" cy="233.9" rx="5.4" ry="7.4" fill="#ffb74d" fill-opacity="0.5" stroke="#ffb74d" stroke-width="1.5"/>
+<text x="243" y="223" font-size="8" fill="#ffb74d" text-anchor="middle" font-family="monospace">脚2</text>
+<ellipse cx="233.6" cy="247.2" rx="5.4" ry="7.4" fill="#f06292" fill-opacity="0.5" stroke="#f06292" stroke-width="1.5"/>
+<text x="234" y="236" font-size="8" fill="#f06292" text-anchor="middle" font-family="monospace">脚3</text>
+<line x1="195" y1="0" x2="195" y2="390" stroke="#444" stroke-width="0.5" stroke-dasharray="4,4"/>
+<line x1="0" y1="195" x2="390" y2="195" stroke="#444" stroke-width="0.5" stroke-dasharray="4,4"/>
+<text x="388" y="12" font-size="9" fill="#888" text-anchor="end" font-family="sans-serif">390×390</text>
+</svg>

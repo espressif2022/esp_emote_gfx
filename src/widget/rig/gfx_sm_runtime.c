@@ -714,13 +714,13 @@ static esp_err_t s_rig_apply(gfx_rig_t *rig, void *user_data, bool force)
 
         case GFX_SM_SEG_BEZIER_STRIP:
         case GFX_SM_SEG_BEZIER_LOOP: {
-            uint8_t n = seg->joint_count;
+            uint16_t n = seg->joint_count;
             if (n < 2U || n > SM_BEZIER_MAX_PTS ||
                     (uint32_t)seg->joint_a + n > asset->joint_count) {
                 continue;
             }
             s_spt_t ctrl_pts[SM_BEZIER_MAX_PTS];
-            for (uint8_t j = 0; j < n; j++) {
+            for (uint16_t j = 0; j < n; j++) {
                 s_to_screen(asset,
                             &scene->pose_cur[seg->joint_a + j],
                             rt->canvas_x, rt->canvas_y,
@@ -728,26 +728,26 @@ static esp_err_t s_rig_apply(gfx_rig_t *rig, void *user_data, bool force)
                             &ctrl_pts[j]);
             }
             bool loop = (seg->kind == GFX_SM_SEG_BEZIER_LOOP);
-            ESP_RETURN_ON_ERROR(s_apply_bezier(obj, ctrl_pts, n, stroke_px, loop),
+            ESP_RETURN_ON_ERROR(s_apply_bezier(obj, ctrl_pts, (uint8_t)n, stroke_px, loop),
                                 TAG, "bezier seg[%u]", i);
             break;
         }
 
         case GFX_SM_SEG_BEZIER_FILL: {
-            uint8_t n = seg->joint_count;
+            uint16_t n = seg->joint_count;
             if (n < 3U || n > SM_BEZIER_MAX_PTS ||
                     (uint32_t)seg->joint_a + n > asset->joint_count) {
                 continue;
             }
             s_spt_t ctrl_pts[SM_BEZIER_MAX_PTS];
-            for (uint8_t j = 0; j < n; j++) {
+            for (uint16_t j = 0; j < n; j++) {
                 s_to_screen(asset,
                             &scene->pose_cur[seg->joint_a + j],
                             rt->canvas_x, rt->canvas_y,
                             rt->canvas_w, rt->canvas_h,
                             &ctrl_pts[j]);
             }
-            ESP_RETURN_ON_ERROR(s_apply_bezier_fill(obj, ctrl_pts, n),
+            ESP_RETURN_ON_ERROR(s_apply_bezier_fill(obj, ctrl_pts, (uint8_t)n),
                                 TAG, "bezier_fill seg[%u]", i);
             break;
         }
@@ -803,6 +803,21 @@ esp_err_t gfx_sm_runtime_init(gfx_sm_runtime_t *rt,
     solid_src.type = GFX_IMG_SRC_TYPE_IMAGE_DSC;
     solid_src.data = &rt->solid_img;
 
+    /* ── Palette 1×1 pixel sources (colour_idx 1..N) ── */
+    for (uint8_t pi = 0U; pi < GFX_SM_PALETTE_MAX; pi++) {
+        rt->palette_imgs[pi]       = rt->solid_img;          /* copy header fields */
+        rt->palette_pixels[pi]     = rt->solid_pixel;        /* default = stroke colour */
+        rt->palette_imgs[pi].data  = (const uint8_t *)&rt->palette_pixels[pi];
+    }
+    if (asset->color_palette != NULL) {
+        uint8_t n = (asset->color_palette_count < GFX_SM_PALETTE_MAX)
+                    ? asset->color_palette_count : GFX_SM_PALETTE_MAX;
+        for (uint8_t pi = 0U; pi < n; pi++) {
+            gfx_color_t pc = GFX_COLOR_HEX(asset->color_palette[pi]);
+            rt->palette_pixels[pi] = gfx_color_to_native_u16(pc, swap);
+        }
+    }
+
     /* ── Default canvas: full display ── */
     rt->canvas_x = 0;
     rt->canvas_y = 0;
@@ -828,9 +843,9 @@ esp_err_t gfx_sm_runtime_init(gfx_sm_runtime_t *rt,
             break;
         case GFX_SM_SEG_BEZIER_LOOP: {
             /* Stroke: k = (n-1)/3 segments × segs_per → k*segs_per cols, wrap. */
-            uint8_t  n     = (seg->joint_count >= 4U) ? seg->joint_count : 4U;
-            uint8_t  k     = (uint8_t)((n - 1U) / 3U);
-            uint16_t tcols = (uint16_t)k * SM_BEZIER_SEGS_PER_SEG;
+            uint16_t n     = (seg->joint_count >= 4U) ? seg->joint_count : 4U;
+            uint16_t k     = (n - 1U) / 3U;
+            uint16_t tcols = k * (uint16_t)SM_BEZIER_SEGS_PER_SEG;
             uint8_t  gcols = (tcols > 255U) ? 255U : (uint8_t)tcols;
             gfx_mesh_img_set_grid(obj, gcols, 1U);
             gfx_mesh_img_set_wrap_cols(obj, true);
@@ -843,9 +858,9 @@ esp_err_t gfx_sm_runtime_init(gfx_sm_runtime_t *rt,
         }
         case GFX_SM_SEG_BEZIER_STRIP: {
             /* Stroke: k = (n-1)/3 segments × segs_per → k*segs_per cols, no wrap. */
-            uint8_t  n     = (seg->joint_count >= 4U) ? seg->joint_count : 4U;
-            uint8_t  k     = (uint8_t)((n - 1U) / 3U);
-            uint16_t tcols = (uint16_t)k * SM_BEZIER_SEGS_PER_SEG;
+            uint16_t n     = (seg->joint_count >= 4U) ? seg->joint_count : 4U;
+            uint16_t k     = (n - 1U) / 3U;
+            uint16_t tcols = k * (uint16_t)SM_BEZIER_SEGS_PER_SEG;
             uint8_t  gcols = (tcols > 255U) ? 255U : (uint8_t)tcols;
             gfx_mesh_img_set_grid(obj, gcols, 1U);
             break;
@@ -860,7 +875,7 @@ esp_err_t gfx_sm_runtime_init(gfx_sm_runtime_t *rt,
             gfx_mesh_img_set_aa_inward(obj, true);
         }
 
-        /* Bind per-segment image source: texture if resource_idx > 0, else solid colour */
+        /* Bind per-segment image source: texture > palette colour > solid colour */
         if (seg->resource_idx > 0U
                 && asset->resources != NULL
                 && (uint8_t)(seg->resource_idx - 1U) < asset->resource_count
@@ -870,6 +885,12 @@ esp_err_t gfx_sm_runtime_init(gfx_sm_runtime_t *rt,
                 .data = (const void *)asset->resources[seg->resource_idx - 1U].image,
             };
             gfx_mesh_img_set_src_desc(obj, &res_src);
+        } else if (seg->color_idx > 0U && seg->color_idx <= GFX_SM_PALETTE_MAX) {
+            gfx_img_src_t pal_src = {
+                .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+                .data = &rt->palette_imgs[seg->color_idx - 1U],
+            };
+            gfx_mesh_img_set_src_desc(obj, &pal_src);
         } else {
             gfx_mesh_img_set_src_desc(obj, &solid_src);
         }
@@ -954,9 +975,10 @@ esp_err_t gfx_sm_runtime_set_color(gfx_sm_runtime_t *rt, gfx_color_t color)
     solid_src.data = &rt->solid_img;
 
     for (uint8_t i = 0; i < rt->seg_obj_count; i++) {
-        /* Skip texture-mapped segments — colour change does not apply */
+        /* Skip texture-mapped and palette-coloured segments */
         if (rt->scene.asset != NULL && i < rt->scene.asset->segment_count) {
-            if (rt->scene.asset->segments[i].resource_idx != 0U) {
+            const gfx_sm_segment_t *seg = &rt->scene.asset->segments[i];
+            if (seg->resource_idx != 0U || seg->color_idx != 0U) {
                 continue;
             }
         }

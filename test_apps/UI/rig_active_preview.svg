@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" width="960" height="720" style="background:#0d0d1a">
+<defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#aaa"/></marker></defs>
+<line x1="600" y1="0" x2="600" y2="900" stroke="#2a2a3a" stroke-width="1" stroke-dasharray="6,6"/>
+<line x1="0" y1="450" x2="1200" y2="450" stroke="#2a2a3a" stroke-width="1" stroke-dasharray="6,6"/>
+<text x="20" y="28" font-size="22" fill="#888" font-family="monospace">pose F1 ━  F2 - - -</text>
+<path d="M 778,252 C 777,249 776,245 778,242 C 780,237 801,203 806,197 C 810,190 819,185 829,191 C 839,197 881,251 892,267 C 903,283 925,319 926,336 C 928,353 916,361 907,362 C 899,364 867,364 862,363 C 856,363 851,365 849,358 C 847,350 841,333 820,304 C 802,278 779,259 778,252 C 778,252 778,252 778,252 Z" fill="none" stroke="#ff595e" stroke-width="2.5" opacity="0.9"/>
+<path d="M 816,292 C 815,288 816,285 818,282 C 821,278 849,248 855,243 C 861,238 870,235 879,243 C 887,250 917,313 924,331 C 932,348 945,388 943,405 C 941,422 928,427 919,427 C 910,426 880,419 874,418 C 869,417 864,417 863,410 C 862,402 861,384 847,351 C 834,322 816,299 816,292 C 816,292 816,292 816,292 Z" fill="none" stroke="#ff595e" stroke-width="1.5" stroke-dasharray="8,5" opacity="0.5"/>
+<text x="837" y="283" font-size="16" fill="#ff595e" text-anchor="middle" dominant-baseline="middle" font-family="monospace">右翼</text>
+<path d="M 666,318 C 677,312 700,300 705,298 C 710,295 720,294 725,299 C 729,304 745,319 759,339 C 773,358 790,388 790,396 C 790,405 785,408 781,412 C 776,416 750,444 748,445 C 746,446 745,447 745,439 C 745,431 741,407 722,373 C 703,339 667,325 665,322 C 664,320 666,318 666,318 C 666,318 666,318 666,318 Z" fill="none" stroke="#a855f7" stroke-width="2.5" opacity="0.9"/>
+<path d="M 693,332 C 705,329 730,322 735,320 C 741,319 750,320 754,326 C 758,332 770,350 780,372 C 789,394 799,427 797,435 C 795,443 790,445 785,448 C 779,452 748,473 746,474 C 744,475 742,475 744,467 C 746,459 747,436 736,398 C 725,361 692,339 691,336 C 690,334 692,333 693,332 C 693,332 693,332 693,332 Z" fill="none" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="8,5" opacity="0.5"/>
+<text x="723" y="358" font-size="16" fill="#a855f7" text-anchor="middle" dominant-baseline="middle" font-family="monospace">右臂</text>
+<path d="M 726,288 C 726,286 726,285 729,283 C 731,282 754,271 763,268 C 773,266 774,264 793,286 C 813,307 829,336 835,347 C 840,358 837,365 834,368 C 831,371 810,388 807,391 C 804,393 799,396 797,390 C 794,385 787,365 766,335 C 744,304 726,292 726,288 C 726,288 726,288 726,288 Z" fill="none" stroke="#3b82f6" stroke-width="2.5" opacity="0.9"/>
+<path d="M 757,316 C 758,314 759,313 761,312 C 763,311 788,305 798,304 C 808,304 809,303 824,328 C 839,353 849,385 851,396 C 854,408 850,414 846,416 C 843,419 819,432 815,433 C 812,435 806,437 805,431 C 804,425 801,404 786,370 C 772,335 757,320 757,316 C 757,316 757,316 757,316 Z" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="8,5" opacity="0.5"/>
+<text x="776" y="323" font-size="16" fill="#3b82f6" text-anchor="middle" dominant-baseline="middle" font-family="monospace">右肩</text>
+<path d="M 564,609 C 554,612 528,619 510,625 C 488,633 480,635 475,630 C 469,626 467,615 473,584 C 479,553 502,529 541,517 C 580,505 627,526 647,561 C 666,596 661,635 641,665 C 620,695 585,708 551,703 C 517,697 499,681 495,674 C 491,667 491,658 498,654 C 504,650 545,623 564,609 C 564,609 564,609 564,609 Z" fill="none" stroke="#84cc16" stroke-width="2.5" opacity="0.9"/>
+<path d="M 533,641 C 523,645 498,656 482,664 C 461,675 453,678 447,675 C 441,671 437,660 439,629 C 440,598 460,570 496,553 C 533,536 583,549 607,581 C 632,612 633,652 616,685 C 600,717 567,736 533,735 C 498,734 479,721 474,715 C 468,709 468,700 474,695 C 479,690 515,657 533,641 C 533,641 533,641 533,641 Z" fill="none" stroke="#84cc16" stroke-width="1.5" stroke-dasharray="8,5" opacity="0.5"/>
+<text x="541" y="621" font-size="16" fill="#84cc16" text-anchor="middle" dominant-baseline="middle" font-family="monospace">主体</text>
+<path d="M 386,479 C 375,481 349,485 330,489 C 307,494 299,495 294,490 C 289,485 288,474 298,444 C 307,414 333,392 372,385 C 412,377 457,402 473,439 C 489,476 480,515 456,542 C 432,570 396,580 362,570 C 329,561 314,543 310,536 C 306,529 308,520 315,516 C 321,513 365,490 386,479 C 386,479 386,479 386,479 Z" fill="none" stroke="#22d3ee" stroke-width="2.5" opacity="0.9"/>
+<path d="M 388,453 C 377,452 351,451 332,451 C 309,451 301,450 297,444 C 293,438 295,427 310,400 C 326,373 356,357 396,358 C 436,359 475,394 482,433 C 490,472 472,508 443,530 C 414,552 376,553 346,537 C 315,520 304,500 302,492 C 300,484 304,476 312,474 C 318,472 365,459 388,453 C 388,453 388,453 388,453 Z" fill="none" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="8,5" opacity="0.5"/>
+<text x="362" y="488" font-size="16" fill="#22d3ee" text-anchor="middle" dominant-baseline="middle" font-family="monospace">左体</text>
+<path d="M 559,328 C 562,324 569,318 577,318 C 586,317 596,321 601,328 C 601,328 559,328 559,328 C 559,328 559,328 559,328 Z" fill="rgba(255,255,255,0.06)" stroke="#fb923c" stroke-width="1.5" opacity="0.85"/>
+<text x="573" y="325" font-size="14" fill="#fb923c" text-anchor="middle" dominant-baseline="middle" font-family="monospace">右螯</text>
+<path d="M 471,328 C 474,324 481,318 490,318 C 499,317 509,321 514,328 C 514,328 471,328 471,328 C 471,328 471,328 471,328 Z" fill="rgba(255,255,255,0.06)" stroke="#c084fc" stroke-width="1.5" opacity="0.85"/>
+<text x="485" y="325" font-size="14" fill="#c084fc" text-anchor="middle" dominant-baseline="middle" font-family="monospace">左螯</text>
+<path d="M 620,234 C 620,234 603,243 590,264 C 578,285 580,328 580,328" fill="none" stroke="#ec4899" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<path d="M 620,234 C 620,234 603,243 590,264 C 578,285 580,328 580,328" fill="none" stroke="#ec4899" stroke-width="1.5" stroke-dasharray="8,5" stroke-linecap="round" opacity="0.5"/>
+<text x="596" y="274-16" font-size="14" fill="#ec4899" text-anchor="middle" font-family="monospace">右触</text>
+<path d="M 530,234 C 530,234 512,243 500,264 C 487,285 490,328 490,328" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+<path d="M 530,234 C 530,234 512,243 500,264 C 487,285 490,328 490,328" fill="none" stroke="#34d399" stroke-width="1.5" stroke-dasharray="8,5" stroke-linecap="round" opacity="0.5"/>
+<text x="506" y="274-16" font-size="14" fill="#34d399" text-anchor="middle" font-family="monospace">左触</text>
+<circle cx="589" cy="456" r="149" fill="none" stroke="#ff6b6b" stroke-width="3"/>
+<text x="589" y="295" font-size="16" fill="#ff6b6b" text-anchor="middle" font-family="monospace">头圆</text>
+<path d="M 579,319 C 598,319 613,341 613,367 C 613,394 598,416 579,416 C 561,416 546,394 546,367 C 546,341 561,319 579,319 Z" fill="none" stroke="#81d4fa" stroke-width="1.2" opacity="0.85"/>
+<text x="579" y="364" font-size="13" fill="#81d4fa" text-anchor="middle" dominant-baseline="middle" font-family="monospace">右眼</text>
+<path d="M 492,319 C 511,319 526,341 526,367 C 526,394 511,416 492,416 C 474,416 459,394 459,367 C 459,341 474,319 492,319 Z" fill="none" stroke="#7dd3fc" stroke-width="1.2" opacity="0.85"/>
+<text x="492" y="364" font-size="13" fill="#7dd3fc" text-anchor="middle" dominant-baseline="middle" font-family="monospace">左眼</text>
+<path d="M 562,370 C 567,370 571,374 571,379 C 571,384 567,388 562,388 C 557,388 553,384 553,379 C 553,374 557,370 562,370 Z" fill="rgba(14,165,233,0.3)" stroke="#0ea5e9" stroke-width="1.2" opacity="0.9"/>
+<path d="M 471,366 C 476,366 480,370 480,375 C 480,380 476,384 471,384 C 466,384 462,380 462,375 C 462,370 466,366 471,366 Z" fill="rgba(14,165,233,0.3)" stroke="#38bdf8" stroke-width="1.2" opacity="0.9"/>
+<path d="M 759,483 C 768,483 776,491 776,500 C 776,510 768,517 759,517 C 750,517 743,510 743,500 C 743,491 750,483 759,483 Z" fill="rgba(255,255,255,0.08)" stroke="#ffd54f" stroke-width="2" opacity="0.9"/>
+<path d="M 745,515 C 754,515 761,523 761,532 C 761,541 754,549 745,549 C 736,549 728,541 728,532 C 728,523 736,515 745,515 Z" fill="none" stroke="#ffd54f" stroke-width="1.2" stroke-dasharray="6,4" opacity="0.6"/>
+<line x1="759" y1="499" x2="745" y2="531" stroke="#ffd54f" stroke-width="1" stroke-dasharray="3,3" opacity="0.5" marker-end="url(#arr)"/>
+<text x="759" y="479" font-size="14" fill="#ffd54f" text-anchor="middle" font-family="monospace">脚1</text>
+<path d="M 746,523 C 755,523 763,530 763,540 C 763,549 755,557 746,557 C 737,557 730,549 730,540 C 730,530 737,523 746,523 Z" fill="rgba(255,255,255,0.08)" stroke="#ffb74d" stroke-width="2" opacity="0.9"/>
+<path d="M 726,552 C 735,552 742,559 742,569 C 742,578 735,586 726,586 C 717,586 709,578 709,569 C 709,559 717,552 726,552 Z" fill="none" stroke="#ffb74d" stroke-width="1.2" stroke-dasharray="6,4" opacity="0.6"/>
+<line x1="746" y1="539" x2="726" y2="568" stroke="#ffb74d" stroke-width="1" stroke-dasharray="3,3" opacity="0.5" marker-end="url(#arr)"/>
+<text x="746" y="519" font-size="14" fill="#ffb74d" text-anchor="middle" font-family="monospace">脚2</text>
+<path d="M 719,553 C 728,553 735,561 735,570 C 735,580 728,587 719,587 C 710,587 702,580 702,570 C 702,561 710,553 719,553 Z" fill="rgba(255,255,255,0.08)" stroke="#f06292" stroke-width="2" opacity="0.9"/>
+<path d="M 694,578 C 703,578 710,585 710,595 C 710,604 703,612 694,612 C 685,612 677,604 677,595 C 677,585 685,578 694,578 Z" fill="none" stroke="#f06292" stroke-width="1.2" stroke-dasharray="6,4" opacity="0.6"/>
+<line x1="719" y1="569" x2="694" y2="594" stroke="#f06292" stroke-width="1" stroke-dasharray="3,3" opacity="0.5" marker-end="url(#arr)"/>
+<text x="719" y="549" font-size="14" fill="#f06292" text-anchor="middle" font-family="monospace">脚3</text>
+</svg>

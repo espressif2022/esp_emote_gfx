@@ -99,9 +99,9 @@ typedef enum {
 /** One rendering primitive wiring joints to a visual element. */
 typedef struct {
     gfx_sm_seg_kind_t kind;
-    uint8_t           joint_a;       /**< CAPSULE: start; RING: centre; BEZIER: first ctrl pt     */
-    uint8_t           joint_b;       /**< CAPSULE: end  ; unused for RING/BEZIER                  */
-    uint8_t           joint_count;   /**< BEZIER_*: number of consecutive control points (n=3k+1) */
+    uint16_t          joint_a;       /**< CAPSULE: start; RING: centre; BEZIER: first ctrl pt     */
+    uint16_t          joint_b;       /**< CAPSULE: end  ; unused for RING/BEZIER                  */
+    uint16_t          joint_count;   /**< BEZIER_*: number of consecutive control points (n=3k+1) */
     uint8_t           stroke_width;  /**< Design-space override; 0 = use layout->stroke_width     */
     uint8_t           layer_bit;     /**< Visibility layer mask bit (0 = always shown)            */
     int16_t           radius_hint;   /**< RING: design-space radius                               */
@@ -111,6 +111,13 @@ typedef struct {
      * N>0 = use asset->resources[N-1] as the mesh_img image source.
      */
     uint8_t           resource_idx;
+    /**
+     * Palette colour index.
+     * 0   = use runtime colour (gfx_sm_runtime_set_color), not affected by set_color.
+     * N>0 = use asset->color_palette[N-1] (0xRRGGBB) as the fixed segment colour.
+     *        set_color() skips palette-coloured segments.
+     */
+    uint8_t           color_idx;
     /**
      * Segment opacity 0-255.
      * 0 is treated as 255 (fully opaque) for zero-init compatibility.
@@ -192,7 +199,7 @@ typedef struct {
 
     /** Joint name table (joint_count entries). */
     const char *const       *joint_names;
-    uint8_t                  joint_count;
+    uint16_t                 joint_count;
 
     /** Segment wiring (segment_count entries; 0 is valid). */
     const gfx_sm_segment_t *segments;
@@ -220,6 +227,16 @@ typedef struct {
      */
     const gfx_sm_resource_t *resources;
     uint8_t                   resource_count;
+
+    /**
+     * Optional per-segment colour palette.
+     * Stored as 0xRRGGBB 24-bit values; converted to native pixel at runtime init.
+     * Segments reference entries via segment.color_idx (1-based).
+     * NULL and color_palette_count=0 are valid (all non-resource segments use
+     * the runtime colour set by gfx_sm_runtime_set_color).
+     */
+    const uint32_t *color_palette;
+    uint8_t         color_palette_count;
 } gfx_sm_asset_t;
 
 /* ------------------------------------------------------------------ */
@@ -228,11 +245,11 @@ typedef struct {
 
 /**
  * Maximum total joints per asset (sum of all segment control points).
- * Stickman ≤ 12, face ≤ 64, rig ≤ 207 — keep at 256 to accommodate rigs.
+ * Stickman ≤ 12, face ≤ 64, rig ≤ 311 — keep at 512 to accommodate rigs.
  * NOTE: per-segment buffer (SM_BEZIER_MAX_PTS in gfx_sm_runtime.c) is
  * independent and capped separately to limit stack usage.
  */
-#define GFX_SM_SCENE_MAX_JOINTS 256U
+#define GFX_SM_SCENE_MAX_JOINTS 512U
 
 typedef struct {
     int16_t x;
@@ -268,6 +285,9 @@ void gfx_sm_scene_advance(gfx_sm_scene_t *scene);
 /** Maximum mesh_img objects per runtime (one per segment). */
 #define GFX_SM_RUNTIME_MAX_SEGS 64U
 
+/** Maximum colour palette entries (colour_idx 1..GFX_SM_PALETTE_MAX). */
+#define GFX_SM_PALETTE_MAX 16U
+
 /**
  * Unified animation runtime.
  *
@@ -290,6 +310,9 @@ typedef struct {
     gfx_color_t     stroke_color;
     uint16_t        solid_pixel;
     gfx_image_dsc_t solid_img;
+    /** Per-palette-entry native pixels and their 1×1 image descriptors. */
+    uint16_t        palette_pixels[GFX_SM_PALETTE_MAX];
+    gfx_image_dsc_t palette_imgs[GFX_SM_PALETTE_MAX];
     gfx_coord_t     canvas_x;
     gfx_coord_t     canvas_y;
     uint16_t        canvas_w;

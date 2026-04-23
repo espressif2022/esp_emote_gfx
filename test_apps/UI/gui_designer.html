@@ -1615,19 +1615,30 @@
         ? [...lottie.markers].sort((a, b) => a.tm - b.tm)
         : buildMarkersFromShapeTimes(orderedLayers);
 
+      /* Build a by-ind map for the parent-chain transform resolution */
+      const layerMapByInd = new Map((lottie.layers || []).map((l) => [l.ind, l]));
+
       const parts = [];
       for (const layer of orderedLayers) {
+        /* Try world-space shape (handles sh/el/rc + layer ks + parent chain) */
+        const worldShape0 = layerWorldShape(layer, layerMapByInd);
+        /* Fall back to raw animated path sampling for keyframed paths */
         const ks = findShapePathKs(layer);
-        const shape0 = getShapeAtFrame(ks, markers[0] ? markers[0].tm : 0);
-        if (!ks || !shape0) continue;
+        const rawShape0 = ks ? getShapeAtFrame(ks, markers[0] ? markers[0].tm : 0) : null;
+        const shape0 = worldShape0 || rawShape0;
+        if (!shape0 || !shape0.v) continue;
         const converted = lottieShapeToCtrlPts(shape0);
         const cfg = segCfg.get(layer.nm) || {};
+        const partId = layer.nm || `part_ind${layer.ind}`;
         parts.push({
-          id: layer.nm,
-          label: layer.nm,
+          id: partId,
+          label: partId,
           kind: cfg.kind || detectKind(layer, converted.closed),
           stroke_width: Number(cfg.stroke_width != null ? cfg.stroke_width : layerStrokeWidth(layer)),
           radius_hint: 0,
+          /* track whether geometry comes from keyframed paths (use getShapeAtFrame per pose) */
+          _hasAnimPath: !!(ks && ks.a),
+          _layerInd: layer.ind,
         });
       }
 
@@ -1642,11 +1653,21 @@
         };
 
         for (const part of parts) {
-          const layer = orderedLayers.find((item) => item.nm === part.id);
-          const ks = findShapePathKs(layer);
-          const shape = getShapeAtFrame(ks, marker.tm);
-          if (!shape) continue;
-          const converted = lottieShapeToCtrlPts(shape);
+          const layer = orderedLayers.find((item) => (item.nm || `part_ind${item.ind}`) === part.id);
+          if (!layer) continue;
+          let converted = null;
+          if (part._hasAnimPath) {
+            /* Animated bezier path: sample raw vertices at this marker time */
+            const ks = findShapePathKs(layer);
+            const shape = getShapeAtFrame(ks, marker.tm);
+            if (!shape) continue;
+            converted = lottieShapeToCtrlPts(shape);
+          } else {
+            /* Static geometry or world-space ellipse/rect: use layerWorldShape */
+            const shape = layerWorldShape(layer, layerMapByInd);
+            if (!shape) continue;
+            converted = lottieShapeToCtrlPts(shape);
+          }
           pose.parts[part.id] = converted.points.map((pt) => [Math.round(pt[0]), Math.round(pt[1])]);
         }
         return pose;
@@ -2946,7 +2967,7 @@
       lines.push(`static const gfx_sm_asset_t ${prefix}_scene_asset = {`);
       lines.push(`    .meta           = &${prefix}_meta,`);
       lines.push(`    .joint_names    = ${prefix}_joint_names,`);
-      lines.push(`    .joint_count    = (uint8_t)(sizeof(${prefix}_joint_names) / sizeof(${prefix}_joint_names[0])),`);
+      lines.push(`    .joint_count    = (uint16_t)(sizeof(${prefix}_joint_names) / sizeof(${prefix}_joint_names[0])),`);
       lines.push(`    .segments       = ${prefix}_segments,`);
       lines.push(`    .segment_count  = (uint8_t)(sizeof(${prefix}_segments) / sizeof(${prefix}_segments[0])),`);
       lines.push(`    .poses          = ${prefix}_poses,`);
@@ -3202,9 +3223,67 @@
       };
     }
 
-    /* Recursively search Lottie shape items for the first 'sh' path,
+    /* Convert a Lottie ellipse shape item to a synthetic cubic-bezier path.
+       κ = 0.5523 is the standard magic number for circle-to-bezier approximation.
+       Returned shape uses relative tangents (Lottie convention). */
+    function ellipseToLottieShape(item) {
+      const p = lottiePropStatic(item.p, [0, 0]);
+      const s = lottiePropStatic(item.s, [50, 50]);
+      const cx = Array.isArray(p) ? p[0] : 0;
+      const cy = Array.isArray(p) ? p[1] : 0;
+      const rx = (Array.isArray(s) ? s[0] : 50) / 2;
+      const ry = (Array.isArray(s) ? s[1] : 50) / 2;
+      const K = 0.5523;
+      const kx = rx * K, ky = ry * K;
+      /* 4 anchors: top, right, bottom, left — clockwise */
+      return {
+        v: [[cx, cy - ry], [cx + rx, cy], [cx, cy + ry], [cx - rx, cy]],
+        i: [[-kx, 0],  [0, -ky], [kx, 0],  [0,  ky]],
+        o: [[ kx, 0],  [0,  ky], [-kx, 0], [0, -ky]],
+        c: true,
+      };
+    }
+
+    /* Convert a Lottie rectangle shape item to a synthetic cubic-bezier path.
+       Rounded corners are approximated with κ arcs when r > 0. */
+    function rectToLottieShape(item) {
+      const p = lottiePropStatic(item.p, [0, 0]);
+      const s = lottiePropStatic(item.s, [50, 50]);
+      const r = lottiePropStatic(item.r, 0);
+      const cx = Array.isArray(p) ? p[0] : 0;
+      const cy = Array.isArray(p) ? p[1] : 0;
+      const hw = (Array.isArray(s) ? s[0] : 50) / 2;
+      const hh = (Array.isArray(s) ? s[1] : 50) / 2;
+      const rr = Math.min(Array.isArray(r) ? r[0] : (r || 0), hw, hh);
+      if (rr <= 0) {
+        /* Simple rectangle — 4 corners, no tangents */
+        return {
+          v: [[cx - hw, cy - hh], [cx + hw, cy - hh], [cx + hw, cy + hh], [cx - hw, cy + hh]],
+          i: [[0, 0], [0, 0], [0, 0], [0, 0]],
+          o: [[0, 0], [0, 0], [0, 0], [0, 0]],
+          c: true,
+        };
+      }
+      /* Rounded rectangle — 8 anchors (2 per corner), κ-arc tangents */
+      const K = 0.5523, kx = rr * K, ky = rr * K;
+      const l = cx - hw, r2 = cx + hw, t = cy - hh, b = cy + hh;
+      return {
+        v: [
+          [l + rr, t],      [r2 - rr, t],
+          [r2, t + rr],     [r2, b - rr],
+          [r2 - rr, b],     [l + rr, b],
+          [l, b - rr],      [l, t + rr],
+        ],
+        i: [[0, 0], [0, 0], [0, -ky], [0, 0], [0, 0], [0, 0], [0, ky], [0, 0]],
+        o: [[0, 0], [kx, 0], [0, 0],  [kx, 0], [0, 0], [-kx, 0], [0, 0], [-kx, 0]],
+        c: true,
+      };
+    }
+
+    /* Recursively search Lottie shape items for the first geometry primitive
+       (ty:"sh" bezier path, ty:"el" ellipse, or ty:"rc" rectangle),
        applying each encountered group transform as we descend.
-       Returns a path shape in the coordinate space of the caller's context. */
+       Returns a Lottie-format bezier shape in the coordinate space of the caller's context. */
     function collectGroupWorldShape(items, outerGroupTr) {
       for (const item of items || []) {
         if (item.ty === "sh") {
@@ -3223,6 +3302,14 @@
           }
           if (!shapeData || !shapeData.v) continue;
           const raw = { v: shapeData.v, i: shapeData.i, o: shapeData.o, c: shapeData.c };
+          return outerGroupTr ? trLottieShape(raw, outerGroupTr) : raw;
+        }
+        if (item.ty === "el") {
+          const raw = ellipseToLottieShape(item);
+          return outerGroupTr ? trLottieShape(raw, outerGroupTr) : raw;
+        }
+        if (item.ty === "rc") {
+          const raw = rectToLottieShape(item);
           return outerGroupTr ? trLottieShape(raw, outerGroupTr) : raw;
         }
         if (item.ty === "gr") {
