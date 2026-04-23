@@ -561,15 +561,22 @@ static esp_err_t s_apply_bezier_fill(gfx_obj_t *obj,
     int32_t  min_x = INT32_MAX, max_x = INT32_MIN;
     int32_t  min_y = INT32_MAX, max_y = INT32_MIN;
 
-    /* Need at least two cubic halves: n must be 7 (= 3*2+1). */
-    if (n < 7U) {
+    /* Supported n values:
+     *   n=7  : two-half eye format (face emote): 1 cubic per half
+     *          upper: ctrl[0..3]  lower: ctrl[6..3] reversed → left→right
+     *   n=13 : 4-quadrant closed ellipse (rig): 2 cubics per half
+     *          ctrl[0]=TOP, ctrl[3]=RIGHT, ctrl[6]=BOTTOM, ctrl[9]=LEFT, ctrl[12]=TOP
+     *          upper (LEFT→TOP→RIGHT): Q3[9→12] + Q0[0→3]
+     *          lower (LEFT→BOTTOM→RIGHT): Q2 rev[9→6] + Q1 rev[6→3]   */
+    if (n != 7U && n != 13U) {
         return ESP_ERR_INVALID_ARG;
     }
 
     bool have_upper = false, have_lower = false;
 
 #if GFX_SM_HAVE_NANOVG
-    {
+    /* NanoVG path only for n=7; for n=13 the fixed-step path is used. */
+    if (n == 7U) {
         int32_t cnt;
         /* Upper arc: ctrl[0..3].  With edgeAntiAlias=0 + shapeAntiAlias=0, NVG's
          * fill polygon for an open path contains exactly the curve points [p0..p3]
@@ -586,19 +593,50 @@ static esp_err_t s_apply_bezier_fill(gfx_obj_t *obj,
     }
 #endif /* GFX_SM_HAVE_NANOVG */
 
-    /* ── Fixed-step fallback ── */
+    /* ── Fixed-step tessellation ── */
     if (!have_upper) {
-        /* Upper cubic Bezier: ctrl[0..3], t = 0→1 */
-        for (uint8_t i = 0; i <= segs; i++) {
-            float t = (float)i / (float)segs;
-            s_cubic_bezier(&ctrl[0], &ctrl[1], &ctrl[2], &ctrl[3], t, &upper[i]);
+        if (n == 7U) {
+            /* Single cubic bezier: ctrl[0..3], left→right through top arc */
+            for (uint8_t i = 0; i <= segs; i++) {
+                float t = (float)i / (float)segs;
+                s_cubic_bezier(&ctrl[0], &ctrl[1], &ctrl[2], &ctrl[3], t, &upper[i]);
+            }
+        } else {
+            /* n=13: two cubic beziers forming the upper semicircle.
+             * ctrl[9]=LEFT, ctrl[12]=ctrl[0]=TOP, ctrl[3]=RIGHT.
+             * Q3 forward [9→12]: LEFT→TOP (first segs/2 + 1 samples).
+             * Q0 forward [0→3]:  TOP→RIGHT (remaining samples, skip duplicate TOP). */
+            const uint8_t h = segs / 2U;
+            for (uint8_t i = 0; i <= h; i++) {
+                s_cubic_bezier(&ctrl[9], &ctrl[10], &ctrl[11], &ctrl[12],
+                               (float)i / (float)h, &upper[i]);
+            }
+            for (uint8_t i = 1; i <= segs - h; i++) {
+                s_cubic_bezier(&ctrl[0], &ctrl[1], &ctrl[2], &ctrl[3],
+                               (float)i / (float)(segs - h), &upper[h + i]);
+            }
         }
     }
     if (!have_lower) {
-        /* Lower cubic Bezier: ctrl[3..6], t = 1→0 (reversed → right→left) */
-        for (uint8_t i = 0; i <= segs; i++) {
-            float t = (float)(segs - i) / (float)segs;
-            s_cubic_bezier(&ctrl[3], &ctrl[4], &ctrl[5], &ctrl[6], t, &lower[i]);
+        if (n == 7U) {
+            /* Lower cubic Bezier: ctrl[3..6], t = 1→0 (reversed → left→right) */
+            for (uint8_t i = 0; i <= segs; i++) {
+                float t = (float)(segs - i) / (float)segs;
+                s_cubic_bezier(&ctrl[3], &ctrl[4], &ctrl[5], &ctrl[6], t, &lower[i]);
+            }
+        } else {
+            /* n=13: two cubic beziers forming the lower semicircle.
+             * Q2 reversed [9→6]: LEFT→BOTTOM (first segs/2 + 1 samples).
+             * Q1 reversed [6→3]: BOTTOM→RIGHT (remaining samples, skip duplicate BOTTOM). */
+            const uint8_t h = segs / 2U;
+            for (uint8_t i = 0; i <= h; i++) {
+                s_cubic_bezier(&ctrl[9], &ctrl[8], &ctrl[7], &ctrl[6],
+                               (float)i / (float)h, &lower[i]);
+            }
+            for (uint8_t i = 1; i <= segs - h; i++) {
+                s_cubic_bezier(&ctrl[6], &ctrl[5], &ctrl[4], &ctrl[3],
+                               (float)i / (float)(segs - h), &lower[h + i]);
+            }
         }
     }
 
@@ -830,6 +868,7 @@ esp_err_t gfx_sm_runtime_init(gfx_sm_runtime_t *rt,
         const gfx_sm_segment_t *seg = &asset->segments[i];
         gfx_obj_t *obj = gfx_mesh_img_create(disp);
         ESP_RETURN_ON_FALSE(obj != NULL, ESP_ERR_NO_MEM, TAG, "mesh_img[%u] failed", i);
+        gfx_obj_set_visible(obj, false);   /* hide until first valid mesh is applied */
 
         switch (seg->kind) {
         case GFX_SM_SEG_RING: {
