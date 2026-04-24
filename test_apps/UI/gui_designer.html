@@ -373,6 +373,55 @@
       cursor: grabbing;
     }
 
+    /* ---- Part detail dialog --------------------------------------------- */
+    #part-detail-dialog {
+      border: none;
+      border-radius: 20px;
+      padding: 0;
+      width: min(680px, 95vw);
+      box-shadow: 0 24px 60px rgba(30, 16, 0, 0.30);
+      background: var(--surface);
+    }
+
+    #part-detail-dialog::backdrop {
+      background: rgba(20, 10, 0, 0.45);
+      backdrop-filter: blur(3px);
+    }
+
+    .pd-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px 10px;
+      border-bottom: 1px solid rgba(66, 52, 36, 0.10);
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .pd-body {
+      padding: 12px;
+    }
+
+    .pd-viewer {
+      display: block;
+      width: 100%;
+      height: min(440px, 60vh);
+      background: rgba(255, 253, 250, 0.9);
+      border-radius: 14px;
+      border: 1px solid rgba(66, 52, 36, 0.10);
+    }
+
+    .pd-hint {
+      padding: 8px 18px 14px;
+      margin: 0;
+    }
+
+    .pd-close {
+      font-size: 12px;
+      padding: 5px 14px;
+    }
+
+    /* ---- Control point elements inside the detail dialog ---------------- */
     .edit-joint-line {
       fill: none;
       stroke: rgba(217, 111, 59, 0.35);
@@ -541,97 +590,62 @@
       flex: 1 1 120px;
     }
 
-    .readonly-input {
-      background: rgba(239, 232, 224, 0.72);
-      color: var(--text);
+    /* -------- Unified pose list: row = scene pose + source JSON ---------- */
+    .pose-row {
+      display: flex;
+      align-items: stretch;
+      gap: 6px;
+      margin: 2px 0;
     }
 
-    .point-editor {
+    .pose-row.active .pose-row-main {
+      border-color: var(--accent);
+      background: rgba(20, 110, 120, 0.08);
+    }
+
+    .pose-row-main {
+      flex: 1 1 auto;
       display: grid;
+      grid-template-columns: auto auto 1fr;
+      align-items: baseline;
       gap: 10px;
-      max-height: 320px;
-      overflow: auto;
-      padding-right: 4px;
+      text-align: left;
     }
 
-    .point-group {
-      display: grid;
-      gap: 10px;
-      padding: 12px;
-      border-radius: 16px;
-      border: 1px solid rgba(66, 52, 36, 0.10);
-      background: rgba(255, 251, 246, 0.92);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
-    }
-
-    .point-group-head {
-      display: grid;
-      gap: 4px;
-    }
-
-    .point-group-title {
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--text);
-    }
-
-    .point-group-note {
+    .pose-row-idx {
+      font-family: ui-monospace, "SFMono-Regular", monospace;
       font-size: 12px;
       color: var(--muted);
-      line-height: 1.6;
     }
 
-    .point-group-body {
-      display: grid;
-      gap: 10px;
-    }
-
-    .point-card {
-      display: grid;
-      gap: 10px;
-      padding: 12px;
-      border-radius: 14px;
-      border: 1px solid rgba(66, 52, 36, 0.10);
-      background: rgba(255, 255, 255, 0.8);
-    }
-
-    .point-card-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .point-name {
-      font-size: 13px;
-      font-weight: 700;
+    .pose-row-id {
+      font-weight: 600;
       color: var(--text);
-    }
-
-    .point-role {
-      padding: 4px 8px;
-      border-radius: 999px;
-      background: rgba(20, 110, 120, 0.08);
-      border: 1px solid rgba(20, 110, 120, 0.12);
-      color: var(--accent);
-      font-size: 11px;
+      overflow: hidden;
+      text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    .point-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
+    .pose-row-src {
+      font-size: 12px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    .point-empty {
-      padding: 14px;
-      border-radius: 14px;
-      border: 1px dashed rgba(66, 52, 36, 0.16);
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.7;
-      background: rgba(255, 255, 255, 0.5);
+    .pose-row-del {
+      flex: 0 0 34px;
+      min-width: 34px;
+      padding: 0 8px;
+      font-size: 18px;
+      line-height: 1;
+      color: var(--danger, #c0392b);
+    }
+
+    .pose-row-del:hover {
+      background: rgba(192, 57, 43, 0.08);
+      border-color: rgba(192, 57, 43, 0.3);
     }
 
     .compact-fold > summary {
@@ -645,102 +659,27 @@
       padding: 12px;
     }
 
-    /* ---- Rig dual-frame slots ---- */
-    .rig-slots {
+    /* ---- Rig import bar ---- */
+    .rig-pose-import {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .rig-target-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    .rig-slot {
-      border: 1px solid rgba(66, 52, 36, 0.12);
-      border-radius: 14px;
-      padding: 10px 12px;
-      background: rgba(255, 255, 255, 0.5);
-      display: grid;
       gap: 8px;
+      margin-top: 4px;
     }
 
-    .rig-slot.loaded {
-      border-color: rgba(20, 110, 120, 0.30);
-      background: rgba(20, 110, 120, 0.05);
-    }
-
-    .rig-slot-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 6px;
-    }
-
-    .rig-slot-label {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--text);
-    }
-
-    .rig-slot-badge {
-      font-size: 10px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: rgba(66, 52, 36, 0.08);
-      color: var(--muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 120px;
-    }
-
-    .rig-slot.loaded .rig-slot-badge {
-      background: rgba(20, 110, 120, 0.12);
-      color: var(--accent);
-    }
-
-    /* ---- Rig layer transform editor ---- */
-    .rig-layers {
-      display: grid;
-      gap: 5px;
-      margin-bottom: 10px;
-    }
-
-    .rig-layer-row {
-      display: grid;
-      grid-template-columns: minmax(80px, 1fr) repeat(3, 72px);
-      gap: 6px;
-      align-items: center;
-      background: rgba(255, 255, 255, 0.55);
-      border: 1px solid rgba(66, 52, 36, 0.10);
-      border-radius: 10px;
-      padding: 5px 10px;
-    }
-
-    .rig-layer-head {
-      background: transparent !important;
-      border-color: transparent !important;
-      padding: 2px 10px !important;
-    }
-
-    .rig-layer-head span {
-      font-size: 10px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    .rig-nm {
-      font-size: 12px;
-      font-weight: 600;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .rig-layer-row input[type="number"] {
-      width: 100%;
-      padding: 5px 7px;
-      font-size: 11px;
-      border-radius: 8px;
-      min-height: auto;
+    /* Drag-and-drop highlight on the whole fold body. */
+    #rig-dropzone.dragover {
+      outline: 2px dashed rgba(20, 110, 120, 0.55);
+      outline-offset: 4px;
+      border-radius: 12px;
     }
 
     #rig-editor {
@@ -843,43 +782,37 @@
         </details>
 
         <details class="fold" id="rig-fold">
-          <summary>Rig 双帧合并 → 标准场景</summary>
-          <div class="fold-body">
+          <summary>Rig 外部 JSON 导入 → 标准场景</summary>
+          <div class="fold-body" id="rig-dropzone">
 
-            <div class="rig-slots">
-              <div class="rig-slot" id="rig-slot-1">
-                <div class="rig-slot-head">
-                  <span class="rig-slot-label">Frame 1</span>
-                  <span class="rig-slot-badge" id="rig1-badge">未加载</span>
-                </div>
-                <div class="btn-row">
-                  <button class="ghost" id="load-rig1-btn" type="button">加载 Frame 1</button>
-                  <button class="ghost" id="export-rig1-btn" type="button" disabled>导出</button>
-                </div>
-              </div>
-              <div class="rig-slot" id="rig-slot-2">
-                <div class="rig-slot-head">
-                  <span class="rig-slot-label">Frame 2</span>
-                  <span class="rig-slot-badge" id="rig2-badge">未加载</span>
-                </div>
-                <div class="btn-row">
-                  <button class="ghost" id="load-rig2-btn" type="button">加载 Frame 2</button>
-                  <button class="ghost" id="export-rig2-btn" type="button" disabled>导出</button>
-                </div>
-              </div>
+            <div class="rig-pose-import">
+              <button class="ghost" id="import-pose-btn" type="button"
+                      title="选择一个或多个 Lottie JSON 文件，每个文件作为一个姿态追加">
+                + 导入姿态 JSON
+              </button>
+              <button class="ghost" id="clear-poses-btn" type="button" disabled
+                      title="清空已累积的姿态并重置 rig 编辑区">
+                清空
+              </button>
+              <input type="file" id="pose-file-input"
+                     accept=".json,application/json" multiple hidden>
+              <span class="mini" id="pose-count-badge">尚未导入任何姿态</span>
             </div>
 
-            <div class="btn-row" style="margin-top:10px;">
-              <button id="merge-rig-btn" type="button" disabled>两帧合并 → 标准场景 ↓</button>
-            </div>
             <p class="mini" style="margin-top:4px;">
-              两帧都加载后点 "合并"，自动生成含 <code>pose_f1 / pose_f2</code> 的双步
-              <code>active</code> clip，并载入设计区。也可单独点任意帧查看/编辑各层变换后导出。
+              每导入 1 个 JSON = 1 个姿态，自动追加到场景并立即重新合并。支持多选或把
+              <code>.json</code> 拖到此折叠区批量导入；想重新开始点 <code>清空</code>。
+              目标宽高在左侧"场景信息"里设置；留空则沿用首个 Lottie 的原始尺寸。
+              展开下方折叠可查看/编辑最近导入的原始 JSON，修改后自动重新合并（防抖 400ms）。
             </p>
 
-            <div id="rig-layer-panel"></div>
-            <textarea id="rig-editor" spellcheck="false"
-              placeholder="点击 '加载 Frame N' 加载后可在此查看/编辑原始 JSON..."></textarea>
+            <details class="fold compact-fold">
+              <summary>最近导入的姿态 JSON（可编辑）</summary>
+              <div class="fold-body">
+                <textarea id="rig-editor" spellcheck="false"
+                  placeholder="导入后会显示最近一次的 JSON；修改会写回该姿态并自动重新合并..."></textarea>
+              </div>
+            </details>
           </div>
         </details>
 
@@ -895,6 +828,21 @@
               <input id="gui-scene-prefix" type="text" placeholder="例如 s_scene">
             </label>
           </div>
+          <div class="field-grid rig-target-grid" style="margin-top:8px;">
+            <label>
+              导入目标宽 (px)
+              <input id="target-w-input" type="number" min="16" step="1"
+                     placeholder="留空 = 原始 w">
+            </label>
+            <label>
+              导入目标高 (px)
+              <input id="target-h-input" type="number" min="16" step="1"
+                     placeholder="留空 = 原始 h">
+            </label>
+          </div>
+          <p class="mini" style="margin-top:4px;">
+            目标宽高：rig 导入时等比缩放（fit）到此尺寸并居中；留空沿用 Lottie 原始尺寸。
+          </p>
           <div class="inline-tools">
             <button class="ghost" id="gui-save-scene-meta-btn" type="button">保存场景信息</button>
           </div>
@@ -904,7 +852,7 @@
           <h3>部件</h3>
           <div class="grid-2">
             <div class="stack">
-              <p class="mini">部件列表</p>
+              <p class="mini">部件列表（双击预览区部件可放大查看控制点）</p>
               <div class="listbox" id="parts-list"></div>
             </div>
             <div class="stack">
@@ -927,91 +875,40 @@
                     <option value="RING">圆环</option>
                   </select>
                 </label>
-                <div class="grid-3">
-                  <label>
-                    线宽
-                    <input id="part-stroke-input" type="number" min="0" step="1" value="0">
-                  </label>
-                  <label>
-                    半径提示
-                    <input id="part-radius-input" type="number" step="1" value="0">
-                  </label>
-                  <label>
-                    控制点数
-                    <input id="part-count-input" type="number" value="0" readonly>
-                  </label>
-                </div>
+                <label>
+                  线宽
+                  <input id="part-stroke-input" type="number" min="0" step="1" value="0">
+                </label>
               </div>
               <div class="inline-tools">
                 <button class="ghost" id="part-save-btn" type="button">保存部件</button>
-                <button class="ghost" id="part-add-btn" type="button">新增部件</button>
-                <button class="warn" id="part-remove-btn" type="button">删除部件</button>
               </div>
             </div>
           </div>
         </section>
 
+        <!-- ---- Part detail popup ---------------------------------------- -->
+        <dialog id="part-detail-dialog">
+          <div class="pd-header">
+            <span id="pd-title">部件详情</span>
+            <button type="button" class="ghost pd-close" id="pd-close-btn">关闭</button>
+          </div>
+          <div class="pd-body">
+            <svg id="pd-viewer" class="pd-viewer" aria-label="part detail"></svg>
+          </div>
+          <p class="mini pd-hint">拖拽橙色圆点可调整控制点；点击背景关闭。</p>
+        </dialog>
+
         <section class="card">
           <h3>姿态</h3>
-          <div class="grid-2">
-            <div class="stack">
-              <p class="mini">姿态列表</p>
-              <div class="listbox" id="poses-list"></div>
-            </div>
-            <div class="stack">
-              <div class="field-grid">
-                <label>
-                  姿态 ID
-                  <input id="pose-id-input" type="text" placeholder="姿态 ID">
-                </label>
-                <label>
-                  名称
-                  <input id="pose-label-input" type="text" placeholder="例如 平静">
-                </label>
-                <label>
-                  中文名
-                  <input id="pose-label-cn-input" type="text" placeholder="中文名">
-                </label>
-                <label>
-                  当前部件
-                  <select id="pose-part-select"></select>
-                </label>
-                <label>
-                  点位编辑
-                  <div id="pose-point-list" class="point-editor"></div>
-                </label>
-                <div class="grid-3">
-                  <label>
-                    部位中心
-                    <input id="pose-part-center-input" class="readonly-input" type="text" readonly placeholder="(x, y)">
-                  </label>
-                  <label>
-                    包围盒起点
-                    <input id="pose-part-bbox-origin-input" class="readonly-input" type="text" readonly placeholder="(x, y)">
-                  </label>
-                  <label>
-                    包围盒尺寸
-                    <input id="pose-part-bbox-size-input" class="readonly-input" type="text" readonly placeholder="w x h">
-                  </label>
-                </div>
-                <details class="fold compact-fold">
-                  <summary>高级模式：原始点位 JSON</summary>
-                  <div class="fold-body">
-                    <label>
-                      原始点位 JSON
-                      <textarea id="pose-part-points-input" spellcheck="false" style="min-height:120px;" placeholder="[[0,0],[10,10]]"></textarea>
-                    </label>
-                  </div>
-                </details>
-              </div>
-              <div class="inline-tools">
-                <button class="ghost" id="pose-save-btn" type="button">保存姿态</button>
-                <button class="ghost" id="pose-save-points-btn" type="button">应用高级点位</button>
-                <button class="ghost" id="pose-duplicate-btn" type="button">复制姿态</button>
-              </div>
-              <p class="mini">主编辑入口是点位卡片和右侧画布拖点。高级模式里的原始 JSON 只用于批量粘贴或调试。</p>
-              <p class="mini">位置描述由当前姿态控制点实时推导。右侧预览区支持拖点编辑；双击部件可选中，随后可整体拖动该部件。</p>
-            </div>
+          <div class="stack">
+            <p class="mini">
+              每一行对应场景中的一个姿态。rig 导入的姿态会显示对应 JSON 文件名；点行切换选中（右侧画布会高亮该姿态）；
+              <code>×</code> 从场景中移除该姿态，若它是通过 rig 导入的则同步从累加器中移除。
+              姿态的具体内容现在**只由外部 JSON 导入驱动**，不再提供右侧点位/中心/JSON 编辑入口；
+              需要微调点位请在 rig 折叠区编辑 JSON 或直接在右侧预览区拖点。
+            </p>
+            <div class="listbox" id="poses-list"></div>
           </div>
         </section>
 
@@ -1175,17 +1072,14 @@
       fileInput: document.getElementById("file-input"),
       loadLottieBtn: document.getElementById("load-lottie-btn"),
       rigFold: document.getElementById("rig-fold"),
-      loadRig1Btn: document.getElementById("load-rig1-btn"),
-      loadRig2Btn: document.getElementById("load-rig2-btn"),
-      exportRig1Btn: document.getElementById("export-rig1-btn"),
-      exportRig2Btn: document.getElementById("export-rig2-btn"),
-      mergeRigBtn: document.getElementById("merge-rig-btn"),
-      rig1Badge: document.getElementById("rig1-badge"),
-      rig2Badge: document.getElementById("rig2-badge"),
-      rig1Slot: document.getElementById("rig-slot-1"),
-      rig2Slot: document.getElementById("rig-slot-2"),
+      rigDropzone: document.getElementById("rig-dropzone"),
+      importPoseBtn: document.getElementById("import-pose-btn"),
+      clearPosesBtn: document.getElementById("clear-poses-btn"),
+      poseFileInput: document.getElementById("pose-file-input"),
+      poseCountBadge: document.getElementById("pose-count-badge"),
+      targetWInput: document.getElementById("target-w-input"),
+      targetHInput: document.getElementById("target-h-input"),
       rigEditor: document.getElementById("rig-editor"),
-      rigLayerPanel: document.getElementById("rig-layer-panel"),
       normalizeBtn: document.getElementById("normalize-btn"),
       compileBtn: document.getElementById("compile-btn"),
       exportSceneBtn: document.getElementById("export-scene-btn"),
@@ -1201,24 +1095,12 @@
       partLabelInput: document.getElementById("part-label-input"),
       partKindSelect: document.getElementById("part-kind-select"),
       partStrokeInput: document.getElementById("part-stroke-input"),
-      partRadiusInput: document.getElementById("part-radius-input"),
-      partCountInput: document.getElementById("part-count-input"),
       partSaveBtn: document.getElementById("part-save-btn"),
-      partAddBtn: document.getElementById("part-add-btn"),
-      partRemoveBtn: document.getElementById("part-remove-btn"),
+      partDetailDialog: document.getElementById("part-detail-dialog"),
+      pdViewer: document.getElementById("pd-viewer"),
+      pdTitle: document.getElementById("pd-title"),
+      pdCloseBtn: document.getElementById("pd-close-btn"),
       posesList: document.getElementById("poses-list"),
-      poseIdInput: document.getElementById("pose-id-input"),
-      poseLabelInput: document.getElementById("pose-label-input"),
-      poseLabelCnInput: document.getElementById("pose-label-cn-input"),
-      posePartSelect: document.getElementById("pose-part-select"),
-      posePointList: document.getElementById("pose-point-list"),
-      posePartPointsInput: document.getElementById("pose-part-points-input"),
-      posePartCenterInput: document.getElementById("pose-part-center-input"),
-      posePartBboxOriginInput: document.getElementById("pose-part-bbox-origin-input"),
-      posePartBboxSizeInput: document.getElementById("pose-part-bbox-size-input"),
-      poseSaveBtn: document.getElementById("pose-save-btn"),
-      poseSavePointsBtn: document.getElementById("pose-save-points-btn"),
-      poseDuplicateBtn: document.getElementById("pose-duplicate-btn"),
       clipsList: document.getElementById("clips-list"),
       clipIdInput: document.getElementById("clip-id-input"),
       clipLabelInput: document.getElementById("clip-label-input"),
@@ -1259,10 +1141,11 @@
       asset: null,
       scene: null,
       sourceText: "",
-      rigDoc: null,
-      rigName: "",
-      rigDoc2: null,
-      rigName2: "",
+      /* Dynamic list of imported rig poses. Each entry: { doc, name }. */
+      poses: [],
+      /* Index into state.poses that is currently shown in the rig editor /
+         layer-panel below the list. -1 when nothing selected. */
+      activePoseIdx: -1,
       playing: true,
       autoSequence: true,
       speed: 1,
@@ -1275,8 +1158,6 @@
       selectedClipIndex: 0,
       selectedStepIndex: 0,
       selectedPartId: "",
-      dragPointIndex: -1,
-      dragPointerId: null,
       dragPartId: "",
       dragPartPointerId: null,
       dragPartStartDesign: null,
@@ -1429,7 +1310,11 @@
         }
       }
       scan(layer.shapes || []);
-      if (closed) return hasFill && !hasStroke ? "BEZIER_FILL" : "BEZIER_LOOP";
+      /* Stroke-only single-color widget: closed paths always render as an
+       * outline. Fill-only Lottie shapes (eyes, head-fill, feet-fill) are
+       * promoted to BEZIER_LOOP so a scene with many overlapping fills does
+       * not collapse into a single solid blob. */
+      if (closed) return "BEZIER_LOOP";
       return "BEZIER_STRIP";
     }
 
@@ -1605,7 +1490,14 @@
         damping_div: Number(gfx.layout && gfx.layout.damping_div != null ? gfx.layout.damping_div : 4),
       };
 
-      const shapeLayers = (lottie.layers || []).filter((layer) => layer.ty === 4);
+      /* Skip the lottielab watermark group (sentinel ind 12345679 + known names)
+         so dropping a raw std_* lottie export doesn't import the "Made with
+         Lottielab" badge as 22 tiny stray parts. */
+      const WATERMARK_IND_LT = 12345679;
+      const WATERMARK_NAMES_LT = new Set(["lottielab.com", "Group Layer 8"]);
+      const shapeLayers = (lottie.layers || []).filter(
+        (layer) => layer.ty === 4 && layer.ind !== WATERMARK_IND_LT && !WATERMARK_NAMES_LT.has(layer.nm)
+      );
       const segCfg = new Map((gfx.segments || []).map((segment) => [segment.layer, segment]));
       const orderedLayers = segCfg.size
         ? (gfx.segments || []).map((segment) => shapeLayers.find((layer) => layer.nm === segment.layer)).filter(Boolean)
@@ -1618,28 +1510,61 @@
       /* Build a by-ind map for the parent-chain transform resolution */
       const layerMapByInd = new Map((lottie.layers || []).map((l) => [l.ind, l]));
 
+      /* Collect EVERY primitive across all layers. A single layer may produce
+         multiple parts (nested gr groups). We still honour the optional
+         gfx.segments whitelist when present: `layer` matches by layer.nm and
+         keeps all of that layer's primitives. */
       const parts = [];
+      const usedPartIds = new Set();
+      const partSrc = []; /* parallel: { layer, pathKey, hasAnim } for pose sampling */
+
       for (const layer of orderedLayers) {
-        /* Try world-space shape (handles sh/el/rc + layer ks + parent chain) */
-        const worldShape0 = layerWorldShape(layer, layerMapByInd);
-        /* Fall back to raw animated path sampling for keyframed paths */
+        const shapes = layerWorldShapes(layer, layerMapByInd);
+        if (!shapes.length) continue;
+        /* Detect whether ANY sh in the layer is animated — if so, we need to
+           re-sample it per marker; otherwise we use the static world shape. */
         const ks = findShapePathKs(layer);
-        const rawShape0 = ks ? getShapeAtFrame(ks, markers[0] ? markers[0].tm : 0) : null;
-        const shape0 = worldShape0 || rawShape0;
-        if (!shape0 || !shape0.v) continue;
-        const converted = lottieShapeToCtrlPts(shape0);
+        const hasAnim = !!(ks && ks.a);
         const cfg = segCfg.get(layer.nm) || {};
-        const partId = layer.nm || `part_ind${layer.ind}`;
-        parts.push({
-          id: partId,
-          label: partId,
-          kind: cfg.kind || detectKind(layer, converted.closed),
-          stroke_width: Number(cfg.stroke_width != null ? cfg.stroke_width : layerStrokeWidth(layer)),
-          radius_hint: 0,
-          /* track whether geometry comes from keyframed paths (use getShapeAtFrame per pose) */
-          _hasAnimPath: !!(ks && ks.a),
-          _layerInd: layer.ind,
-        });
+
+        for (const s of shapes) {
+          const conv = lottieShapeToCtrlPts(s.shape);
+          if (!conv || !conv.points.length) continue;
+          const base = layer.nm ? slugify(layer.nm, `ind${layer.ind}`) : `ind${layer.ind}`;
+          const suffix = s.pathKey
+            .replace(/^L\d+\/?/, "")
+            .replace(/[^\w]+/g, "_")
+            .replace(/^_+|_+$/g, "");
+          let partId = suffix ? `${base}_${suffix}` : base;
+          if (usedPartIds.has(partId)) {
+            let n = 2;
+            while (usedPartIds.has(`${partId}_${n}`)) n++;
+            partId = `${partId}_${n}`;
+          }
+          usedPartIds.add(partId);
+
+          let kind = cfg.kind;
+          if (!kind) {
+            /* Stroke-only widget: promote fill-only closed paths to LOOP so
+             * they render as outlines instead of overlapping solid blobs. */
+            kind = conv.closed ? "BEZIER_LOOP" : "BEZIER_STRIP";
+          }
+
+          /* Fill-only shapes have no Lottie stroke width — fall back to the
+           * scene's layout default so the promoted outline is actually
+           * visible instead of a zero-width (invisible) loop. */
+          const fallbackSW = layout.stroke_width;
+          const rawSW = cfg.stroke_width != null ? Number(cfg.stroke_width)
+                                                  : (s.strokeWidth || 0);
+          parts.push({
+            id: partId,
+            label: partId,
+            kind,
+            stroke_width: rawSW > 0 ? rawSW : fallbackSW,
+            radius_hint: 0,
+          });
+          partSrc.push({ layer, pathKey: s.pathKey, hasAnim });
+        }
       }
 
       const poses = markers.map((marker, index) => {
@@ -1652,21 +1577,24 @@
           parts: {},
         };
 
-        for (const part of parts) {
-          const layer = orderedLayers.find((item) => (item.nm || `part_ind${item.ind}`) === part.id);
-          if (!layer) continue;
+        for (let i = 0; i < parts.length; i++) {
+          const part = parts[i];
+          const src = partSrc[i];
+          const layer = src.layer;
           let converted = null;
-          if (part._hasAnimPath) {
-            /* Animated bezier path: sample raw vertices at this marker time */
+          if (src.hasAnim) {
+            /* Animated top-level bezier path in this layer: sample raw at tm.
+               NOTE: for layers with nested gr + animated paths, this only
+               samples the FIRST path; static transforms still apply. */
             const ks = findShapePathKs(layer);
             const shape = getShapeAtFrame(ks, marker.tm);
-            if (!shape) continue;
-            converted = lottieShapeToCtrlPts(shape);
-          } else {
-            /* Static geometry or world-space ellipse/rect: use layerWorldShape */
-            const shape = layerWorldShape(layer, layerMapByInd);
-            if (!shape) continue;
-            converted = lottieShapeToCtrlPts(shape);
+            if (shape) converted = lottieShapeToCtrlPts(shape);
+          }
+          if (!converted) {
+            const shapes = layerWorldShapes(layer, layerMapByInd);
+            const match = shapes.find((s) => s.pathKey === src.pathKey);
+            if (!match) continue;
+            converted = lottieShapeToCtrlPts(match.shape);
           }
           pose.parts[part.id] = converted.points.map((pt) => [Math.round(pt[0]), Math.round(pt[1])]);
         }
@@ -1767,54 +1695,6 @@
       return found >= 0 ? found : 0;
     }
 
-    function currentPartPointCount(doc, partId) {
-      if (!doc || !doc.poses.length || !partId) return 0;
-      const pts = doc.poses[0].parts[partId];
-      return Array.isArray(pts) ? pts.length : 0;
-    }
-
-    function defaultPointCountForKind(kind) {
-      if (kind === "CAPSULE") return 2;
-      if (kind === "RING") return 1;
-      if (kind === "BEZIER_STRIP") return 4;
-      if (kind === "BEZIER_LOOP" || kind === "BEZIER_FILL") return 7;
-      return 4;
-    }
-
-    function makeDefaultPoints(kind, viewbox) {
-      const count = defaultPointCountForKind(kind);
-      const cx = Number(viewbox[0]) + Number(viewbox[2]) / 2;
-      const cy = Number(viewbox[1]) + Number(viewbox[3]) / 2;
-      const half = Math.max(12, Math.round(Number(viewbox[2]) * 0.08));
-
-      if (kind === "RING") {
-        return [[Math.round(cx), Math.round(cy)]];
-      }
-      if (kind === "CAPSULE") {
-        return [
-          [Math.round(cx - half), Math.round(cy)],
-          [Math.round(cx + half), Math.round(cy)],
-        ];
-      }
-      if (kind === "BEZIER_STRIP") {
-        return [
-          [Math.round(cx - half), Math.round(cy)],
-          [Math.round(cx - half / 3), Math.round(cy - half / 2)],
-          [Math.round(cx + half / 3), Math.round(cy - half / 2)],
-          [Math.round(cx + half), Math.round(cy)],
-        ];
-      }
-      return [
-        [Math.round(cx - half), Math.round(cy)],
-        [Math.round(cx - half / 2), Math.round(cy - half)],
-        [Math.round(cx + half / 2), Math.round(cy - half)],
-        [Math.round(cx + half), Math.round(cy)],
-        [Math.round(cx + half / 2), Math.round(cy + half)],
-        [Math.round(cx - half / 2), Math.round(cy + half)],
-        [Math.round(cx - half), Math.round(cy)],
-      ];
-    }
-
     function partBounds(points) {
       if (!Array.isArray(points) || !points.length) return null;
       let minX = Number(points[0][0]);
@@ -1838,79 +1718,6 @@
         height: maxY - minY,
         centerX: (minX + maxX) * 0.5,
         centerY: (minY + maxY) * 0.5,
-      };
-    }
-
-    function formatPair(x, y) {
-      return `(${Math.round(x)}, ${Math.round(y)})`;
-    }
-
-    function pointDescriptor(kind, index) {
-      if (kind === "RING") {
-        return { name: "圆心", role: `点 ${index}` };
-      }
-      if (kind === "CAPSULE") {
-        return { name: index === 0 ? "起点" : "终点", role: `点 ${index}` };
-      }
-      if (index === 0 || index % 3 === 0) {
-        return { name: `锚点 ${Math.floor(index / 3) + 1}`, role: `点 ${index}` };
-      }
-      if (index % 3 === 1) {
-        return { name: `出手柄 ${Math.floor(index / 3) + 1}`, role: `点 ${index}` };
-      }
-      return { name: `入手柄 ${Math.floor(index / 3) + 2}`, role: `点 ${index}` };
-    }
-
-    function pointGroups(kind, pts) {
-      if (!Array.isArray(pts) || !pts.length) return [];
-      if (kind === "RING") {
-        return [{
-          title: "圆环中心",
-          note: "圆环的位置由圆心决定，半径主要参考部件里的“半径提示”。",
-          indices: [0],
-        }];
-      }
-      if (kind === "CAPSULE") {
-        return [{
-          title: "胶囊主轴",
-          note: "胶囊段由起点和终点决定方向与长度，粗细由线宽决定。",
-          indices: pts.map((_, index) => index),
-        }];
-      }
-      const groups = [];
-      for (let start = 0, segIndex = 0; start + 3 < pts.length; start += 3, segIndex += 1) {
-        groups.push({
-          title: `曲线段 ${segIndex + 1}`,
-          note: `从锚点 ${segIndex + 1} 连到锚点 ${segIndex + 2}，中间由出手柄和入手柄控制弯曲。`,
-          indices: [start, start + 1, start + 2, start + 3],
-        });
-      }
-      if (!groups.length) {
-        groups.push({
-          title: "点位列表",
-          note: "当前部件的点位数量不足以组成标准贝塞尔段，先按原始点展示。",
-          indices: pts.map((_, index) => index),
-        });
-      }
-      if ((kind === "BEZIER_LOOP" || kind === "BEZIER_FILL") && groups.length) {
-        const last = groups[groups.length - 1];
-        last.note += " 当前部件为闭合形状，最后会回到起点形成闭环。";
-      }
-      return groups;
-    }
-
-    function partPoseSummary(doc, poseIndex, partId) {
-      if (!doc || !doc.poses.length || !partId) return null;
-      const pose = doc.poses[Math.max(0, Math.min(poseIndex, doc.poses.length - 1))];
-      const pts = pose.parts[partId];
-      if (!Array.isArray(pts) || !pts.length) return null;
-      const bbox = partBounds(pts);
-      if (!bbox) return null;
-      return {
-        centerText: formatPair(bbox.centerX, bbox.centerY),
-        bboxOriginText: formatPair(bbox.minX, bbox.minY),
-        bboxSizeText: `${Math.round(bbox.width)} x ${Math.round(bbox.height)}`,
-        bbox,
       };
     }
 
@@ -1947,141 +1754,7 @@
       state.selectedPartIndex = index;
       refreshGuiPanels();
       renderAsset();
-    }
-
-    function updatePointFromForm(pointIndex, axis, rawValue) {
-      if (!state.sceneDoc) return;
-      const value = Number(rawValue);
-      if (!Number.isFinite(value)) {
-        setStatus("点位坐标必须是数字。", true);
-        return;
-      }
-      const doc = deepClone(ensureSceneDoc());
-      const pose = doc.poses[state.selectedPoseIndex];
-      const partId = currentPosePartId();
-      const pts = pose.parts[partId];
-      if (!Array.isArray(pts) || !pts[pointIndex]) return;
-      const viewbox = doc.meta.viewbox;
-      const minX = Number(viewbox[0]);
-      const minY = Number(viewbox[1]);
-      const maxX = Number(viewbox[0]) + Number(viewbox[2]);
-      const maxY = Number(viewbox[1]) + Number(viewbox[3]);
-      if (axis === "x") {
-        pts[pointIndex][0] = Math.max(minX, Math.min(maxX, Math.round(value)));
-      } else {
-        pts[pointIndex][1] = Math.max(minY, Math.min(maxY, Math.round(value)));
-      }
-      writeSceneDoc(doc, "已更新点位。", true, true);
-    }
-
-    function renderPosePointList(doc, part, pts) {
-      els.posePointList.innerHTML = "";
-      if (!doc || !part || !Array.isArray(pts) || !pts.length) {
-        const empty = document.createElement("div");
-        empty.className = "point-empty";
-        empty.textContent = "当前部件还没有可编辑点位。";
-        els.posePointList.appendChild(empty);
-        return;
-      }
-
-      const groups = pointGroups(part.kind, pts);
-      groups.forEach((group) => {
-        const section = document.createElement("section");
-        section.className = "point-group";
-
-        const head = document.createElement("div");
-        head.className = "point-group-head";
-
-        const title = document.createElement("div");
-        title.className = "point-group-title";
-        title.textContent = group.title;
-
-        const note = document.createElement("div");
-        note.className = "point-group-note";
-        note.textContent = group.note;
-
-        head.appendChild(title);
-        head.appendChild(note);
-        section.appendChild(head);
-
-        const body = document.createElement("div");
-        body.className = "point-group-body";
-
-        group.indices.forEach((index) => {
-          const pair = pts[index];
-          if (!pair) return;
-          const meta = pointDescriptor(part.kind, index);
-          const card = document.createElement("div");
-          card.className = "point-card";
-
-          const cardHead = document.createElement("div");
-          cardHead.className = "point-card-head";
-
-          const name = document.createElement("div");
-          name.className = "point-name";
-          name.textContent = meta.name;
-
-          const role = document.createElement("div");
-          role.className = "point-role";
-          role.textContent = meta.role;
-
-          cardHead.appendChild(name);
-          cardHead.appendChild(role);
-          card.appendChild(cardHead);
-
-          const grid = document.createElement("div");
-          grid.className = "point-grid";
-
-          const xLabel = document.createElement("label");
-          xLabel.textContent = "X 坐标";
-          const xInput = document.createElement("input");
-          xInput.type = "number";
-          xInput.step = "1";
-          xInput.value = String(Math.round(Number(pair[0])));
-          xInput.addEventListener("change", () => updatePointFromForm(index, "x", xInput.value));
-          xLabel.appendChild(xInput);
-
-          const yLabel = document.createElement("label");
-          yLabel.textContent = "Y 坐标";
-          const yInput = document.createElement("input");
-          yInput.type = "number";
-          yInput.step = "1";
-          yInput.value = String(Math.round(Number(pair[1])));
-          yInput.addEventListener("change", () => updatePointFromForm(index, "y", yInput.value));
-          yLabel.appendChild(yInput);
-
-          grid.appendChild(xLabel);
-          grid.appendChild(yLabel);
-          card.appendChild(grid);
-          body.appendChild(card);
-        });
-
-        section.appendChild(body);
-        els.posePointList.appendChild(section);
-      });
-    }
-
-    function renderPosePartTextarea() {
-      const doc = state.sceneDoc;
-      if (!doc || !doc.poses.length || !doc.parts.length) {
-        els.posePointList.innerHTML = "";
-        els.posePartPointsInput.value = "";
-        els.posePartCenterInput.value = "";
-        els.posePartBboxOriginInput.value = "";
-        els.posePartBboxSizeInput.value = "";
-        return;
-      }
-      const pose = poseByIndex(state.selectedPoseIndex);
-      const partId = currentPosePartId();
-      const pts = pose.parts[partId] || [];
-      els.posePartPointsInput.value = JSON.stringify(pts, null, 2);
-      els.posePartSelect.value = partId;
-      const part = state.sceneDoc.parts.find((item) => item.id === partId);
-      renderPosePointList(doc, part, pts);
-      const summary = partPoseSummary(doc, state.selectedPoseIndex, partId);
-      els.posePartCenterInput.value = summary ? summary.centerText : "";
-      els.posePartBboxOriginInput.value = summary ? summary.bboxOriginText : "";
-      els.posePartBboxSizeInput.value = summary ? summary.bboxSizeText : "";
+      openPartDetailDialog(partId);
     }
 
     function renderClipStepEditor() {
@@ -2138,19 +1811,8 @@
         els.partLabelInput.value = "";
         els.partKindSelect.value = "BEZIER_STRIP";
         els.partStrokeInput.value = "0";
-        els.partRadiusInput.value = "0";
-        els.partCountInput.value = "0";
         els.posesList.innerHTML = "";
         els.clipsList.innerHTML = "";
-        els.posePartSelect.innerHTML = "";
-        els.poseIdInput.value = "";
-        els.poseLabelInput.value = "";
-        els.poseLabelCnInput.value = "";
-        els.posePointList.innerHTML = "";
-        els.posePartPointsInput.value = "";
-        els.posePartCenterInput.value = "";
-        els.posePartBboxOriginInput.value = "";
-        els.posePartBboxSizeInput.value = "";
         els.clipStepSelect.innerHTML = "";
         els.stepPoseSelect.innerHTML = "";
         els.clipIdInput.value = "";
@@ -2178,6 +1840,7 @@
           state.selectedPartId = part.id;
           refreshGuiPanels();
           renderAsset();
+          openPartDetailDialog(part.id);
         };
         if (part.id === state.selectedPartId) btn.classList.add("active");
         els.partsList.appendChild(btn);
@@ -2188,23 +1851,47 @@
       els.partLabelInput.value = part.label;
       els.partKindSelect.value = part.kind;
       els.partStrokeInput.value = String(part.stroke_width || 0);
-      els.partRadiusInput.value = String(part.radius_hint || 0);
-      els.partCountInput.value = String(currentPartPointCount(doc, part.id));
 
+      /* Pose list: unified view of scene poses + their originating JSON file
+         (when the rig accumulator is aligned by index). Each row has a × to
+         remove the pose, which also drops the matching accumulator entry. */
+      const accumAligned = state.poses.length === doc.poses.length;
       els.posesList.innerHTML = "";
       doc.poses.forEach((pose, index) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "chip";
-        btn.textContent = `${String(index).padStart(2, "0")} ${pose.id} / ${pose.label_cn}`;
-        btn.onclick = () => {
+        const row = document.createElement("div");
+        row.className = "pose-row";
+        if (index === state.selectedPoseIndex) row.classList.add("active");
+
+        const main = document.createElement("button");
+        main.type = "button";
+        main.className = "chip pose-row-main";
+        const srcName = accumAligned && state.poses[index]
+          ? state.poses[index].name
+          : "(非 rig 导入)";
+        main.innerHTML =
+          `<span class="pose-row-idx">${String(index).padStart(2, "0")}</span>` +
+          `<span class="pose-row-id">${pose.id}</span>` +
+          `<span class="pose-row-src" title="${srcName}">← ${srcName}</span>`;
+        main.addEventListener("click", () => {
           state.selectedPoseIndex = index;
           state.selectedPartId = currentPosePartId();
           refreshGuiPanels();
           renderAsset();
-        };
-        if (index === state.selectedPoseIndex) btn.classList.add("active");
-        els.posesList.appendChild(btn);
+        });
+
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "ghost pose-row-del";
+        delBtn.textContent = "×";
+        delBtn.title = "删除该姿态（若关联的 JSON 在 rig 累加器中也一并移除）";
+        delBtn.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          removePoseByIndex(index);
+        });
+
+        row.appendChild(main);
+        row.appendChild(delBtn);
+        els.posesList.appendChild(row);
       });
 
       els.clipsList.innerHTML = "";
@@ -2227,20 +1914,6 @@
         els.clipsList.appendChild(btn);
       });
 
-      els.posePartSelect.innerHTML = "";
-      doc.parts.forEach((part) => {
-        const option = document.createElement("option");
-        option.value = part.id;
-        option.textContent = `${part.id}（${kindLabel(part.kind)}）`;
-        els.posePartSelect.appendChild(option);
-      });
-
-      const pose = poseByIndex(state.selectedPoseIndex);
-      els.poseIdInput.value = pose.id;
-      els.poseLabelInput.value = pose.label;
-      els.poseLabelCnInput.value = pose.label_cn;
-
-      renderPosePartTextarea();
       renderClipStepEditor();
     }
 
@@ -2466,29 +2139,8 @@
       };
     }
 
-    function updateDraggedPoint(screenPt) {
-      if (state.dragPointIndex < 0 || !state.sceneDoc) return;
-      const width = Math.max(360, Math.round(els.viewer.clientWidth || 700));
-      const height = Math.max(360, Math.round(els.viewer.clientHeight || 700));
-      const design = screenToDesign(state.asset, screenPt, width, height);
-      const doc = deepClone(ensureSceneDoc());
-      const pose = doc.poses[state.selectedPoseIndex];
-      const partId = currentPosePartId();
-      const pts = pose.parts[partId];
-      if (!pts || !pts[state.dragPointIndex]) return;
-      const viewbox = doc.meta.viewbox;
-      const minX = Number(viewbox[0]);
-      const minY = Number(viewbox[1]);
-      const maxX = Number(viewbox[0]) + Number(viewbox[2]);
-      const maxY = Number(viewbox[1]) + Number(viewbox[3]);
-      pts[state.dragPointIndex][0] = Math.max(minX, Math.min(maxX, design.x));
-      pts[state.dragPointIndex][1] = Math.max(minY, Math.min(maxY, design.y));
-      writeSceneDoc(doc, "已拖拽更新控制点。", true, true);
-    }
-
     function startPartDrag(event, partId) {
       if (!state.sceneDoc || !state.asset) return;
-      if (state.dragPointIndex >= 0) return;
       const width = Math.max(360, Math.round(els.viewer.clientWidth || 700));
       const height = Math.max(360, Math.round(els.viewer.clientHeight || 700));
       const doc = ensureSceneDoc();
@@ -2752,55 +2404,6 @@
 
       svg.classList.toggle("is-editing", !!state.sceneDoc);
 
-      if (state.sceneDoc && state.sceneDoc.poses.length && state.sceneDoc.parts.length) {
-        const pose = state.sceneDoc.poses[Math.max(0, Math.min(state.selectedPoseIndex, state.sceneDoc.poses.length - 1))];
-        const partId = currentPosePartId();
-        const pts = pose.parts[partId] || [];
-        const ctrl = pts.map((pair) => toScreen(asset, { x: Number(pair[0]), y: Number(pair[1]) }, width, height));
-        const selectedPart = state.sceneDoc.parts.find((part) => part.id === partId);
-
-        if (ctrl.length) {
-          const helper = document.createElementNS(NS, "path");
-          const closed = selectedPart && (selectedPart.kind === "BEZIER_FILL" || selectedPart.kind === "BEZIER_LOOP");
-          helper.setAttribute("d", bezierPath(ctrl, closed));
-          helper.setAttribute("class", "edit-guide");
-          svg.appendChild(helper);
-        }
-
-        for (let i = 0; i + 1 < ctrl.length; i++) {
-          const line = document.createElementNS(NS, "line");
-          line.setAttribute("x1", String(ctrl[i].x));
-          line.setAttribute("y1", String(ctrl[i].y));
-          line.setAttribute("x2", String(ctrl[i + 1].x));
-          line.setAttribute("y2", String(ctrl[i + 1].y));
-          line.setAttribute("class", "edit-joint-line");
-          svg.appendChild(line);
-        }
-
-        ctrl.forEach((pt, index) => {
-          const circle = document.createElementNS(NS, "circle");
-          circle.setAttribute("cx", String(pt.x));
-          circle.setAttribute("cy", String(pt.y));
-          circle.setAttribute("r", index === state.dragPointIndex ? "7" : "6");
-          circle.setAttribute("class", `edit-joint${index === state.dragPointIndex ? " active" : ""}`);
-          circle.addEventListener("pointerdown", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            state.dragPointIndex = index;
-            state.dragPointerId = event.pointerId;
-            renderAsset();
-          });
-          svg.appendChild(circle);
-
-          const label = document.createElementNS(NS, "text");
-          label.setAttribute("x", String(pt.x + 8));
-          label.setAttribute("y", String(pt.y - 8));
-          label.setAttribute("class", "edit-joint-label");
-          label.textContent = String(index);
-          svg.appendChild(label);
-        });
-      }
-
       const clip = asset.clips[scene.activeClip];
       const step = clip.steps[scene.activeStep];
       els.hud.textContent =
@@ -2810,6 +2413,167 @@
         `朝向: ${step.facing}`;
       els.clipBadge.textContent = `片段: ${clip.name}`;
     }
+
+    /* ---- Part detail popup: zoomed control-point editor ------------------
+       Opens a <dialog> with a big SVG that shows the selected part's raw
+       control points and bezier guide.  Drag-on-handle writes back into the
+       scene doc directly (same logic as before, but isolated in the dialog). */
+
+    const pdState = {
+      dragIdx: -1,
+      pointerId: null,
+      pts: null,          /* live reference into current sceneDoc pose */
+      partId: "",
+      part: null,
+      viewbox: null,      /* dialog local viewBox string  "minX minY w h"  */
+      scale: 1,           /* design-unit → pd-viewer px   */
+      offX: 0,
+      offY: 0,
+    };
+
+    function renderPartDetail() {
+      const svg = els.pdViewer;
+      const NS = "http://www.w3.org/2000/svg";
+      svg.innerHTML = "";
+
+      const doc = state.sceneDoc;
+      if (!doc || !doc.poses.length || !doc.parts.length) return;
+
+      const pose = doc.poses[Math.max(0, Math.min(state.selectedPoseIndex, doc.poses.length - 1))];
+      const part = doc.parts.find((p) => p.id === state.selectedPartId) || doc.parts[0];
+      const pts = (pose.parts[part.id] || []).map((p) => [Number(p[0]), Number(p[1])]);
+      if (!pts.length) return;
+
+      /* Compute tight bounding box with 20% padding */
+      const bounds = partBounds(pts);
+      if (!bounds) return;
+      const padX = Math.max(16, bounds.width * 0.22);
+      const padY = Math.max(16, bounds.height * 0.22);
+      const vx = bounds.minX - padX;
+      const vy = bounds.minY - padY;
+      const vw = bounds.width + padX * 2;
+      const vh = bounds.height + padY * 2;
+
+      const svgW = Math.max(360, Math.round(svg.clientWidth || 600));
+      const svgH = Math.max(280, Math.round(svg.clientHeight || 400));
+      svg.setAttribute("viewBox", `0 0 ${svgW} ${svgH}`);
+
+      pdState.scale = Math.min(svgW / vw, svgH / vh);
+      pdState.offX  = (svgW - vw * pdState.scale) / 2 - vx * pdState.scale;
+      pdState.offY  = (svgH - vh * pdState.scale) / 2 - vy * pdState.scale;
+      pdState.pts     = pts;
+      pdState.partId  = part.id;
+      pdState.part    = part;
+      pdState.viewbox = doc.meta.viewbox;
+
+      const toSvg = (pair) => ({
+        x: Number(pair[0]) * pdState.scale + pdState.offX,
+        y: Number(pair[1]) * pdState.scale + pdState.offY,
+      });
+
+      const screenPts = pts.map(toSvg);
+      const closed = part.kind === "BEZIER_FILL" || part.kind === "BEZIER_LOOP";
+
+      /* Bezier guide */
+      if (screenPts.length) {
+        const guide = document.createElementNS(NS, "path");
+        guide.setAttribute("d", bezierPath(screenPts, closed));
+        guide.setAttribute("class", "edit-guide");
+        svg.appendChild(guide);
+      }
+
+      /* Handle lines between consecutive points */
+      for (let i = 0; i + 1 < screenPts.length; i++) {
+        const line = document.createElementNS(NS, "line");
+        line.setAttribute("x1", String(screenPts[i].x));
+        line.setAttribute("y1", String(screenPts[i].y));
+        line.setAttribute("x2", String(screenPts[i + 1].x));
+        line.setAttribute("y2", String(screenPts[i + 1].y));
+        line.setAttribute("class", "edit-joint-line");
+        svg.appendChild(line);
+      }
+
+      /* Control point circles + labels */
+      screenPts.forEach((pt, idx) => {
+        const circle = document.createElementNS(NS, "circle");
+        circle.setAttribute("cx", String(pt.x));
+        circle.setAttribute("cy", String(pt.y));
+        circle.setAttribute("r", idx === pdState.dragIdx ? "8" : "6");
+        circle.setAttribute("class", `edit-joint${idx === pdState.dragIdx ? " active" : ""}`);
+        circle.addEventListener("pointerdown", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          pdState.dragIdx = idx;
+          pdState.pointerId = ev.pointerId;
+          svg.setPointerCapture(ev.pointerId);
+          renderPartDetail();
+        });
+        svg.appendChild(circle);
+
+        const lbl = document.createElementNS(NS, "text");
+        lbl.setAttribute("x", String(pt.x + 9));
+        lbl.setAttribute("y", String(pt.y - 9));
+        lbl.setAttribute("class", "edit-joint-label");
+        lbl.textContent = String(idx);
+        svg.appendChild(lbl);
+      });
+    }
+
+    function openPartDetailDialog(partId) {
+      if (!state.sceneDoc) return;
+      const part = state.sceneDoc.parts.find((p) => p.id === partId);
+      if (!part) return;
+      state.selectedPartId = partId;
+      state.selectedPartIndex = state.sceneDoc.parts.findIndex((p) => p.id === partId);
+      pdState.dragIdx = -1;
+      pdState.pointerId = null;
+      els.pdTitle.textContent = `部件详情：${part.id}（${kindLabel(part.kind)}）线宽 ${part.stroke_width || 0}`;
+      els.partDetailDialog.showModal();
+      /* Render after the dialog has a size */
+      requestAnimationFrame(() => renderPartDetail());
+    }
+
+    /* Pointer move/up inside the detail SVG */
+    els.pdViewer.addEventListener("pointermove", (ev) => {
+      if (pdState.dragIdx < 0 || pdState.pointerId !== ev.pointerId) return;
+      ev.preventDefault();
+      const rect = els.pdViewer.getBoundingClientRect();
+      const svgW = Math.max(360, Math.round(els.pdViewer.clientWidth || 600));
+      const svgH = Math.max(280, Math.round(els.pdViewer.clientHeight || 400));
+      const sx = (ev.clientX - rect.left) / rect.width  * svgW;
+      const sy = (ev.clientY - rect.top)  / rect.height * svgH;
+      const dx = (sx - pdState.offX) / pdState.scale;
+      const dy = (sy - pdState.offY) / pdState.scale;
+      const vb = pdState.viewbox;
+      const minX = Number(vb[0]), minY = Number(vb[1]);
+      const maxX = minX + Number(vb[2]), maxY = minY + Number(vb[3]);
+      pdState.pts[pdState.dragIdx] = [
+        Math.round(Math.max(minX, Math.min(maxX, dx))),
+        Math.round(Math.max(minY, Math.min(maxY, dy))),
+      ];
+      /* Write back into sceneDoc immediately */
+      const doc = deepClone(ensureSceneDoc());
+      const pose = doc.poses[Math.max(0, Math.min(state.selectedPoseIndex, doc.poses.length - 1))];
+      pose.parts[pdState.partId] = pdState.pts.map((p) => [p[0], p[1]]);
+      writeSceneDoc(doc, "已在详情框拖拽控制点。", true, true);
+      renderPartDetail();
+    });
+
+    els.pdViewer.addEventListener("pointerup", (ev) => {
+      if (pdState.pointerId !== ev.pointerId) return;
+      pdState.dragIdx = -1;
+      pdState.pointerId = null;
+      renderPartDetail();
+    });
+
+    els.pdCloseBtn.addEventListener("click", () => {
+      els.partDetailDialog.close();
+    });
+
+    /* Click on backdrop (outside dialog content) also closes */
+    els.partDetailDialog.addEventListener("click", (ev) => {
+      if (ev.target === els.partDetailDialog) els.partDetailDialog.close();
+    });
 
     function refreshCompiledUi() {
       if (!state.asset || !state.scene) {
@@ -3024,6 +2788,14 @@
     function handleJsonText(text, sourceName) {
       try {
         const detected = detectAndNormalize(text);
+        // External scene / rig-legacy loads reset the rig accumulator so the
+        // pose list can't imply a bogus JSON source per row.
+        if (state.poses.length && els.poseCountBadge) {
+          state.poses = [];
+          state.activePoseIdx = -1;
+          els.rigEditor.value = "";
+          updatePoseCount();
+        }
         sceneToEditor(detected.doc, sourceName || detected.kind, `已导入 ${sourceName || detected.kind}，并归一化为 scene.json v1。`);
       } catch (err) {
         setStatus(`导入失败：${err.message}`, true);
@@ -3042,118 +2814,144 @@
       reader.readAsText(file, "utf-8");
     }
 
-    /* -------- Rig JSON editor + dual-frame merge -------- */
+    /* -------- Rig JSON editor + purely import-driven pipeline --------
+       No visible pose list: every imported JSON is an additional pose and is
+       immediately merged into the design scene. The rig editor / layer panel
+       below reflect the LAST imported pose for fine-tuning. */
 
-    function updateRigSlotUi() {
-      const has1 = !!state.rigDoc;
-      const has2 = !!state.rigDoc2;
-      els.rig1Badge.textContent = has1 ? state.rigName : "未加载";
-      els.rig2Badge.textContent = has2 ? state.rigName2 : "未加载";
-      els.rig1Slot.classList.toggle("loaded", has1);
-      els.rig2Slot.classList.toggle("loaded", has2);
-      els.exportRig1Btn.disabled = !has1;
-      els.exportRig2Btn.disabled = !has2;
-      els.mergeRigBtn.disabled = !(has1 && has2);
+    function updatePoseCount() {
+      const n = state.poses.length;
+      els.clearPosesBtn.disabled = n === 0;
+      els.poseCountBadge.textContent = n === 0
+        ? "尚未导入任何姿态"
+        : `已导入 ${n} 个姿态（自动合并）`;
     }
 
-    function renderRigLayerPanel(doc) {
-      const container = els.rigLayerPanel;
-      container.innerHTML = "";
-      if (!doc || !Array.isArray(doc.layers)) return;
-
-      const layers = doc.layers.filter((l) => l.ty === 4 && l.nm && l.ks);
-      if (!layers.length) return;
-
-      const grid = document.createElement("div");
-      grid.className = "rig-layers";
-
-      const hdr = document.createElement("div");
-      hdr.className = "rig-layer-row rig-layer-head";
-      hdr.innerHTML = "<span>层名 (nm)</span><span>旋转 r°</span><span>位置 X</span><span>位置 Y</span>";
-      grid.appendChild(hdr);
-
-      layers.forEach((layer) => {
-        const ks = layer.ks;
-        const getStatic = (prop) => (prop && prop.a === 0) ? prop.k : null;
-        const rVal = getStatic(ks.r);
-        const pVal = getStatic(ks.p);
-
-        const row = document.createElement("div");
-        row.className = "rig-layer-row";
-
-        const nm = document.createElement("span");
-        nm.className = "rig-nm";
-        nm.title = `ind: ${layer.ind}  ${layer.nm}`;
-        nm.textContent = layer.nm;
-        row.appendChild(nm);
-
-        function makeNumInput(val, onInput) {
-          const inp = document.createElement("input");
-          inp.type = "number";
-          inp.step = "any";
-          if (val != null) {
-            inp.value = String(val);
-          } else {
-            inp.disabled = true;
-            inp.placeholder = "anim";
-          }
-          inp.addEventListener("input", () => {
-            onInput(parseFloat(inp.value) || 0);
-            syncRigEditorFromDoc();
-          });
-          return inp;
-        }
-
-        row.appendChild(makeNumInput(rVal, (v) => {
-          if (ks.r && ks.r.a === 0) ks.r.k = v;
-        }));
-        row.appendChild(makeNumInput(pVal != null ? pVal[0] : null, (v) => {
-          if (ks.p && ks.p.a === 0 && Array.isArray(ks.p.k)) ks.p.k[0] = v;
-        }));
-        row.appendChild(makeNumInput(pVal != null ? pVal[1] : null, (v) => {
-          if (ks.p && ks.p.a === 0 && Array.isArray(ks.p.k)) ks.p.k[1] = v;
-        }));
-
-        grid.appendChild(row);
-      });
-
-      container.appendChild(grid);
+    /* Read target size inputs. Returns {w,h} only when both are valid
+       positive numbers; otherwise null → merge keeps the original viewbox. */
+    function getTargetSize() {
+      const w = parseFloat(els.targetWInput.value);
+      const h = parseFloat(els.targetHInput.value);
+      if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return null;
+      return { w: Math.round(w), h: Math.round(h) };
     }
 
-    function syncRigEditorFromDoc() {
-      if (state.rigDoc) {
-        els.rigEditor.value = JSON.stringify(state.rigDoc, null, 2);
+    function autoMergeAndWrite() {
+      if (!state.poses.length) return;
+      try {
+        const doc = mergeRigPosesToSceneDoc(state.poses, {
+          targetSize: getTargetSize(),
+        });
+        const tgt = getTargetSize();
+        const dim = tgt ? `${tgt.w}×${tgt.h}` : `${doc.meta.viewbox[2]}×${doc.meta.viewbox[3]}`;
+        writeSceneDoc(
+          doc,
+          `已导入 ${state.poses.length} 个姿态 → 场景 "${doc.name}"，` +
+          `${doc.parts.length} 部件，viewbox ${dim}。`
+        );
+      } catch (err) {
+        setStatus(`合并失败：${err.message}`, true);
+        console.error(err);
       }
     }
 
-    function applyRigFile(text, name, slot) {
+    /* Remove the scene pose at `index` and keep the rig accumulator consistent.
+       If the accumulator is aligned 1:1 with scene poses, the matching entry
+       is dropped from state.poses too — this way, subsequent rig imports
+       don't resurrect the deleted pose.  The scene is then rewritten
+       WITHOUT re-running merge (we want the user's deletion to stick). */
+    function removePoseByIndex(index) {
+      const doc = state.sceneDoc;
+      if (!doc || !Array.isArray(doc.poses) || !doc.poses[index]) return;
+      const pose = doc.poses[index];
+
+      const accumAligned = state.poses.length === doc.poses.length;
+      if (accumAligned && state.poses[index]) {
+        state.poses.splice(index, 1);
+        if (state.activePoseIdx >= state.poses.length) {
+          state.activePoseIdx = state.poses.length - 1;
+        }
+        if (state.activePoseIdx >= 0) {
+          els.rigEditor.value = JSON.stringify(state.poses[state.activePoseIdx].doc, null, 2);
+        } else {
+          els.rigEditor.value = "";
+        }
+        updatePoseCount();
+      }
+
+      const newDoc = deepClone(doc);
+      newDoc.poses.splice(index, 1);
+      (newDoc.clips || []).forEach((c) => {
+        c.steps = (c.steps || []).filter((s) => s.pose !== pose.id);
+      });
+      newDoc.clips = (newDoc.clips || []).filter((c) => c.steps.length > 0);
+      newDoc.sequence = (newDoc.sequence || []).filter((id) =>
+        newDoc.clips.some((c) => c.id === id)
+      );
+
+      if (!newDoc.poses.length) {
+        state.poses = [];
+        state.activePoseIdx = -1;
+        els.rigEditor.value = "";
+        updatePoseCount();
+        state.sceneDoc = null;
+        state.asset = null;
+        state.scene = null;
+        els.sceneEditor.value = "";
+        state.selectedPoseIndex = 0;
+        refreshGuiPanels();
+        refreshCompiledUi();
+        renderAsset();
+        setStatus(`已删除最后一个姿态 "${pose.id}"，场景清空。`, true);
+        return;
+      }
+
+      if (state.selectedPoseIndex >= newDoc.poses.length) {
+        state.selectedPoseIndex = newDoc.poses.length - 1;
+      }
+      writeSceneDoc(newDoc, `已删除姿态 "${pose.id}"。`);
+    }
+
+    /* Debounced variant for editor/layer-panel tweaks (avoid thrashing the
+       scene on every keystroke). */
+    let rigMergeTimer = null;
+    function scheduleAutoMerge() {
+      if (rigMergeTimer) clearTimeout(rigMergeTimer);
+      rigMergeTimer = setTimeout(() => {
+        rigMergeTimer = null;
+        autoMergeAndWrite();
+      }, 400);
+    }
+
+    function addPose(doc, name) {
+      if (!doc || typeof doc !== "object") {
+        throw new Error("JSON 不是对象");
+      }
+      state.poses.push({ doc, name: name || `pose_${state.poses.length + 1}.json` });
+      state.activePoseIdx = state.poses.length - 1;
+      els.rigEditor.value = JSON.stringify(doc, null, 2);
+      els.rigFold.open = true;
+      updatePoseCount();
+    }
+
+    function addPoseFromText(text, name) {
       try {
         const doc = JSON.parse(text);
-        if (slot === 2) {
-          state.rigDoc2 = doc;
-          state.rigName2 = name;
-        } else {
-          state.rigDoc = doc;
-          state.rigName = name;
-        }
-        /* Show the last loaded frame in the layer panel / textarea */
-        els.rigEditor.value = JSON.stringify(doc, null, 2);
-        renderRigLayerPanel(doc);
-        els.rigFold.open = true;
-        updateRigSlotUi();
-        setStatus(`已加载 Frame ${slot}：${name}（${doc.layers ? doc.layers.length : 0} 层）`);
+        addPose(doc, name);
+        const layers = Array.isArray(doc.layers) ? doc.layers.length : 0;
+        setStatus(`已追加姿态 #${state.poses.length}：${name}（${layers} 层）`);
       } catch (err) {
-        setStatus(`Rig 解析失败：${err.message}`, true);
+        setStatus(`姿态 JSON 解析失败：${err.message}`, true);
       }
     }
 
-    async function loadRigUrl(url, name, slot) {
+    async function addPoseFromFile(file) {
+      if (!file) return;
       try {
-        const response = await fetch(url, { cache: "no-store" });
-        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-        applyRigFile(await response.text(), name, slot);
+        const text = await file.text();
+        addPoseFromText(text, file.name);
       } catch (err) {
-        setStatus(`Rig 加载失败：${err.message}`, true);
+        setStatus(`读取文件失败：${err.message}`, true);
       }
     }
 
@@ -3349,81 +3147,348 @@
       return shape;
     }
 
-    /* ---- Merge two static rig frames into one standard scene doc ---- */
-    function mergeRigFramesToSceneDoc(rig1, rig2) {
-      const viewbox = [0, 0, Number(rig1.w || 200), Number(rig1.h || 200)];
+    /* Extract the numeric stroke width from a Lottie `st` item's `w` field.
+       Supports static (a=0, k=number), animated first-keyframe, and bare numbers. */
+    function lottieStrokeW(item) {
+      const w = item && item.w;
+      if (typeof w === "number") return w;
+      if (w && typeof w.k === "number") return w.k;
+      if (w && Array.isArray(w.k) && w.k.length) {
+        const v = w.k[0];
+        if (typeof v === "number") return v;
+        if (v && typeof v.s === "number") return v.s;
+        if (v && Array.isArray(v.s) && v.s.length) return Number(v.s[0]);
+      }
+      return 0;
+    }
 
-      /* Build lookup maps by layer ind */
-      const map1 = new Map((rig1.layers || []).map((l) => [l.ind, l]));
-      const map2 = new Map((rig2.layers || []).map((l) => [l.ind, l]));
+    /* Recursively collect EVERY geometry primitive (sh/el/rc) reachable from
+       `items`, composing group transforms innermost→outermost and inheriting
+       fl/st style from enclosing groups. Each primitive is returned together
+       with a stable structural pathKey so two frames with the same tree can
+       be aligned without relying on layer ind / name.
 
-      /*
-       * Stroke normalization: Lottie designs on large canvases (e.g. 1200×900)
-       * use thin strokes (3-15px) that scale to <1-5px on embedded displays.
-       * Normalize relative to a 200px reference viewbox so visual weight matches
-       * the stickman/face assets.
-       *
-       * strokeNorm = clamp(round(min(w,h) / REF_VB), 1, 8)
-       * Per-segment cap: result clamped to 2× the layout default to avoid
-       * excessively thick antenna/strip strokes on large-canvas designs.
-       */
-      const REF_VB = 200;
-      const strokeNorm = Math.min(8, Math.max(1,
-        Math.round(Math.min(viewbox[2], viewbox[3]) / REF_VB)));
-      const layoutSW = Math.round(4 * strokeNorm);
-      const normSW = (sw) => sw ? Math.min(layoutSW * 2, Math.round(sw * strokeNorm)) : 0;
+       Parameters:
+         items         – children of the current scope (layer.shapes or gr.it)
+         currentGrTr   – the transform of THIS scope's surrounding gr (null at
+                         layer top level, since layer.ks is applied by caller)
+         inheritedStyle- { hasFill, hasStroke, strokeWidth } from outer context
+         pathPrefix    – accumulated structural path (e.g. "L0/gr[0]")
+       Returns: Array<{ shape, pathKey, hasFill, hasStroke, strokeWidth, closed }>
+    */
+    function collectAllShapesInGroup(items, currentGrTr, inheritedStyle, pathPrefix) {
+      const out = [];
+      if (!items || !items.length) return out;
 
-      /* Skip non-rig decorative layers by name */
-      const SKIP_NAMES = new Set(["lottielab.com", "Group Layer 8"]);
+      /* First sweep: harvest this scope's own fl/st; they apply to all geometry
+         at this level and cascade into nested groups that don't define their own. */
+      let style = {
+        hasFill: !!(inheritedStyle && inheritedStyle.hasFill),
+        hasStroke: !!(inheritedStyle && inheritedStyle.hasStroke),
+        strokeWidth: inheritedStyle ? inheritedStyle.strokeWidth : 0,
+      };
+      for (const it of items) {
+        if (it.ty === "fl") style.hasFill = true;
+        if (it.ty === "st") {
+          style.hasStroke = true;
+          const w = lottieStrokeW(it);
+          if (w) style.strokeWidth = w;
+        }
+      }
 
-      /* Process all shape layers (ty=4) that are not decorative */
-      const shapeLayers1 = (rig1.layers || []).filter(
-        (l) => l.ty === 4 && !SKIP_NAMES.has(l.nm)
+      let shCnt = 0, elCnt = 0, rcCnt = 0, grCnt = 0;
+      for (const it of items) {
+        if (it.ty === "sh") {
+          const ks = it.ks;
+          if (!ks) continue;
+          let shapeData = null;
+          if (ks.a === 0) {
+            shapeData = ks.k;
+          } else {
+            const kf = ks.k || [];
+            const first = kf[0];
+            if (first && first.s) {
+              const s = first.s;
+              shapeData = Array.isArray(s) ? s[0] : s;
+            }
+          }
+          if (!shapeData || !shapeData.v) continue;
+          const raw = { v: shapeData.v, i: shapeData.i, o: shapeData.o, c: shapeData.c };
+          out.push({
+            shape: currentGrTr ? trLottieShape(raw, currentGrTr) : raw,
+            pathKey: `${pathPrefix}/sh[${shCnt++}]`,
+            hasFill: style.hasFill,
+            hasStroke: style.hasStroke,
+            strokeWidth: style.strokeWidth,
+          });
+          continue;
+        }
+        if (it.ty === "el") {
+          const raw = ellipseToLottieShape(it);
+          out.push({
+            shape: currentGrTr ? trLottieShape(raw, currentGrTr) : raw,
+            pathKey: `${pathPrefix}/el[${elCnt++}]`,
+            hasFill: style.hasFill,
+            hasStroke: style.hasStroke,
+            strokeWidth: style.strokeWidth,
+          });
+          continue;
+        }
+        if (it.ty === "rc") {
+          const raw = rectToLottieShape(it);
+          out.push({
+            shape: currentGrTr ? trLottieShape(raw, currentGrTr) : raw,
+            pathKey: `${pathPrefix}/rc[${rcCnt++}]`,
+            hasFill: style.hasFill,
+            hasStroke: style.hasStroke,
+            strokeWidth: style.strokeWidth,
+          });
+          continue;
+        }
+        if (it.ty === "gr") {
+          const sub = it.it || [];
+          const trItem = sub.find((x) => x.ty === "tr");
+          const childTr = trItem
+            ? { p: trItem.p, a: trItem.a, r: trItem.r, s: trItem.s }
+            : null;
+          const childShapes = collectAllShapesInGroup(
+            sub, childTr, style, `${pathPrefix}/gr[${grCnt++}]`);
+          /* Compose THIS scope's transform on top of what children produced. */
+          for (const s of childShapes) {
+            if (currentGrTr) s.shape = trLottieShape(s.shape, currentGrTr);
+            out.push(s);
+          }
+        }
+      }
+      return out;
+    }
+
+    /* World-space version of `layerWorldShape` that returns EVERY primitive in
+       the layer (not just the first). Handles nested gr, el, rc, plus layer.ks
+       and full parent-layer chain. */
+    function layerWorldShapes(layer, layerMapByInd) {
+      const shapes = collectAllShapesInGroup(
+        layer.shapes || [], null,
+        { hasFill: false, hasStroke: false, strokeWidth: 0 },
+        `L${layer.ind != null ? layer.ind : "x"}`);
+      if (!shapes.length) return shapes;
+
+      if (layer.ks) {
+        for (const s of shapes) s.shape = trLottieShape(s.shape, layer.ks);
+      }
+
+      let parentInd = layer.parent;
+      let depth = 0;
+      while (parentInd != null && depth < 8) {
+        const parent = layerMapByInd.get(parentInd);
+        if (!parent) break;
+        if (parent.ks) {
+          for (const s of shapes) s.shape = trLottieShape(s.shape, parent.ks);
+        }
+        parentInd = parent.parent;
+        depth++;
+      }
+      return shapes;
+    }
+
+    /* ---- Merge N static rig poses into one standard scene doc ----
+       Key design:
+       - Each poseDocs[i] = { doc, name }; doc is a parsed Lottie JSON where
+         the ty=4 shape layers define one skeletal pose.
+       - The FIRST pose is the structural reference: it determines the part
+         list (unique id, kind, stroke width) and the viewbox. Subsequent
+         poses only contribute per-part control points, aligned by layer.ind
+         + structural pathKey (e.g. "L0/gr[0]/gr[1]/sh[0]") so unnamed
+         primitives still match.
+       - A part is emitted only if every other pose either has a matching
+         shape with the same point count, or is missing the shape entirely
+         (in which case the reference points are reused for that pose — the
+         part simply stays still). This keeps partial poses renderable.
+       - Kind is derived from the reference pose's per-shape fl/st state; all
+         closed paths are promoted to BEZIER_LOOP (outline) so the monochrome
+         scene doesn't collapse into black blobs. */
+    function mergeRigPosesToSceneDoc(poseDocs, opts) {
+      if (!Array.isArray(poseDocs) || poseDocs.length === 0) {
+        throw new Error("请先导入至少 1 个姿态 JSON。");
+      }
+      opts = opts || {};
+
+      const ref = poseDocs[0].doc;
+      const srcW = Number(ref.w || 200);
+      const srcH = Number(ref.h || 200);
+
+      /* Optional target-size remap: fit (uniform scale) the source viewbox
+         into a target rectangle and center it. stroke widths scale uniformly
+         by the same factor. Leave null → output viewbox == source viewbox. */
+      let outW = srcW, outH = srcH;
+      let scale = 1, offX = 0, offY = 0;
+      if (opts.targetSize && opts.targetSize.w > 0 && opts.targetSize.h > 0) {
+        outW = opts.targetSize.w;
+        outH = opts.targetSize.h;
+        scale = Math.min(outW / srcW, outH / srcH);
+        offX = (outW - srcW * scale) / 2;
+        offY = (outH - srcH * scale) / 2;
+      }
+      const viewbox = [0, 0, outW, outH];
+
+      /* Per-pose layer-ind → layer map, used by layerWorldShapes. */
+      const maps = poseDocs.map((p) =>
+        new Map((p.doc.layers || []).map((l) => [l.ind, l]))
       );
 
+      /* Skip decorative lottielab watermark layers. They are identified by:
+         - the sentinel ind 12345679 (lottielab's "Made with Lottielab" group)
+         - the explicit name "lottielab.com" or "Group Layer 8" (its sibling). */
+      const WATERMARK_IND = 12345679;
+      const WATERMARK_NAMES = new Set(["lottielab.com", "Group Layer 8"]);
+      const isWatermark = (l) =>
+        l.ind === WATERMARK_IND || WATERMARK_NAMES.has(l.nm);
+
+      const refLayers = (ref.layers || []).filter(
+        (l) => l.ty === 4 && !isWatermark(l)
+      );
+
+      /*
+       * Stroke widths: preserve Lottie's authored values (no inflation).
+       * Use stats from ALL poses so a stroke-only pose doesn't get crushed by
+       * a pose without stroked shapes.
+       *
+       * For fill-only shapes we substitute the MEDIAN of all real stroke
+       * widths, so promoted outlines visually match the rest of the scene.
+       */
+      const realStrokes = [];
+      for (let pi = 0; pi < poseDocs.length; pi++) {
+        const layers = (poseDocs[pi].doc.layers || [])
+          .filter((l) => l.ty === 4 && !isWatermark(l));
+        for (const layer of layers) {
+          for (const s of layerWorldShapes(layer, maps[pi])) {
+            if (s.strokeWidth && s.strokeWidth > 0) realStrokes.push(s.strokeWidth);
+          }
+        }
+      }
+      realStrokes.sort((a, b) => a - b);
+      const medianStroke = realStrokes.length
+        ? realStrokes[Math.floor(realStrokes.length / 2)]
+        : Math.max(2, Math.round(Math.min(srcW, srcH) / 100));
+      const layoutSW = Math.max(1, Math.round(medianStroke * scale));
+      /* Stroke widths are authored in source space; scale by the fit factor
+         before rounding so lines don't stay bold after shrinking the canvas. */
+      const normSW = (sw) => sw ? Math.max(1, Math.round(sw * scale)) : 0;
+
       const parts = [];
-      const poseF1 = { id: "pose_f1", label: "Frame 1", label_cn: "帧 1", parts: {} };
-      const poseF2 = { id: "pose_f2", label: "Frame 2", label_cn: "帧 2", parts: {} };
+      const usedPartIds = new Set();
+      const scenePoses = poseDocs.map((p, i) => {
+        const rawName = (p.name || `pose_${i + 1}`).replace(/\.json$/i, "");
+        const safeId = slugify(rawName, `pose_${i + 1}`);
+        return {
+          id: `pose_${i + 1}_${safeId}`.replace(/_+/g, "_").replace(/_+$/, ""),
+          label: rawName,
+          label_cn: `姿态 ${i + 1}`,
+          parts: {},
+        };
+      });
+      /* Ensure pose ids are unique even if names collide. */
+      {
+        const seen = new Set();
+        for (const p of scenePoses) {
+          let id = p.id || "pose";
+          if (seen.has(id)) {
+            let n = 2;
+            while (seen.has(`${id}_${n}`)) n++;
+            id = `${id}_${n}`;
+          }
+          p.id = id;
+          seen.add(id);
+        }
+      }
 
-      for (const layer1 of shapeLayers1) {
-        /* World-space path for frame 1: group transforms + ks + parent chain */
-        const shape1 = layerWorldShape(layer1, map1);
-        if (!shape1 || !shape1.v || !shape1.v.length) continue;
+      /* Remap from source space into the output viewbox. When no target size
+         is set, scale==1 and offX==offY==0, so this is a plain round. */
+      const round2 = (pts) => pts.map((pt) => [
+        Math.round(pt[0] * scale + offX),
+        Math.round(pt[1] * scale + offY),
+      ]);
 
-        const conv1 = lottieShapeToCtrlPts(shape1);
-        if (!conv1 || !conv1.points.length) continue;
+      for (const layerRef of refLayers) {
+        /* World-space primitives for the reference pose. */
+        const shapesRef = layerWorldShapes(layerRef, maps[0]);
+        if (!shapesRef.length) continue;
 
-        /* Match layer in rig2 by ind (more reliable than name for unnamed layers) */
-        const layer2 = map2.get(layer1.ind);
-        const shape2 = layer2 ? layerWorldShape(layer2, map2) : null;
-        const conv2  = shape2 ? lottieShapeToCtrlPts(shape2) : null;
+        /* For every other pose: pathKey → shape lookup, aligned by layer.ind. */
+        const byKeyPerPose = [null]; /* slot 0 unused (ref) */
+        for (let pi = 1; pi < poseDocs.length; pi++) {
+          const layerI = maps[pi].get(layerRef.ind);
+          const shapesI = layerI ? layerWorldShapes(layerI, maps[pi]) : [];
+          byKeyPerPose.push(new Map(shapesI.map((s) => [s.pathKey, s])));
+        }
 
-        /* Skip if vertex count differs (incompatible topology) */
-        if (conv2 && conv2.points.length !== conv1.points.length) continue;
+        for (const sRef of shapesRef) {
+          const convRef = lottieShapeToCtrlPts(sRef.shape);
+          if (!convRef || !convRef.points.length) continue;
 
-        const partId = layer1.nm
-          ? slugify(layer1.nm, `part_${parts.length}`)
-          : `part_ind${layer1.ind}`;
+          /* Collect matching control points for every pose. A null entry
+             means "missing in this pose → reuse ref points". A mismatching
+             point count forces the whole part to be skipped (we can't tween
+             structurally different paths). */
+          const convPerPose = [convRef];
+          let mismatch = false;
+          for (let pi = 1; pi < poseDocs.length; pi++) {
+            const sI = byKeyPerPose[pi].get(sRef.pathKey);
+            const convI = sI ? lottieShapeToCtrlPts(sI.shape) : null;
+            if (convI && convI.points.length !== convRef.points.length) {
+              mismatch = true;
+              break;
+            }
+            convPerPose.push(convI);
+          }
+          if (mismatch) continue;
 
-        parts.push({
-          id: partId,
-          label: layer1.nm || `ind${layer1.ind}`,
-          kind: detectKind(layer1, conv1.closed),
-          stroke_width: normSW(layerStrokeWidth(layer1)),
-          radius_hint: 0,
-        });
+          /* Human-readable, unique part id. */
+          const base = layerRef.nm
+            ? slugify(layerRef.nm, `ind${layerRef.ind}`)
+            : `ind${layerRef.ind}`;
+          const suffix = sRef.pathKey
+            .replace(/^L\d+\/?/, "")
+            .replace(/[^\w]+/g, "_")
+            .replace(/^_+|_+$/g, "");
+          let partId = suffix ? `${base}_${suffix}` : base;
+          if (usedPartIds.has(partId)) {
+            let n = 2;
+            while (usedPartIds.has(`${partId}_${n}`)) n++;
+            partId = `${partId}_${n}`;
+          }
+          usedPartIds.add(partId);
 
-        const round2 = (pts) => pts.map((pt) => [Math.round(pt[0]), Math.round(pt[1])]);
-        poseF1.parts[partId] = round2(conv1.points);
-        poseF2.parts[partId] = conv2 ? round2(conv2.points) : round2(conv1.points);
+          /* Stroke-only widget: closed paths always rendered as outline loop
+             (monochrome scene would otherwise blob out). */
+          const kind = convRef.closed ? "BEZIER_LOOP" : "BEZIER_STRIP";
+
+          /* Fill-only Lottie shapes have strokeWidth==0. Fall back to the
+             layout default so the promoted outline is actually drawn. */
+          const normalizedSW = normSW(sRef.strokeWidth || 0);
+          const strokeWidth  = normalizedSW > 0 ? normalizedSW : layoutSW;
+          parts.push({
+            id: partId,
+            label: partId,
+            kind,
+            stroke_width: strokeWidth,
+            radius_hint: 0,
+          });
+
+          for (let pi = 0; pi < poseDocs.length; pi++) {
+            const cpts = convPerPose[pi] ? convPerPose[pi].points : convRef.points;
+            scenePoses[pi].parts[partId] = round2(cpts);
+          }
+        }
       }
 
       if (!parts.length) {
         throw new Error(
-          "两帧中没有找到可处理的路径层。请确认 JSON 为龙虾 rig 格式（含 ty=4 形状层）。"
+          "导入的姿态中未找到可处理的路径层。请确认 JSON 为龙虾 rig 格式（含 ty=4 形状层）。"
         );
       }
 
+      const holdTicks = poseDocs.length === 1 ? 60 : 30;
       return {
         schema: SCENE_SCHEMA,
         name: "rig_active",
@@ -3437,16 +3502,18 @@
           damping_div: 4,
         },
         parts,
-        poses: [poseF1, poseF2],
+        poses: scenePoses,
         clips: [{
           id: "active",
           label: "active",
           label_cn: "动作",
           loop: true,
-          steps: [
-            { pose: "pose_f1", hold_ticks: 30, facing: 1, interp: "DAMPED" },
-            { pose: "pose_f2", hold_ticks: 30, facing: 1, interp: "DAMPED" },
-          ],
+          steps: scenePoses.map((p) => ({
+            pose: p.id,
+            hold_ticks: holdTicks,
+            facing: 1,
+            interp: "DAMPED",
+          })),
         }],
         sequence: ["active"],
       };
@@ -3454,47 +3521,80 @@
 
     /* ---- Rig event listeners ---- */
 
+    /* Editing the textarea writes back into the LAST imported pose's doc,
+       then schedules a debounced re-merge so the scene updates as the user
+       tweaks the JSON. Silent on parse errors during typing. */
     els.rigEditor.addEventListener("input", () => {
+      if (state.activePoseIdx < 0) return;
       try {
         const doc = JSON.parse(els.rigEditor.value);
-        state.rigDoc = doc;
-        state.rigName = state.rigName || "edited.json";
-        renderRigLayerPanel(doc);
-        updateRigSlotUi();
+        state.poses[state.activePoseIdx].doc = doc;
+        scheduleAutoMerge();
       } catch (_) {
         /* ignore parse errors while typing */
       }
     });
 
-    els.loadRig1Btn.addEventListener("click", () => {
-      loadRigUrl("./rig/active_frame1.json", "active_frame1.json", 1);
+    els.importPoseBtn.addEventListener("click", () => {
+      els.poseFileInput.value = "";
+      els.poseFileInput.click();
     });
 
-    els.loadRig2Btn.addEventListener("click", () => {
-      loadRigUrl("./rig/active_frame2.json", "active_frame2.json", 2);
-    });
-
-    els.exportRig1Btn.addEventListener("click", () => {
-      if (!state.rigDoc) return;
-      downloadText(state.rigName || "frame1.json", JSON.stringify(state.rigDoc, null, 2));
-      setStatus(`已导出 ${state.rigName}`);
-    });
-
-    els.exportRig2Btn.addEventListener("click", () => {
-      if (!state.rigDoc2) return;
-      downloadText(state.rigName2 || "frame2.json", JSON.stringify(state.rigDoc2, null, 2));
-      setStatus(`已导出 ${state.rigName2}`);
-    });
-
-    els.mergeRigBtn.addEventListener("click", () => {
-      try {
-        const doc = mergeRigFramesToSceneDoc(state.rigDoc, state.rigDoc2);
-        writeSceneDoc(doc, `已合并两帧 → 标准场景 "${doc.name}"，${doc.parts.length} 个部件，2 个 pose。`);
-      } catch (err) {
-        setStatus(`合并失败：${err.message}`, true);
-        console.error(err);
+    /* Batch multiple selected files: append all, merge once at the end. */
+    els.poseFileInput.addEventListener("change", async (event) => {
+      const files = Array.from(event.target.files || []);
+      for (const file of files) {
+        await addPoseFromFile(file);
       }
+      if (files.length) autoMergeAndWrite();
     });
+
+    els.clearPosesBtn.addEventListener("click", () => {
+      if (!state.poses.length) return;
+      state.poses = [];
+      state.activePoseIdx = -1;
+      els.rigEditor.value = "";
+      updatePoseCount();
+      setStatus("已清空姿态累积器（当前场景保持不变）");
+    });
+
+    /* Changing the target size re-scales on the fly (if any poses imported). */
+    function onTargetSizeChange() {
+      if (!state.poses.length) return;
+      scheduleAutoMerge();
+    }
+    els.targetWInput.addEventListener("input", onTargetSizeChange);
+    els.targetHInput.addEventListener("input", onTargetSizeChange);
+
+    /* Drag-drop anywhere inside the rig fold body = bulk-append poses. */
+    function setRigDropState(on) {
+      els.rigDropzone.classList.toggle("dragover", !!on);
+    }
+
+    els.rigDropzone.addEventListener("dragover", (ev) => {
+      ev.preventDefault();
+      setRigDropState(true);
+    });
+
+    els.rigDropzone.addEventListener("dragleave", (ev) => {
+      /* Only clear when the pointer actually leaves the fold body, not its
+         children (avoid flicker). */
+      if (ev.target === els.rigDropzone) setRigDropState(false);
+    });
+
+    els.rigDropzone.addEventListener("drop", async (ev) => {
+      ev.preventDefault();
+      setRigDropState(false);
+      const files = Array.from((ev.dataTransfer && ev.dataTransfer.files) || [])
+        .filter((f) => /\.json$/i.test(f.name) || f.type === "application/json");
+      for (const file of files) {
+        await addPoseFromFile(file);
+      }
+      if (files.length) autoMergeAndWrite();
+    });
+
+    /* Initial badge paint. */
+    updatePoseCount();
 
     els.fileInput.addEventListener("change", (event) => {
       handleFile(event.target.files && event.target.files[0]);
@@ -3575,18 +3675,6 @@
       }
     });
 
-    els.partKindSelect.addEventListener("change", () => {
-      try {
-        const doc = ensureSceneDoc();
-        const current = partByIndex(state.selectedPartIndex);
-        const currentCount = currentPartPointCount(doc, current.id);
-        const suggested = defaultPointCountForKind(els.partKindSelect.value);
-        els.partCountInput.value = String(currentCount || suggested);
-      } catch (err) {
-        // no-op
-      }
-    });
-
     els.partSaveBtn.addEventListener("click", () => {
       try {
         const doc = deepClone(ensureSceneDoc());
@@ -3599,7 +3687,6 @@
         part.label = els.partLabelInput.value.trim() || newId;
         part.kind = els.partKindSelect.value;
         part.stroke_width = Math.max(0, Number(els.partStrokeInput.value) || 0);
-        part.radius_hint = Number(els.partRadiusInput.value) || 0;
 
         if (oldId !== newId) {
           doc.poses.forEach((pose) => {
@@ -3613,118 +3700,6 @@
         writeSceneDoc(doc, "已保存部件。");
       } catch (err) {
         setStatus(`保存部件失败：${err.message}`, true);
-      }
-    });
-
-    els.partAddBtn.addEventListener("click", () => {
-      try {
-        const doc = deepClone(ensureSceneDoc());
-        const kind = els.partKindSelect.value || "BEZIER_STRIP";
-        const newId = makeUniqueId(els.partIdInput.value.trim() || "part", new Set(doc.parts.map((part) => part.id)), "part");
-        const newPart = {
-          id: newId,
-          label: els.partLabelInput.value.trim() || newId,
-          kind,
-          stroke_width: Math.max(0, Number(els.partStrokeInput.value) || 0),
-          radius_hint: Number(els.partRadiusInput.value) || 0,
-        };
-        doc.parts.push(newPart);
-
-        const defaultPts = makeDefaultPoints(kind, doc.meta.viewbox);
-        doc.poses.forEach((pose) => {
-          pose.parts[newId] = deepClone(defaultPts);
-        });
-
-        state.selectedPartId = newId;
-        state.selectedPartIndex = doc.parts.length - 1;
-        writeSceneDoc(doc, "已新增部件。");
-      } catch (err) {
-        setStatus(`新增部件失败：${err.message}`, true);
-      }
-    });
-
-    els.partRemoveBtn.addEventListener("click", () => {
-      try {
-        const doc = deepClone(ensureSceneDoc());
-        if (doc.parts.length <= 1) {
-          throw new Error("至少保留一个部件");
-        }
-        const part = doc.parts[state.selectedPartIndex];
-        doc.parts.splice(state.selectedPartIndex, 1);
-        doc.poses.forEach((pose) => {
-          delete pose.parts[part.id];
-        });
-        state.selectedPartIndex = Math.max(0, state.selectedPartIndex - 1);
-        state.selectedPartId = doc.parts[state.selectedPartIndex].id;
-        writeSceneDoc(doc, "已删除部件。");
-      } catch (err) {
-        setStatus(`删除部件失败：${err.message}`, true);
-      }
-    });
-
-    els.posePartSelect.addEventListener("change", () => {
-      state.selectedPartId = els.posePartSelect.value;
-      try {
-        state.selectedPartIndex = currentPartIndex();
-      } catch (err) {
-        // no-op
-      }
-      renderPosePartTextarea();
-      refreshGuiPanels();
-      renderAsset();
-    });
-
-    els.poseSaveBtn.addEventListener("click", () => {
-      try {
-        const doc = deepClone(ensureSceneDoc());
-        const pose = doc.poses[state.selectedPoseIndex];
-        const oldId = pose.id;
-        const desiredId = slugify(els.poseIdInput.value.trim() || oldId, oldId);
-        const otherIds = new Set(doc.poses.filter((_, index) => index !== state.selectedPoseIndex).map((item) => item.id));
-        const newId = otherIds.has(desiredId) ? makeUniqueId(desiredId, otherIds, desiredId) : desiredId;
-        pose.id = newId;
-        pose.label = els.poseLabelInput.value.trim() || newId;
-        pose.label_cn = els.poseLabelCnInput.value.trim() || pose.label;
-        if (oldId !== newId) {
-          doc.clips.forEach((clip) => {
-            clip.steps.forEach((step) => {
-              if (step.pose === oldId) step.pose = newId;
-            });
-          });
-        }
-        state.selectedPartId = currentPosePartId();
-        writeSceneDoc(doc, "已保存姿态。");
-      } catch (err) {
-        setStatus(`保存姿态失败：${err.message}`, true);
-      }
-    });
-
-    els.poseSavePointsBtn.addEventListener("click", () => {
-      try {
-        const doc = deepClone(ensureSceneDoc());
-        const pose = doc.poses[state.selectedPoseIndex];
-        const partId = currentPosePartId();
-        pose.parts[partId] = normalizePoints(parseJsonInput(els.posePartPointsInput.value));
-        writeSceneDoc(doc, "已应用高级点位。");
-      } catch (err) {
-        setStatus(`应用高级点位失败：${err.message}`, true);
-      }
-    });
-
-    els.poseDuplicateBtn.addEventListener("click", () => {
-      try {
-        const doc = deepClone(ensureSceneDoc());
-        const src = doc.poses[state.selectedPoseIndex];
-        const newId = makeUniqueId(`${src.id}_copy`, new Set(doc.poses.map((pose) => pose.id)), src.id);
-        const copy = deepClone(src);
-        copy.id = newId;
-        copy.label = `${src.label} Copy`;
-        copy.label_cn = `${src.label_cn} 副本`;
-        doc.poses.splice(state.selectedPoseIndex + 1, 0, copy);
-        state.selectedPoseIndex += 1;
-        writeSceneDoc(doc, "已复制 Pose。");
-      } catch (err) {
-        setStatus(`复制姿态失败：${err.message}`, true);
       }
     });
 
@@ -3875,12 +3850,6 @@
     });
 
     els.viewer.addEventListener("pointermove", (event) => {
-      if (state.dragPointIndex >= 0) {
-        if (state.dragPointerId != null && event.pointerId !== state.dragPointerId) return;
-        event.preventDefault();
-        updateDraggedPoint(pointerPosOnViewer(event));
-        return;
-      }
       if (!state.dragPartId) return;
       if (state.dragPartPointerId != null && event.pointerId !== state.dragPartPointerId) return;
       event.preventDefault();
@@ -3888,21 +3857,14 @@
     });
 
     window.addEventListener("pointerup", (event) => {
-      if (state.dragPointIndex >= 0) {
-        if (state.dragPointerId != null && event.pointerId !== state.dragPointerId) return;
-        state.dragPointIndex = -1;
-        state.dragPointerId = null;
-      }
       if (state.dragPartId) {
         if (state.dragPartPointerId != null && event.pointerId !== state.dragPartPointerId) return;
         clearPartDrag();
+        renderAsset();
       }
-      renderAsset();
     });
 
     window.addEventListener("pointercancel", () => {
-      state.dragPointIndex = -1;
-      state.dragPointerId = null;
       clearPartDrag();
       renderAsset();
     });

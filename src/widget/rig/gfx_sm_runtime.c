@@ -377,39 +377,10 @@ static void s_cubic_bezier(const s_spt_t *p0, const s_spt_t *p1,
                                + 3.0f*u*t2*(float)p2->y + t3*(float)p3->y);
 }
 
-/* Tessellate n = 3k+1 cubic Bezier control points.
- * segs_per: samples per segment (t = 0, 1/segs, …, (segs-1)/segs per seg).
- * loop=true: closed — k*segs_per output pts (no repeated endpoint).
- * loop=false: open  — k*segs_per + 1 output pts (includes final endpoint). */
-static uint16_t s_tess_cubic_bezier(const s_spt_t *ctrl, uint8_t n,
-                                     bool loop, uint8_t segs_per,
-                                     s_spt_t *out)
-{
-    uint16_t count = 0;
-    uint8_t  k;
-
-    if (n < 4U) { return 0U; }
-    k = (uint8_t)((n - 1U) / 3U);   /* number of cubic segments */
-
-    for (uint8_t seg = 0; seg < k; seg++) {
-        const s_spt_t *p0 = &ctrl[(uint8_t)(seg * 3U)];
-        const s_spt_t *p1 = &ctrl[(uint8_t)(seg * 3U + 1U)];
-        const s_spt_t *p2 = &ctrl[(uint8_t)(seg * 3U + 2U)];
-        const s_spt_t *p3 = loop
-            ? &ctrl[(uint8_t)(((seg + 1U) * 3U) % (n - 1U))]
-            : &ctrl[(uint8_t)((seg + 1U) * 3U)];
-
-        for (uint8_t sub = 0; sub < segs_per; sub++) {
-            s_cubic_bezier(p0, p1, p2, p3,
-                           (float)sub / (float)segs_per,
-                           &out[count++]);
-        }
-    }
-    if (!loop) {
-        out[count++] = ctrl[n - 1U];   /* final endpoint for open strip */
-    }
-    return count;
-}
+/* s_tess_cubic_bezier was removed — tessellation now lives inline in
+ * s_apply_bezier(), where positions are kept as floats and tangents are
+ * computed from the analytic cubic derivative. That eliminates the twist
+ * bowties that produced "dashed" strokes on the device. */
 
 /* ------------------------------------------------------------------ */
 /*  BEZIER_STRIP / BEZIER_LOOP primitives                             */
@@ -427,11 +398,45 @@ static uint16_t s_tess_cubic_bezier(const s_spt_t *ctrl, uint8_t n,
 /*  Row 1 = "inner" ring (tess - normal * half_thick)                 */
 /* ------------------------------------------------------------------ */
 
+/* Analytic cubic position B(t) and tangent B'(t) in floats.
+ * Using the analytic derivative (instead of central difference on rounded
+ * tessellated samples) is essential for stable normal directions — otherwise
+ * sharp-cornered Lottie paths (where i/o tangents are zero, producing
+ * duplicate ctrl pts) and tight bends where adjacent samples round to the
+ * same pixel produce twist bowties that render as dashed/broken strokes. */
+static inline void s_cubic_pos_tan(const s_spt_t *p0, const s_spt_t *p1,
+                                    const s_spt_t *p2, const s_spt_t *p3,
+                                    float t,
+                                    float *px, float *py,
+                                    float *tx, float *ty)
+{
+    float u  = 1.0f - t;
+    float u2 = u * u, t2 = t * t;
+    *px = u2*u*(float)p0->x + 3.0f*u2*t*(float)p1->x
+        + 3.0f*u*t2*(float)p2->x + t2*t*(float)p3->x;
+    *py = u2*u*(float)p0->y + 3.0f*u2*t*(float)p1->y
+        + 3.0f*u*t2*(float)p2->y + t2*t*(float)p3->y;
+    *tx = 3.0f*u2*(float)(p1->x - p0->x) + 6.0f*u*t*(float)(p2->x - p1->x)
+        + 3.0f*t2*(float)(p3->x - p2->x);
+    *ty = 3.0f*u2*(float)(p1->y - p0->y) + 6.0f*u*t*(float)(p2->y - p1->y)
+        + 3.0f*t2*(float)(p3->y - p2->y);
+    /* If derivative is zero (p0==p1 at t=0 or p2==p3 at t=1 — sharp corner),
+     * fall back to a sibling chord that still lies tangent to the curve. */
+    if (fabsf(*tx) + fabsf(*ty) < 1e-6f) {
+        *tx = (float)(p2->x - p0->x); *ty = (float)(p2->y - p0->y);
+        if (fabsf(*tx) + fabsf(*ty) < 1e-6f) {
+            *tx = (float)(p3->x - p0->x); *ty = (float)(p3->y - p0->y);
+            if (fabsf(*tx) + fabsf(*ty) < 1e-6f) {
+                *tx = 1.0f; *ty = 0.0f;
+            }
+        }
+    }
+}
+
 static esp_err_t s_apply_bezier(gfx_obj_t *obj,
                                  const s_spt_t *ctrl, uint8_t n,
                                  int32_t thick, bool loop)
 {
-    s_spt_t  tess[SM_BEZIER_MAX_TESS + 1U];
     gfx_mesh_img_point_q8_t pts[(SM_BEZIER_MAX_TESS + 1U) * 2U];
     int32_t ox[SM_BEZIER_MAX_TESS + 1U];
     int32_t oy[SM_BEZIER_MAX_TESS + 1U];
@@ -446,49 +451,137 @@ static esp_err_t s_apply_bezier(gfx_obj_t *obj,
         return ESP_ERR_INVALID_ARG;
     }
 
+    const uint8_t  k        = (uint8_t)((n - 1U) / 3U);
+
 #if GFX_SM_HAVE_NANOVG
     /* Closed loops: NVG adaptive flattening, then resample to EXACTLY
-     * k*SM_BEZIER_SEGS_PER_SEG points so the mesh grid (set at init) always matches. */
+     * k*SM_BEZIER_SEGS_PER_SEG points so the mesh grid (set at init)
+     * always matches. */
     if (loop) {
+        s_spt_t  tess[SM_BEZIER_MAX_TESS + 1U];
+        const uint16_t target_m = (uint16_t)k * (uint16_t)SM_BEZIER_SEGS_PER_SEG;
         int32_t cnt = s_nvg_flatten_closed(ctrl, n);
-        if (cnt >= 3) {
-            uint8_t  k        = (uint8_t)((n - 1U) / 3U);
-            uint16_t target_m = (uint16_t)k * (uint16_t)SM_BEZIER_SEGS_PER_SEG;
-            if (target_m > 0U && s_nvg_resample(cnt, target_m, tess)) {
-                M = target_m;
+        if (cnt >= 3 && target_m > 0U && s_nvg_resample(cnt, target_m, tess)) {
+            /* ── Robust central-difference tangent on resampled points ──
+             * NVG samples lie on the curve but carry no analytic tangent, so
+             * compute tangent from tess[next] - tess[prev]; if they collide
+             * (short arc / rounding), scan outward for the first non-identical
+             * sample so the fallback (1,0) direction never fires. */
+            for (uint16_t i = 0; i < target_m; i++) {
+                uint16_t prev_i = (uint16_t)((i + target_m - 1U) % target_m);
+                uint16_t next_i = (uint16_t)((i + 1U)            % target_m);
+                uint16_t guard;
+                guard = 0U;
+                while ((tess[next_i].x == tess[i].x && tess[next_i].y == tess[i].y)
+                        && guard < target_m) {
+                    next_i = (uint16_t)((next_i + 1U) % target_m);
+                    guard++;
+                }
+                guard = 0U;
+                while ((tess[prev_i].x == tess[i].x && tess[prev_i].y == tess[i].y)
+                        && guard < target_m) {
+                    prev_i = (uint16_t)((prev_i + target_m - 1U) % target_m);
+                    guard++;
+                }
+                float tx = (float)(tess[next_i].x - tess[prev_i].x);
+                float ty = (float)(tess[next_i].y - tess[prev_i].y);
+                float len = sqrtf(tx * tx + ty * ty);
+                if (len < 1e-6f) { tx = 1.0f; ty = 0.0f; }
+                else             { tx /= len; ty /= len; }
+                float nx = -ty, ny = tx;
+                ox[i]     = (int32_t)lroundf((float)tess[i].x + nx * half);
+                oy[i]     = (int32_t)lroundf((float)tess[i].y + ny * half);
+                ix_arr[i] = (int32_t)lroundf((float)tess[i].x - nx * half);
+                iy_arr[i] = (int32_t)lroundf((float)tess[i].y - ny * half);
             }
+            M = target_m;
         }
     }
 #endif /* GFX_SM_HAVE_NANOVG */
 
-    if (M == 0) {
-        /* Fixed-step fallback (always correct; also used for STRIP). */
-        M = s_tess_cubic_bezier(ctrl, n, loop, SM_BEZIER_SEGS_PER_SEG, tess);
-    }
+    if (M == 0U) {
+        /* ── Fixed-step fallback with analytic tangent (also used for STRIP).
+         *
+         * Keeps positions as floats until the final extrusion step so that
+         * short/tight cubics do not collapse into each other after rounding.
+         *
+         * Sub-pixel sample COLLAPSE — anti-bowtie safeguard:
+         * Bowties are caused by pixel *rounding* flipping the relative order
+         * of outer/inner vertices; the root precondition is that two
+         * consecutive float positions sit within one pixel of each other.
+         * Snap such pairs onto the last *kept* sample (position + normal),
+         * producing a zero-area degenerate quad that is invisible. The
+         * threshold is a FIXED 1 px — scaling it with stroke_width would
+         * wrongly fold whole shapes (e.g. a head/foot loop with many samples
+         * per screen pixel of perimeter but a thick stroke) into a single
+         * point.  Keep this purely pixel-level. */
+        const float min_step2 = 1.0f;   /* (1 px)^2 */
+        float       last_px = 0.0f, last_py = 0.0f;
+        float       last_nx = 0.0f, last_ny = 0.0f;
+        bool        have_last = false;
 
-    /* ── Compute per-vertex normals on the tessellated path ── */
-    for (uint16_t i = 0; i < M; i++) {
-        uint16_t prev, next;
-        if (loop) {
-            prev = (uint16_t)((i + M - 1U) % M);
-            next = (uint16_t)((i + 1U)     % M);
-        } else {
-            prev = (i == 0U)      ? 0U          : (uint16_t)(i - 1U);
-            next = (i == M - 1U)  ? (uint16_t)(M - 1U) : (uint16_t)(i + 1U);
+        for (uint8_t seg = 0U; seg < k; seg++) {
+            const s_spt_t *p0 = &ctrl[seg * 3U];
+            const s_spt_t *p1 = &ctrl[seg * 3U + 1U];
+            const s_spt_t *p2 = &ctrl[seg * 3U + 2U];
+            const s_spt_t *p3 = loop
+                ? &ctrl[((seg + 1U) * 3U) % (n - 1U)]
+                : &ctrl[(seg + 1U) * 3U];
+            for (uint8_t sub = 0U; sub < SM_BEZIER_SEGS_PER_SEG; sub++) {
+                float t = (float)sub / (float)SM_BEZIER_SEGS_PER_SEG;
+                float px, py, tx, ty;
+                s_cubic_pos_tan(p0, p1, p2, p3, t, &px, &py, &tx, &ty);
+                float len = sqrtf(tx * tx + ty * ty);
+                if (len < 1e-6f) { tx = 1.0f; ty = 0.0f; }
+                else             { tx /= len; ty /= len; }
+                float nx = -ty, ny = tx;   /* left-hand normal */
+                if (have_last) {
+                    float dx = px - last_px, dy = py - last_py;
+                    if (dx * dx + dy * dy < min_step2) {
+                        px = last_px; py = last_py;
+                        nx = last_nx; ny = last_ny;
+                    } else {
+                        last_px = px; last_py = py;
+                        last_nx = nx; last_ny = ny;
+                    }
+                } else {
+                    last_px = px; last_py = py;
+                    last_nx = nx; last_ny = ny;
+                    have_last = true;
+                }
+                ox[M]     = (int32_t)lroundf(px + nx * half);
+                oy[M]     = (int32_t)lroundf(py + ny * half);
+                ix_arr[M] = (int32_t)lroundf(px - nx * half);
+                iy_arr[M] = (int32_t)lroundf(py - ny * half);
+                M++;
+            }
         }
-
-        float tx = (float)(tess[next].x - tess[prev].x);
-        float ty = (float)(tess[next].y - tess[prev].y);
-        float len = sqrtf(tx * tx + ty * ty);
-        if (len < 0.001f) { tx = 1.0f; ty = 0.0f; }
-        else { tx /= len; ty /= len; }
-
-        float nx = -ty, ny = tx;   /* left-hand normal */
-
-        ox[i]     = (int32_t)lroundf((float)tess[i].x + nx * half);
-        oy[i]     = (int32_t)lroundf((float)tess[i].y + ny * half);
-        ix_arr[i] = (int32_t)lroundf((float)tess[i].x - nx * half);
-        iy_arr[i] = (int32_t)lroundf((float)tess[i].y - ny * half);
+        if (!loop) {
+            /* Strip: add the final endpoint with the last segment's t=1
+             * tangent, so the tube cap aligns with the true curve direction. */
+            const s_spt_t *p0 = &ctrl[(k - 1U) * 3U];
+            const s_spt_t *p1 = &ctrl[(k - 1U) * 3U + 1U];
+            const s_spt_t *p2 = &ctrl[(k - 1U) * 3U + 2U];
+            const s_spt_t *p3 = &ctrl[k * 3U];
+            float px, py, tx, ty;
+            s_cubic_pos_tan(p0, p1, p2, p3, 1.0f, &px, &py, &tx, &ty);
+            float len = sqrtf(tx * tx + ty * ty);
+            if (len < 1e-6f) { tx = 1.0f; ty = 0.0f; }
+            else             { tx /= len; ty /= len; }
+            float nx = -ty, ny = tx;
+            if (have_last) {
+                float dx = px - last_px, dy = py - last_py;
+                if (dx * dx + dy * dy < min_step2) {
+                    px = last_px; py = last_py;
+                    nx = last_nx; ny = last_ny;
+                }
+            }
+            ox[M]     = (int32_t)lroundf(px + nx * half);
+            oy[M]     = (int32_t)lroundf(py + ny * half);
+            ix_arr[M] = (int32_t)lroundf(px - nx * half);
+            iy_arr[M] = (int32_t)lroundf(py - ny * half);
+            M++;
+        }
     }
 
     uint16_t cols;
