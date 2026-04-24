@@ -683,179 +683,826 @@
     }
 
     #rig-editor {
-      min-height: 260px;
+      min-height: 180px;
+    }
+
+    /* =========================================================================
+       Professional UI v2 — topbar / sidebar · canvas · inspector / statusbar
+       Keeps all existing IDs and most class hooks. Later rules win the cascade.
+       ========================================================================= */
+
+    :root {
+      --sp-1: 4px;
+      --sp-2: 8px;
+      --sp-3: 12px;
+      --sp-4: 16px;
+      --sp-5: 20px;
+      --sp-6: 24px;
+      --sp-7: 32px;
+
+      --r-xs: 4px;
+      --r-sm: 6px;
+      --r-md: 8px;
+      --r-lg: 12px;
+      --r-xl: 16px;
+
+      --shadow-1: 0 1px 2px rgba(30, 20, 10, 0.05),
+                  0 1px 3px rgba(30, 20, 10, 0.04);
+      --shadow-2: 0 2px 6px rgba(30, 20, 10, 0.08),
+                  0 4px 12px rgba(30, 20, 10, 0.05);
+
+      --topbar-h: 48px;
+      --statusbar-h: 28px;
+
+      --c-surface: #ffffff;
+      --c-surface-2: #f8f5f0;
+      --c-border: rgba(66, 52, 36, 0.12);
+      --c-border-strong: rgba(66, 52, 36, 0.22);
+    }
+
+    body {
+      background: var(--bg);
+      font-size: 13px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ---------- Shell grid: topbar / main / statusbar --------------------- */
+    .app-shell {
+      display: grid;
+      grid-template-rows: var(--topbar-h) minmax(0, 1fr) var(--statusbar-h);
+      min-height: 100vh;
+    }
+
+    /* ---------- Topbar ---------------------------------------------------- */
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(220px, auto) minmax(0, 1fr) auto;
+      align-items: center;
+      gap: var(--sp-4);
+      padding: 0 var(--sp-4);
+      height: var(--topbar-h);
+      background: var(--c-surface);
+      border-bottom: 1px solid var(--c-border);
+      box-shadow: var(--shadow-1);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .tb-brand {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+      color: var(--text);
+    }
+
+    .tb-logo {
+      width: 22px;
+      height: 22px;
+      color: var(--accent);
+    }
+
+    .tb-title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .tb-sub {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-left: var(--sp-2);
+      padding-left: var(--sp-2);
+      border-left: 1px solid var(--c-border);
+    }
+
+    .tb-source {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: var(--sp-2);
+      min-width: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .tb-source-lbl {
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.7;
+      font-size: 10px;
+    }
+
+    .tb-source-name {
+      color: var(--text);
+      font: 12px/1.4 ui-monospace, "SFMono-Regular", monospace;
+      padding: 3px 10px;
+      background: var(--c-surface-2);
+      border: 1px solid var(--c-border);
+      border-radius: 999px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 320px;
+    }
+
+    .tb-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+    }
+
+    .tb-sep {
+      width: 1px;
+      height: 22px;
+      background: var(--c-border);
+      margin: 0 var(--sp-1);
+    }
+
+    /* ---------- Buttons (compact) ---------------------------------------- */
+    /* Override old heavy rounded buttons for a flatter modern look. */
+    .app-shell button,
+    .app-shell .file-btn {
+      appearance: none;
+      border: 1px solid transparent;
+      border-radius: var(--r-md);
+      padding: 6px 12px;
+      background: var(--accent);
+      color: #fff;
+      font: 13px/1.4 inherit;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0;
+      box-shadow: none;
+      transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+    }
+
+    .app-shell button:hover,
+    .app-shell .file-btn:hover {
+      background: #0f5a63;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .app-shell button.ghost,
+    .app-shell .file-btn.ghost {
+      background: var(--c-surface);
+      color: var(--text);
+      border-color: var(--c-border);
+    }
+
+    .app-shell button.ghost:hover,
+    .app-shell .file-btn.ghost:hover {
+      background: var(--c-surface-2);
+      border-color: var(--c-border-strong);
+    }
+
+    .app-shell button.warn {
+      background: var(--warn);
+      color: #fff;
+    }
+
+    .app-shell button.warn:hover {
+      background: #8f4b22;
+    }
+
+    .app-shell button[disabled] {
+      opacity: 0.5;
+      cursor: not-allowed;
+      filter: grayscale(0.2);
+    }
+
+    /* ---------- App body grid: sidebar | canvas | inspector -------------- */
+    .app {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr) 400px;
+      min-height: 0;
+    }
+
+    .app-sidebar,
+    .app-inspector {
+      overflow: auto;
+      padding: var(--sp-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-3);
+      background: var(--c-surface-2);
+      min-height: 0;
+    }
+
+    .app-sidebar {
+      border-right: 1px solid var(--c-border);
+    }
+
+    .app-inspector {
+      border-left: 1px solid var(--c-border);
+      padding-top: 0;
+    }
+
+    .app-canvas {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      min-width: 0;
+      min-height: 0;
+      background: var(--bg);
+    }
+
+    /* ---------- Cards / Panels look (refined) ---------------------------- */
+    .app-sidebar .card,
+    .app-inspector .card,
+    .app-canvas .card {
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-lg);
+      padding: var(--sp-3);
+      box-shadow: none;
+      gap: var(--sp-2);
+    }
+
+    .app-sidebar .card h3,
+    .app-inspector .card h3,
+    .app-canvas .card h3 {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 var(--sp-1);
+    }
+
+    /* ---------- Folds (compact) ------------------------------------------ */
+    .app-sidebar details.fold,
+    .app-inspector details.fold {
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-lg);
+      box-shadow: none;
+    }
+
+    .app-sidebar details.fold > summary,
+    .app-inspector details.fold > summary {
+      padding: 9px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--muted);
+      position: relative;
+    }
+
+    .app-sidebar details.fold > summary::after,
+    .app-inspector details.fold > summary::after {
+      content: "+";
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-weight: 400;
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1;
+    }
+
+    .app-sidebar details.fold[open] > summary::after,
+    .app-inspector details.fold[open] > summary::after {
+      content: "–";
+    }
+
+    .app-sidebar details.fold > .fold-body,
+    .app-inspector details.fold > .fold-body {
+      padding: var(--sp-3);
+      padding-top: 0;
+    }
+
+    /* ---------- Inputs (compact) ----------------------------------------- */
+    .app-shell textarea,
+    .app-shell input[type="text"],
+    .app-shell input[type="number"],
+    .app-shell input[type="color"],
+    .app-shell select {
+      border: 1px solid var(--c-border);
+      background: var(--c-surface);
+      border-radius: var(--r-md);
+      padding: 6px 9px;
+      font: 13px/1.4 inherit;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .app-shell input[type="text"]:focus,
+    .app-shell input[type="number"]:focus,
+    .app-shell select:focus,
+    .app-shell textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .app-shell textarea {
+      min-height: 220px;
+      font: 12px/1.5 ui-monospace, "SFMono-Regular", monospace;
+      resize: vertical;
+    }
+
+    #scene-editor {
+      min-height: 320px;
+    }
+
+    .app-shell label {
+      font-size: 12px;
+      color: var(--muted);
+      display: grid;
+      gap: 4px;
+    }
+
+    .app-shell .field-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--sp-2);
+    }
+
+    .app-shell .field-grid label {
+      font-size: 11px;
+      letter-spacing: 0.02em;
+    }
+
+    /* ---------- Inspector tabs ------------------------------------------- */
+    .tab-bar {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      gap: 2px;
+      padding: var(--sp-2) var(--sp-4);
+      margin: 0 calc(var(--sp-4) * -1);
+      background: var(--c-surface-2);
+      border-bottom: 1px solid var(--c-border);
+    }
+
+    .tab {
+      appearance: none;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      padding: 5px 10px;
+      border-radius: var(--r-sm);
+      font: 12px/1.2 inherit;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0;
+      box-shadow: none;
+    }
+
+    .tab:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.6);
+    }
+
+    .tab.active {
+      background: var(--c-surface);
+      color: var(--accent);
+      border-color: var(--c-border);
+      box-shadow: var(--shadow-1);
+    }
+
+    .tab-panes {
+      display: grid;
+      gap: var(--sp-3);
+      padding-top: var(--sp-3);
+    }
+
+    .tab-pane {
+      display: none;
+      grid-template-columns: 1fr;
+      gap: var(--sp-3);
+    }
+
+    .tab-pane.active {
+      display: grid;
+    }
+
+    .tab-pane .card {
+      padding: 0;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      border-radius: 0;
+      gap: var(--sp-3);
+    }
+
+    .tab-pane .card + .card {
+      border-top: 1px solid var(--c-border);
+      padding-top: var(--sp-3);
+    }
+
+    /* ---------- Canvas area ---------------------------------------------- */
+    .canvas-head {
+      padding: var(--sp-2) var(--sp-4);
+      border-bottom: 1px solid var(--c-border);
+      background: var(--c-surface);
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+      justify-content: space-between;
+      min-height: 44px;
+    }
+
+    .canvas-head .badge-row {
+      gap: 6px;
+    }
+
+    .app-shell .badge {
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      border: 1px solid rgba(20, 110, 120, 0.18);
+      color: var(--accent);
+      font: 11px/1.4 ui-monospace, "SFMono-Regular", monospace;
+      letter-spacing: 0;
+      text-transform: none;
+      font-weight: 600;
+    }
+
+    .asset-name {
+      font: 12px/1.4 ui-monospace, "SFMono-Regular", monospace;
+      color: var(--muted);
+      padding: 3px 9px;
+      background: var(--c-surface-2);
+      border: 1px solid var(--c-border);
+      border-radius: 999px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 240px;
+    }
+
+    .canvas-body {
+      position: relative;
+      overflow: hidden;
+      background: var(--c-surface-2);
+      min-height: 0;
+    }
+
+    .canvas-body .viewer-shell {
+      position: absolute;
+      inset: var(--sp-4);
+      min-height: 0;
+      border-radius: var(--r-xl);
+      box-shadow: var(--shadow-2);
+    }
+
+    /* Playback toolbar below canvas */
+    .playback {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--sp-3);
+      padding: var(--sp-2) var(--sp-4);
+      background: var(--c-surface);
+      border-top: 1px solid var(--c-border);
+      min-height: 44px;
+    }
+
+    .playback-main {
+      display: flex;
+      gap: 6px;
+    }
+
+    .playback-fields {
+      display: flex;
+      gap: var(--sp-3);
+      flex-wrap: wrap;
+      align-items: center;
+      flex: 1;
+      justify-content: flex-end;
+    }
+
+    .playback-fields label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .playback-fields input,
+    .playback-fields select {
+      width: auto;
+      min-width: 0;
+      max-width: 140px;
+    }
+
+    .playback-fields input[type="color"] {
+      width: 30px;
+      height: 26px;
+      padding: 2px;
+      min-width: 30px;
+    }
+
+    /* ---------- Statusbar ------------------------------------------------ */
+    .statusbar {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+      padding: 0 var(--sp-4);
+      height: var(--statusbar-h);
+      background: var(--c-surface);
+      border-top: 1px solid var(--c-border);
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .sb-status {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text);
+      padding: 0;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+    }
+
+    .sb-status.error {
+      color: var(--warn);
+      background: transparent;
+      border: none;
+    }
+
+    .sb-stat {
+      color: var(--muted);
+      letter-spacing: 0.02em;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .sb-stat b {
+      color: var(--text);
+      font-weight: 700;
+      font: 11px/1 ui-monospace, "SFMono-Regular", monospace;
+    }
+
+    .sb-meta {
+      color: var(--muted);
+      font: 11px/1.4 ui-monospace, "SFMono-Regular", monospace;
+    }
+
+    .sb-sep {
+      width: 1px;
+      height: 14px;
+      background: var(--c-border);
+    }
+
+    /* ---------- Dropzone refresh ----------------------------------------- */
+    .app-sidebar .dropzone {
+      min-height: 72px;
+      border: 1px dashed var(--c-border-strong);
+      background: var(--c-surface-2);
+      border-radius: var(--r-lg);
+      font-size: 12px;
+      color: var(--muted);
+      padding: var(--sp-3);
+    }
+
+    .app-sidebar .dropzone code {
+      padding: 1px 6px;
+      background: var(--c-surface);
+      border-radius: 4px;
+      border: 1px solid var(--c-border);
+      font-size: 11px;
+    }
+
+    /* ---------- Small refinements --------------------------------------- */
+    .tab-pane .listbox {
+      max-height: 320px;
+    }
+
+    .tab-pane .inline-tools {
+      gap: 6px;
+    }
+
+    .tab-pane .inline-tools > * {
+      flex: 0 0 auto;
+    }
+
+    /* Responsive: collapse inspector into a drawer below lg */
+    @media (max-width: 1280px) {
+      .app {
+        grid-template-columns: 220px minmax(0, 1fr) 360px;
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+      }
+      .app-sidebar,
+      .app-inspector {
+        border: none;
+        border-bottom: 1px solid var(--c-border);
+        max-height: 50vh;
+      }
+      .app-canvas {
+        min-height: 60vh;
+      }
     }
   </style>
 </head>
 <body>
-  <main class="shell">
-    <section class="hero">
-      <div class="eyebrow">场景标准</div>
-      <h1>gfx_sm 设计工作台</h1>
-      <p>
-        这个页面把设计链路固定为一条：<code>Lottie JSON</code> 或 <code>scene.json v1</code> 导入，
-        统一归一成标准场景描述，再编译成设备端 asset，最后用和 <code>gfx_sm_scene</code> 一致的
-        <code>clip/step/hold_ticks/facing/damping</code> 语义做仿真，并支持直接导出 <code>.inc</code>。
-      </p>
-    </section>
+  <div class="app-shell">
 
-    <section class="layout">
-      <aside class="panel sidebar">
-        <div class="head">
-          <h2>导入</h2>
-          <span>Lottie / 场景标准</span>
-        </div>
+    <!-- ========================== Topbar ========================== -->
+    <header class="topbar">
+      <div class="tb-brand">
+        <svg class="tb-logo" viewBox="0 0 24 24" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+             stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"></circle>
+          <path d="M6.5 13.2 Q12 5.6 17.5 13.2"></path>
+          <circle cx="12" cy="12" r="1.6" fill="currentColor"></circle>
+        </svg>
+        <span class="tb-title">gfx_sm</span>
+        <span class="tb-sub">Scene Designer</span>
+      </div>
 
+      <div class="tb-source">
+        <span class="tb-source-lbl">Source</span>
+        <span class="tb-source-name" id="source-name">未加载</span>
+      </div>
+
+      <div class="tb-actions">
+        <label class="file-btn ghost" title="从本地选择 .json 文件">
+          打开…
+          <input id="file-input" type="file" accept=".json,.txt">
+        </label>
+        <button class="ghost" id="load-lottie-btn" type="button"
+                title="加载 face Lottie 示例">示例</button>
+        <span class="tb-sep"></span>
+        <button class="ghost" id="normalize-btn" type="button"
+                title="识别并归一化当前编辑区文本">归一化</button>
+        <button id="compile-btn" type="button"
+                title="编译场景并启动仿真">编译并仿真</button>
+        <span class="tb-sep"></span>
+        <button class="ghost" id="export-scene-btn" type="button"
+                title="导出 scene.json（设计源文件）">scene.json</button>
+        <button class="ghost" id="export-inc-btn" type="button"
+                title="导出 .inc（设备端编译产物）">.inc</button>
+      </div>
+    </header>
+
+    <!-- ========================== App body ======================== -->
+    <main class="app">
+
+      <!-- --------- Left sidebar: 输入源 + 参考 ---------- -->
+      <aside class="app-sidebar">
         <section class="card">
           <h3>输入源</h3>
-          <div class="dropzone" id="dropzone">拖拽 <code>.json</code> 文件到这里，或者选择本地文件</div>
-          <div class="btn-row">
-            <label class="file-btn">
-              打开 JSON 文件
-              <input id="file-input" type="file" accept=".json,.txt">
-            </label>
-            <button class="ghost" id="load-lottie-btn" type="button">加载 face Lottie 示例</button>
+          <div class="dropzone" id="dropzone">
+            拖拽 <code>.json</code> 到此处，或点击顶部「打开…」
           </div>
           <p class="mini">
-            自动识别两类输入：
-            <code>scene.json v1</code> 直接进入标准编辑区，
-            普通 Lottie JSON 会根据 <code>__gfx_sm</code> / markers / shape layers 归一成标准场景。
+            scene.json v1 直接进入原文编辑区；Lottie 会按
+            <code>__gfx_sm</code> / markers / shape layers 归一成标准场景。
           </p>
         </section>
-
-        <section class="card">
-          <h3>编译与导出</h3>
-          <div class="btn-row">
-            <button id="normalize-btn" type="button">识别并归一化当前文本</button>
-            <button id="compile-btn" type="button">编译并仿真</button>
-          </div>
-          <div class="btn-row">
-            <button class="ghost" id="export-scene-btn" type="button">导出 scene.json</button>
-            <button class="ghost" id="export-inc-btn" type="button">导出 .inc</button>
-          </div>
-          <p class="mini">
-            标准格式建议作为设计源文件保存，<code>.inc</code> 只作为设备端编译产物。
-          </p>
-        </section>
-
-        <section class="card">
-          <h3>标准说明</h3>
-          <p>
-            最小字段：
-            <code>schema</code>、
-            <code>name</code>、
-            <code>prefix</code>、
-            <code>meta.viewbox</code>、
-            <code>layout</code>、
-            <code>parts</code>、
-            <code>poses</code>、
-            <code>clips</code>、
-            <code>sequence</code>。
-          </p>
-          <p>
-            其中 <code>poses[*].parts</code> 存每个部件的控制点，
-            <code>clips[*].steps</code> 存设备端真正消费的离散 step，而不是连续时间轴。
-          </p>
-        </section>
-
-        <section class="card">
-          <h3>状态</h3>
-          <div class="status" id="status-box">等待导入 Lottie 或 scene.json。</div>
-        </section>
-      </aside>
-
-      <section class="panel editor">
-        <div class="head">
-          <h2>设计区</h2>
-          <span id="source-name">未加载</span>
-        </div>
 
         <details class="fold">
-          <summary>scene.json v1 原文</summary>
+          <summary>标准字段</summary>
           <div class="fold-body">
-            <textarea id="scene-editor" spellcheck="false" placeholder='{
-  "schema": "gfx_sm_scene_v1",
-  "name": "demo_scene",
-  "prefix": "s_demo"
-}'></textarea>
-          </div>
-        </details>
-
-        <details class="fold" id="rig-fold">
-          <summary>Rig 外部 JSON 导入 → 标准场景</summary>
-          <div class="fold-body" id="rig-dropzone">
-
-            <div class="rig-pose-import">
-              <button class="ghost" id="import-pose-btn" type="button"
-                      title="选择一个或多个 Lottie JSON 文件，每个文件作为一个姿态追加">
-                + 导入姿态 JSON
-              </button>
-              <button class="ghost" id="clear-poses-btn" type="button" disabled
-                      title="清空已累积的姿态并重置 rig 编辑区">
-                清空
-              </button>
-              <input type="file" id="pose-file-input"
-                     accept=".json,application/json" multiple hidden>
-              <span class="mini" id="pose-count-badge">尚未导入任何姿态</span>
-            </div>
-
-            <p class="mini" style="margin-top:4px;">
-              每导入 1 个 JSON = 1 个姿态，自动追加到场景并立即重新合并。支持多选或把
-              <code>.json</code> 拖到此折叠区批量导入；想重新开始点 <code>清空</code>。
-              目标宽高在左侧"场景信息"里设置；留空则沿用首个 Lottie 的原始尺寸。
-              展开下方折叠可查看/编辑最近导入的原始 JSON，修改后自动重新合并（防抖 400ms）。
+            <p class="mini">
+              <code>schema</code> <code>name</code> <code>prefix</code>
+              <code>meta.viewbox</code> <code>layout</code>
+              <code>parts</code> <code>poses</code>
+              <code>clips</code> <code>sequence</code>
             </p>
-
-            <details class="fold compact-fold">
-              <summary>最近导入的姿态 JSON（可编辑）</summary>
-              <div class="fold-body">
-                <textarea id="rig-editor" spellcheck="false"
-                  placeholder="导入后会显示最近一次的 JSON；修改会写回该姿态并自动重新合并..."></textarea>
-              </div>
-            </details>
+            <p class="mini">
+              <code>poses[*].parts</code> 存控制点；
+              <code>clips[*].steps</code> 是设备端消费的离散 step（非时间轴）。
+            </p>
           </div>
         </details>
 
-        <section class="card">
-          <h3>场景信息</h3>
-          <div class="field-grid">
-            <label>
-              场景名称
-              <input id="gui-scene-name" type="text" placeholder="场景名称">
-            </label>
-            <label>
-              导出前缀
-              <input id="gui-scene-prefix" type="text" placeholder="例如 s_scene">
-            </label>
+        <details class="fold">
+          <summary>使用流程</summary>
+          <div class="fold-body">
+            <p class="mini">
+              Lottie / scene.json v1 <b>导入</b> → <b>归一化</b> →
+              <b>编译</b> 成 asset → 按
+              <code>clip/step/hold_ticks/facing/damping</code>
+              仿真 → 导出 <code>.inc</code>。
+            </p>
           </div>
-          <div class="field-grid rig-target-grid" style="margin-top:8px;">
-            <label>
-              导入目标宽 (px)
-              <input id="target-w-input" type="number" min="16" step="1"
-                     placeholder="留空 = 原始 w">
-            </label>
-            <label>
-              导入目标高 (px)
-              <input id="target-h-input" type="number" min="16" step="1"
-                     placeholder="留空 = 原始 h">
-            </label>
-          </div>
-          <p class="mini" style="margin-top:4px;">
-            目标宽高：rig 导入时等比缩放（fit）到此尺寸并居中；留空沿用 Lottie 原始尺寸。
-          </p>
-          <div class="inline-tools">
-            <button class="ghost" id="gui-save-scene-meta-btn" type="button">保存场景信息</button>
-          </div>
-        </section>
+        </details>
+      </aside>
 
-        <section class="card">
-          <h3>部件</h3>
-          <div class="grid-2">
-            <div class="stack">
-              <p class="mini">部件列表（双击预览区部件可放大查看控制点）</p>
+      <!-- --------- Center canvas: 预览 + 播放控制 ---------- -->
+      <section class="app-canvas">
+        <div class="canvas-head">
+          <div class="badge-row">
+            <span class="badge" id="tick-badge">节拍: -</span>
+            <span class="badge" id="clip-badge">片段: -</span>
+            <span class="badge" id="mode-badge">编译后资产模式</span>
+          </div>
+          <span class="asset-name" id="asset-name">未编译</span>
+        </div>
+
+        <div class="canvas-body">
+          <div class="viewer-shell">
+            <svg class="viewer" id="viewer" aria-label="compiled asset preview"></svg>
+            <div class="hud" id="hud">尚未编译资产</div>
+          </div>
+        </div>
+
+        <div class="playback">
+          <div class="playback-main">
+            <button id="play-btn" type="button">暂停</button>
+            <button class="ghost" id="step-btn" type="button">单步</button>
+            <button class="ghost" id="reset-btn" type="button">重置</button>
+          </div>
+          <div class="playback-fields">
+            <label>片段
+              <select id="clip-select"></select>
+            </label>
+            <label>倍率
+              <input id="speed-input" type="number" min="0.1" max="4" step="0.1" value="1.0">
+            </label>
+            <label>主色
+              <input id="color-input" type="color" value="#101820">
+            </label>
+            <label>自动序列
+              <select id="autoseq-select">
+                <option value="on">开启</option>
+                <option value="off">关闭</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- --------- Right inspector: tabs ---------- -->
+      <aside class="app-inspector">
+        <nav class="tab-bar" role="tablist" aria-label="inspector">
+          <button type="button" class="tab active" data-tab="scene"  role="tab">场景</button>
+          <button type="button" class="tab"        data-tab="parts"  role="tab">部件</button>
+          <button type="button" class="tab"        data-tab="poses"  role="tab">姿态</button>
+          <button type="button" class="tab"        data-tab="clips"  role="tab">片段</button>
+          <button type="button" class="tab"        data-tab="source" role="tab">原文</button>
+        </nav>
+
+        <div class="tab-panes">
+
+          <!-- ------- Tab: 场景 ------- -->
+          <section class="tab-pane active" data-pane="scene" role="tabpanel">
+            <div class="card">
+              <h3>场景信息</h3>
+              <div class="field-grid">
+                <label>
+                  场景名称
+                  <input id="gui-scene-name" type="text" placeholder="场景名称">
+                </label>
+                <label>
+                  导出前缀
+                  <input id="gui-scene-prefix" type="text" placeholder="例如 s_scene">
+                </label>
+              </div>
+              <div class="field-grid rig-target-grid" style="margin-top:6px;">
+                <label>
+                  目标宽 (px)
+                  <input id="target-w-input" type="number" min="16" step="1"
+                         placeholder="留空 = 原始 w">
+                </label>
+                <label>
+                  目标高 (px)
+                  <input id="target-h-input" type="number" min="16" step="1"
+                         placeholder="留空 = 原始 h">
+                </label>
+              </div>
+              <p class="mini" style="margin-top:4px;">
+                rig 导入时等比（fit）缩放到此尺寸并居中；留空沿用 Lottie 原始尺寸。
+              </p>
+              <div class="inline-tools">
+                <button class="ghost" id="gui-save-scene-meta-btn" type="button">保存场景信息</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- ------- Tab: 部件 ------- -->
+          <section class="tab-pane" data-pane="parts" role="tabpanel">
+            <div class="card">
+              <h3>部件列表</h3>
+              <p class="mini">双击预览区部件可弹框放大查看 / 编辑控制点。</p>
               <div class="listbox" id="parts-list"></div>
             </div>
-            <div class="stack">
+            <div class="card">
+              <h3>选中部件属性</h3>
               <div class="field-grid">
                 <label>
                   部件 ID
@@ -884,42 +1531,28 @@
                 <button class="ghost" id="part-save-btn" type="button">保存部件</button>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <!-- ---- Part detail popup ---------------------------------------- -->
-        <dialog id="part-detail-dialog">
-          <div class="pd-header">
-            <span id="pd-title">部件详情</span>
-            <button type="button" class="ghost pd-close" id="pd-close-btn">关闭</button>
-          </div>
-          <div class="pd-body">
-            <svg id="pd-viewer" class="pd-viewer" aria-label="part detail"></svg>
-          </div>
-          <p class="mini pd-hint">拖拽橙色圆点可调整控制点；点击背景关闭。</p>
-        </dialog>
+          <!-- ------- Tab: 姿态 ------- -->
+          <section class="tab-pane" data-pane="poses" role="tabpanel">
+            <div class="card">
+              <h3>姿态列表</h3>
+              <p class="mini">
+                点击行切换当前姿态；<code>×</code> 从场景中移除，rig 累加器会同步更新。
+                姿态只由外部 JSON 导入驱动；微调请在「原文」里编辑或直接在画布拖点。
+              </p>
+              <div class="listbox" id="poses-list"></div>
+            </div>
+          </section>
 
-        <section class="card">
-          <h3>姿态</h3>
-          <div class="stack">
-            <p class="mini">
-              每一行对应场景中的一个姿态。rig 导入的姿态会显示对应 JSON 文件名；点行切换选中（右侧画布会高亮该姿态）；
-              <code>×</code> 从场景中移除该姿态，若它是通过 rig 导入的则同步从累加器中移除。
-              姿态的具体内容现在**只由外部 JSON 导入驱动**，不再提供右侧点位/中心/JSON 编辑入口；
-              需要微调点位请在 rig 折叠区编辑 JSON 或直接在右侧预览区拖点。
-            </p>
-            <div class="listbox" id="poses-list"></div>
-          </div>
-        </section>
-
-        <section class="card">
-          <h3>动作片段</h3>
-          <div class="grid-2">
-            <div class="stack">
-              <p class="mini">片段列表</p>
+          <!-- ------- Tab: 片段 ------- -->
+          <section class="tab-pane" data-pane="clips" role="tabpanel">
+            <div class="card">
+              <h3>片段列表</h3>
               <div class="listbox" id="clips-list"></div>
             </div>
-            <div class="stack">
+            <div class="card">
+              <h3>片段 / 步骤属性</h3>
               <div class="field-grid">
                 <label>
                   片段 ID
@@ -948,101 +1581,109 @@
                   步骤姿态
                   <select id="step-pose-select"></select>
                 </label>
-                <div class="grid-3">
-                  <label>
-                    停留 Tick
-                    <input id="step-hold-input" type="number" min="1" step="1" value="30">
-                  </label>
-                  <label>
-                    朝向
-                    <select id="step-facing-select">
-                      <option value="1">1</option>
-                      <option value="-1">-1</option>
-                    </select>
-                  </label>
-                  <label>
-                    插值
-                    <select id="step-interp-select">
-                      <option value="DAMPED">缓动</option>
-                      <option value="HOLD">保持</option>
-                    </select>
-                  </label>
-                </div>
+              </div>
+              <div class="grid-3" style="margin-top:6px;">
+                <label>
+                  停留 Tick
+                  <input id="step-hold-input" type="number" min="1" step="1" value="30">
+                </label>
+                <label>
+                  朝向
+                  <select id="step-facing-select">
+                    <option value="1">1</option>
+                    <option value="-1">-1</option>
+                  </select>
+                </label>
+                <label>
+                  插值
+                  <select id="step-interp-select">
+                    <option value="DAMPED">缓动</option>
+                    <option value="HOLD">保持</option>
+                  </select>
+                </label>
               </div>
               <div class="inline-tools">
                 <button class="ghost" id="clip-save-btn" type="button">保存片段</button>
-                <button class="ghost" id="clip-add-btn" type="button">从当前姿态新建片段</button>
+                <button class="ghost" id="clip-add-btn" type="button">从姿态新建片段</button>
                 <button class="ghost" id="step-save-btn" type="button">保存步骤</button>
                 <button class="ghost" id="step-add-btn" type="button">新增步骤</button>
-                <button class="warn" id="step-remove-btn" type="button">删除步骤</button>
+                <button class="warn"  id="step-remove-btn" type="button">删除步骤</button>
               </div>
             </div>
-          </div>
-        </section>
-      </section>
+          </section>
 
-      <section class="panel preview">
-        <div class="head">
-          <h2>预览</h2>
-          <span id="asset-name">未编译</span>
+          <!-- ------- Tab: 原文 (scene.json / rig import) ------- -->
+          <section class="tab-pane" data-pane="source" role="tabpanel">
+            <details class="fold" open>
+              <summary>scene.json v1 原文</summary>
+              <div class="fold-body">
+                <textarea id="scene-editor" spellcheck="false" placeholder='{
+  "schema": "gfx_sm_scene_v1",
+  "name": "demo_scene",
+  "prefix": "s_demo"
+}'></textarea>
+              </div>
+            </details>
+
+            <details class="fold" id="rig-fold">
+              <summary>Rig JSON 导入 → 标准场景</summary>
+              <div class="fold-body" id="rig-dropzone">
+                <div class="rig-pose-import">
+                  <button class="ghost" id="import-pose-btn" type="button"
+                          title="选择一个或多个 Lottie JSON 文件，每个文件作为一个姿态追加">
+                    + 导入姿态 JSON
+                  </button>
+                  <button class="ghost" id="clear-poses-btn" type="button" disabled
+                          title="清空已累积的姿态并重置 rig 编辑区">
+                    清空
+                  </button>
+                  <input type="file" id="pose-file-input"
+                         accept=".json,application/json" multiple hidden>
+                  <span class="mini" id="pose-count-badge">尚未导入任何姿态</span>
+                </div>
+                <p class="mini" style="margin-top:4px;">
+                  每 1 个 JSON = 1 个姿态，自动追加并重新合并。支持拖入
+                  <code>.json</code> 批量导入；目标宽高在「场景」标签里配置。
+                </p>
+                <details class="fold compact-fold">
+                  <summary>最近导入的姿态 JSON（可编辑）</summary>
+                  <div class="fold-body">
+                    <textarea id="rig-editor" spellcheck="false"
+                      placeholder="导入后会显示最近一次的 JSON；修改会写回该姿态并自动重新合并..."></textarea>
+                  </div>
+                </details>
+              </div>
+            </details>
+          </section>
+
         </div>
+      </aside>
+    </main>
 
-        <div class="badge-row">
-          <div class="badge" id="tick-badge">节拍: -</div>
-          <div class="badge" id="clip-badge">片段: -</div>
-          <div class="badge" id="mode-badge">编译后资产模式</div>
-        </div>
+    <!-- ========================== Statusbar ======================= -->
+    <footer class="statusbar">
+      <span class="sb-status status" id="status-box">等待导入 Lottie 或 scene.json。</span>
+      <span class="sb-sep"></span>
+      <span class="sb-stat">关节 <b id="stat-joints">-</b></span>
+      <span class="sb-stat">段 <b id="stat-segments">-</b></span>
+      <span class="sb-stat">姿态 <b id="stat-poses">-</b></span>
+      <span class="sb-stat">片段 <b id="stat-clips">-</b></span>
+      <span class="sb-sep"></span>
+      <span class="sb-meta" id="meta-text">视口: -</span>
+    </footer>
+  </div>
 
-        <div class="viewer-shell">
-          <svg class="viewer" id="viewer" aria-label="compiled asset preview"></svg>
-          <div class="hud" id="hud">尚未编译资产</div>
-        </div>
-
-        <section class="card">
-          <h3>播放控制</h3>
-          <div class="grid-3">
-            <button id="play-btn" type="button">暂停</button>
-            <button class="ghost" id="step-btn" type="button">单步</button>
-            <button class="ghost" id="reset-btn" type="button">重置</button>
-          </div>
-          <div class="grid-2">
-            <div>
-              <p class="mini">当前片段</p>
-              <select id="clip-select"></select>
-            </div>
-            <div>
-              <p class="mini">播放倍率</p>
-              <input id="speed-input" type="number" min="0.1" max="4" step="0.1" value="1.0">
-            </div>
-          </div>
-          <div class="grid-2">
-            <div>
-              <p class="mini">主色</p>
-              <input id="color-input" type="color" value="#101820">
-            </div>
-            <div>
-              <p class="mini">自动序列</p>
-              <select id="autoseq-select">
-                <option value="on">开启</option>
-                <option value="off">关闭</option>
-              </select>
-            </div>
-          </div>
-        </section>
-
-        <section class="card">
-          <h3>编译结果</h3>
-          <div class="stat-grid">
-            <div class="stat"><div class="k">关节点</div><div class="v" id="stat-joints">-</div></div>
-            <div class="stat"><div class="k">绘制段</div><div class="v" id="stat-segments">-</div></div>
-            <div class="stat"><div class="k">姿态</div><div class="v" id="stat-poses">-</div></div>
-            <div class="stat"><div class="k">片段</div><div class="v" id="stat-clips">-</div></div>
-          </div>
-          <p class="mini" id="meta-text">视口: -</p>
-        </section>
-      </section>
-    </section>
-  </main>
+  <!-- Part detail dialog lives outside the grid shell so it can showModal() -->
+  <dialog id="part-detail-dialog">
+    <div class="pd-header">
+      <span id="pd-title">部件详情</span>
+      <button type="button" class="ghost pd-close" id="pd-close-btn">关闭</button>
+    </div>
+    <div class="pd-body">
+      <svg id="pd-viewer" class="pd-viewer" aria-label="part detail"></svg>
+    </div>
+    <p class="mini pd-hint">拖拽橙色圆点可调整控制点；点击背景关闭。</p>
+  </dialog>
 
   <script>
     const NS = "http://www.w3.org/2000/svg";
@@ -2932,6 +3573,7 @@
       els.rigEditor.value = JSON.stringify(doc, null, 2);
       els.rigFold.open = true;
       updatePoseCount();
+      if (typeof activateTab === "function") activateTab("source");
     }
 
     function addPoseFromText(text, name) {
@@ -3870,6 +4512,23 @@
     });
 
     window.addEventListener("resize", renderAsset);
+
+    /* ------- Inspector tab switching (pure visual, no state changes) ----- */
+    const tabBtns = document.querySelectorAll(".tab-bar .tab");
+    const tabPanes = document.querySelectorAll(".tab-pane");
+    function activateTab(key) {
+      tabBtns.forEach((b) => {
+        const on = b.dataset.tab === key;
+        b.classList.toggle("active", on);
+        b.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      tabPanes.forEach((p) => {
+        p.classList.toggle("active", p.dataset.pane === key);
+      });
+    }
+    tabBtns.forEach((btn) => {
+      btn.addEventListener("click", () => activateTab(btn.dataset.tab));
+    });
 
     refreshGuiPanels();
     renderAsset();
