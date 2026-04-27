@@ -341,16 +341,13 @@ def convert(lot, prefix, asset_name):
 
     # ── Clips ──
     sec("Clips")
-    L.append("#define CLIP(n, cn, idx, lp) \\")
-    L.append("    { .name = (n), .name_cn = (cn), .steps = &%s_steps[(idx)], \\" % prefix)
+    L.append("#define CLIP(idx, lp) \\")
+    L.append("    { .steps = &%s_steps[(idx)], \\" % prefix)
     L.append("      .step_count = 1, .loop = (lp) }")
     L.append("")
     L.append("static const gfx_sm_clip_t %s_clips[] = {" % prefix)
     for i, (en, cn, _) in enumerate(clip_info):
-        pad_en = max(1, 16 - len(en))
-        pad_cn = max(1, 14 - len(cn.encode("utf-8")))
-        L.append('    CLIP("%s",%s"%s",%s%2d, true),'
-                 % (en, " "*pad_en, cn, " "*pad_cn, i))
+        L.append("    CLIP(%2d, true),  /* %s */" % (i, en))
     L.append("};")
     L.append("")
 

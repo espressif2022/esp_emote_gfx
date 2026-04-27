@@ -403,10 +403,10 @@ static const gfx_sm_clip_step_t s_rig_steps_active[] = {
     STEP(1, 100, 1, GFX_SM_INTERP_DAMPED),
 };
 
-#define CLIP(n, cn, arr, lp) { .name = (n), .name_cn = (cn), .steps = (arr), .step_count = (uint8_t)(sizeof(arr) / sizeof((arr)[0])), .loop = (lp) }
+#define CLIP(arr, lp) { .steps = (arr), .step_count = (uint8_t)(sizeof(arr) / sizeof((arr)[0])), .loop = (lp) }
 
 static const gfx_sm_clip_t s_rig_clips[] = {
-    CLIP("active", "动作", s_rig_steps_active, true),
+    CLIP(s_rig_steps_active, true),
 };
 
 static const uint16_t s_rig_sequence[] = { 0 };

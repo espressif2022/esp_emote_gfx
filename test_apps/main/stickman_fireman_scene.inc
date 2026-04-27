@@ -201,35 +201,35 @@ static const gfx_sm_clip_step_t s_steps_balance[]            = { STEP(21, 7,  1)
 static const gfx_sm_clip_step_t s_steps_lunge[]              = { STEP(22, 7,  1) };
 static const gfx_sm_clip_step_t s_steps_shrug[]              = { STEP(23, 6,  1) };
 
-#define CLIP(n, cn, arr, lp) \
-    { .name = (n), .name_cn = (cn), .steps = (arr), \
+#define CLIP(arr, lp) \
+    { .steps = (arr), \
       .step_count = (uint8_t)(sizeof(arr) / sizeof((arr)[0])), .loop = (lp) }
 
 static const gfx_sm_clip_t s_fm_clips[] = {
-    CLIP("calm",               "平静",     s_steps_calm,          true),
-    CLIP("walk_r",             "走右",     s_steps_walk_r,        true),
-    CLIP("walk_l",             "走左",     s_steps_walk_l,        true),
-    CLIP("run_r",              "跑右",     s_steps_run_r,         true),
-    CLIP("run_l",              "跑左",     s_steps_run_l,         true),
-    CLIP("jump",               "跳跃",     s_steps_jump,          true),
-    CLIP("wave",               "挥手",     s_steps_wave,          true),
-    CLIP("deep_squat_hh",      "深蹲抱头", s_steps_deep_squat_hh, true),
-    CLIP("half_squat",         "半蹲",     s_steps_half_squat,    true),
-    CLIP("hands_on_head",      "抱头",     s_steps_hands_on_head, true),
-    CLIP("cheer",              "欢呼",     s_steps_cheer,         true),
-    CLIP("point_r",            "指向右",   s_steps_point_r,       true),
-    CLIP("akimbo",             "叉腰",     s_steps_akimbo,        true),
-    CLIP("salute",             "敬礼",     s_steps_salute,        true),
-    CLIP("guard",              "警戒",     s_steps_guard,         true),
-    CLIP("kick_r",             "右踢",     s_steps_kick_r,        true),
-    CLIP("stretch",            "展臂",     s_steps_stretch,       true),
-    CLIP("thinking",           "思考",     s_steps_thinking,      true),
-    CLIP("slouch",             "沮丧",     s_steps_slouch,        true),
-    CLIP("reach_up",           "上探",     s_steps_reach_up,      true),
-    CLIP("strut",              "神气走",   s_steps_strut,         true),
-    CLIP("balance",            "单脚平衡", s_steps_balance,       true),
-    CLIP("lunge",              "弓步冲",   s_steps_lunge,         true),
-    CLIP("shrug",              "摊手",     s_steps_shrug,         true),
+    CLIP(s_steps_calm,          true),
+    CLIP(s_steps_walk_r,        true),
+    CLIP(s_steps_walk_l,        true),
+    CLIP(s_steps_run_r,         true),
+    CLIP(s_steps_run_l,         true),
+    CLIP(s_steps_jump,          true),
+    CLIP(s_steps_wave,          true),
+    CLIP(s_steps_deep_squat_hh, true),
+    CLIP(s_steps_half_squat,    true),
+    CLIP(s_steps_hands_on_head, true),
+    CLIP(s_steps_cheer,         true),
+    CLIP(s_steps_point_r,       true),
+    CLIP(s_steps_akimbo,        true),
+    CLIP(s_steps_salute,        true),
+    CLIP(s_steps_guard,         true),
+    CLIP(s_steps_kick_r,        true),
+    CLIP(s_steps_stretch,       true),
+    CLIP(s_steps_thinking,      true),
+    CLIP(s_steps_slouch,        true),
+    CLIP(s_steps_reach_up,      true),
+    CLIP(s_steps_strut,         true),
+    CLIP(s_steps_balance,       true),
+    CLIP(s_steps_lunge,         true),
+    CLIP(s_steps_shrug,         true),
 };
 
 /* ------------------------------------------------------------------ */

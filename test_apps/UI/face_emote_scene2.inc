@@ -128,16 +128,16 @@ static const gfx_sm_clip_step_t s_fe_steps[] = {
 /*  Clips                                                            */
 /* ────────────────────────────────────────────────────────────────── */
 
-#define CLIP(n, cn, idx, lp) \
-    { .name = (n), .name_cn = (cn), .steps = &s_fe_steps[(idx)], \
+#define CLIP(idx, lp) \
+    { .steps = &s_fe_steps[(idx)], \
       .step_count = 1, .loop = (lp) }
 
 static const gfx_sm_clip_t s_fe_clips[] = {
-    CLIP("neutral",         "平静",         0, true),
-    CLIP("smile",           "灿烂微笑",   1, true),
-    CLIP("happy",           "开心",         2, true),
-    CLIP("sad",             "难过",         3, true),
-    CLIP("angry",           "生气",         4, true),
+    CLIP(0, true),
+    CLIP(1, true),
+    CLIP(2, true),
+    CLIP(3, true),
+    CLIP(4, true),
 };
 
 /* ────────────────────────────────────────────────────────────────── */

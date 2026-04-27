@@ -157,10 +157,8 @@ typedef struct {
     int8_t           facing;      /**< 1=right  -1=left (mirrors X)           */
 } gfx_sm_clip_step_t;
 
-/** Named animation clip: a sequence of steps with loop control. */
+/** Animation clip: a sequence of steps with loop control. */
 typedef struct {
-    const char             *name;
-    const char             *name_cn;
     const gfx_sm_clip_step_t *steps;
     uint8_t                  step_count;
     bool                     loop;
@@ -270,7 +268,6 @@ typedef struct {
 
 esp_err_t gfx_sm_scene_init(gfx_sm_scene_t *scene, const gfx_sm_asset_t *asset);
 esp_err_t gfx_sm_scene_set_clip(gfx_sm_scene_t *scene, uint16_t clip_index, bool snap_now);
-esp_err_t gfx_sm_scene_set_clip_name(gfx_sm_scene_t *scene, const char *name, bool snap_now);
 
 /** Ease pose_cur toward pose_tgt one tick.  Returns true if any coord changed. */
 bool gfx_sm_scene_tick(gfx_sm_scene_t *scene);
@@ -299,7 +296,7 @@ void gfx_sm_scene_advance(gfx_sm_scene_t *scene);
  *   gfx_sm_runtime_t rt = {0};
  *   gfx_sm_runtime_init(&rt, disp, &my_asset);
  *   gfx_sm_runtime_set_color(&rt, GFX_COLOR_HEX(0xFFFFFF));
- *   gfx_sm_runtime_set_clip_name(&rt, "walk_r", false);
+ *   gfx_sm_runtime_set_clip(&rt, clip_index, false);
  */
 typedef struct {
     gfx_sm_scene_t  scene;
@@ -341,9 +338,6 @@ esp_err_t gfx_sm_runtime_set_canvas(gfx_sm_runtime_t *rt,
 
 /** Jump to a clip by index. */
 esp_err_t gfx_sm_runtime_set_clip(gfx_sm_runtime_t *rt, uint16_t clip_idx, bool snap);
-
-/** Jump to a clip by name. */
-esp_err_t gfx_sm_runtime_set_clip_name(gfx_sm_runtime_t *rt, const char *name, bool snap);
 
 #ifdef __cplusplus
 }

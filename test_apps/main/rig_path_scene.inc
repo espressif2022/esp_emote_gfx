@@ -494,15 +494,15 @@ static const gfx_sm_clip_step_t s_rig_path_steps_offline_hold[] = {
     STEP(5, 20, 1, GFX_SM_INTERP_DAMPED),
 };
 
-#define CLIP(n, cn, arr, lp) { .name = (n), .name_cn = (cn), .steps = (arr), .step_count = (uint8_t)(sizeof(arr) / sizeof((arr)[0])), .loop = (lp) }
+#define CLIP(arr, lp) { .steps = (arr), .step_count = (uint8_t)(sizeof(arr) / sizeof((arr)[0])), .loop = (lp) }
 
 static const gfx_sm_clip_t s_rig_path_clips[] = {
-    CLIP("active_idle", "活动待机", s_rig_path_steps_active_idle, true),
-    CLIP("active_open", "活动展开", s_rig_path_steps_active_open, true),
-    CLIP("active_step", "活动摆动", s_rig_path_steps_active_step, true),
-    CLIP("offline_alert", "断网警觉", s_rig_path_steps_offline_alert, true),
-    CLIP("offline_drop", "断网下垂", s_rig_path_steps_offline_drop, true),
-    CLIP("offline_hold", "断网静止", s_rig_path_steps_offline_hold, true),
+    CLIP(s_rig_path_steps_active_idle, true),
+    CLIP(s_rig_path_steps_active_open, true),
+    CLIP(s_rig_path_steps_active_step, true),
+    CLIP(s_rig_path_steps_offline_alert, true),
+    CLIP(s_rig_path_steps_offline_drop, true),
+    CLIP(s_rig_path_steps_offline_hold, true),
 };
 
 static const uint16_t s_rig_path_sequence[] = { 0, 1, 2, 3, 4, 5 };

@@ -182,6 +182,11 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
     disp->render.flushing_last = false;
     gfx_coord_t cur_y = area->y1;
 
+    /* row_h can be huge when area is very narrow (e.g. 1px wide) and buf is full screen.
+     * Do not add with gfx_coord_t / int16 — overflow makes chunk_y2 negative, breaks
+     * esp_lcd_panel_draw_bitmap(… y_start < y_end) and the flush path. */
+    int32_t y_end_exc = (int32_t)area->y2 + 1;
+
     while (cur_y <= area->y2) {
         int64_t render_start_us;
         int64_t flush_start_us;
@@ -189,10 +194,16 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
         gfx_coord_t chunk_x1 = area->x1;
         gfx_coord_t chunk_y1 = cur_y;
         gfx_coord_t chunk_x2 = area->x2 + 1;
-        gfx_coord_t chunk_y2 = cur_y + (gfx_coord_t)row_h;
-        if (chunk_y2 > area->y2 + 1) {
-            chunk_y2 = area->y2 + 1;
+        int32_t    cy   = (int32_t)cur_y;
+        int32_t    cy2i = cy + (int32_t)row_h;
+        if (cy2i > y_end_exc) {
+            cy2i = y_end_exc;
         }
+        if (cy2i <= cy) {
+            GFX_LOGE(TAG, "render area[%d]: chunk y height degenerate (cy=%" PRId32 " cy2=%" PRId32 ")", area_idx, cy, cy2i);
+            break;
+        }
+        gfx_coord_t chunk_y2 = (gfx_coord_t)cy2i;
 
         uint16_t *buf = disp->buf.buf_act;
 

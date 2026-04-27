@@ -75,8 +75,7 @@ static void s_clip_timer_cb(void *user_data)
 
     uint16_t ci = asset->sequence[slot->seq_index];
     gfx_sm_runtime_set_clip(&slot->rt, ci, false);
-    ESP_LOGI(TAG, "[%s] → %s", asset->clips[0].name_cn ? "face" : "skel",
-             asset->clips[ci].name);
+    ESP_LOGI(TAG, "seq_idx=%u → clip %u", (unsigned)slot->seq_index, (unsigned)ci);
 
     gfx_timer_set_period(slot->clip_timer, s_clip_hold_ms(asset, ci));
     gfx_timer_reset(slot->clip_timer);

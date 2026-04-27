@@ -1139,9 +1139,3 @@ esp_err_t gfx_sm_runtime_set_clip(gfx_sm_runtime_t *rt, uint16_t clip_idx, bool 
     ESP_RETURN_ON_FALSE(rt != NULL, ESP_ERR_INVALID_ARG, TAG, "rt is NULL");
     return gfx_sm_scene_set_clip(&rt->scene, clip_idx, snap);
 }
-
-esp_err_t gfx_sm_runtime_set_clip_name(gfx_sm_runtime_t *rt, const char *name, bool snap)
-{
-    ESP_RETURN_ON_FALSE(rt != NULL, ESP_ERR_INVALID_ARG, TAG, "rt is NULL");
-    return gfx_sm_scene_set_clip_name(&rt->scene, name, snap);
-}

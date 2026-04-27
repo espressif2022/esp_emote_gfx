@@ -852,15 +852,17 @@
       }
 
       const clips = extractMacroCalls(clipBody, "CLIP").map((args, index) => {
-        const name = parseCString(args[0]);
-        const nameCn = parseCString(args[1]);
-        const ref = args[2].trim();
-        const loop = args[3].trim() === "true";
+        if (args.length !== 2) {
+          throw new Error(`clip[${index}]: CLIP(...) 应为 2 个参数 (steps 数组名或步骤下标, loop)`);
+        }
+        const ref = args[0].trim();
+        const loop = args[1].trim() === "true";
+        const id = /^\d+$/.test(ref) ? `i${ref}` : ref;
         let steps;
 
         if (/^-?\d+$/.test(ref)) {
           if (!flatStepArray || !stepArrays[flatStepArray]) {
-            throw new Error(`clip ${name} 使用索引 ${ref}，但未找到共享 steps 数组。`);
+            throw new Error(`clip ${id} 使用索引 ${ref}，但未找到共享 steps 数组。`);
           }
           steps = [stepArrays[flatStepArray][Number(ref)]];
         } else {
@@ -868,13 +870,12 @@
         }
 
         if (!steps || steps.some((step) => !step)) {
-          throw new Error(`clip ${name} 的 steps 引用无效: ${ref}`);
+          throw new Error(`clip ${id} 的 steps 引用无效: ${ref}`);
         }
 
         return {
           index,
-          name,
-          nameCn,
+          id,
           loop,
           steps: steps.map((step) => ({ ...step })),
         };
@@ -1072,7 +1073,7 @@
       const strokeColor = app.color;
       const defaultStroke = scalarPx(asset, width, height, asset.layout.strokeWidth || 4);
       const activeClip = asset.clips[scene.activeClip];
-      els.clipBadge.textContent = `clip: ${activeClip.name}`;
+      els.clipBadge.textContent = `clip: ${activeClip.id}`;
       els.clipSelect.value = String(scene.activeClip);
 
       if (Number.isFinite(asset.layout.groundY)) {
@@ -1176,7 +1177,7 @@
       const currentStep = clip.steps[scene.activeStep];
       const period = asset.layout.timerPeriodMs > 0 ? asset.layout.timerPeriodMs : 33;
       els.hud.textContent =
-        `clip: ${clip.name}\n` +
+        `clip: ${clip.id}\n` +
         `step: ${scene.activeStep + 1}/${clip.steps.length}  hold: ${scene.stepTicks}/${currentStep.holdTicks}\n` +
         `tick: ${period} ms  damping: ${asset.layout.dampingDiv || 4}\n` +
         `facing: ${currentStep.facing}`;
@@ -1199,7 +1200,7 @@
       const asset = app.asset;
       const clip = asset.clips[app.scene.activeClip];
       els.assetName.textContent = `${app.currentSourceName || asset.prefix}.inc`;
-      els.clipBadge.textContent = `clip: ${clip.name}`;
+      els.clipBadge.textContent = `clip: ${clip.id}`;
       els.clockBadge.textContent = `${asset.layout.timerPeriodMs || 33} ms / tick`;
       els.statJoints.textContent = String(asset.jointNames.length);
       els.statSegments.textContent = String(asset.segments.length);
@@ -1212,7 +1213,7 @@
       asset.clips.forEach((item, index) => {
         const option = document.createElement("option");
         option.value = String(index);
-        option.textContent = `${String(index).padStart(2, "0")} ${item.name}${item.nameCn ? " / " + item.nameCn : ""}`;
+        option.textContent = `${String(index).padStart(2, "0")} ${item.id}`;
         if (index === app.scene.activeClip) option.selected = true;
         els.clipSelect.appendChild(option);
       });

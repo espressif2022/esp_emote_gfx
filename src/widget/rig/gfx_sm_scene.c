@@ -17,8 +17,6 @@
  * This file deliberately contains NO gfx_obj / mesh / display calls.
  */
 
-#include <string.h>
-
 #include "esp_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_IMG
 #include "common/gfx_log_priv.h"
@@ -108,7 +106,6 @@ esp_err_t gfx_sm_scene_init(gfx_sm_scene_t *scene, const gfx_sm_asset_t *asset)
     /* Validate clip step pose indices */
     for (uint16_t c = 0; c < asset->clip_count; c++) {
         clip = &asset->clips[c];
-        ESP_RETURN_ON_FALSE(clip->name != NULL, ESP_ERR_INVALID_ARG, TAG, "clip[%u] name is NULL", c);
         ESP_RETURN_ON_FALSE(clip->steps != NULL && clip->step_count > 0U,
                             ESP_ERR_INVALID_ARG, TAG, "clip[%u] has no steps", c);
         for (uint8_t s = 0; s < clip->step_count; s++) {
@@ -152,20 +149,6 @@ esp_err_t gfx_sm_scene_set_clip(gfx_sm_scene_t *scene, uint16_t clip_index, bool
     }
 
     return ESP_OK;
-}
-
-esp_err_t gfx_sm_scene_set_clip_name(gfx_sm_scene_t *scene, const char *name, bool snap_now)
-{
-    ESP_RETURN_ON_FALSE(scene != NULL && scene->asset != NULL, ESP_ERR_INVALID_STATE, TAG, "scene not ready");
-    ESP_RETURN_ON_FALSE(name  != NULL, ESP_ERR_INVALID_ARG, TAG, "name is NULL");
-
-    for (uint16_t i = 0; i < scene->asset->clip_count; i++) {
-        if (strcmp(scene->asset->clips[i].name, name) == 0) {
-            return gfx_sm_scene_set_clip(scene, i, snap_now);
-        }
-    }
-
-    return ESP_ERR_NOT_FOUND;
 }
 
 bool gfx_sm_scene_tick(gfx_sm_scene_t *scene)

@@ -190,25 +190,6 @@
       font: 12px/1.6 ui-monospace, "SFMono-Regular", monospace;
     }
 
-    .dropzone {
-      min-height: 96px;
-      border: 1px dashed rgba(66, 52, 36, 0.18);
-      border-radius: 16px;
-      background: rgba(255, 255, 255, 0.55);
-      display: grid;
-      place-items: center;
-      text-align: center;
-      padding: 14px;
-      color: var(--muted);
-      transition: 0.16s ease;
-    }
-
-    .dropzone.dragover {
-      border-color: var(--accent);
-      background: var(--accent-soft);
-      color: var(--accent);
-    }
-
     .btn-row,
     .grid-2,
     .grid-3 {
@@ -657,6 +638,65 @@
       box-shadow: none;
     }
 
+    .clip-step-config {
+      margin-top: 10px;
+      border: 1px solid var(--c-border, rgba(66, 52, 36, 0.12));
+      border-radius: 12px;
+      background: var(--ui-row-bg, #ffffff);
+      overflow: hidden;
+    }
+
+    .clip-step-config > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 10px 12px;
+      font-size: 12px;
+      color: var(--muted);
+      background: var(--ui-row-bg, #ffffff);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      user-select: none;
+    }
+
+    .clip-step-config > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .clip-step-config > summary::after {
+      content: "▸";
+      font-size: 11px;
+      opacity: 0.55;
+      transition: transform 0.15s ease;
+    }
+
+    .clip-step-config[open] > summary::after {
+      transform: rotate(90deg);
+    }
+
+    .clip-step-config > summary:hover {
+      background: var(--c-surface-2, #f8f5f0);
+      color: var(--text);
+    }
+
+    .clip-step-config[open] > summary {
+      background: var(--ui-selected-bg, rgba(20, 110, 120, 0.10));
+      color: var(--accent);
+      border-bottom: 1px solid var(--c-border, rgba(66, 52, 36, 0.12));
+    }
+
+    .clip-step-config[open] > summary:hover {
+      background: var(--ui-selected-bg, rgba(20, 110, 120, 0.10));
+      color: var(--accent);
+    }
+
+    .clip-step-config-body {
+      padding: 0 12px 12px;
+      border-top: 1px solid var(--c-border, rgba(66, 52, 36, 0.08));
+      background: var(--ui-row-bg, #ffffff);
+    }
+
     .field-grid {
       display: grid;
       gap: 10px;
@@ -688,8 +728,9 @@
     }
 
     .pose-row.active .pose-row-main {
-      border-color: var(--accent);
-      background: rgba(20, 110, 120, 0.08);
+      border-color: var(--ui-selected-border, rgba(20, 110, 120, 0.38));
+      background: var(--ui-selected-bg, rgba(20, 110, 120, 0.10));
+      color: var(--accent);
     }
 
     .pose-row-main {
@@ -807,6 +848,13 @@
       --c-surface-2: #f8f5f0;
       --c-border: rgba(66, 52, 36, 0.12);
       --c-border-strong: rgba(66, 52, 36, 0.22);
+
+      /* 列表行：未选中白底；选中 / 高亮统一青色系 */
+      --ui-row-bg: #ffffff;
+      --ui-selected-bg: rgba(20, 110, 120, 0.10);
+      --ui-selected-border: rgba(20, 110, 120, 0.38);
+      --focus-ring: var(--accent);
+      --focus-ring-soft: rgba(20, 110, 120, 0.22);
     }
 
     body {
@@ -904,6 +952,18 @@
       gap: var(--sp-2);
     }
 
+    /* 顶栏按钮与侧栏一致：ghost 白底描边；主按钮保持品牌色，hover 略深 */
+    .tb-actions button.ghost {
+      background: var(--ui-row-bg);
+      border-color: var(--c-border);
+      color: var(--text);
+    }
+
+    .tb-actions button.ghost:hover {
+      background: var(--c-surface-2);
+      border-color: var(--c-border-strong);
+    }
+
     .tb-sep {
       width: 1px;
       height: 22px;
@@ -964,14 +1024,32 @@
       filter: grayscale(0.2);
     }
 
-    /* ---------- App body grid: sidebar | canvas | inspector -------------- */
+    /* ---------- 统一键盘焦点环（顶栏 / 标签 / 列表 / 输入 同一套）---------- */
+    .app-shell :where(input, select, textarea):focus-visible {
+      outline: none;
+      border-color: var(--focus-ring);
+      box-shadow: 0 0 0 3px var(--focus-ring-soft);
+    }
+
+    .app-shell button:focus-visible:not(:disabled),
+    .app-shell .file-btn:focus-visible {
+      outline: none;
+      border-color: var(--focus-ring);
+      box-shadow: 0 0 0 3px var(--focus-ring-soft);
+    }
+
+    .app-shell summary:focus-visible {
+      outline: none;
+      box-shadow: inset 0 0 0 3px var(--focus-ring-soft);
+    }
+
+    /* ---------- App body: 左列属性 | 主画布（两列）------------------------- */
     .app {
       display: grid;
-      grid-template-columns: 260px minmax(0, 1fr) 400px;
+      grid-template-columns: minmax(300px, 440px) minmax(0, 1fr);
       min-height: 0;
     }
 
-    .app-sidebar,
     .app-inspector {
       overflow: auto;
       padding: var(--sp-4);
@@ -980,14 +1058,7 @@
       gap: var(--sp-3);
       background: var(--c-surface-2);
       min-height: 0;
-    }
-
-    .app-sidebar {
       border-right: 1px solid var(--c-border);
-    }
-
-    .app-inspector {
-      border-left: 1px solid var(--c-border);
       padding-top: 0;
     }
 
@@ -1000,7 +1071,6 @@
     }
 
     /* ---------- Cards / Panels look (refined) ---------------------------- */
-    .app-sidebar .card,
     .app-inspector .card,
     .app-canvas .card {
       background: var(--c-surface);
@@ -1011,7 +1081,6 @@
       gap: var(--sp-2);
     }
 
-    .app-sidebar .card h3,
     .app-inspector .card h3,
     .app-canvas .card h3 {
       font-size: 11px;
@@ -1023,7 +1092,6 @@
     }
 
     /* ---------- Folds (compact) ------------------------------------------ */
-    .app-sidebar details.fold,
     .app-inspector details.fold {
       background: var(--c-surface);
       border: 1px solid var(--c-border);
@@ -1031,7 +1099,6 @@
       box-shadow: none;
     }
 
-    .app-sidebar details.fold > summary,
     .app-inspector details.fold > summary {
       padding: 9px 12px;
       font-size: 11px;
@@ -1040,9 +1107,30 @@
       text-transform: uppercase;
       color: var(--muted);
       position: relative;
+      background: var(--ui-row-bg);
     }
 
-    .app-sidebar details.fold > summary::after,
+    .app-inspector details.fold:not([open]) > summary {
+      border-radius: var(--r-lg);
+    }
+
+    .app-inspector details.fold > summary:hover {
+      background: var(--c-surface-2);
+      color: var(--text);
+    }
+
+    .app-inspector details.fold[open] > summary {
+      background: var(--ui-selected-bg);
+      color: var(--accent);
+      border-bottom: 1px solid var(--c-border);
+      border-radius: var(--r-lg) var(--r-lg) 0 0;
+    }
+
+    .app-inspector details.fold[open] > summary:hover {
+      background: var(--ui-selected-bg);
+      color: var(--accent);
+    }
+
     .app-inspector details.fold > summary::after {
       content: "+";
       position: absolute;
@@ -1055,12 +1143,10 @@
       line-height: 1;
     }
 
-    .app-sidebar details.fold[open] > summary::after,
     .app-inspector details.fold[open] > summary::after {
       content: "–";
     }
 
-    .app-sidebar details.fold > .fold-body,
     .app-inspector details.fold > .fold-body {
       padding: var(--sp-3);
       padding-top: 0;
@@ -1078,15 +1164,6 @@
       padding: 6px 9px;
       font: 13px/1.4 inherit;
       transition: border-color 0.12s ease, box-shadow 0.12s ease;
-    }
-
-    .app-shell input[type="text"]:focus,
-    .app-shell input[type="number"]:focus,
-    .app-shell select:focus,
-    .app-shell textarea:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-soft);
     }
 
     .app-shell textarea {
@@ -1122,20 +1199,21 @@
       top: 0;
       z-index: 2;
       display: flex;
-      gap: 2px;
+      gap: var(--sp-2);
       padding: var(--sp-2) var(--sp-4);
       margin: 0 calc(var(--sp-4) * -1);
-      background: var(--c-surface-2);
+      background: var(--c-surface);
       border-bottom: 1px solid var(--c-border);
     }
 
-    .tab {
+    /* 资源 / 场景 / 部件 / 动作：未选中白底，选中与列表高亮同一套色（压过 .app-shell button） */
+    .app-shell .tab-bar .tab {
       appearance: none;
-      border: 1px solid transparent;
-      background: transparent;
+      border: 1px solid var(--c-border);
+      background: var(--ui-row-bg);
       color: var(--muted);
-      padding: 5px 10px;
-      border-radius: var(--r-sm);
+      padding: 6px 12px;
+      border-radius: var(--r-md);
       font: 12px/1.2 inherit;
       font-weight: 600;
       cursor: pointer;
@@ -1143,15 +1221,16 @@
       box-shadow: none;
     }
 
-    .tab:hover {
+    .app-shell .tab-bar .tab:hover {
       color: var(--text);
-      background: rgba(255, 255, 255, 0.6);
+      background: var(--c-surface-2);
+      border-color: var(--c-border-strong);
     }
 
-    .tab.active {
-      background: var(--c-surface);
+    .app-shell .tab-bar .tab.active {
+      background: var(--ui-selected-bg);
       color: var(--accent);
-      border-color: var(--c-border);
+      border-color: var(--ui-selected-border);
       box-shadow: var(--shadow-1);
     }
 
@@ -1192,6 +1271,7 @@
       background: var(--c-surface);
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: var(--sp-3);
       justify-content: space-between;
       min-height: 44px;
@@ -1199,6 +1279,31 @@
 
     .canvas-head .badge-row {
       gap: 6px;
+    }
+
+    .canvas-head-clip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1 1 160px;
+      min-width: 0;
+    }
+
+    .canvas-head-clip label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      min-width: 0;
+    }
+
+    .canvas-head-clip select {
+      flex: 1 1 120px;
+      min-width: 100px;
+      max-width: 220px;
     }
 
     .app-shell .badge {
@@ -1349,28 +1454,83 @@
       background: var(--c-border);
     }
 
-    /* ---------- Dropzone refresh ----------------------------------------- */
-    .app-sidebar .dropzone {
-      min-height: 72px;
-      border: 1px dashed var(--c-border-strong);
-      background: var(--c-surface-2);
-      border-radius: var(--r-lg);
-      font-size: 12px;
-      color: var(--muted);
-      padding: var(--sp-3);
-    }
-
-    .app-sidebar .dropzone code {
-      padding: 1px 6px;
-      background: var(--c-surface);
-      border-radius: 4px;
-      border: 1px solid var(--c-border);
-      font-size: 11px;
-    }
-
     /* ---------- Small refinements --------------------------------------- */
     .tab-pane .listbox {
       max-height: 320px;
+    }
+
+    /* 动作 / 步骤：外框 + 滚动区 + 底栏「添加」对齐 */
+    .inspector-list-frame {
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-lg);
+      background: var(--c-surface);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .inspector-list-scroll {
+      max-height: 220px;
+      overflow-x: hidden;
+      overflow-y: auto;
+      padding: var(--sp-2);
+      flex: 1 1 auto;
+      min-height: 40px;
+    }
+
+    .inspector-list-scroll .list-inner {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-2);
+    }
+
+    .app-shell .list-add-footer {
+      flex: 0 0 auto;
+      width: 100%;
+      margin: 0;
+      border-radius: 0;
+      border: none;
+      border-top: 1px dashed var(--c-border);
+      padding: var(--sp-2) var(--sp-3);
+      background: var(--ui-row-bg);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      box-shadow: none;
+      transition: background 0.12s ease, color 0.12s ease;
+    }
+
+    .app-shell .list-add-footer:hover {
+      background: var(--c-surface-2);
+      color: var(--text);
+    }
+
+    /* 列表 chip：未选中白底；选中高亮 */
+    .app-shell .chip {
+      background: var(--ui-row-bg);
+      border: 1px solid var(--c-border);
+      color: var(--text);
+    }
+
+    .app-shell .chip.active {
+      background: var(--ui-selected-bg);
+      border-color: var(--ui-selected-border);
+      color: var(--accent);
+    }
+
+    .app-shell .pose-row:not(.active) .pose-row-main.chip {
+      background: var(--ui-row-bg);
+      border-color: var(--c-border);
+      color: var(--text);
+    }
+
+    .app-shell .pose-row.active .pose-row-main.chip {
+      background: var(--ui-selected-bg);
+      border-color: var(--ui-selected-border);
+      color: var(--accent);
     }
 
     .tab-pane .inline-tools {
@@ -1381,26 +1541,93 @@
       flex: 0 0 auto;
     }
 
-    /* Responsive: collapse inspector into a drawer below lg */
+    .subh {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      margin: 0 0 2px 0;
+      letter-spacing: 0.02em;
+    }
+
+    .subh .subh-hint {
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    .edit-block {
+      margin-top: 0;
+    }
+
+    .edit-block + .edit-block {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--c-border);
+    }
+
+    .tool-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+      align-items: center;
+    }
+
+    .tool-row--step {
+      margin-top: 6px;
+    }
+
+    .action-hint {
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--muted);
+      margin: 0 0 6px 0;
+    }
+
+    .action-hint-ctx {
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--accent);
+      font-weight: 600;
+      margin: 0 0 8px 0;
+      font-family: ui-monospace, "SFMono-Regular", monospace;
+    }
+
+    .tab-pane[data-pane="source"] .source-poses-block {
+      margin-top: var(--sp-3);
+      padding-top: var(--sp-3);
+      border-top: 1px solid var(--c-border);
+    }
+
+    .scene-json-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .scene-json-toolbar .file-btn {
+      flex: 0 0 auto;
+    }
+
     @media (max-width: 1280px) {
       .app {
-        grid-template-columns: 220px minmax(0, 1fr) 360px;
+        grid-template-columns: minmax(260px, 380px) minmax(0, 1fr);
       }
     }
 
     @media (max-width: 1024px) {
       .app {
         grid-template-columns: 1fr;
-        grid-template-rows: auto auto auto;
+        grid-template-rows: minmax(0, 50vh) minmax(40vh, 1fr);
       }
-      .app-sidebar,
       .app-inspector {
         border: none;
         border-bottom: 1px solid var(--c-border);
         max-height: 50vh;
       }
       .app-canvas {
-        min-height: 60vh;
+        min-height: 40vh;
       }
     }
   </style>
@@ -1428,128 +1655,118 @@
       </div>
 
       <div class="tb-actions">
-        <label class="file-btn ghost" title="从本地选择 .json 文件">
-          打开…
-          <input id="file-input" type="file" accept=".json,.txt">
-        </label>
         <button class="ghost" id="load-lottie-btn" type="button"
-                title="加载 face Lottie 示例">示例</button>
+                title="加载 face Lottie 示例（写入资源页编辑区）">示例</button>
         <span class="tb-sep"></span>
-        <button class="ghost" id="normalize-btn" type="button"
-                title="识别并归一化当前编辑区文本">归一化</button>
         <button id="compile-btn" type="button"
-                title="编译场景并启动仿真">编译并仿真</button>
+                title="按资源页当前 scene.json 文本编译并启动仿真">编译并仿真</button>
         <span class="tb-sep"></span>
-        <button class="ghost" id="export-scene-btn" type="button"
-                title="导出 scene.json（设计源文件）">scene.json</button>
-        <button class="ghost" id="export-inc-btn" type="button"
-                title="导出 .inc（设备端编译产物）">.inc</button>
+        <button class="ghost" id="export-btn" type="button"
+                title="选择保存目录后写入 scene.json 与 .inc（不支持选目录的浏览器将依次下载）">导出</button>
       </div>
     </header>
 
     <!-- ========================== App body ======================== -->
     <main class="app">
 
-      <!-- --------- Left sidebar: 输入源 + 参考 ---------- -->
-      <aside class="app-sidebar">
-        <section class="card">
-          <h3>输入源</h3>
-          <div class="dropzone" id="dropzone">
-            拖拽 <code>.json</code> 到此处，或点击顶部「打开…」
-          </div>
-          <p class="mini">
-            scene.json v1 直接进入原文编辑区；Lottie 会按
-            <code>__gfx_sm</code> / markers / shape layers 归一成标准场景。
-          </p>
-        </section>
-
-        <details class="fold">
-          <summary>标准字段</summary>
-          <div class="fold-body">
-            <p class="mini">
-              <code>schema</code> <code>name</code> <code>prefix</code>
-              <code>meta.viewbox</code> <code>layout</code>
-              <code>parts</code> <code>poses</code>
-              <code>clips</code> <code>sequence</code>
-            </p>
-            <p class="mini">
-              <code>poses[*].parts</code> 存控制点；
-              <code>clips[*].steps</code> 是设备端消费的离散 step（非时间轴）。
-            </p>
-          </div>
-        </details>
-
-        <details class="fold">
-          <summary>使用流程</summary>
-          <div class="fold-body">
-            <p class="mini">
-              Lottie / scene.json v1 <b>导入</b> → <b>归一化</b> →
-              <b>编译</b> 成 asset → 按
-              <code>clip/step/hold_ticks/facing/damping</code>
-              仿真 → 导出 <code>.inc</code>。
-            </p>
-          </div>
-        </details>
-      </aside>
-
-      <!-- --------- Center canvas: 预览 + 播放控制 ---------- -->
-      <section class="app-canvas">
-        <div class="canvas-head">
-          <div class="badge-row">
-            <span class="badge" id="tick-badge">节拍: -</span>
-            <span class="badge" id="clip-badge">动作: -</span>
-            <span class="badge" id="mode-badge">编译后资产模式</span>
-          </div>
-          <span class="asset-name" id="asset-name">未编译</span>
-        </div>
-
-        <div class="canvas-body">
-          <div class="viewer-shell">
-            <svg class="viewer" id="viewer" aria-label="compiled asset preview"></svg>
-            <div class="hud" id="hud">尚未编译资产</div>
-          </div>
-        </div>
-
-        <div class="playback">
-          <div class="playback-main">
-            <button id="play-btn" type="button">暂停</button>
-            <button class="ghost" id="step-btn" type="button">单步</button>
-            <button class="ghost" id="reset-btn" type="button">重置</button>
-          </div>
-          <div class="playback-fields">
-            <label>当前动作
-              <select id="clip-select"></select>
-            </label>
-            <label>倍率
-              <input id="speed-input" type="number" min="0.1" max="4" step="0.1" value="1.0">
-            </label>
-            <label>主色
-              <input id="color-input" type="color" value="#101820">
-            </label>
-            <label>自动序列
-              <select id="autoseq-select">
-                <option value="on">开启</option>
-                <option value="off">关闭</option>
-              </select>
-            </label>
-          </div>
-        </div>
-      </section>
-
-      <!-- --------- Right inspector: tabs ---------- -->
+      <!-- --------- 左列：属性面板（原右侧 inspector）---------- -->
       <aside class="app-inspector">
         <nav class="tab-bar" role="tablist" aria-label="inspector">
-          <button type="button" class="tab active" data-tab="scene"  role="tab">场景</button>
+          <button type="button" class="tab active" data-tab="source" role="tab" title="场景 JSON、Rig 导入与姿态列表">资源</button>
+          <button type="button" class="tab"        data-tab="scene"  role="tab">场景</button>
           <button type="button" class="tab"        data-tab="parts"  role="tab">部件</button>
-          <button type="button" class="tab"        data-tab="poses"  role="tab">姿态</button>
           <button type="button" class="tab"        data-tab="clips"  role="tab">动作</button>
-          <button type="button" class="tab"        data-tab="source" role="tab">原文</button>
         </nav>
 
         <div class="tab-panes">
 
+          <!-- ------- Tab: 资源（scene.json / rig / 姿态列表）------- -->
+          <section class="tab-pane active" data-pane="source" role="tabpanel">
+            <details class="fold" open>
+              <summary>scene.json（场景定义）</summary>
+              <div class="fold-body">
+                <div class="scene-json-toolbar">
+                  <label class="file-btn ghost" title="选择本地 scene.json v1 或 Lottie .json，读入下方编辑区">
+                    打开 JSON…
+                    <input id="file-input" type="file" accept=".json,.txt">
+                  </label>
+                  <button class="ghost" id="normalize-btn" type="button"
+                          title="根据编辑区内容：已是 scene.json 则补齐缺省字段并统一坐标格式；若是 Lottie 则解析为 gfx_sm_scene_v1 并写回（与打开文件导入等效）">
+                    识别并整理
+                  </button>
+                </div>
+                <p class="mini" style="margin-top:0;margin-bottom:8px;">
+                  <strong>打开</strong>：把整份文件载入编辑区。<strong>识别并整理</strong>：对<strong>当前编辑区里的文本</strong>做类型识别——标准 scene 会规范化字段与坐标；Lottie 会转成同 schema 的场景并覆盖编辑区，便于再点「编译并仿真」。
+                </p>
+                <textarea id="scene-editor" spellcheck="false" placeholder='{
+  "schema": "gfx_sm_scene_v1",
+  "name": "demo_scene",
+  "prefix": "s_demo"
+}'></textarea>
+              </div>
+            </details>
+
+            <details class="fold" id="rig-fold">
+              <summary>Rig JSON 导入 → 标准场景</summary>
+              <div class="fold-body" id="rig-dropzone">
+                <div class="rig-pose-import">
+                  <button class="ghost" id="import-pose-btn" type="button"
+                          title="选择一个或多个 Lottie JSON 文件，每个文件作为一个姿态追加">
+                    + 导入姿态 JSON
+                  </button>
+                  <button class="ghost" id="clear-poses-btn" type="button" disabled
+                          title="清空已累积的姿态并重置 rig 编辑区">
+                    清空
+                  </button>
+                  <input type="file" id="pose-file-input"
+                         accept=".json,application/json" multiple hidden>
+                  <span class="mini" id="pose-count-badge">尚未导入任何姿态</span>
+                </div>
+                <p class="mini" style="margin-top:4px;">
+                  每 1 个 JSON = 1 个姿态，自动追加并重新合并。支持拖入
+                  <code>.json</code> 批量导入；目标宽高在「场景」标签里配置。
+                </p>
+                <details class="fold compact-fold">
+                  <summary>最近导入的姿态 JSON（可编辑）</summary>
+                  <div class="fold-body">
+                    <textarea id="rig-editor" spellcheck="false"
+                      placeholder="导入后会显示最近一次的 JSON；修改会写回该姿态并自动重新合并..."></textarea>
+                  </div>
+                </details>
+              </div>
+            </details>
+
+            <div class="card source-poses-block">
+              <h3>场景中的姿态</h3>
+              <p class="mini">
+                合并/导入后出现在场景里的姿态。点击行切换当前姿态；<code>×</code> 从场景移除（与
+                上方 Rig 累加 1:1 时会同步删源）。纯 scene.json 加载时来源显示为「非 rig 导入」；微调可编辑
+                上方 <b>最近导入的 JSON</b> 或画布拖点。
+              </p>
+              <div class="listbox" id="poses-list"></div>
+            </div>
+
+            <details class="fold compact-fold">
+              <summary>scene.json 字段速查</summary>
+              <div class="fold-body">
+                <p class="mini">
+                  顶层：<code>schema</code> <code>name</code> <code>prefix</code>
+                  <code>meta.viewbox</code> <code>layout</code>
+                  <code>parts</code> <code>poses</code> <code>clips</code> <code>sequence</code>
+                </p>
+                <p class="mini">
+                  <code>poses[*].parts</code> 存各部件控制点；
+                  <code>clips[*].steps</code> 为设备端离散 step（非时间轴）。
+                </p>
+                <p class="mini">
+                  流程：打开 / 拖入 JSON → 识别并整理（可选）→ 编译并仿真 → 导出 <code>.inc</code>。
+                </p>
+              </div>
+            </details>
+          </section>
+
           <!-- ------- Tab: 场景 ------- -->
-          <section class="tab-pane active" data-pane="scene" role="tabpanel">
+          <section class="tab-pane" data-pane="scene" role="tabpanel">
             <div class="card">
               <h3>场景信息</h3>
               <div class="field-grid">
@@ -1622,138 +1839,147 @@
             </div>
           </section>
 
-          <!-- ------- Tab: 姿态 ------- -->
-          <section class="tab-pane" data-pane="poses" role="tabpanel">
-            <div class="card">
-              <h3>姿态列表</h3>
-              <p class="mini">
-                点击行切换当前姿态；<code>×</code> 从场景中移除，rig 累加器会同步更新。
-                姿态只由外部 JSON 导入驱动；微调请在「原文」里编辑或直接在画布拖点。
-              </p>
-              <div class="listbox" id="poses-list"></div>
-            </div>
-          </section>
-
           <!-- ------- Tab: 可播放动作（clip）编辑 ------- -->
           <section class="tab-pane" data-pane="clips" role="tabpanel">
             <div class="card">
               <h3>动作列表</h3>
               <p class="mini">
-                与中间画布上方「动作」角标、下方 <b>当前动作</b> 下拉是<strong>同一条</strong>。请先点工具栏
-                <b>编译并仿真</b>，再点列表里一项，画布会切到该动作；若未编译，仅改左侧选中态，画面不变。
+                与画布角标、顶栏 <b>播放</b> 下拉同一数据；点行切换编辑，右侧 <b>×</b> 删除该动作（至少保留 1 个）。先 <b>编译并仿真</b> 后点行才会驱动画布。
               </p>
-              <div class="listbox" id="clips-list"></div>
+              <p class="action-hint-ctx" id="clip-new-ctx" aria-live="polite">当前姿态：—</p>
+              <div class="inspector-list-frame">
+                <div class="inspector-list-scroll">
+                  <div id="clips-list" class="list-inner" role="list"></div>
+                </div>
+                <button type="button" class="ghost list-add-footer" id="clip-add-inline-btn"
+                        title="在「资源」页选中姿态后点此，新动作追加到列表与 sequence 末尾">
+                  + 添加动作
+                </button>
+              </div>
             </div>
             <div class="card">
-              <h3>当前动作与每步</h3>
-              <p class="mini" style="margin-top:-4px;">
-                上框选中的那条动作。下面可改 <b>动作</b>的 ID/名称/循环，以及 <b>步骤（Step）</b>：第几步、引用哪一姿态、停留 tick 等。改完点对应「保存」。
-              </p>
-              <div class="field-grid">
-                <label>
-                  动作 ID
-                  <input id="clip-id-input" type="text" placeholder="如 smile_clip">
-                </label>
-                <label>
-                  名称
-                  <input id="clip-label-input" type="text" placeholder="例如 微笑">
-                </label>
-                <label>
-                  中文名
-                  <input id="clip-label-cn-input" type="text" placeholder="中文名">
-                </label>
-                <label>
-                  是否循环
-                  <select id="clip-loop-select">
-                    <option value="true">是</option>
-                    <option value="false">否</option>
-                  </select>
-                </label>
-                <label>
-                  第几步（Step）
-                  <select id="clip-step-select"></select>
-                </label>
-                <label>
-                  本步引用的姿态
-                  <select id="step-pose-select"></select>
-                </label>
-              </div>
-              <div class="grid-3" style="margin-top:6px;">
-                <label>
-                  停留 Tick
-                  <input id="step-hold-input" type="number" min="1" step="1" value="30">
-                </label>
-                <label>
-                  朝向
-                  <select id="step-facing-select">
-                    <option value="1">1</option>
-                    <option value="-1">-1</option>
-                  </select>
-                </label>
-                <label>
-                  插值
-                  <select id="step-interp-select">
-                    <option value="DAMPED">缓动</option>
-                    <option value="HOLD">保持</option>
-                  </select>
-                </label>
-              </div>
-              <div class="inline-tools">
-                <button class="ghost" id="clip-save-btn" type="button">保存动作</button>
-                <button class="ghost" id="clip-add-btn" type="button">从当前姿态新建动作</button>
-                <button class="ghost" id="step-save-btn" type="button">保存步骤</button>
-                <button class="ghost" id="step-add-btn" type="button">新增步骤</button>
-                <button class="warn"  id="step-remove-btn" type="button">删除步骤</button>
-              </div>
-            </div>
-          </section>
-
-          <!-- ------- Tab: 原文 (scene.json / rig import) ------- -->
-          <section class="tab-pane" data-pane="source" role="tabpanel">
-            <details class="fold" open>
-              <summary>scene.json v1 原文</summary>
-              <div class="fold-body">
-                <textarea id="scene-editor" spellcheck="false" placeholder='{
-  "schema": "gfx_sm_scene_v1",
-  "name": "demo_scene",
-  "prefix": "s_demo"
-}'></textarea>
-              </div>
-            </details>
-
-            <details class="fold" id="rig-fold">
-              <summary>Rig JSON 导入 → 标准场景</summary>
-              <div class="fold-body" id="rig-dropzone">
-                <div class="rig-pose-import">
-                  <button class="ghost" id="import-pose-btn" type="button"
-                          title="选择一个或多个 Lottie JSON 文件，每个文件作为一个姿态追加">
-                    + 导入姿态 JSON
-                  </button>
-                  <button class="ghost" id="clear-poses-btn" type="button" disabled
-                          title="清空已累积的姿态并重置 rig 编辑区">
-                    清空
-                  </button>
-                  <input type="file" id="pose-file-input"
-                         accept=".json,application/json" multiple hidden>
-                  <span class="mini" id="pose-count-badge">尚未导入任何姿态</span>
+              <h3>编辑</h3>
+              <div class="edit-block">
+                <h4 class="subh">动作</h4>
+                <p class="mini" style="margin-top:0;">列表选中项</p>
+                <div class="field-grid">
+                  <label title="动作标识；保存时 label / label_cn 会与 id 对齐（供 .inc 与设备端）">
+                    id
+                    <input id="clip-id-input" type="text" placeholder="smile_clip" autocomplete="off">
+                  </label>
+                  <label>
+                    循环
+                    <select id="clip-loop-select">
+                      <option value="true">是</option>
+                      <option value="false">否</option>
+                    </select>
+                  </label>
                 </div>
-                <p class="mini" style="margin-top:4px;">
-                  每 1 个 JSON = 1 个姿态，自动追加并重新合并。支持拖入
-                  <code>.json</code> 批量导入；目标宽高在「场景」标签里配置。
-                </p>
-                <details class="fold compact-fold">
-                  <summary>最近导入的姿态 JSON（可编辑）</summary>
-                  <div class="fold-body">
-                    <textarea id="rig-editor" spellcheck="false"
-                      placeholder="导入后会显示最近一次的 JSON；修改会写回该姿态并自动重新合并..."></textarea>
+                <div class="tool-row">
+                  <button class="ghost" id="clip-save-btn" type="button">保存动作</button>
+                </div>
+              </div>
+              <div class="edit-block">
+                <h4 class="subh">步骤 <span class="subh-hint">点行选中；右侧 × 删该步（至少 1 步）；底栏「+ 添加」用资源页当前姿态追加一步</span></h4>
+                <div class="inspector-list-frame">
+                  <div class="inspector-list-scroll">
+                    <div id="clip-steps-list" class="list-inner" role="listbox" aria-label="本动作内的步骤"></div>
+                  </div>
+                  <button type="button" class="ghost list-add-footer" id="step-add-inline-btn"
+                          title="在「资源」页选中姿态后点此，在当前动作末尾追加一步">
+                    + 添加步骤
+                  </button>
+                </div>
+                <details id="clip-step-config" class="clip-step-config" hidden>
+                  <summary id="clip-step-config-summary" tabindex="0">步骤配置</summary>
+                  <div class="clip-step-config-body">
+                    <div class="field-grid">
+                      <label>
+                        姿态
+                        <select id="step-pose-select"></select>
+                      </label>
+                    </div>
+                    <div class="grid-3" style="margin-top:6px;">
+                      <label title="本步停留节拍数">
+                        hold
+                        <input id="step-hold-input" type="number" min="1" step="1" value="30">
+                      </label>
+                      <label>
+                        朝向
+                        <select id="step-facing-select">
+                          <option value="1">1</option>
+                          <option value="-1">-1</option>
+                        </select>
+                      </label>
+                      <label>
+                        插值
+                        <select id="step-interp-select">
+                          <option value="DAMPED">缓动</option>
+                          <option value="HOLD">保持</option>
+                        </select>
+                      </label>
+                    </div>
+                    <p class="mini" style="margin-top:8px;">
+                      改「姿态 / hold / 朝向 / 插值」后点「保存步骤」。追加新步请用步骤列表下方底栏的 <b>+ 添加步骤</b>（与动作列表相同：资源页当前高亮姿态）。
+                    </p>
+                    <div class="tool-row tool-row--step">
+                      <button class="ghost" id="step-save-btn" type="button">保存步骤</button>
+                    </div>
                   </div>
                 </details>
               </div>
-            </details>
+            </div>
           </section>
 
         </div>
       </aside>
+
+      <!-- --------- 主画布：预览 + 播放 ---------- -->
+      <section class="app-canvas">
+        <div class="canvas-head">
+          <div class="badge-row">
+            <span class="badge" id="tick-badge">节拍: -</span>
+            <span class="badge" id="clip-badge">动作: -</span>
+            <span class="badge" id="mode-badge">编译后资产模式</span>
+          </div>
+          <div class="canvas-head-clip">
+            <label>播放
+              <select id="clip-select" aria-label="选择播放动作"></select>
+            </label>
+          </div>
+          <span class="asset-name" id="asset-name">未编译</span>
+        </div>
+
+        <div class="canvas-body">
+          <div class="viewer-shell">
+            <svg class="viewer" id="viewer" aria-label="compiled asset preview"></svg>
+            <div class="hud" id="hud">尚未编译资产</div>
+          </div>
+        </div>
+
+        <div class="playback">
+          <div class="playback-main">
+            <button id="play-btn" type="button">暂停</button>
+            <button class="ghost" id="step-btn" type="button">单步</button>
+            <button class="ghost" id="reset-btn" type="button">重置</button>
+          </div>
+          <div class="playback-fields">
+            <label>倍率
+              <input id="speed-input" type="number" min="0.1" max="4" step="0.1" value="1.0">
+            </label>
+            <label>主色
+              <input id="color-input" type="color" value="#101820">
+            </label>
+            <label>自动序列
+              <select id="autoseq-select">
+                <option value="on">开启</option>
+                <option value="off">关闭</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </section>
+
     </main>
 
     <!-- ========================== Statusbar ======================= -->
@@ -1805,7 +2031,6 @@
     };
 
     const els = {
-      dropzone: document.getElementById("dropzone"),
       fileInput: document.getElementById("file-input"),
       loadLottieBtn: document.getElementById("load-lottie-btn"),
       rigFold: document.getElementById("rig-fold"),
@@ -1819,8 +2044,7 @@
       rigEditor: document.getElementById("rig-editor"),
       normalizeBtn: document.getElementById("normalize-btn"),
       compileBtn: document.getElementById("compile-btn"),
-      exportSceneBtn: document.getElementById("export-scene-btn"),
-      exportIncBtn: document.getElementById("export-inc-btn"),
+      exportBtn: document.getElementById("export-btn"),
       status: document.getElementById("status-box"),
       sourceName: document.getElementById("source-name"),
       sceneEditor: document.getElementById("scene-editor"),
@@ -1839,20 +2063,20 @@
       pdCloseBtn: document.getElementById("pd-close-btn"),
       posesList: document.getElementById("poses-list"),
       clipsList: document.getElementById("clips-list"),
+      clipAddInlineBtn: document.getElementById("clip-add-inline-btn"),
+      stepAddInlineBtn: document.getElementById("step-add-inline-btn"),
       clipIdInput: document.getElementById("clip-id-input"),
-      clipLabelInput: document.getElementById("clip-label-input"),
-      clipLabelCnInput: document.getElementById("clip-label-cn-input"),
       clipLoopSelect: document.getElementById("clip-loop-select"),
-      clipStepSelect: document.getElementById("clip-step-select"),
+      clipStepsList: document.getElementById("clip-steps-list"),
+      clipStepConfig: document.getElementById("clip-step-config"),
+      clipStepConfigSummary: document.getElementById("clip-step-config-summary"),
       stepPoseSelect: document.getElementById("step-pose-select"),
       stepHoldInput: document.getElementById("step-hold-input"),
       stepFacingSelect: document.getElementById("step-facing-select"),
       stepInterpSelect: document.getElementById("step-interp-select"),
       clipSaveBtn: document.getElementById("clip-save-btn"),
-      clipAddBtn: document.getElementById("clip-add-btn"),
+      clipNewCtx: document.getElementById("clip-new-ctx"),
       stepSaveBtn: document.getElementById("step-save-btn"),
-      stepAddBtn: document.getElementById("step-add-btn"),
-      stepRemoveBtn: document.getElementById("step-remove-btn"),
       viewer: document.getElementById("viewer"),
       hud: document.getElementById("hud"),
       assetName: document.getElementById("asset-name"),
@@ -1894,6 +2118,8 @@
       selectedPoseIndex: 0,
       selectedClipIndex: 0,
       selectedStepIndex: 0,
+      /** After 保存/追加/删除步骤，下一次 renderClipStepEditor 后保持配置区展开 */
+      reopenClipStepDetail: false,
       selectedPartId: "",
       dragPartId: "",
       dragPartPointerId: null,
@@ -1975,6 +2201,49 @@
       a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
+    }
+
+    async function writeUtf8FileToDirectory(dirHandle, filename, text) {
+      const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(new Blob([text], { type: "text/plain;charset=utf-8" }));
+      await writable.close();
+    }
+
+    /**
+     * 导出 scene.json + .inc：优先用目录选择器写入同一文件夹；
+     * 不支持时回退为两次下载到浏览器默认下载目录。
+     */
+    async function exportProjectBundle() {
+      const doc = normalizeSceneDoc(parseJsonInput(els.sceneEditor.value));
+      const sceneFilename = `${doc.name || "scene"}.scene.json`;
+      const sceneBody = safeStringify(doc);
+
+      const asset = state.asset || compileFromEditor();
+      const incFilename = `${asset.name}.inc`;
+      const incBody = buildIncText(asset);
+
+      if (typeof window.showDirectoryPicker === "function") {
+        let dirHandle;
+        try {
+          dirHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+        } catch (err) {
+          if (err && err.name === "AbortError") {
+            setStatus("已取消导出。");
+            return;
+          }
+          throw err;
+        }
+        await writeUtf8FileToDirectory(dirHandle, sceneFilename, sceneBody);
+        await writeUtf8FileToDirectory(dirHandle, incFilename, incBody);
+        setStatus(`已写入目录：${sceneFilename}、${incFilename}`);
+        return;
+      }
+
+      downloadText(sceneFilename, sceneBody);
+      await new Promise((r) => setTimeout(r, 250));
+      downloadText(incFilename, incBody);
+      setStatus(`当前浏览器不支持选择目录，已依次下载：${sceneFilename}、${incFilename}`);
     }
 
     function parseJsonInput(text) {
@@ -2414,6 +2683,115 @@
       return doc.clips[Math.max(0, Math.min(index, doc.clips.length - 1))];
     }
 
+    function addClipFromSelectedPose() {
+      try {
+        const doc = deepClone(ensureSceneDoc());
+        const pose = doc.poses[state.selectedPoseIndex];
+        if (!pose) {
+          throw new Error("没有可用姿态");
+        }
+        const newId = makeUniqueId(`${pose.id}_clip`, new Set(doc.clips.map((c) => c.id)), pose.id);
+        doc.clips.push({
+          id: newId,
+          label: newId,
+          label_cn: newId,
+          loop: true,
+          steps: [{
+            pose: pose.id,
+            hold_ticks: 30,
+            facing: 1,
+            interp: "DAMPED",
+          }],
+        });
+        doc.sequence.push(newId);
+        state.selectedClipIndex = doc.clips.length - 1;
+        state.selectedStepIndex = 0;
+        if (els.clipStepConfig) {
+          els.clipStepConfig.open = false;
+        }
+        state.reopenClipStepDetail = false;
+        writeSceneDoc(doc, `已添加动作「${newId}」（一步 → ${pose.id}）。`);
+      } catch (err) {
+        setStatus(`添加动作失败：${err.message}`, true);
+      }
+    }
+
+    function addStepToCurrentClip() {
+      try {
+        const doc = deepClone(ensureSceneDoc());
+        const clip = doc.clips[state.selectedClipIndex];
+        if (!clip) {
+          throw new Error("没有当前动作");
+        }
+        const pose = doc.poses[state.selectedPoseIndex];
+        if (!pose) {
+          throw new Error("没有可用姿态");
+        }
+        clip.steps.push({
+          pose: pose.id,
+          hold_ticks: 30,
+          facing: 1,
+          interp: "DAMPED",
+        });
+        state.selectedStepIndex = clip.steps.length - 1;
+        state.reopenClipStepDetail = true;
+        writeSceneDoc(doc, `已在「${clip.id}」末尾添加一步：${pose.id}。`);
+      } catch (err) {
+        setStatus(`添加步骤失败：${err.message}`, true);
+      }
+    }
+
+    function removeClipAt(index) {
+      try {
+        const doc = deepClone(ensureSceneDoc());
+        if (doc.clips.length <= 1) {
+          throw new Error("至少保留一个动作");
+        }
+        const removedId = doc.clips[index].id;
+        const prevSel = state.selectedClipIndex;
+        doc.clips.splice(index, 1);
+        doc.sequence = doc.sequence.filter((id) => id !== removedId);
+        if (prevSel > index) {
+          state.selectedClipIndex = prevSel - 1;
+        } else if (prevSel === index) {
+          state.selectedClipIndex = Math.min(index, doc.clips.length - 1);
+        }
+        state.selectedClipIndex = Math.max(0, Math.min(state.selectedClipIndex, doc.clips.length - 1));
+        state.selectedStepIndex = 0;
+        if (els.clipStepConfig) {
+          els.clipStepConfig.open = false;
+        }
+        state.reopenClipStepDetail = false;
+        writeSceneDoc(doc, `已删除动作「${removedId}」。`);
+      } catch (err) {
+        setStatus(`删除动作失败：${err.message}`, true);
+      }
+    }
+
+    function removeStepAt(clipIndex, stepIndex) {
+      try {
+        const doc = deepClone(ensureSceneDoc());
+        const clip = doc.clips[clipIndex];
+        if (!clip || clip.steps.length <= 1) {
+          throw new Error("每个动作至少保留一步");
+        }
+        const prevSel = state.selectedStepIndex;
+        clip.steps.splice(stepIndex, 1);
+        if (clipIndex === state.selectedClipIndex) {
+          if (stepIndex < prevSel) {
+            state.selectedStepIndex = prevSel - 1;
+          } else if (stepIndex === prevSel) {
+            state.selectedStepIndex = Math.min(stepIndex, clip.steps.length - 1);
+          }
+          state.selectedStepIndex = Math.max(0, Math.min(state.selectedStepIndex, clip.steps.length - 1));
+        }
+        state.reopenClipStepDetail = true;
+        writeSceneDoc(doc, "已删除步骤。");
+      } catch (err) {
+        setStatus(`删除步骤失败：${err.message}`, true);
+      }
+    }
+
     function partByIndex(index) {
       const doc = ensureSceneDoc();
       return doc.parts[Math.max(0, Math.min(index, doc.parts.length - 1))];
@@ -2497,26 +2875,20 @@
     function renderClipStepEditor() {
       const doc = state.sceneDoc;
       if (!doc || !doc.clips.length) {
-        els.clipStepSelect.innerHTML = "";
+        els.clipStepsList.innerHTML = "";
         els.stepPoseSelect.innerHTML = "";
         els.clipIdInput.value = "";
-        els.clipLabelInput.value = "";
-        els.clipLabelCnInput.value = "";
+        if (els.clipStepConfig) {
+          els.clipStepConfig.hidden = true;
+          els.clipStepConfig.open = false;
+        }
         return;
       }
 
       const clip = clipByIndex(state.selectedClipIndex);
-      const safeStepIndex = Math.max(0, Math.min(state.selectedStepIndex, clip.steps.length - 1));
-      state.selectedStepIndex = safeStepIndex;
 
-      els.clipStepSelect.innerHTML = "";
-      clip.steps.forEach((step, index) => {
-        const option = document.createElement("option");
-        option.value = String(index);
-        option.textContent = `${index}: ${step.pose} / ${step.hold_ticks} / ${step.facing} / ${interpLabel(step.interp)}`;
-        if (index === safeStepIndex) option.selected = true;
-        els.clipStepSelect.appendChild(option);
-      });
+      els.clipIdInput.value = clip.id;
+      els.clipLoopSelect.value = clip.loop ? "true" : "false";
 
       els.stepPoseSelect.innerHTML = "";
       doc.poses.forEach((pose, index) => {
@@ -2526,16 +2898,92 @@
         els.stepPoseSelect.appendChild(option);
       });
 
-      els.clipIdInput.value = clip.id;
-      els.clipLabelInput.value = clip.label;
-      els.clipLabelCnInput.value = clip.label_cn;
-      els.clipLoopSelect.value = clip.loop ? "true" : "false";
+      if (!clip.steps.length) {
+        state.selectedStepIndex = 0;
+        els.clipStepsList.innerHTML = "";
+        if (els.clipStepConfig) {
+          els.clipStepConfig.hidden = true;
+          els.clipStepConfig.open = false;
+        }
+        return;
+      }
 
-      const step = clip.steps[safeStepIndex];
-      els.stepPoseSelect.value = step.pose;
-      els.stepHoldInput.value = String(step.hold_ticks);
-      els.stepFacingSelect.value = String(step.facing);
-      els.stepInterpSelect.value = step.interp;
+      const safeStepIndex = Math.max(0, Math.min(state.selectedStepIndex, clip.steps.length - 1));
+      state.selectedStepIndex = safeStepIndex;
+
+      els.clipStepsList.innerHTML = "";
+      clip.steps.forEach((step, index) => {
+        const row = document.createElement("div");
+        row.className = "pose-row";
+        row.setAttribute("role", "option");
+        row.setAttribute("aria-selected", index === safeStepIndex ? "true" : "false");
+        if (index === safeStepIndex) row.classList.add("active");
+
+        const main = document.createElement("button");
+        main.type = "button";
+        main.className = "chip pose-row-main";
+        const facingLabel = Number(step.facing) < 0 ? "左" : "右";
+        const idxSpan = document.createElement("span");
+        idxSpan.className = "pose-row-idx";
+        idxSpan.textContent = String(index).padStart(2, "0");
+        const idSpan = document.createElement("span");
+        idSpan.className = "pose-row-id";
+        idSpan.textContent = step.pose;
+        const srcSpan = document.createElement("span");
+        srcSpan.className = "pose-row-src";
+        srcSpan.textContent = `hold ${step.hold_ticks} · ${facingLabel} · ${interpLabel(step.interp)}`;
+        main.appendChild(idxSpan);
+        main.appendChild(idSpan);
+        main.appendChild(srcSpan);
+        main.addEventListener("click", () => {
+          state.selectedStepIndex = index;
+          renderClipStepEditor();
+          if (els.clipStepConfig && els.clipStepConfigSummary) {
+            els.clipStepConfig.hidden = false;
+            els.clipStepConfig.open = true;
+            requestAnimationFrame(() => {
+              try {
+                els.clipStepConfigSummary.focus({ preventScroll: true });
+              } catch (e) {
+                els.clipStepConfigSummary.focus();
+              }
+            });
+          }
+        });
+
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "ghost pose-row-del";
+        delBtn.textContent = "×";
+        delBtn.title = clip.steps.length <= 1 ? "至少保留一步" : "删除该步骤";
+        delBtn.disabled = clip.steps.length <= 1;
+        delBtn.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          if (clip.steps.length <= 1) return;
+          removeStepAt(state.selectedClipIndex, index);
+        });
+
+        row.appendChild(main);
+        row.appendChild(delBtn);
+        els.clipStepsList.appendChild(row);
+      });
+
+      if (els.clipStepConfig) {
+        els.clipStepConfig.hidden = false;
+        const step = clip.steps[safeStepIndex];
+        if (els.clipStepConfigSummary) {
+          els.clipStepConfigSummary.textContent =
+            `步骤 ${safeStepIndex + 1} / ${clip.steps.length} · ${step.pose}（展开编辑姿态、hold、朝向、插值）`;
+        }
+        els.stepPoseSelect.value = step.pose;
+        els.stepHoldInput.value = String(step.hold_ticks);
+        els.stepFacingSelect.value = String(step.facing);
+        els.stepInterpSelect.value = step.interp;
+        if (state.reopenClipStepDetail) {
+          state.reopenClipStepDetail = false;
+          els.clipStepConfig.open = true;
+        }
+      }
     }
 
     function refreshGuiPanels() {
@@ -2550,11 +2998,16 @@
         els.partStrokeInput.value = "0";
         els.posesList.innerHTML = "";
         els.clipsList.innerHTML = "";
-        els.clipStepSelect.innerHTML = "";
+        els.clipStepsList.innerHTML = "";
         els.stepPoseSelect.innerHTML = "";
         els.clipIdInput.value = "";
-        els.clipLabelInput.value = "";
-        els.clipLabelCnInput.value = "";
+        if (els.clipStepConfig) {
+          els.clipStepConfig.hidden = true;
+          els.clipStepConfig.open = false;
+        }
+        if (els.clipNewCtx) {
+          els.clipNewCtx.textContent = "当前姿态：—";
+        }
         return;
       }
 
@@ -2633,25 +3086,69 @@
 
       els.clipsList.innerHTML = "";
       doc.clips.forEach((clip, index) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "chip";
-        btn.textContent = `${String(index).padStart(2, "0")} ${clip.id} / ${clip.label_cn} (${clip.steps.length})`;
-        btn.onclick = () => {
+        const row = document.createElement("div");
+        row.className = "pose-row";
+        if (index === state.selectedClipIndex) row.classList.add("active");
+
+        const main = document.createElement("button");
+        main.type = "button";
+        main.className = "chip pose-row-main";
+        const idxSpan = document.createElement("span");
+        idxSpan.className = "pose-row-idx";
+        idxSpan.textContent = String(index).padStart(2, "0");
+        const idSpan = document.createElement("span");
+        idSpan.className = "pose-row-id";
+        idSpan.textContent = clip.id;
+        const srcSpan = document.createElement("span");
+        srcSpan.className = "pose-row-src";
+        srcSpan.textContent = `${clip.steps.length} 步`;
+        main.appendChild(idxSpan);
+        main.appendChild(idSpan);
+        main.appendChild(srcSpan);
+        main.addEventListener("click", () => {
           state.selectedClipIndex = index;
           state.selectedStepIndex = 0;
+          if (els.clipStepConfig) {
+            els.clipStepConfig.open = false;
+          }
+          state.reopenClipStepDetail = false;
           if (state.scene && state.asset && index < state.asset.clips.length) {
-            setClip(state.scene, index, false);
+            setClip(state.scene, index, true);
             refreshCompiledUi();
             renderAsset();
           } else {
-            setStatus("请先在顶栏点「编译并仿真」，再点动作，中间画布与「当前动作」下拉里才会切到该条。", false);
+            setStatus("请先在顶栏点「编译并仿真」，再点动作；画布与顶栏「播放」下拉会同步到该条。", false);
           }
           refreshGuiPanels();
-        };
-        if (index === state.selectedClipIndex) btn.classList.add("active");
-        els.clipsList.appendChild(btn);
+        });
+
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "ghost pose-row-del";
+        delBtn.textContent = "×";
+        delBtn.title = doc.clips.length <= 1 ? "至少保留一个动作" : "删除该动作";
+        delBtn.disabled = doc.clips.length <= 1;
+        delBtn.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          if (doc.clips.length <= 1) return;
+          removeClipAt(index);
+        });
+
+        row.appendChild(main);
+        row.appendChild(delBtn);
+        els.clipsList.appendChild(row);
       });
+
+      if (els.clipNewCtx) {
+        const p = doc.poses[state.selectedPoseIndex];
+        if (p) {
+          const lab = (p.label_cn || p.label || p.id).toString();
+          els.clipNewCtx.textContent =
+            `「资源」当前姿态：${p.id} / ${lab}（在资源页列表中点击切换）`;
+        } else {
+          els.clipNewCtx.textContent = "当前姿态：—";
+        }
+      }
 
       renderClipStepEditor();
     }
@@ -2726,8 +3223,6 @@
         clipIndexById.set(clip.id, clipIndex);
         return {
           id: clip.id,
-          name: clip.label,
-          nameCn: clip.label_cn,
           loop: !!clip.loop,
           steps: clip.steps.map((step) => ({
             poseIndex: poseIndexById.get(step.pose),
@@ -3355,11 +3850,11 @@
       const clip = asset.clips[scene.activeClip];
       const step = clip.steps[scene.activeStep];
       els.hud.textContent =
-        `动作: ${clip.name}\n` +
+        `动作: ${clip.id}\n` +
         `步进: ${scene.activeStep + 1}/${clip.steps.length}  停留: ${scene.stepTicks}/${step.holdTicks}\n` +
         `节拍: ${asset.layout.timerPeriodMs || 33} ms  阻尼: ${asset.layout.dampingDiv || 4}\n` +
         `朝向: ${step.facing}`;
-      els.clipBadge.textContent = `动作: ${clip.name}`;
+      els.clipBadge.textContent = `动作: ${clip.id}`;
     }
 
     /* ---- Part detail dialog: magnifier view + focus overlay -------------
@@ -3737,7 +4232,7 @@
       asset.clips.forEach((clip, index) => {
         const option = document.createElement("option");
         option.value = String(index);
-        option.textContent = `${String(index).padStart(2, "0")} ${clip.name}${clip.nameCn ? " / " + clip.nameCn : ""}`;
+        option.textContent = `${String(index).padStart(2, "0")} ${clip.id}`;
         if (index === state.selectedClipIndex) option.selected = true;
         els.clipSelect.appendChild(option);
       });
@@ -3760,7 +4255,8 @@
       const text = els.sceneEditor.value.trim();
       if (!text) throw new Error("编辑区为空");
       const detected = detectAndNormalize(text);
-      sceneToEditor(detected.doc, state.sourceName || detected.kind, `已将 ${detected.kind} 归一化为 scene.json v1。`);
+      sceneToEditor(detected.doc, state.sourceName || detected.kind,
+        `已识别并整理为 scene.json v1（来源类型：${detected.kind}）。`);
       return detected.doc;
     }
 
@@ -3850,12 +4346,12 @@
       });
       lines.push("");
 
-      lines.push(`#define CLIP(n, cn, arr, lp) { .name = (n), .name_cn = (cn), .steps = (arr), .step_count = (uint8_t)(sizeof(arr) / sizeof((arr)[0])), .loop = (lp) }`);
+      lines.push(`#define CLIP(arr, lp) { .steps = (arr), .step_count = (uint8_t)(sizeof(arr) / sizeof((arr)[0])), .loop = (lp) }`);
       lines.push("");
       lines.push(`static const gfx_sm_clip_t ${prefix}_clips[] = {`);
       asset.clips.forEach((clip, clipIndex) => {
         const clipId = sanitizeCIdent(clip.id, `clip_${clipIndex}`);
-        lines.push(`    CLIP("${clip.name}", "${clip.nameCn}", ${prefix}_steps_${clipId}, ${clip.loop ? "true" : "false"}),`);
+        lines.push(`    /* ${clip.id} */ CLIP(${prefix}_steps_${clipId}, ${clip.loop ? "true" : "false"}),`);
       });
       lines.push("};");
       lines.push("");
@@ -3930,7 +4426,8 @@
           els.rigEditor.value = "";
           updatePoseCount();
         }
-        sceneToEditor(detected.doc, sourceName || detected.kind, `已导入 ${sourceName || detected.kind}，并归一化为 scene.json v1。`);
+        sceneToEditor(detected.doc, sourceName || detected.kind,
+          `已导入 ${sourceName || detected.kind}，并整理为 scene.json v1。`);
       } catch (err) {
         setStatus(`导入失败：${err.message}`, true);
         console.error(err);
@@ -4735,21 +5232,6 @@
       handleFile(event.target.files && event.target.files[0]);
     });
 
-    els.dropzone.addEventListener("dragover", (event) => {
-      event.preventDefault();
-      els.dropzone.classList.add("dragover");
-    });
-
-    els.dropzone.addEventListener("dragleave", () => {
-      els.dropzone.classList.remove("dragover");
-    });
-
-    els.dropzone.addEventListener("drop", (event) => {
-      event.preventDefault();
-      els.dropzone.classList.remove("dragover");
-      handleFile(event.dataTransfer.files && event.dataTransfer.files[0]);
-    });
-
     els.loadLottieBtn.addEventListener("click", async () => {
       try {
         const response = await fetch("./face_emote_demo.json", { cache: "no-store" });
@@ -4758,7 +5240,7 @@
         state.sourceText = text;
         handleJsonText(text, "face_emote_demo.json");
       } catch (err) {
-        setStatus(`示例加载失败：${err.message}。如果你是直接双击打开 HTML，请改用“打开 JSON 文件”。`, true);
+        setStatus(`示例加载失败：${err.message}。若直接双击打开本 HTML，请在「资源」页用「打开 JSON…」加载本地文件。`, true);
       }
     });
 
@@ -4766,7 +5248,7 @@
       try {
         normalizeEditorText();
       } catch (err) {
-        setStatus(`归一化失败：${err.message}`, true);
+        setStatus(`识别并整理失败：${err.message}`, true);
       }
     });
 
@@ -4779,24 +5261,11 @@
       }
     });
 
-    els.exportSceneBtn.addEventListener("click", () => {
-      try {
-        const doc = normalizeSceneDoc(parseJsonInput(els.sceneEditor.value));
-        downloadText(`${doc.name || "scene"}.scene.json`, safeStringify(doc));
-        setStatus(`已导出 ${doc.name || "scene"}.scene.json`);
-      } catch (err) {
-        setStatus(`scene.json 导出失败：${err.message}`, true);
-      }
-    });
-
-    els.exportIncBtn.addEventListener("click", () => {
-      try {
-        const asset = state.asset || compileFromEditor();
-        downloadText(`${asset.name}.inc`, buildIncText(asset));
-        setStatus(`已导出 ${asset.name}.inc`);
-      } catch (err) {
-        setStatus(`.inc 导出失败：${err.message}`, true);
-      }
+    els.exportBtn.addEventListener("click", () => {
+      exportProjectBundle().catch((err) => {
+        setStatus(`导出失败：${err.message}`, true);
+        console.error(err);
+      });
     });
 
     els.guiSaveSceneMetaBtn.addEventListener("click", () => {
@@ -4847,8 +5316,8 @@
         const otherIds = new Set(doc.clips.filter((_, index) => index !== state.selectedClipIndex).map((item) => item.id));
         const newId = otherIds.has(desiredId) ? makeUniqueId(desiredId, otherIds, desiredId) : desiredId;
         clip.id = newId;
-        clip.label = els.clipLabelInput.value.trim() || newId;
-        clip.label_cn = els.clipLabelCnInput.value.trim() || clip.label;
+        clip.label = newId;
+        clip.label_cn = newId;
         clip.loop = els.clipLoopSelect.value === "true";
         if (oldId !== newId) {
           doc.sequence = doc.sequence.map((item) => item === oldId ? newId : item);
@@ -4859,36 +5328,12 @@
       }
     });
 
-    els.clipAddBtn.addEventListener("click", () => {
-      try {
-        const doc = deepClone(ensureSceneDoc());
-        const pose = doc.poses[state.selectedPoseIndex];
-        const newId = makeUniqueId(`${pose.id}_clip`, new Set(doc.clips.map((clip) => clip.id)), pose.id);
-        doc.clips.push({
-          id: newId,
-          label: pose.label,
-          label_cn: pose.label_cn,
-          loop: true,
-          steps: [{
-            pose: pose.id,
-            hold_ticks: 30,
-            facing: 1,
-            interp: "DAMPED",
-          }],
-        });
-        doc.sequence.push(newId);
-        state.selectedClipIndex = doc.clips.length - 1;
-        state.selectedStepIndex = 0;
-        writeSceneDoc(doc, "已新增动作。");
-      } catch (err) {
-        setStatus(`新增动作失败：${err.message}`, true);
-      }
-    });
-
-    els.clipStepSelect.addEventListener("change", () => {
-      state.selectedStepIndex = Number(els.clipStepSelect.value);
-      renderClipStepEditor();
-    });
+    if (els.clipAddInlineBtn) {
+      els.clipAddInlineBtn.addEventListener("click", () => addClipFromSelectedPose());
+    }
+    if (els.stepAddInlineBtn) {
+      els.stepAddInlineBtn.addEventListener("click", () => addStepToCurrentClip());
+    }
 
     els.stepSaveBtn.addEventListener("click", () => {
       try {
@@ -4899,42 +5344,17 @@
         step.hold_ticks = Math.max(1, Number(els.stepHoldInput.value) || 1);
         step.facing = Number(els.stepFacingSelect.value) || 1;
         step.interp = els.stepInterpSelect.value === "HOLD" ? "HOLD" : "DAMPED";
+        state.reopenClipStepDetail = true;
         writeSceneDoc(doc, "已保存步骤。");
       } catch (err) {
         setStatus(`保存步骤失败：${err.message}`, true);
       }
     });
 
-    els.stepAddBtn.addEventListener("click", () => {
-      try {
-        const doc = deepClone(ensureSceneDoc());
-        const clip = doc.clips[state.selectedClipIndex];
-        const pose = doc.poses[state.selectedPoseIndex];
-        clip.steps.push({
-          pose: pose.id,
-          hold_ticks: 30,
-          facing: 1,
-          interp: "DAMPED",
-        });
-        state.selectedStepIndex = clip.steps.length - 1;
-        writeSceneDoc(doc, "已新增步骤。");
-      } catch (err) {
-        setStatus(`新增步骤失败：${err.message}`, true);
-      }
-    });
-
-    els.stepRemoveBtn.addEventListener("click", () => {
-      try {
-        const doc = deepClone(ensureSceneDoc());
-        const clip = doc.clips[state.selectedClipIndex];
-        if (clip.steps.length <= 1) {
-          throw new Error("每个 clip 至少要保留一个 step");
-        }
-        clip.steps.splice(state.selectedStepIndex, 1);
-        state.selectedStepIndex = Math.max(0, state.selectedStepIndex - 1);
-        writeSceneDoc(doc, "已删除步骤。");
-      } catch (err) {
-        setStatus(`删除步骤失败：${err.message}`, true);
+    /* 鼠标从别处点过来时，部分浏览器会先让按钮获焦再吃第一次 click；挡住默认对焦，保证一次点击即切换播放 */
+    els.playBtn.addEventListener("pointerdown", (ev) => {
+      if (ev.pointerType === "mouse" && ev.button === 0) {
+        ev.preventDefault();
       }
     });
 
@@ -4962,7 +5382,11 @@
       state.selectedClipIndex = clipIndex;
       state.selectedStepIndex = 0;
       state.seqAccumMs = 0;
-      setClip(state.scene, clipIndex, false);
+      state.reopenClipStepDetail = false;
+      if (els.clipStepConfig) {
+        els.clipStepConfig.open = false;
+      }
+      setClip(state.scene, clipIndex, true);
       refreshGuiPanels();
       refreshCompiledUi();
       renderAsset();
