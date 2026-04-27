@@ -350,6 +350,84 @@
       pointer-events: none;
     }
 
+    .edit-guide--focus {
+      stroke: rgba(217, 111, 59, 0.98);
+      stroke-width: 2.5;
+      stroke-dasharray: none;
+      filter: drop-shadow(0 0 4px rgba(217, 111, 59, 0.45));
+    }
+
+    .pd-context-layer {
+      pointer-events: none;
+    }
+
+    .pd-context-path {
+      fill: none;
+      stroke: rgba(36, 27, 19, 0.2);
+      stroke-width: 1.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .pd-context-fill {
+      fill: rgba(36, 27, 19, 0.07);
+      stroke: rgba(36, 27, 19, 0.16);
+      stroke-width: 0.8;
+    }
+
+    .pd-context-capsule {
+      stroke: rgba(36, 27, 19, 0.2);
+      stroke-width: 1.5;
+      stroke-linecap: round;
+    }
+
+    .pd-context-ring {
+      fill: none;
+      stroke: rgba(36, 27, 19, 0.18);
+      stroke-width: 1.2;
+    }
+
+    .pd-magnifier-vignette {
+      pointer-events: none;
+    }
+
+    .pd-minimap {
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(30, 20, 10, 0.18);
+      background: rgba(255, 253, 250, 0.94);
+      pointer-events: none;
+    }
+
+    .pd-minimap .pd-mm-bg {
+      fill: rgba(20, 110, 120, 0.06);
+      stroke: rgba(20, 110, 120, 0.18);
+      stroke-width: 0.8;
+    }
+
+    .pd-minimap .pd-mm-path {
+      fill: none;
+      stroke: rgba(36, 27, 19, 0.22);
+      stroke-width: 0.5;
+    }
+
+    .pd-minimap .pd-mm-path-focus {
+      fill: none;
+      stroke: #146e78;
+      stroke-width: 0.7;
+    }
+
+    .pd-minimap .pd-mm-fill {
+      fill: rgba(36, 27, 19, 0.08);
+      stroke: none;
+    }
+
+    .pd-minimap .pd-mm-vp {
+      fill: none;
+      stroke: #d96f3b;
+      stroke-width: 1.2;
+      vector-effect: non-scaling-stroke;
+    }
+
     .part-highlight {
       fill: rgba(20, 110, 120, 0.04);
       stroke: rgba(20, 110, 120, 0.55);
@@ -409,6 +487,12 @@
       background: rgba(255, 253, 250, 0.9);
       border-radius: 14px;
       border: 1px solid rgba(66, 52, 36, 0.10);
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .pd-viewer.pd-panning {
+      cursor: grabbing;
     }
 
     .pd-hint {
@@ -427,6 +511,11 @@
       stroke: rgba(217, 111, 59, 0.35);
       stroke-width: 1.5;
       pointer-events: none;
+    }
+
+    .edit-joint-line--focus {
+      stroke: rgba(217, 111, 59, 0.65);
+      stroke-width: 2;
     }
 
     .edit-joint {
@@ -1408,7 +1497,7 @@
         <div class="canvas-head">
           <div class="badge-row">
             <span class="badge" id="tick-badge">节拍: -</span>
-            <span class="badge" id="clip-badge">片段: -</span>
+            <span class="badge" id="clip-badge">动作: -</span>
             <span class="badge" id="mode-badge">编译后资产模式</span>
           </div>
           <span class="asset-name" id="asset-name">未编译</span>
@@ -1428,7 +1517,7 @@
             <button class="ghost" id="reset-btn" type="button">重置</button>
           </div>
           <div class="playback-fields">
-            <label>片段
+            <label>当前动作
               <select id="clip-select"></select>
             </label>
             <label>倍率
@@ -1453,7 +1542,7 @@
           <button type="button" class="tab active" data-tab="scene"  role="tab">场景</button>
           <button type="button" class="tab"        data-tab="parts"  role="tab">部件</button>
           <button type="button" class="tab"        data-tab="poses"  role="tab">姿态</button>
-          <button type="button" class="tab"        data-tab="clips"  role="tab">片段</button>
+          <button type="button" class="tab"        data-tab="clips"  role="tab">动作</button>
           <button type="button" class="tab"        data-tab="source" role="tab">原文</button>
         </nav>
 
@@ -1545,18 +1634,25 @@
             </div>
           </section>
 
-          <!-- ------- Tab: 片段 ------- -->
+          <!-- ------- Tab: 可播放动作（clip）编辑 ------- -->
           <section class="tab-pane" data-pane="clips" role="tabpanel">
             <div class="card">
-              <h3>片段列表</h3>
+              <h3>动作列表</h3>
+              <p class="mini">
+                与中间画布上方「动作」角标、下方 <b>当前动作</b> 下拉是<strong>同一条</strong>。请先点工具栏
+                <b>编译并仿真</b>，再点列表里一项，画布会切到该动作；若未编译，仅改左侧选中态，画面不变。
+              </p>
               <div class="listbox" id="clips-list"></div>
             </div>
             <div class="card">
-              <h3>片段 / 步骤属性</h3>
+              <h3>当前动作与每步</h3>
+              <p class="mini" style="margin-top:-4px;">
+                上框选中的那条动作。下面可改 <b>动作</b>的 ID/名称/循环，以及 <b>步骤（Step）</b>：第几步、引用哪一姿态、停留 tick 等。改完点对应「保存」。
+              </p>
               <div class="field-grid">
                 <label>
-                  片段 ID
-                  <input id="clip-id-input" type="text" placeholder="片段 ID">
+                  动作 ID
+                  <input id="clip-id-input" type="text" placeholder="如 smile_clip">
                 </label>
                 <label>
                   名称
@@ -1574,11 +1670,11 @@
                   </select>
                 </label>
                 <label>
-                  当前步骤
+                  第几步（Step）
                   <select id="clip-step-select"></select>
                 </label>
                 <label>
-                  步骤姿态
+                  本步引用的姿态
                   <select id="step-pose-select"></select>
                 </label>
               </div>
@@ -1603,8 +1699,8 @@
                 </label>
               </div>
               <div class="inline-tools">
-                <button class="ghost" id="clip-save-btn" type="button">保存片段</button>
-                <button class="ghost" id="clip-add-btn" type="button">从姿态新建片段</button>
+                <button class="ghost" id="clip-save-btn" type="button">保存动作</button>
+                <button class="ghost" id="clip-add-btn" type="button">从当前姿态新建动作</button>
                 <button class="ghost" id="step-save-btn" type="button">保存步骤</button>
                 <button class="ghost" id="step-add-btn" type="button">新增步骤</button>
                 <button class="warn"  id="step-remove-btn" type="button">删除步骤</button>
@@ -1667,7 +1763,7 @@
       <span class="sb-stat">关节 <b id="stat-joints">-</b></span>
       <span class="sb-stat">段 <b id="stat-segments">-</b></span>
       <span class="sb-stat">姿态 <b id="stat-poses">-</b></span>
-      <span class="sb-stat">片段 <b id="stat-clips">-</b></span>
+      <span class="sb-stat">动作 <b id="stat-clips">-</b></span>
       <span class="sb-sep"></span>
       <span class="sb-meta" id="meta-text">视口: -</span>
     </footer>
@@ -1682,7 +1778,7 @@
     <div class="pd-body">
       <svg id="pd-viewer" class="pd-viewer" aria-label="part detail"></svg>
     </div>
-    <p class="mini pd-hint">拖拽橙色圆点可调整控制点；点击背景关闭。</p>
+    <p class="mini pd-hint">滚轮缩放；空白处拖拽平移。主视图为取景区，右下小地图的橙框对应当前视野。拖橙色点改控制点；点背景关窗。</p>
   </dialog>
 
   <script>
@@ -2548,6 +2644,8 @@
             setClip(state.scene, index, false);
             refreshCompiledUi();
             renderAsset();
+          } else {
+            setStatus("请先在顶栏点「编译并仿真」，再点动作，中间画布与「当前动作」下拉里才会切到该条。", false);
           }
           refreshGuiPanels();
         };
@@ -2575,7 +2673,7 @@
       refreshCompiledUi();
       renderAsset();
       if (!options.silentStatus) {
-        setStatus(options.statusText || `编译完成：${normalized.name}，${state.asset.poses.length} poses / ${state.asset.clips.length} clips。`);
+        setStatus(options.statusText || `编译完成：${normalized.name}，${state.asset.poses.length} 姿态 / ${state.asset.clips.length} 动作。`);
       }
       return state.asset;
     }
@@ -2825,6 +2923,215 @@
       return d;
     }
 
+    function posePartDesignPoints(pose, partId) {
+      const raw = pose.parts[partId];
+      if (!Array.isArray(raw) || !raw.length) return null;
+      return raw.map((p) => [Number(p[0]), Number(p[1])]);
+    }
+
+    /** Magnifier: zoom to focused part (+ padding); clip to artboard. */
+    function frameFocusedMagnifier(doc, focusPts) {
+      const b = partBounds(focusPts);
+      if (!b) return null;
+      const span = Math.max(b.width, b.height, 1);
+      const pad = Math.max(18, span * 0.4);
+      let vx = b.minX - pad;
+      let vy = b.minY - pad;
+      let vw = b.width + 2 * pad;
+      let vh = b.height + 2 * pad;
+      const vb = doc.meta && Array.isArray(doc.meta.viewbox) && doc.meta.viewbox.length >= 4
+        ? doc.meta.viewbox
+        : null;
+      if (vb && Number(vb[2]) > 0 && Number(vb[3]) > 0) {
+        const bx0 = Number(vb[0]);
+        const by0 = Number(vb[1]);
+        const bx1 = bx0 + Number(vb[2]);
+        const by1 = by0 + Number(vb[3]);
+        const ix0 = Math.max(vx, bx0);
+        const iy0 = Math.max(vy, by0);
+        const ix1 = Math.min(vx + vw, bx1);
+        const iy1 = Math.min(vy + vh, by1);
+        if (ix1 > ix0 && iy1 > iy0) {
+          vx = ix0;
+          vy = iy0;
+          vw = ix1 - ix0;
+          vh = iy1 - iy0;
+        }
+      }
+      return { vx, vy, vw, vh };
+    }
+
+    function overviewBoundsForMinimap(doc, pose) {
+      const vb = doc.meta && Array.isArray(doc.meta.viewbox) && doc.meta.viewbox.length >= 4
+        ? doc.meta.viewbox
+        : null;
+      if (vb && Number(vb[2]) > 0 && Number(vb[3]) > 0) {
+        return { bx0: Number(vb[0]), by0: Number(vb[1]), bw: Number(vb[2]), bh: Number(vb[3]) };
+      }
+      let minX, minY, maxX, maxY;
+      let any = false;
+      for (const p of doc.parts) {
+        const d = posePartDesignPoints(pose, p.id);
+        if (!d) continue;
+        const bb = partBounds(d);
+        if (!bb) continue;
+        if (!any) {
+          minX = bb.minX;
+          minY = bb.minY;
+          maxX = bb.maxX;
+          maxY = bb.maxY;
+          any = true;
+        } else {
+          minX = Math.min(minX, bb.minX);
+          minY = Math.min(minY, bb.minY);
+          maxX = Math.max(maxX, bb.maxX);
+          maxY = Math.max(maxY, bb.maxY);
+        }
+      }
+      if (!any) return { bx0: 0, by0: 0, bw: 1, bh: 1 };
+      const padX = Math.max(4, (maxX - minX) * 0.03);
+      const padY = Math.max(4, (maxY - minY) * 0.03);
+      return { bx0: minX - padX, by0: minY - padY, bw: (maxX - minX) + 2 * padX, bh: (maxY - minY) + 2 * padY };
+    }
+
+    function partBoundsIntersectsFrame(bb, fr) {
+      if (!bb || !fr) return false;
+      return !(
+        bb.maxX < fr.vx
+        || bb.minX > fr.vx + fr.vw
+        || bb.maxY < fr.vy
+        || bb.minY > fr.vy + fr.vh
+      );
+    }
+
+    function appendMinimapPartShape(parent, part, dpts, isFocus) {
+      const spts = dpts.map((p) => ({ x: p[0], y: p[1] }));
+      const pathClass = isFocus ? "pd-mm-path-focus" : "pd-mm-path";
+      const k = part.kind;
+      if (k === "CAPSULE") {
+        if (spts.length < 2) return;
+        const line = document.createElementNS(NS, "line");
+        line.setAttribute("x1", String(spts[0].x));
+        line.setAttribute("y1", String(spts[0].y));
+        line.setAttribute("x2", String(spts[1].x));
+        line.setAttribute("y2", String(spts[1].y));
+        line.setAttribute("class", pathClass);
+        parent.appendChild(line);
+        return;
+      }
+      if (k === "RING") {
+        const c = spts[0];
+        const rD = Number(part.radius_hint) || 0;
+        const r = rD > 0 ? rD : Math.max(2.5, 1.2);
+        const circle = document.createElementNS(NS, "circle");
+        circle.setAttribute("cx", String(c.x));
+        circle.setAttribute("cy", String(c.y));
+        circle.setAttribute("r", String(r));
+        circle.setAttribute("class", pathClass);
+        parent.appendChild(circle);
+        return;
+      }
+      const closed = k === "BEZIER_FILL" || k === "BEZIER_LOOP";
+      const d = bezierPath(spts, closed);
+      const path = document.createElementNS(NS, "path");
+      path.setAttribute("d", d);
+      if (k === "BEZIER_FILL") {
+        path.setAttribute("class", isFocus ? "pd-mm-path-focus" : "pd-mm-path");
+        path.setAttribute("fill", isFocus ? "rgba(20, 110, 120, 0.12)" : "rgba(36, 27, 19, 0.08)");
+        path.setAttribute("stroke", isFocus ? "#146e78" : "rgba(36, 27, 19, 0.25)");
+        path.setAttribute("stroke-width", "0.4");
+        parent.appendChild(path);
+        return;
+      }
+      path.setAttribute("class", pathClass);
+      path.setAttribute("fill", "none");
+      parent.appendChild(path);
+    }
+
+    function appendPartDetailMinimap(svg, doc, pose, focusPartId, frame, svgW, svgH) {
+      const ov = overviewBoundsForMinimap(doc, pose);
+      const mmW = 132;
+      const mmH = 90;
+      const gpad = 8;
+      const mx = Math.max(0, svgW - mmW - gpad);
+      const my = Math.max(0, svgH - mmH - gpad);
+      const inner = document.createElementNS(NS, "svg");
+      inner.setAttribute("x", String(mx));
+      inner.setAttribute("y", String(my));
+      inner.setAttribute("width", String(mmW));
+      inner.setAttribute("height", String(mmH));
+      inner.setAttribute("viewBox", `${ov.bx0} ${ov.by0} ${ov.bw} ${ov.bh}`);
+      inner.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      inner.setAttribute("class", "pd-minimap");
+      const bg = document.createElementNS(NS, "rect");
+      bg.setAttribute("x", String(ov.bx0));
+      bg.setAttribute("y", String(ov.by0));
+      bg.setAttribute("width", String(ov.bw));
+      bg.setAttribute("height", String(ov.bh));
+      bg.setAttribute("class", "pd-mm-bg");
+      inner.appendChild(bg);
+      for (const p of doc.parts) {
+        const dpts = posePartDesignPoints(pose, p.id);
+        if (!dpts) continue;
+        appendMinimapPartShape(inner, p, dpts, p.id === focusPartId);
+      }
+      const vp = document.createElementNS(NS, "rect");
+      vp.setAttribute("x", String(frame.vx));
+      vp.setAttribute("y", String(frame.vy));
+      vp.setAttribute("width", String(frame.vw));
+      vp.setAttribute("height", String(frame.vh));
+      vp.setAttribute("class", "pd-mm-vp");
+      const vTitle = document.createElementNS(NS, "title");
+      vTitle.textContent = "全图：橙框＝主视图的放大镜取景区";
+      vp.appendChild(vTitle);
+      inner.appendChild(vp);
+      const t = document.createElementNS(NS, "title");
+      t.textContent = "小地图：全场景";
+      inner.appendChild(t);
+      svg.appendChild(inner);
+    }
+
+    let _pdVignetteSerial = 0;
+
+    /** Single part geometry in the detail SVG (low-contrast “context” layer). */
+    function appendPdContextPart(parent, part, screenPts, scale) {
+      if (!screenPts || !screenPts.length) return;
+      const k = part.kind;
+      if (k === "CAPSULE") {
+        if (screenPts.length < 2) return;
+        const line = document.createElementNS(NS, "line");
+        line.setAttribute("x1", String(screenPts[0].x));
+        line.setAttribute("y1", String(screenPts[0].y));
+        line.setAttribute("x2", String(screenPts[1].x));
+        line.setAttribute("y2", String(screenPts[1].y));
+        line.setAttribute("class", "pd-context-capsule");
+        parent.appendChild(line);
+        return;
+      }
+      if (k === "RING") {
+        const c = screenPts[0];
+        const rDesign = Number(part.radius_hint) || 0;
+        const r = rDesign > 0 ? rDesign * scale : Math.max(5, 3.5 * scale);
+        const circle = document.createElementNS(NS, "circle");
+        circle.setAttribute("cx", String(c.x));
+        circle.setAttribute("cy", String(c.y));
+        circle.setAttribute("r", String(r));
+        circle.setAttribute("class", "pd-context-ring");
+        parent.appendChild(circle);
+        return;
+      }
+      const closed = k === "BEZIER_FILL" || k === "BEZIER_LOOP";
+      const d = bezierPath(screenPts, closed);
+      const path = document.createElementNS(NS, "path");
+      path.setAttribute("d", d);
+      if (k === "BEZIER_FILL") {
+        path.setAttribute("class", "pd-context-fill");
+      } else {
+        path.setAttribute("class", "pd-context-path");
+      }
+      parent.appendChild(path);
+    }
+
     function renderAsset() {
       const svg = els.viewer;
       const width = Math.max(360, Math.round(svg.clientWidth || 700));
@@ -3048,17 +3355,45 @@
       const clip = asset.clips[scene.activeClip];
       const step = clip.steps[scene.activeStep];
       els.hud.textContent =
-        `片段: ${clip.name}\n` +
-        `步骤: ${scene.activeStep + 1}/${clip.steps.length}  停留: ${scene.stepTicks}/${step.holdTicks}\n` +
+        `动作: ${clip.name}\n` +
+        `步进: ${scene.activeStep + 1}/${clip.steps.length}  停留: ${scene.stepTicks}/${step.holdTicks}\n` +
         `节拍: ${asset.layout.timerPeriodMs || 33} ms  阻尼: ${asset.layout.dampingDiv || 4}\n` +
         `朝向: ${step.facing}`;
-      els.clipBadge.textContent = `片段: ${clip.name}`;
+      els.clipBadge.textContent = `动作: ${clip.name}`;
     }
 
-    /* ---- Part detail popup: zoomed control-point editor ------------------
-       Opens a <dialog> with a big SVG that shows the selected part's raw
-       control points and bezier guide.  Drag-on-handle writes back into the
-       scene doc directly (same logic as before, but isolated in the dialog). */
+    /* ---- Part detail dialog: magnifier view + focus overlay -------------
+       User viewRect: zoom (wheel) + pan (drag). */
+
+    function partDetailViewTransform(fr, svgW, svgH) {
+      const scale = Math.min(svgW / fr.vw, svgH / fr.vh);
+      return {
+        scale,
+        offX: (svgW - fr.vw * scale) / 2 - fr.vx * scale,
+        offY: (svgH - fr.vh * scale) / 2 - fr.vy * scale,
+      };
+    }
+
+    function clampPartDetailViewRect(fr, doc, base) {
+      const out = { ...fr };
+      if (base) {
+        const minW = Math.max(1e-6, base.vw * 0.04);
+        const minH = Math.max(1e-6, base.vh * 0.04);
+        out.vw = Math.max(minW, out.vw);
+        out.vh = Math.max(minH, out.vh);
+        out.vw = Math.min((base.vw || out.vw) * 24, out.vw);
+        out.vh = Math.min((base.vh || out.vh) * 24, out.vh);
+      }
+      if (doc && doc.meta && Array.isArray(doc.meta.viewbox) && doc.meta.viewbox.length >= 4) {
+        const bx0 = Number(doc.meta.viewbox[0]);
+        const by0 = Number(doc.meta.viewbox[1]);
+        const bw = Number(doc.meta.viewbox[2]);
+        const bh = Number(doc.meta.viewbox[3]);
+        out.vx = Math.min(bx0 + bw + 0.2 * out.vw, Math.max(bx0 - 0.3 * out.vw, out.vx));
+        out.vy = Math.min(by0 + bh + 0.2 * out.vh, Math.max(by0 - 0.3 * out.vh, out.vy));
+      }
+      return out;
+    }
 
     const pdState = {
       dragIdx: -1,
@@ -3066,15 +3401,19 @@
       pts: null,          /* live reference into current sceneDoc pose */
       partId: "",
       part: null,
-      viewbox: null,      /* dialog local viewBox string  "minX minY w h"  */
+      viewbox: null,      /* doc.meta.viewbox  */
       scale: 1,           /* design-unit → pd-viewer px   */
       offX: 0,
       offY: 0,
+      /** User-controlled view in design space (vx,vy,vw,vh); null until first open render */
+      viewRect: null,
+      baseViewRect: null,
+      /** Pan: { startClientX, startClientY, startView, pointerId } */
+      pan: null,
     };
 
     function renderPartDetail() {
       const svg = els.pdViewer;
-      const NS = "http://www.w3.org/2000/svg";
       svg.innerHTML = "";
 
       const doc = state.sceneDoc;
@@ -3085,56 +3424,109 @@
       const pts = (pose.parts[part.id] || []).map((p) => [Number(p[0]), Number(p[1])]);
       if (!pts.length) return;
 
-      /* Compute tight bounding box with 20% padding */
-      const bounds = partBounds(pts);
-      if (!bounds) return;
-      const padX = Math.max(16, bounds.width * 0.22);
-      const padY = Math.max(16, bounds.height * 0.22);
-      const vx = bounds.minX - padX;
-      const vy = bounds.minY - padY;
-      const vw = bounds.width + padX * 2;
-      const vh = bounds.height + padY * 2;
+      if (!pdState.viewRect) {
+        const init = frameFocusedMagnifier(doc, pts);
+        if (!init) return;
+        pdState.viewRect = { vx: init.vx, vy: init.vy, vw: init.vw, vh: init.vh };
+        if (!pdState.baseViewRect) {
+          pdState.baseViewRect = { ...pdState.viewRect };
+        }
+      }
+      const frame = pdState.viewRect;
+      const { vx, vy, vw, vh } = frame;
 
       const svgW = Math.max(360, Math.round(svg.clientWidth || 600));
       const svgH = Math.max(280, Math.round(svg.clientHeight || 400));
       svg.setAttribute("viewBox", `0 0 ${svgW} ${svgH}`);
 
-      pdState.scale = Math.min(svgW / vw, svgH / vh);
-      pdState.offX  = (svgW - vw * pdState.scale) / 2 - vx * pdState.scale;
-      pdState.offY  = (svgH - vh * pdState.scale) / 2 - vy * pdState.scale;
+      const vt = partDetailViewTransform(frame, svgW, svgH);
+      pdState.scale = vt.scale;
+      pdState.offX  = vt.offX;
+      pdState.offY  = vt.offY;
       pdState.pts     = pts;
       pdState.partId  = part.id;
       pdState.part    = part;
-      pdState.viewbox = doc.meta.viewbox;
+      pdState.viewbox = doc.meta && doc.meta.viewbox;
 
       const toSvg = (pair) => ({
         x: Number(pair[0]) * pdState.scale + pdState.offX,
         y: Number(pair[1]) * pdState.scale + pdState.offY,
       });
 
+      const focusBb = partBounds(pts);
+      const fcx = focusBb ? (focusBb.minX + focusBb.maxX) * 0.5 : 0;
+      const fcy = focusBb ? (focusBb.minY + focusBb.maxY) * 0.5 : 0;
+      const fcs = toSvg([fcx, fcy]);
+      const vgId = `pd-vg-${_pdVignetteSerial++}`;
+      const defs = document.createElementNS(NS, "defs");
+      const vgrad = document.createElementNS(NS, "radialGradient");
+      vgrad.setAttribute("id", vgId);
+      vgrad.setAttribute("gradientUnits", "userSpaceOnUse");
+      vgrad.setAttribute("cx", String(fcs.x));
+      vgrad.setAttribute("cy", String(fcs.y));
+      vgrad.setAttribute("r", String(Math.max(svgW, svgH) * 0.58));
+      const s0 = document.createElementNS(NS, "stop");
+      s0.setAttribute("offset", "0%");
+      s0.setAttribute("stop-color", "#fffdf8");
+      s0.setAttribute("stop-opacity", "0");
+      const s1 = document.createElementNS(NS, "stop");
+      s1.setAttribute("offset", "55%");
+      s1.setAttribute("stop-color", "#fffdf8");
+      s1.setAttribute("stop-opacity", "0.12");
+      const s2 = document.createElementNS(NS, "stop");
+      s2.setAttribute("offset", "100%");
+      s2.setAttribute("stop-color", "#f5efe6");
+      s2.setAttribute("stop-opacity", "0.55");
+      vgrad.appendChild(s0);
+      vgrad.appendChild(s1);
+      vgrad.appendChild(s2);
+      defs.appendChild(vgrad);
+      svg.appendChild(defs);
+
+      /* 1) 仅与取景框相交的其它部件作淡显（远处不画） */
+      const ctxG = document.createElementNS(NS, "g");
+      ctxG.setAttribute("class", "pd-context-layer");
+      for (const p of doc.parts) {
+        if (p.id === part.id) continue;
+        const dpts = posePartDesignPoints(pose, p.id);
+        if (!dpts) continue;
+        const ob = partBounds(dpts);
+        if (!ob || !partBoundsIntersectsFrame(ob, frame)) continue;
+        const spts = dpts.map(toSvg);
+        appendPdContextPart(ctxG, p, spts, pdState.scale);
+      }
+      svg.appendChild(ctxG);
+
+      const vig = document.createElementNS(NS, "rect");
+      vig.setAttribute("x", "0");
+      vig.setAttribute("y", "0");
+      vig.setAttribute("width", String(svgW));
+      vig.setAttribute("height", String(svgH));
+      vig.setAttribute("fill", `url(#${vgId})`);
+      vig.setAttribute("class", "pd-magnifier-vignette");
+      svg.appendChild(vig);
+
+      /* 2) 当前部件：最上层、高对比 */
       const screenPts = pts.map(toSvg);
       const closed = part.kind === "BEZIER_FILL" || part.kind === "BEZIER_LOOP";
 
-      /* Bezier guide */
       if (screenPts.length) {
         const guide = document.createElementNS(NS, "path");
         guide.setAttribute("d", bezierPath(screenPts, closed));
-        guide.setAttribute("class", "edit-guide");
+        guide.setAttribute("class", "edit-guide edit-guide--focus");
         svg.appendChild(guide);
       }
 
-      /* Handle lines between consecutive points */
       for (let i = 0; i + 1 < screenPts.length; i++) {
         const line = document.createElementNS(NS, "line");
         line.setAttribute("x1", String(screenPts[i].x));
         line.setAttribute("y1", String(screenPts[i].y));
         line.setAttribute("x2", String(screenPts[i + 1].x));
         line.setAttribute("y2", String(screenPts[i + 1].y));
-        line.setAttribute("class", "edit-joint-line");
+        line.setAttribute("class", "edit-joint-line edit-joint-line--focus");
         svg.appendChild(line);
       }
 
-      /* Control point circles + labels */
       screenPts.forEach((pt, idx) => {
         const circle = document.createElementNS(NS, "circle");
         circle.setAttribute("cx", String(pt.x));
@@ -3158,6 +3550,9 @@
         lbl.textContent = String(idx);
         svg.appendChild(lbl);
       });
+
+      /* 3) 右下角小地图：全场景 + 橙框=当前主视图窗口 */
+      appendPartDetailMinimap(svg, doc, pose, part.id, frame, svgW, svgH);
     }
 
     function openPartDetailDialog(partId) {
@@ -3168,31 +3563,79 @@
       state.selectedPartIndex = state.sceneDoc.parts.findIndex((p) => p.id === partId);
       pdState.dragIdx = -1;
       pdState.pointerId = null;
-      els.pdTitle.textContent = `部件详情：${part.id}（${kindLabel(part.kind)}）线宽 ${part.stroke_width || 0}`;
+      pdState.viewRect = null;
+      pdState.baseViewRect = null;
+      pdState.pan = null;
+      els.pdViewer.classList.remove("pd-panning");
+      els.pdTitle.textContent = `部件详情（放大镜）：${part.id}（${kindLabel(part.kind)}）线宽 ${part.stroke_width || 0}`;
       els.partDetailDialog.showModal();
       /* Render after the dialog has a size */
       requestAnimationFrame(() => renderPartDetail());
     }
 
-    /* Pointer move/up inside the detail SVG */
+    function pdHtmlDialogOpen() {
+      return Boolean(els.partDetailDialog && typeof els.partDetailDialog.open === "boolean" && els.partDetailDialog.open);
+    }
+
+    /* Pan: capture — skip control-point handles (they get pointer in bubble) */
+    els.pdViewer.addEventListener("pointerdown", (ev) => {
+      if (!pdHtmlDialogOpen() || !pdState.viewRect) return;
+      if (ev.button !== 0) return;
+      const cls = (ev.target && ev.target.getAttribute && ev.target.getAttribute("class")) || "";
+      if (cls.includes("edit-joint") || cls.includes("edit-joint-label")) return;
+      if (pdState.dragIdx >= 0) return;
+      ev.preventDefault();
+      pdState.pan = {
+        pointerId: ev.pointerId,
+        startClientX: ev.clientX,
+        startClientY: ev.clientY,
+        startView: { ...pdState.viewRect },
+      };
+      els.pdViewer.classList.add("pd-panning");
+      try { els.pdViewer.setPointerCapture(ev.pointerId); } catch (e) { /* empty */ }
+    }, true);
+
+    /* Pointer move: pan view or drag a joint */
     els.pdViewer.addEventListener("pointermove", (ev) => {
+      if (pdState.pan && ev.pointerId === pdState.pan.pointerId) {
+        ev.preventDefault();
+        const doc0 = state.sceneDoc;
+        if (!doc0 || !pdState.viewRect) return;
+        const svgW = Math.max(360, Math.round(els.pdViewer.clientWidth || 600));
+        const svgH = Math.max(280, Math.round(els.pdViewer.clientHeight || 400));
+        const t0 = partDetailViewTransform(pdState.pan.startView, svgW, svgH);
+        const dmx = ev.clientX - pdState.pan.startClientX;
+        const dmy = ev.clientY - pdState.pan.startClientY;
+        let fr2 = {
+          vx: pdState.pan.startView.vx - dmx / t0.scale,
+          vy: pdState.pan.startView.vy - dmy / t0.scale,
+          vw: pdState.pan.startView.vw,
+          vh: pdState.pan.startView.vh,
+        };
+        fr2 = clampPartDetailViewRect(fr2, doc0, pdState.baseViewRect);
+        pdState.viewRect = fr2;
+        renderPartDetail();
+        return;
+      }
       if (pdState.dragIdx < 0 || pdState.pointerId !== ev.pointerId) return;
       ev.preventDefault();
       const rect = els.pdViewer.getBoundingClientRect();
       const svgW = Math.max(360, Math.round(els.pdViewer.clientWidth || 600));
       const svgH = Math.max(280, Math.round(els.pdViewer.clientHeight || 400));
-      const sx = (ev.clientX - rect.left) / rect.width  * svgW;
-      const sy = (ev.clientY - rect.top)  / rect.height * svgH;
+      const sx = (ev.clientX - rect.left) / rect.width * svgW;
+      const sy = (ev.clientY - rect.top) / rect.height * svgH;
       const dx = (sx - pdState.offX) / pdState.scale;
       const dy = (sy - pdState.offY) / pdState.scale;
       const vb = pdState.viewbox;
-      const minX = Number(vb[0]), minY = Number(vb[1]);
-      const maxX = minX + Number(vb[2]), maxY = minY + Number(vb[3]);
+      if (!vb || !vb.length) return;
+      const minX = Number(vb[0]);
+      const minY = Number(vb[1]);
+      const maxX = minX + Number(vb[2]);
+      const maxY = minY + Number(vb[3]);
       pdState.pts[pdState.dragIdx] = [
         Math.round(Math.max(minX, Math.min(maxX, dx))),
         Math.round(Math.max(minY, Math.min(maxY, dy))),
       ];
-      /* Write back into sceneDoc immediately */
       const doc = deepClone(ensureSceneDoc());
       const pose = doc.poses[Math.max(0, Math.min(state.selectedPoseIndex, doc.poses.length - 1))];
       pose.parts[pdState.partId] = pdState.pts.map((p) => [p[0], p[1]]);
@@ -3201,10 +3644,60 @@
     });
 
     els.pdViewer.addEventListener("pointerup", (ev) => {
+      if (pdState.pan && ev.pointerId === pdState.pan.pointerId) {
+        pdState.pan = null;
+        els.pdViewer.classList.remove("pd-panning");
+        try { els.pdViewer.releasePointerCapture(ev.pointerId); } catch (e) { /* empty */ }
+        return;
+      }
       if (pdState.pointerId !== ev.pointerId) return;
       pdState.dragIdx = -1;
       pdState.pointerId = null;
       renderPartDetail();
+    });
+
+    els.pdViewer.addEventListener("pointercancel", (ev) => {
+      if (pdState.pan && ev.pointerId === pdState.pan.pointerId) {
+        pdState.pan = null;
+        els.pdViewer.classList.remove("pd-panning");
+      }
+    });
+
+    /* Wheel: zoom to cursor; passive:false so we can prevent page scroll */
+    els.pdViewer.addEventListener("wheel", (ev) => {
+      if (!pdHtmlDialogOpen() || !pdState.viewRect) return;
+      ev.preventDefault();
+      const doc0 = state.sceneDoc;
+      if (!doc0) return;
+      const rect = els.pdViewer.getBoundingClientRect();
+      const svgW = Math.max(360, Math.round(els.pdViewer.clientWidth || 600));
+      const svgH = Math.max(280, Math.round(els.pdViewer.clientHeight || 400));
+      const sx = (ev.clientX - rect.left) / rect.width * svgW;
+      const sy = (ev.clientY - rect.top) / rect.height * svgH;
+      const fr = pdState.viewRect;
+      const vt = partDetailViewTransform(fr, svgW, svgH);
+      const designX = (sx - vt.offX) / vt.scale;
+      const designY = (sy - vt.offY) / vt.scale;
+      const k = ev.deltaY < 0 ? 1.1 : 1 / 1.1;
+      const u = (designX - fr.vx) / fr.vw;
+      const v = (designY - fr.vy) / fr.vh;
+      const nW = fr.vw / k;
+      const nH = fr.vh / k;
+      let nX = designX - u * nW;
+      let nY = designY - v * nH;
+      let nfr = { vx: nX, vy: nY, vw: nW, vh: nH };
+      nfr = clampPartDetailViewRect(nfr, doc0, pdState.baseViewRect);
+      pdState.viewRect = nfr;
+      renderPartDetail();
+    }, { passive: false });
+
+    els.partDetailDialog.addEventListener("close", () => {
+      pdState.viewRect = null;
+      pdState.baseViewRect = null;
+      pdState.pan = null;
+      pdState.dragIdx = -1;
+      pdState.pointerId = null;
+      els.pdViewer.classList.remove("pd-panning");
     });
 
     els.pdCloseBtn.addEventListener("click", () => {
@@ -3220,7 +3713,7 @@
       if (!state.asset || !state.scene) {
         els.assetName.textContent = "未编译";
         els.tickBadge.textContent = "节拍: -";
-        els.clipBadge.textContent = "片段: -";
+        els.clipBadge.textContent = "动作: -";
         els.statJoints.textContent = "-";
         els.statSegments.textContent = "-";
         els.statPoses.textContent = "-";
@@ -3245,7 +3738,7 @@
         const option = document.createElement("option");
         option.value = String(index);
         option.textContent = `${String(index).padStart(2, "0")} ${clip.name}${clip.nameCn ? " / " + clip.nameCn : ""}`;
-        if (index === state.scene.activeClip) option.selected = true;
+        if (index === state.selectedClipIndex) option.selected = true;
         els.clipSelect.appendChild(option);
       });
     }
@@ -4360,9 +4853,9 @@
         if (oldId !== newId) {
           doc.sequence = doc.sequence.map((item) => item === oldId ? newId : item);
         }
-        writeSceneDoc(doc, "已保存片段。");
+        writeSceneDoc(doc, "已保存动作。");
       } catch (err) {
-        setStatus(`保存片段失败：${err.message}`, true);
+        setStatus(`保存动作失败：${err.message}`, true);
       }
     });
 
@@ -4386,9 +4879,9 @@
         doc.sequence.push(newId);
         state.selectedClipIndex = doc.clips.length - 1;
         state.selectedStepIndex = 0;
-        writeSceneDoc(doc, "已新增片段。");
+        writeSceneDoc(doc, "已新增动作。");
       } catch (err) {
-        setStatus(`新增片段失败：${err.message}`, true);
+        setStatus(`新增动作失败：${err.message}`, true);
       }
     });
 
