@@ -21,7 +21,7 @@
  *     RING           joint_a          Hollow ring (head)
  *     BEZIER_STRIP   joint_a .. +n-1  Open thick Bézier curve (brow)
  *     BEZIER_LOOP    joint_a .. +n-1  Closed thick Bézier loop (mouth outline)
- *     BEZIER_FILL    joint_a .. +n-1  Closed filled Bézier shape (eye sclera)
+ *     BEZIER_FILL    joint_a .. +n-1  Closed fill: n=7 eye, n=13 ellipse quad, else any n=3k+1 (hub mesh)
  *
  *   Stickman: each joint = one skeleton endpoint.
  *   Face:     each joint = one cubic Bézier control point (n = 3k+1 format).

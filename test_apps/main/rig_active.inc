@@ -381,11 +381,11 @@ static const gfx_sm_pose_t s_rig_poses[] = {
 
 static const gfx_sm_segment_t s_rig_segments[] = {
     /* ind2_gr_0_sh_0 */ { .kind = GFX_SM_SEG_BEZIER_LOOP, .joint_a = 0, .joint_count = 28, .stroke_width = 5 },
-    /* ind3_gr_0_sh_0 */ { .kind = GFX_SM_SEG_BEZIER_LOOP, .joint_a = 28, .joint_count = 28, .stroke_width = 5 },
+    /* ind3_gr_0_sh_0 */ { .kind = GFX_SM_SEG_BEZIER_FILL, .joint_a = 28, .joint_count = 28, .stroke_width = 5 },
     /* ind4_gr_0_sh_0 */ { .kind = GFX_SM_SEG_BEZIER_LOOP, .joint_a = 56, .joint_count = 28, .stroke_width = 5 },
-    /* ind5_gr_0_sh_0 */ { .kind = GFX_SM_SEG_BEZIER_LOOP, .joint_a = 84, .joint_count = 16, .stroke_width = 5 },
-    /* ind6_gr_0_sh_0 */ { .kind = GFX_SM_SEG_BEZIER_LOOP, .joint_a = 100, .joint_count = 16, .stroke_width = 5 },
-    /* ind7_gr_0_sh_0 */ { .kind = GFX_SM_SEG_BEZIER_LOOP, .joint_a = 116, .joint_count = 16, .stroke_width = 5 },
+    /* ind5_gr_0_sh_0 */ { .kind = GFX_SM_SEG_BEZIER_FILL, .joint_a = 84, .joint_count = 16, .stroke_width = 5 },
+    /* ind6_gr_0_sh_0 */ { .kind = GFX_SM_SEG_BEZIER_FILL, .joint_a = 100, .joint_count = 16, .stroke_width = 5 },
+    /* ind7_gr_0_sh_0 */ { .kind = GFX_SM_SEG_BEZIER_FILL, .joint_a = 116, .joint_count = 16, .stroke_width = 5 },
     /* ind8_gr_0_sh_0 */ { .kind = GFX_SM_SEG_BEZIER_LOOP, .joint_a = 132, .joint_count = 28, .stroke_width = 5 },
     /* ind9_gr_0_sh_0 */ { .kind = GFX_SM_SEG_BEZIER_LOOP, .joint_a = 160, .joint_count = 34, .stroke_width = 5 },
     /* ind10_gr_0_sh_0 */ { .kind = GFX_SM_SEG_BEZIER_LOOP, .joint_a = 194, .joint_count = 34, .stroke_width = 5 },
@@ -399,14 +399,14 @@ static const gfx_sm_segment_t s_rig_segments[] = {
 #define STEP(p, h, f, i) { .pose_index = (p), .hold_ticks = (h), .interp = (i), .facing = (f) }
 
 static const gfx_sm_clip_step_t s_rig_steps_active[] = {
-    STEP(0, 30, 1, GFX_SM_INTERP_DAMPED),
-    STEP(1, 100, 1, GFX_SM_INTERP_DAMPED),
+    STEP(0, 50, 1, GFX_SM_INTERP_DAMPED),
+    STEP(1, 70, 1, GFX_SM_INTERP_DAMPED),
 };
 
 #define CLIP(arr, lp) { .steps = (arr), .step_count = (uint8_t)(sizeof(arr) / sizeof((arr)[0])), .loop = (lp) }
 
 static const gfx_sm_clip_t s_rig_clips[] = {
-    CLIP(s_rig_steps_active, true),
+    /* active */ CLIP(s_rig_steps_active, true),
 };
 
 static const uint16_t s_rig_sequence[] = { 0 };

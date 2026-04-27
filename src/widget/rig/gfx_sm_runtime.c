@@ -617,6 +617,164 @@ static esp_err_t s_apply_bezier(gfx_obj_t *obj,
 }
 
 /* ------------------------------------------------------------------ */
+/*  Closed-loop centreline — same sampling as BEZIER_LOOP stroke (no    */
+/*  normal offset).  Produces M = k * SM_BEZIER_SEGS_PER_SEG points.    */
+/* ------------------------------------------------------------------ */
+static uint16_t s_closed_loop_centerline_fixed(const s_spt_t *ctrl, uint8_t n,
+                                               float *ox, float *oy,
+                                               uint16_t max_o)
+{
+    const uint8_t k = (uint8_t)((n - 1U) / 3U);
+    uint16_t      M = 0U;
+
+    for (uint8_t seg = 0U; seg < k; seg++) {
+        const s_spt_t *p0 = &ctrl[seg * 3U];
+        const s_spt_t *p1 = &ctrl[seg * 3U + 1U];
+        const s_spt_t *p2 = &ctrl[seg * 3U + 2U];
+        const s_spt_t *p3 = &ctrl[((seg + 1U) * 3U) % (n - 1U)];
+
+        for (uint8_t sub = 0U; sub < SM_BEZIER_SEGS_PER_SEG; sub++) {
+            float            t  = (float)sub / (float)SM_BEZIER_SEGS_PER_SEG;
+            float            px, py, tx, ty;
+            if (M >= max_o) {
+                return M;
+            }
+            s_cubic_pos_tan(p0, p1, p2, p3, t, &px, &py, &tx, &ty);
+            ox[M] = px;
+            oy[M] = py;
+            M++;
+        }
+    }
+    return M;
+}
+
+/*
+ * Arbitrary closed cubic loop (n = 3k+1, n not 7 / 13): hub-and-spoke fill.
+ * Matches gui_designer / SVG "filled path" for convex-ish outlines.
+ * Concave polygons may show triangles crossing outside — rare for emote paths.
+ */
+static esp_err_t s_apply_bezier_fill_hub(gfx_obj_t *obj,
+                                         const s_spt_t *ctrl, uint8_t n)
+{
+    const uint8_t  k      = (uint8_t)((n - 1U) / 3U);
+    const uint16_t expect = (uint16_t)k * (uint16_t)SM_BEZIER_SEGS_PER_SEG;
+    float          ox[SM_BEZIER_MAX_TESS + 1U];
+    float          oy[SM_BEZIER_MAX_TESS + 1U];
+    uint16_t       M;
+    bool           have_rim = false;
+
+#if GFX_SM_HAVE_NANOVG
+    /* NVG flatten + arc-length resample yields a smoother rim than fixed-step t. */
+    static s_spt_t s_hub_rim_nv[SM_BEZIER_MAX_TESS + 1U];
+
+    if (s_nvg_ctx != NULL) {
+        int32_t cnt = s_nvg_flatten_closed(ctrl, n);
+        if (cnt >= 3 && expect >= 2U &&
+                s_nvg_resample(cnt, expect, s_hub_rim_nv)) {
+            have_rim = true;
+            M        = expect;
+            for (uint16_t i = 0; i < M; i++) {
+                ox[i] = (float)s_hub_rim_nv[i].x;
+                oy[i] = (float)s_hub_rim_nv[i].y;
+            }
+        }
+    }
+#endif
+
+    if (!have_rim) {
+        M = s_closed_loop_centerline_fixed(ctrl, n, ox, oy,
+                                            SM_BEZIER_MAX_TESS + 1U);
+        if (M != expect) {
+            return ESP_ERR_INVALID_STATE;
+        }
+    }
+
+    double cx = 0.0, cy = 0.0;
+    for (uint16_t i = 0; i < M; i++) {
+        cx += (double)ox[i];
+        cy += (double)oy[i];
+    }
+    cx /= (double)M;
+    cy /= (double)M;
+
+    const uint16_t gcols = expect;
+    const size_t   pc    = (size_t)(gcols + 1U) * 2U;
+    gfx_mesh_img_point_q8_t pts[512];
+
+    if (pc > sizeof(pts) / sizeof(pts[0])) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    int32_t min_x = INT32_MAX, max_x = INT32_MIN;
+    int32_t min_y = INT32_MAX, max_y = INT32_MIN;
+
+    int32_t hub_x = (int32_t)lroundf((float)cx);
+    int32_t hub_y = (int32_t)lroundf((float)cy);
+
+    for (uint16_t col = 0; col <= gcols; col++) {
+        int32_t rx = (col < M)
+                         ? (int32_t)lroundf(ox[col])
+                         : (int32_t)lroundf(ox[0]);
+        int32_t ry = (col < M)
+                         ? (int32_t)lroundf(oy[col])
+                         : (int32_t)lroundf(oy[0]);
+
+        if (hub_x < min_x) {
+            min_x = hub_x;
+        }
+        if (hub_x > max_x) {
+            max_x = hub_x;
+        }
+        if (hub_y < min_y) {
+            min_y = hub_y;
+        }
+        if (hub_y > max_y) {
+            max_y = hub_y;
+        }
+        if (rx < min_x) {
+            min_x = rx;
+        }
+        if (rx > max_x) {
+            max_x = rx;
+        }
+        if (ry < min_y) {
+            min_y = ry;
+        }
+        if (ry > max_y) {
+            max_y = ry;
+        }
+    }
+
+    if (max_x <= min_x) {
+        max_x = min_x + 1;
+    }
+    if (max_y <= min_y) {
+        max_y = min_y + 1;
+    }
+
+    for (uint16_t col = 0; col <= gcols; col++) {
+        size_t  i0 = (size_t)col;
+        size_t  i1 = (size_t)(gcols + 1U) + (size_t)col;
+        int32_t rx = (col < M)
+                         ? (int32_t)lroundf(ox[col])
+                         : (int32_t)lroundf(ox[0]);
+        int32_t ry = (col < M)
+                         ? (int32_t)lroundf(oy[col])
+                         : (int32_t)lroundf(oy[0]);
+
+        pts[i0].x_q8 = (hub_x - min_x) << 8;
+        pts[i0].y_q8 = (hub_y - min_y) << 8;
+        pts[i1].x_q8 = (rx - min_x) << 8;
+        pts[i1].y_q8 = (ry - min_y) << 8;
+    }
+
+    ESP_RETURN_ON_ERROR(gfx_obj_align(obj, GFX_ALIGN_TOP_LEFT,
+                                      (gfx_coord_t)min_x, (gfx_coord_t)min_y),
+                        TAG, "bezier_fill_hub align");
+    return gfx_mesh_img_set_points_q8(obj, pts, pc);
+}
+
+/* ------------------------------------------------------------------ */
 /*  BEZIER_FILL primitive                                              */
 /*                                                                     */
 /*  Hub-and-spoke mesh topology (same grid size as BEZIER_LOOP):      */
@@ -656,13 +814,13 @@ static esp_err_t s_apply_bezier_fill(gfx_obj_t *obj,
 
     /* Supported n values:
      *   n=7  : two-half eye format (face emote): 1 cubic per half
-     *          upper: ctrl[0..3]  lower: ctrl[6..3] reversed → left→right
      *   n=13 : 4-quadrant closed ellipse (rig): 2 cubics per half
-     *          ctrl[0]=TOP, ctrl[3]=RIGHT, ctrl[6]=BOTTOM, ctrl[9]=LEFT, ctrl[12]=TOP
-     *          upper (LEFT→TOP→RIGHT): Q3[9→12] + Q0[0→3]
-     *          lower (LEFT→BOTTOM→RIGHT): Q2 rev[9→6] + Q1 rev[6→3]   */
+     *   other n = 3k+1 : generic closed loop — hub-and-spoke fill (matches HTML designer) */
     if (n != 7U && n != 13U) {
-        return ESP_ERR_INVALID_ARG;
+        if (((n - 1U) % 3U) != 0U || n < 4U) {
+            return ESP_ERR_INVALID_ARG;
+        }
+        return s_apply_bezier_fill_hub(obj, ctrl, n);
     }
 
     bool have_upper = false, have_lower = false;
@@ -984,8 +1142,24 @@ esp_err_t gfx_sm_runtime_init(gfx_sm_runtime_t *rt,
             break;
         }
         case GFX_SM_SEG_BEZIER_FILL: {
-            /* Two-half scan fill: grid(SM_BEZIER_FILL_SEGS, 1), no wrap. */
-            gfx_mesh_img_set_grid(obj, (uint8_t)SM_BEZIER_FILL_SEGS, 1U);
+            uint16_t nj = seg->joint_count >= 4U ? seg->joint_count : 4U;
+            uint16_t kk = (nj - 1U) / 3U;
+
+            if (nj == 7U || nj == 13U) {
+                /* Eye / ellipse presets — fixed column count (see s_apply_bezier_fill). */
+                gfx_mesh_img_set_grid(obj, (uint8_t)SM_BEZIER_FILL_SEGS, 1U);
+                gfx_mesh_img_set_wrap_cols(obj, false);
+            } else if (((nj - 1U) % 3U) == 0U) {
+                /* Generic loop: same rim resolution as BEZIER_LOOP stroke. */
+                uint16_t tcols = kk * (uint16_t)SM_BEZIER_SEGS_PER_SEG;
+                uint8_t  gcols = (tcols > 255U) ? 255U : (uint8_t)tcols;
+
+                gfx_mesh_img_set_grid(obj, gcols, 1U);
+                gfx_mesh_img_set_wrap_cols(obj, true);
+            } else {
+                gfx_mesh_img_set_grid(obj, 1U, 1U);
+                gfx_mesh_img_set_wrap_cols(obj, false);
+            }
             break;
         }
         case GFX_SM_SEG_BEZIER_STRIP: {
