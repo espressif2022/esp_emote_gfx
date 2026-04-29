@@ -787,25 +787,25 @@
     }
 
     .pose-row-del {
-      flex: 0 0 34px;
-      min-width: 34px;
-      min-height: 34px;
+      flex: 0 0 40px;
+      min-width: 40px;
+      min-height: 40px;
       padding: 0;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+      font-size: 20px;
       line-height: 1;
       color: var(--danger, #c0392b);
     }
 
     .pose-row-del svg {
       display: block;
-      width: 15px;
-      height: 15px;
+      width: 19px;
+      height: 19px;
       stroke: currentColor;
       fill: none;
-      stroke-width: 2;
+      stroke-width: 2.2;
       stroke-linecap: round;
       stroke-linejoin: round;
     }
@@ -819,13 +819,13 @@
       display: flex;
       flex: 0 0 auto;
       align-items: stretch;
-      gap: 4px;
+      gap: 6px;
     }
 
     .part-row-mini {
-      flex: 0 0 30px;
-      min-width: 30px;
-      min-height: 30px;
+      flex: 0 0 42px;
+      min-width: 42px;
+      min-height: 42px;
       padding: 0;
       display: inline-flex;
       align-items: center;
@@ -837,12 +837,12 @@
 
     .part-row-mini svg {
       display: block;
-      width: 15px;
-      height: 15px;
+      width: 24px;
+      height: 24px;
       margin: 0 auto;
       stroke: currentColor;
       fill: none;
-      stroke-width: 1.9;
+      stroke-width: 2.2;
       stroke-linecap: round;
       stroke-linejoin: round;
     }
@@ -1363,6 +1363,8 @@
 
     /* ---------- Canvas area ---------------------------------------------- */
     .canvas-head {
+      position: relative;
+      z-index: 40;
       padding: var(--sp-2) var(--sp-4);
       border-bottom: 1px solid var(--c-border);
       background: rgba(24, 29, 36, 0.92);
@@ -1444,6 +1446,151 @@
       border-radius: 8px;
     }
 
+    .device-advanced {
+      position: relative;
+      display: none;
+      z-index: 60;
+    }
+
+    .device-advanced.is-visible {
+      display: block;
+    }
+
+    .device-advanced-toggle {
+      appearance: none;
+      cursor: pointer;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--muted);
+      border-radius: 12px;
+      padding: 8px 11px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      user-select: none;
+      box-shadow: none;
+    }
+
+    .device-advanced-toggle:hover {
+      transform: none;
+      box-shadow: none;
+      border-color: rgba(255, 255, 255, 0.22);
+      background: rgba(255, 255, 255, 0.09);
+    }
+
+    .device-advanced-panel {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      z-index: 80;
+      width: min(620px, calc(100vw - 48px));
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(24, 29, 36, 0.97);
+      box-shadow: 0 22px 56px rgba(0, 0, 0, 0.34);
+      backdrop-filter: blur(18px);
+      display: grid;
+      gap: 12px;
+    }
+
+    .device-advanced-panel[hidden] {
+      display: none;
+    }
+
+    .device-advanced-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .device-advanced label {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .device-advanced input[type="number"],
+    .device-advanced select {
+      min-width: 0;
+      max-width: none;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--c-text);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .device-advanced .check-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .device-advanced .check-row label {
+      display: inline-flex;
+      grid-template-columns: none;
+      align-items: center;
+      flex-direction: row;
+      gap: 7px;
+    }
+
+    .device-advanced .mini {
+      color: rgba(215, 222, 232, 0.62);
+    }
+
+    .render-switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: auto;
+    }
+
+    .render-switch input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .render-switch .switch-track {
+      position: relative;
+      width: 42px;
+      height: 22px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.22);
+      transition: background 0.16s ease, border-color 0.16s ease;
+    }
+
+    .render-switch .switch-track::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #f8fafc;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
+      transition: transform 0.16s ease;
+    }
+
+    .render-switch input:checked + .switch-track {
+      background: var(--accent);
+      border-color: rgba(255, 255, 255, 0.24);
+    }
+
+    .render-switch input:checked + .switch-track::after {
+      transform: translateX(20px);
+    }
+
     .app-shell .badge {
       padding: 3px 9px;
       border-radius: 999px;
@@ -1471,6 +1618,7 @@
 
     .canvas-body {
       position: relative;
+      z-index: 1;
       overflow: hidden;
       background:
         radial-gradient(circle at 20% 8%, rgba(24, 160, 251, 0.09), transparent 22%),
@@ -1794,6 +1942,16 @@
       .canvas-head-stage {
         justify-content: flex-end;
       }
+
+      .device-advanced-panel {
+        left: auto;
+        right: 0;
+        width: min(620px, calc(100vw - 32px));
+      }
+
+      .device-advanced-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
   </style>
 </head>
@@ -1853,7 +2011,7 @@
 
           <!-- ------- Tab: 资源（scene.json / rig / 姿态列表）------- -->
           <section class="tab-pane active" data-pane="source" role="tabpanel">
-            <details class="fold">
+            <details class="fold" id="scene-json-fold">
               <summary>scene.json（场景定义）</summary>
               <div class="fold-body">
                 <div class="scene-json-toolbar">
@@ -2126,11 +2284,6 @@
       <!-- --------- 主画布：预览 + 播放 ---------- -->
       <section class="app-canvas">
         <div class="canvas-head">
-          <div class="badge-row">
-            <span class="badge" id="tick-badge">节拍: -</span>
-            <span class="badge" id="clip-badge">动作: -</span>
-            <span class="badge" id="mode-badge">编译后资产模式</span>
-          </div>
           <div class="canvas-head-tools">
             <div class="canvas-head-clip">
               <label>播放
@@ -2138,6 +2291,10 @@
               </label>
             </div>
             <div class="canvas-head-stage">
+              <label class="render-switch">设备
+                <input id="viewer-render-mode" type="checkbox" aria-label="切换设备渲染预览">
+                <span class="switch-track" aria-hidden="true"></span>
+              </label>
               <label>背景
                 <select id="viewer-bg-preset" aria-label="选择预览背景预设">
                   <option value="figma_dark">Figma Dark</option>
@@ -2150,9 +2307,36 @@
               <label>颜色
                 <input id="viewer-bg-input" type="color" value="#1f2329" aria-label="选择预览背景颜色">
               </label>
+              <div class="device-advanced" id="device-advanced">
+                <button class="device-advanced-toggle" id="device-advanced-toggle" type="button" aria-expanded="false">设备高级</button>
+                <div class="device-advanced-panel" id="device-advanced-panel" hidden>
+                  <div class="device-advanced-grid">
+                    <label title="CONFIG_GFX_MOTION_BEZIER_STROKE_SEGS_PER_SEG">Stroke Segs
+                      <input id="cfg-stroke-segs" type="number" min="2" max="24" step="1" value="6">
+                    </label>
+                    <label title="CONFIG_GFX_MOTION_BEZIER_FILL_LOOP_SEGS_PER_SEG">Fill Loop Segs
+                      <input id="cfg-fill-loop-segs" type="number" min="2" max="24" step="1" value="12">
+                    </label>
+                    <label title="CONFIG_GFX_MOTION_BEZIER_FILL_SEGS">Preset Fill Segs
+                      <input id="cfg-fill-segs" type="number" min="4" max="64" step="1" value="24">
+                    </label>
+                    <label title="CONFIG_GFX_MOTION_BEZIER_FILL_RASTERIZER_*">Fill Raster
+                      <select id="cfg-fill-rasterizer">
+                        <option value="scanline">Scanline</option>
+                        <option value="triangle">Triangle</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="check-row">
+                    <label title="CONFIG_GFX_BLEND_POLYGON_SOLID_HARD_EDGE">
+                      <input id="cfg-hard-edge" type="checkbox" checked> Hard Edge
+                    </label>
+                  </div>
+                  <p class="mini">这里只保留会明显影响网页设备预览的项。其他底层 AA / buffer budget 仍按组件默认值参与 HUD 提示。</p>
+                </div>
+              </div>
             </div>
           </div>
-          <span class="asset-name" id="asset-name">未编译</span>
         </div>
 
         <div class="canvas-body">
@@ -2238,6 +2422,20 @@
     const SCENE_MAX_SEG_CTRL_PTS = 64;
     const SCENE_MAX_CLIP_STEPS = 255;
     const SCENE_MAX_PALETTE = 16;
+    const DEVICE_RENDER_CONFIG_DEFAULTS = {
+      strokeSegsPerSeg: 6,
+      fillLoopSegsPerSeg: 12,
+      fillSegs: 24,
+      polygonMaxIntersections: 64,
+      polygonSubSamples: 8,
+      triangleEdgeAaRange: 0,
+      polygonCoverageMaxWidth: 512,
+      meshScanlineMaxVerts: 512,
+      hubFillMaxPoints: 512,
+      fillRasterizer: "scanline",
+      inwardAa: true,
+      solidHardEdge: true,
+    };
     const VIEWER_BG_PRESETS = {
       figma_dark: "#1F2329",
       graphite: "#171B22",
@@ -2258,6 +2456,7 @@
     const els = {
       fileInput: document.getElementById("file-input"),
       loadLottieBtn: document.getElementById("load-lottie-btn"),
+      sceneJsonFold: document.getElementById("scene-json-fold"),
       rigFold: document.getElementById("rig-fold"),
       rigDropzone: document.getElementById("rig-dropzone"),
       importPoseBtn: document.getElementById("import-pose-btn"),
@@ -2311,9 +2510,19 @@
       assetName: document.getElementById("asset-name"),
       tickBadge: document.getElementById("tick-badge"),
       clipBadge: document.getElementById("clip-badge"),
+      modeBadge: document.getElementById("mode-badge"),
       clipSelect: document.getElementById("clip-select"),
+      viewerRenderMode: document.getElementById("viewer-render-mode"),
       viewerBgPreset: document.getElementById("viewer-bg-preset"),
       viewerBgInput: document.getElementById("viewer-bg-input"),
+      deviceAdvanced: document.getElementById("device-advanced"),
+      deviceAdvancedToggle: document.getElementById("device-advanced-toggle"),
+      deviceAdvancedPanel: document.getElementById("device-advanced-panel"),
+      cfgStrokeSegs: document.getElementById("cfg-stroke-segs"),
+      cfgFillLoopSegs: document.getElementById("cfg-fill-loop-segs"),
+      cfgFillSegs: document.getElementById("cfg-fill-segs"),
+      cfgFillRasterizer: document.getElementById("cfg-fill-rasterizer"),
+      cfgHardEdge: document.getElementById("cfg-hard-edge"),
       playBtn: document.getElementById("play-btn"),
       stepBtn: document.getElementById("step-btn"),
       resetBtn: document.getElementById("reset-btn"),
@@ -2342,8 +2551,10 @@
       autoSequence: false,
       speed: 1,
       color: "#101820",
+      previewRenderMode: "sim",
       viewerBgPreset: "figma_dark",
       viewerBg: VIEWER_BG_PRESETS.figma_dark,
+      deviceRenderConfig: { ...DEVICE_RENDER_CONFIG_DEFAULTS },
       accumMs: 0,
       seqAccumMs: 0,
       lastTs: performance.now(),
@@ -2554,6 +2765,64 @@
           VIEWER_BG_PRESETS.figma_dark
         ).toLowerCase();
       }
+    }
+
+    function syncViewerRenderModeControls() {
+      state.previewRenderMode = state.previewRenderMode === "device" ? "device" : "sim";
+      if (els.viewerRenderMode) {
+        els.viewerRenderMode.checked = state.previewRenderMode === "device";
+      }
+      if (els.deviceAdvanced) {
+        els.deviceAdvanced.classList.toggle("is-visible", state.previewRenderMode === "device");
+        if (state.previewRenderMode !== "device") {
+          els.deviceAdvanced.classList.remove("is-open");
+          if (els.deviceAdvancedPanel) {
+            els.deviceAdvancedPanel.hidden = true;
+          }
+        }
+      }
+      if (els.modeBadge) {
+        els.modeBadge.textContent = state.previewRenderMode === "device"
+          ? "设备渲染预览"
+          : "SVG 仿真预览";
+      }
+    }
+
+    function clampInt(value, min, max, fallback) {
+      const n = Math.round(Number(value));
+      if (!Number.isFinite(n)) return fallback;
+      return Math.max(min, Math.min(max, n));
+    }
+
+    function syncDeviceRenderConfigControls() {
+      const cfg = state.deviceRenderConfig;
+      if (els.cfgStrokeSegs) els.cfgStrokeSegs.value = String(cfg.strokeSegsPerSeg);
+      if (els.cfgFillLoopSegs) els.cfgFillLoopSegs.value = String(cfg.fillLoopSegsPerSeg);
+      if (els.cfgFillSegs) els.cfgFillSegs.value = String(cfg.fillSegs);
+      if (els.cfgFillRasterizer) els.cfgFillRasterizer.value = cfg.fillRasterizer;
+      if (els.cfgHardEdge) els.cfgHardEdge.checked = !!cfg.solidHardEdge;
+    }
+
+    function readDeviceRenderConfigFromControls() {
+      const d = DEVICE_RENDER_CONFIG_DEFAULTS;
+      state.deviceRenderConfig = {
+        strokeSegsPerSeg: clampInt(els.cfgStrokeSegs?.value, 2, 24, d.strokeSegsPerSeg),
+        fillLoopSegsPerSeg: clampInt(els.cfgFillLoopSegs?.value, 2, 24, d.fillLoopSegsPerSeg),
+        fillSegs: clampInt(els.cfgFillSegs?.value, 4, 64, d.fillSegs),
+        polygonMaxIntersections: d.polygonMaxIntersections,
+        polygonSubSamples: d.polygonSubSamples,
+        triangleEdgeAaRange: d.triangleEdgeAaRange,
+        polygonCoverageMaxWidth: d.polygonCoverageMaxWidth,
+        meshScanlineMaxVerts: d.meshScanlineMaxVerts,
+        hubFillMaxPoints: d.hubFillMaxPoints,
+        fillRasterizer: els.cfgFillRasterizer?.value === "triangle" ? "triangle" : "scanline",
+        inwardAa: d.inwardAa,
+        solidHardEdge: !!els.cfgHardEdge?.checked,
+      };
+      if (!state.deviceRenderConfig.inwardAa) {
+        state.deviceRenderConfig.solidHardEdge = false;
+      }
+      syncDeviceRenderConfigControls();
     }
 
     function resolveViewerTheme() {
@@ -4601,6 +4870,209 @@
       return d;
     }
 
+    function deviceRound(value) {
+      const n = Number(value) || 0;
+      return n < 0 ? Math.ceil(n - 0.5) : Math.floor(n + 0.5);
+    }
+
+    function cubicPosTan(p0, p1, p2, p3, t) {
+      const u = 1 - t;
+      const u2 = u * u;
+      const t2 = t * t;
+      let tx = 3 * u2 * (p1.x - p0.x) + 6 * u * t * (p2.x - p1.x) + 3 * t2 * (p3.x - p2.x);
+      let ty = 3 * u2 * (p1.y - p0.y) + 6 * u * t * (p2.y - p1.y) + 3 * t2 * (p3.y - p2.y);
+      if (Math.abs(tx) + Math.abs(ty) < 1e-6) {
+        tx = p2.x - p0.x;
+        ty = p2.y - p0.y;
+        if (Math.abs(tx) + Math.abs(ty) < 1e-6) {
+          tx = p3.x - p0.x;
+          ty = p3.y - p0.y;
+          if (Math.abs(tx) + Math.abs(ty) < 1e-6) {
+            tx = 1;
+            ty = 0;
+          }
+        }
+      }
+      return {
+        x: u2 * u * p0.x + 3 * u2 * t * p1.x + 3 * u * t2 * p2.x + t2 * t * p3.x,
+        y: u2 * u * p0.y + 3 * u2 * t * p1.y + 3 * u * t2 * p2.y + t2 * t * p3.y,
+        tx,
+        ty,
+      };
+    }
+
+    function cubicPointRounded(p0, p1, p2, p3, t) {
+      const p = cubicPosTan(p0, p1, p2, p3, t);
+      return { x: deviceRound(p.x), y: deviceRound(p.y) };
+    }
+
+    function polygonPath(points) {
+      if (!Array.isArray(points) || points.length < 2) return "";
+      let d = `M ${points[0].x} ${points[0].y}`;
+      for (let i = 1; i < points.length; i++) {
+        d += ` L ${points[i].x} ${points[i].y}`;
+      }
+      return `${d} Z`;
+    }
+
+    function deviceBezierStrokePolygon(ctrl, strokeWidth, loop) {
+      if (!Array.isArray(ctrl) || ctrl.length < 4 || ((ctrl.length - 1) % 3) !== 0) return [];
+      const cfg = state.deviceRenderConfig || DEVICE_RENDER_CONFIG_DEFAULTS;
+      const segsPerSeg = clampInt(cfg.strokeSegsPerSeg, 2, 24, DEVICE_RENDER_CONFIG_DEFAULTS.strokeSegsPerSeg);
+      const k = (ctrl.length - 1) / 3;
+      const half = Math.max(1, Number(strokeWidth) || 1) * 0.5;
+      const outer = [];
+      const inner = [];
+      let lastPx = 0;
+      let lastPy = 0;
+      let lastNx = 0;
+      let lastNy = 0;
+      let haveLast = false;
+
+      function pushSample(px, py, tx, ty) {
+        let len = Math.hypot(tx, ty);
+        if (len < 1e-6) {
+          tx = 1;
+          ty = 0;
+          len = 1;
+        }
+        tx /= len;
+        ty /= len;
+        let nx = -ty;
+        let ny = tx;
+        if (haveLast) {
+          const dx = px - lastPx;
+          const dy = py - lastPy;
+          if (dx * dx + dy * dy < 1.0) {
+            px = lastPx;
+            py = lastPy;
+            nx = lastNx;
+            ny = lastNy;
+          } else {
+            lastPx = px;
+            lastPy = py;
+            lastNx = nx;
+            lastNy = ny;
+          }
+        } else {
+          lastPx = px;
+          lastPy = py;
+          lastNx = nx;
+          lastNy = ny;
+          haveLast = true;
+        }
+        outer.push({ x: deviceRound(px + nx * half), y: deviceRound(py + ny * half) });
+        inner.push({ x: deviceRound(px - nx * half), y: deviceRound(py - ny * half) });
+      }
+
+      for (let seg = 0; seg < k; seg++) {
+        const p0 = ctrl[seg * 3];
+        const p1 = ctrl[seg * 3 + 1];
+        const p2 = ctrl[seg * 3 + 2];
+        const p3 = loop ? ctrl[((seg + 1) * 3) % (ctrl.length - 1)] : ctrl[(seg + 1) * 3];
+        for (let sub = 0; sub < segsPerSeg; sub++) {
+          const p = cubicPosTan(p0, p1, p2, p3, sub / segsPerSeg);
+          pushSample(p.x, p.y, p.tx, p.ty);
+        }
+      }
+      if (!loop) {
+        const base = (k - 1) * 3;
+        const p = cubicPosTan(ctrl[base], ctrl[base + 1], ctrl[base + 2], ctrl[k * 3], 1);
+        pushSample(p.x, p.y, p.tx, p.ty);
+      }
+      if (!outer.length || !inner.length) return [];
+      return outer.concat(inner.slice().reverse());
+    }
+
+    function deviceBezierFillPolygon(ctrl) {
+      if (!Array.isArray(ctrl) || ctrl.length < 4 || ((ctrl.length - 1) % 3) !== 0) return [];
+      const cfg = state.deviceRenderConfig || DEVICE_RENDER_CONFIG_DEFAULTS;
+      const fillSegs = clampInt(cfg.fillSegs, 4, 64, DEVICE_RENDER_CONFIG_DEFAULTS.fillSegs);
+      const loopSegsPerSeg = clampInt(cfg.fillLoopSegsPerSeg, 2, 24, DEVICE_RENDER_CONFIG_DEFAULTS.fillLoopSegsPerSeg);
+      if (ctrl.length === 7) {
+        const upper = [];
+        const lower = [];
+        for (let i = 0; i <= fillSegs; i++) {
+          upper.push(cubicPointRounded(ctrl[0], ctrl[1], ctrl[2], ctrl[3], i / fillSegs));
+          lower.push(cubicPointRounded(ctrl[3], ctrl[4], ctrl[5], ctrl[6], (fillSegs - i) / fillSegs));
+        }
+        return upper.concat(lower.slice().reverse());
+      }
+      if (ctrl.length === 13) {
+        const upper = [];
+        const lower = [];
+        const h = Math.max(2, Math.round(fillSegs / 2));
+        for (let i = 0; i <= h; i++) {
+          upper.push(cubicPointRounded(ctrl[9], ctrl[10], ctrl[11], ctrl[12], i / h));
+          lower.push(cubicPointRounded(ctrl[9], ctrl[8], ctrl[7], ctrl[6], i / h));
+        }
+        const rest = Math.max(2, fillSegs - h);
+        for (let i = 1; i <= rest; i++) {
+          upper.push(cubicPointRounded(ctrl[0], ctrl[1], ctrl[2], ctrl[3], i / rest));
+          lower.push(cubicPointRounded(ctrl[6], ctrl[5], ctrl[4], ctrl[3], i / rest));
+        }
+        return upper.concat(lower.slice().reverse());
+      }
+      const out = [];
+      const k = (ctrl.length - 1) / 3;
+      for (let seg = 0; seg < k; seg++) {
+        const p0 = ctrl[seg * 3];
+        const p1 = ctrl[seg * 3 + 1];
+        const p2 = ctrl[seg * 3 + 2];
+        const p3 = ctrl[((seg + 1) * 3) % (ctrl.length - 1)];
+        for (let sub = 0; sub < loopSegsPerSeg; sub++) {
+          out.push(cubicPointRounded(p0, p1, p2, p3, sub / loopSegsPerSeg));
+        }
+      }
+      return out;
+    }
+
+    function deviceFillBudgetIssue(points, ctrl) {
+      const cfg = state.deviceRenderConfig || DEVICE_RENDER_CONFIG_DEFAULTS;
+      if (!Array.isArray(points) || points.length < 3) return "";
+      if (points.length > cfg.meshScanlineMaxVerts) {
+        return `scanline verts ${points.length} > ${cfg.meshScanlineMaxVerts}`;
+      }
+      if (Array.isArray(ctrl) && ctrl.length !== 7 && ctrl.length !== 13 && points.length > cfg.hubFillMaxPoints) {
+        return `hub points ${points.length} > ${cfg.hubFillMaxPoints}`;
+      }
+      return "";
+    }
+
+    function appendDeviceFill(parent, points, color, opacity) {
+      const cfg = state.deviceRenderConfig || DEVICE_RENDER_CONFIG_DEFAULTS;
+      if (!Array.isArray(points) || points.length < 3) return;
+
+      if (cfg.fillRasterizer === "triangle") {
+        const cx = points.reduce((sum, p) => sum + p.x, 0) / points.length;
+        const cy = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+        const g = document.createElementNS(NS, "g");
+        g.setAttribute("fill", color);
+        g.setAttribute("fill-opacity", String(opacity));
+        if (cfg.solidHardEdge) {
+          g.setAttribute("shape-rendering", "crispEdges");
+        }
+        for (let i = 0; i < points.length; i++) {
+          const a = points[i];
+          const b = points[(i + 1) % points.length];
+          const tri = document.createElementNS(NS, "path");
+          tri.setAttribute("d", polygonPath([{ x: cx, y: cy }, a, b]));
+          g.appendChild(tri);
+        }
+        parent.appendChild(g);
+        return;
+      }
+
+      const path = document.createElementNS(NS, "path");
+      path.setAttribute("d", polygonPath(points));
+      path.setAttribute("fill", color);
+      path.setAttribute("fill-opacity", String(opacity));
+      if (cfg.solidHardEdge) {
+        path.setAttribute("shape-rendering", "crispEdges");
+      }
+      parent.appendChild(path);
+    }
+
     function posePartDesignPoints(pose, partId) {
       const raw = pose.parts[partId];
       if (!Array.isArray(raw) || !raw.length) return null;
@@ -4812,6 +5284,7 @@
 
     function renderAsset() {
       updateViewerShellFrame();
+      syncViewerRenderModeControls();
       const svg = els.viewer;
       const width = Math.max(120, Math.round(svg.clientWidth || 700));
       const height = Math.max(120, Math.round(svg.clientHeight || 700));
@@ -4895,8 +5368,11 @@
 
       const asset = state.asset;
       const scene = state.scene;
+      const devicePreview = state.previewRenderMode === "device";
+      const deviceCfg = state.deviceRenderConfig || DEVICE_RENDER_CONFIG_DEFAULTS;
       const defaultStroke = scalarPx(asset, width, height, asset.layout.strokeWidth || 4);
       let selectedCalloutBounds = null;
+      const deviceWarnings = [];
 
       if (Number.isFinite(asset.layout.groundY)) {
         const ground = toScreen(asset, { x: asset.meta.viewboxX, y: asset.layout.groundY }, width, height);
@@ -5044,11 +5520,20 @@
         const ctrl = segmentScreenCtrl(asset, scene, seg, width, height);
 
         if (seg.kind === "GFX_SM_SEG_BEZIER_FILL") {
-          const path = document.createElementNS(NS, "path");
-          path.setAttribute("d", bezierPath(ctrl, true));
-          path.setAttribute("fill", segColor);
-          path.setAttribute("fill-opacity", String(segOpacity));
-          svg.appendChild(path);
+          const devicePoly = devicePreview ? deviceBezierFillPolygon(ctrl) : [];
+          if (devicePreview && devicePoly.length >= 3) {
+            const budgetIssue = deviceFillBudgetIssue(devicePoly, ctrl);
+            if (budgetIssue) {
+              deviceWarnings.push(`${seg.id}: ${budgetIssue}`);
+            }
+            appendDeviceFill(svg, devicePoly, segColor, segOpacity);
+          } else {
+            const path = document.createElementNS(NS, "path");
+            path.setAttribute("d", bezierPath(ctrl, true));
+            path.setAttribute("fill", segColor);
+            path.setAttribute("fill-opacity", String(segOpacity));
+            svg.appendChild(path);
+          }
 
           const hit = document.createElementNS(NS, "path");
           hit.setAttribute("d", bezierPath(ctrl, true));
@@ -5076,11 +5561,11 @@
 
           if (isSelectedPart) {
             const highlight = document.createElementNS(NS, "path");
-            highlight.setAttribute("d", bezierPath(ctrl, true));
+            highlight.setAttribute("d", devicePoly.length >= 3 ? polygonPath(devicePoly) : bezierPath(ctrl, true));
             highlight.setAttribute("class", "part-highlight");
             svg.appendChild(highlight);
             selectedCalloutBounds = expandScreenBounds(
-              screenBoundsFromPoints(ctrl),
+              screenBoundsFromPoints(devicePoly.length >= 3 ? devicePoly : ctrl),
               Math.max(10, strokeWidth * 0.6)
             );
           }
@@ -5088,18 +5573,30 @@
         }
 
         if (seg.kind === "GFX_SM_SEG_BEZIER_LOOP" || seg.kind === "GFX_SM_SEG_BEZIER_STRIP") {
+          const loop = seg.kind === "GFX_SM_SEG_BEZIER_LOOP";
+          const devicePoly = devicePreview ? deviceBezierStrokePolygon(ctrl, strokeWidth, loop) : [];
           const path = document.createElementNS(NS, "path");
-          path.setAttribute("d", bezierPath(ctrl, seg.kind === "GFX_SM_SEG_BEZIER_LOOP"));
-          path.setAttribute("fill", "none");
-          path.setAttribute("stroke", segColor);
-          path.setAttribute("stroke-opacity", String(segOpacity));
-          path.setAttribute("stroke-width", String(strokeWidth));
-          path.setAttribute("stroke-linecap", "round");
-          path.setAttribute("stroke-linejoin", "round");
+          if (devicePoly.length >= 3) {
+            path.setAttribute("d", polygonPath(devicePoly));
+            path.setAttribute("fill", segColor);
+            path.setAttribute("fill-opacity", String(segOpacity));
+            path.setAttribute("stroke", "none");
+            if (deviceCfg.solidHardEdge) {
+              path.setAttribute("shape-rendering", "crispEdges");
+            }
+          } else {
+            path.setAttribute("d", bezierPath(ctrl, loop));
+            path.setAttribute("fill", "none");
+            path.setAttribute("stroke", segColor);
+            path.setAttribute("stroke-opacity", String(segOpacity));
+            path.setAttribute("stroke-width", String(strokeWidth));
+            path.setAttribute("stroke-linecap", "round");
+            path.setAttribute("stroke-linejoin", "round");
+          }
           svg.appendChild(path);
 
           const hit = document.createElementNS(NS, "path");
-          hit.setAttribute("d", bezierPath(ctrl, seg.kind === "GFX_SM_SEG_BEZIER_LOOP"));
+          hit.setAttribute("d", bezierPath(ctrl, loop));
           hit.setAttribute("stroke-width", String(Math.max(18, strokeWidth + 16)));
           hit.setAttribute("stroke-linecap", "round");
           hit.setAttribute("stroke-linejoin", "round");
@@ -5127,11 +5624,11 @@
 
           if (isSelectedPart) {
             const highlight = document.createElementNS(NS, "path");
-            highlight.setAttribute("d", bezierPath(ctrl, seg.kind === "GFX_SM_SEG_BEZIER_LOOP"));
+            highlight.setAttribute("d", devicePoly.length >= 3 ? polygonPath(devicePoly) : bezierPath(ctrl, loop));
             highlight.setAttribute("class", "part-highlight");
             svg.appendChild(highlight);
             selectedCalloutBounds = expandScreenBounds(
-              screenBoundsFromPoints(ctrl),
+              screenBoundsFromPoints(devicePoly.length >= 3 ? devicePoly : ctrl),
               Math.max(10, strokeWidth * 0.6)
             );
           }
@@ -5149,9 +5646,17 @@
       els.hud.textContent =
         `动作: ${clip.id}\n` +
         `步进: ${scene.activeStep + 1}/${clip.steps.length}  停留: ${scene.stepTicks}/${step.holdTicks}\n` +
+        `预览: ${devicePreview ? "设备采样/填充" : "SVG 仿真"}\n` +
+        (devicePreview
+          ? `采样: stroke=${deviceCfg.strokeSegsPerSeg} fill=${deviceCfg.fillSegs}/${deviceCfg.fillLoopSegsPerSeg} raster=${deviceCfg.fillRasterizer}\n` +
+            `AA: sub=${deviceCfg.polygonSubSamples} tri=${deviceCfg.triangleEdgeAaRange || 256} inward=${deviceCfg.inwardAa ? 1 : 0} hard=${deviceCfg.solidHardEdge ? 1 : 0} ix=${deviceCfg.polygonMaxIntersections}\n` +
+            (deviceWarnings.length ? `警告: ${deviceWarnings.slice(0, 2).join("; ")}\n` : "")
+          : "") +
         `节拍: ${asset.layout.timerPeriodMs || 33} ms  阻尼: ${asset.layout.dampingDiv || 4}\n` +
         `朝向: ${step.facing}`;
-      els.clipBadge.textContent = `动作: ${clip.id}`;
+      if (els.clipBadge) {
+        els.clipBadge.textContent = `动作: ${clip.id}`;
+      }
     }
 
     /* ---- Part detail dialog: magnifier view + focus overlay -------------
@@ -5513,9 +6018,9 @@
 
     function refreshCompiledUi() {
       if (!state.asset || !state.scene) {
-        els.assetName.textContent = "未编译";
-        els.tickBadge.textContent = "节拍: -";
-        els.clipBadge.textContent = "动作: -";
+        if (els.assetName) els.assetName.textContent = "未编译";
+        if (els.tickBadge) els.tickBadge.textContent = "节拍: -";
+        if (els.clipBadge) els.clipBadge.textContent = "动作: -";
         els.statJoints.textContent = "-";
         els.statSegments.textContent = "-";
         els.statPoses.textContent = "-";
@@ -5526,8 +6031,8 @@
       }
 
       const asset = state.asset;
-      els.assetName.textContent = `${asset.name} / ${asset.prefix}`;
-      els.tickBadge.textContent = `节拍: ${asset.layout.timerPeriodMs || 33} ms`;
+      if (els.assetName) els.assetName.textContent = `${asset.name} / ${asset.prefix}`;
+      if (els.tickBadge) els.tickBadge.textContent = `节拍: ${asset.layout.timerPeriodMs || 33} ms`;
       els.statJoints.textContent = String(asset.jointNames.length);
       els.statSegments.textContent = String(asset.segments.length);
       els.statPoses.textContent = String(asset.poses.length);
@@ -7082,6 +7587,56 @@
       });
     }
 
+    if (els.viewerRenderMode) {
+      els.viewerRenderMode.addEventListener("change", () => {
+        state.previewRenderMode = els.viewerRenderMode.checked ? "device" : "sim";
+        syncViewerRenderModeControls();
+        renderAsset();
+      });
+    }
+
+    if (els.deviceAdvancedToggle && els.deviceAdvancedPanel) {
+      const setDeviceAdvancedOpen = (open) => {
+        els.deviceAdvancedPanel.hidden = !open;
+        els.deviceAdvanced.classList.toggle("is-open", open);
+        els.deviceAdvancedToggle.setAttribute("aria-expanded", open ? "true" : "false");
+      };
+      els.deviceAdvancedToggle.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const nextOpen = !!els.deviceAdvancedPanel.hidden;
+        setDeviceAdvancedOpen(nextOpen);
+      });
+      els.deviceAdvancedPanel.addEventListener("pointerdown", (event) => {
+        event.stopPropagation();
+      });
+      document.addEventListener("pointerdown", () => {
+        if (els.deviceAdvancedPanel.hidden) return;
+        setDeviceAdvancedOpen(false);
+      });
+    }
+
+    [
+      els.cfgStrokeSegs,
+      els.cfgFillLoopSegs,
+      els.cfgFillSegs,
+      els.cfgFillRasterizer,
+      els.cfgHardEdge,
+    ].filter(Boolean).forEach((el) => {
+      el.addEventListener("input", () => {
+        readDeviceRenderConfigFromControls();
+        renderAsset();
+      });
+      el.addEventListener("change", () => {
+        readDeviceRenderConfigFromControls();
+        renderAsset();
+      });
+    });
+
+    if (els.sceneJsonFold) {
+      els.sceneJsonFold.open = false;
+    }
+
     els.colorInput.addEventListener("input", () => {
       state.color = els.colorInput.value;
       renderAsset();
@@ -7172,6 +7727,8 @@
 
     refreshGuiPanels();
     syncViewerBgControls();
+    syncDeviceRenderConfigControls();
+    syncViewerRenderModeControls();
     updateUndoUi();
     updateViewerShellFrame();
     renderAsset();
