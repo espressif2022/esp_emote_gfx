@@ -789,15 +789,68 @@
     .pose-row-del {
       flex: 0 0 34px;
       min-width: 34px;
-      padding: 0 8px;
+      min-height: 34px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       font-size: 18px;
       line-height: 1;
       color: var(--danger, #c0392b);
     }
 
+    .pose-row-del svg {
+      display: block;
+      width: 15px;
+      height: 15px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
     .pose-row-del:hover {
       background: rgba(192, 57, 43, 0.08);
       border-color: rgba(192, 57, 43, 0.3);
+    }
+
+    .part-row-actions {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: stretch;
+      gap: 4px;
+    }
+
+    .part-row-mini {
+      flex: 0 0 30px;
+      min-width: 30px;
+      min-height: 30px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      line-height: 1;
+      color: var(--muted);
+    }
+
+    .part-row-mini svg {
+      display: block;
+      width: 15px;
+      height: 15px;
+      margin: 0 auto;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .part-row-mini.is-on {
+      color: var(--accent);
+      border-color: var(--ui-selected-border, rgba(20, 110, 120, 0.38));
+      background: var(--ui-selected-bg, rgba(20, 110, 120, 0.10));
     }
 
     .compact-fold > summary {
@@ -1773,11 +1826,14 @@
         <button id="compile-btn" type="button"
                 title="按资源页当前 scene.json 文本编译并启动仿真">编译并仿真</button>
         <span class="tb-sep"></span>
+        <button class="ghost" id="undo-btn" type="button"
+                title="撤销上一次场景修改（Ctrl/Cmd+Z）">撤销</button>
+        <span class="tb-sep"></span>
         <button class="ghost" id="save-scene-btn" type="button"
                 title="下载当前 scene.json">保存场景</button>
         <span class="tb-sep"></span>
         <button class="ghost" id="export-btn" type="button"
-                title="选择保存目录后写入 scene.json 与 .inc（不支持选目录的浏览器将依次下载）">导出</button>
+                title="导出当前编译结果对应的 .inc 资产文件">导出</button>
       </div>
     </header>
 
@@ -1797,7 +1853,7 @@
 
           <!-- ------- Tab: 资源（scene.json / rig / 姿态列表）------- -->
           <section class="tab-pane active" data-pane="source" role="tabpanel">
-            <details class="fold" open>
+            <details class="fold">
               <summary>scene.json（场景定义）</summary>
               <div class="fold-body">
                 <div class="scene-json-toolbar">
@@ -1806,12 +1862,12 @@
                     <input id="file-input" type="file" accept=".json,.txt">
                   </label>
                   <button class="ghost" id="normalize-btn" type="button"
-                          title="根据编辑区内容：已是 scene.json 则补齐缺省字段并统一坐标格式；若是 Lottie 则解析为标准 scene schema 并写回（与打开文件导入等效）">
-                    识别并整理
+                          title="仅在你手工粘贴外部 JSON 时使用：标准 scene 会补齐字段并规范格式；Lottie 会转换成标准 scene 并写回编辑区">
+                    识别/转换
                   </button>
                 </div>
                 <p class="mini" style="margin-top:0;margin-bottom:8px;">
-                  <strong>打开</strong>：把整份文件载入编辑区。<strong>识别并整理</strong>：对<strong>当前编辑区里的文本</strong>做类型识别——标准 scene 会规范化字段与坐标；Lottie 会转成同 schema 的场景并覆盖编辑区，便于再点「编译并仿真」。
+                  <strong>打开</strong>：把整份文件载入编辑区。<strong>识别/转换</strong>：只在你手工粘贴外部 JSON 时需要；标准 scene 会规范化字段与坐标，Lottie 会转成统一 scene schema 再写回编辑区。
                 </p>
                 <textarea id="scene-editor" spellcheck="false" placeholder='{
   "schema": "gfx_sm_scene_v1",
@@ -1889,10 +1945,6 @@
                   场景名称
                   <input id="gui-scene-name" type="text" placeholder="场景名称">
                 </label>
-                <label>
-                  导出前缀
-                  <input id="gui-scene-prefix" type="text" placeholder="例如 s_scene">
-                </label>
               </div>
               <div class="field-grid rig-target-grid" style="margin-top:6px;">
                 <label>
@@ -1905,9 +1957,16 @@
                   <input id="target-h-input" type="number" min="16" step="1"
                          placeholder="留空 = 原始 h">
                 </label>
+                <label>
+                  屏幕形态
+                  <select id="target-round-select">
+                    <option value="false">方屏</option>
+                    <option value="true">圆屏</option>
+                  </select>
+                </label>
               </div>
               <p class="mini" style="margin-top:4px;">
-                rig 导入时等比（fit）缩放到此尺寸并居中；留空沿用 Lottie 原始尺寸。
+                rig 导入时等比（fit）缩放到此尺寸并居中；留空沿用 Lottie 原始尺寸。圆屏设置会写入场景，并同步影响预览裁剪。
               </p>
               <p class="mini" style="margin-top:8px;">
                 这里的修改会立即写回当前 scene.json；文件落盘请用顶栏「保存场景」。
@@ -1919,7 +1978,7 @@
           <section class="tab-pane" data-pane="parts" role="tabpanel">
             <div class="card">
               <h3>部件列表</h3>
-              <p class="mini">单击 focus / 再点取消；focus 后双击可弹框放大查看 / 编辑控制点。</p>
+              <p class="mini">单击 focus / 再点取消；focus 后双击可弹框放大查看 / 编辑控制点。右侧眼睛按钮控制 hidden，上下箭头调整层级。</p>
               <div class="listbox" id="parts-list"></div>
             </div>
             <div class="card">
@@ -1928,10 +1987,6 @@
                 <label>
                   部件 ID
                   <input id="part-id-input" type="text" placeholder="部件 ID">
-                </label>
-                <label>
-                  部件名称
-                  <input id="part-label-input" type="text" placeholder="例如 嘴巴">
                 </label>
                 <label>
                   部件类型
@@ -1946,10 +2001,6 @@
                 <label>
                   线宽
                   <input id="part-stroke-input" type="number" min="0" step="1" value="0">
-                </label>
-                <label>
-                  图层位
-                  <input id="part-layer-input" type="number" min="0" max="255" step="1" value="0">
                 </label>
                 <label>
                   颜色模式
@@ -2193,6 +2244,16 @@
       paper: "#F5F7FA",
       warm: "#F3EEE6",
     };
+    const PART_EYE_OPEN_ICON =
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.2 12s3.6-5.8 9.8-5.8S21.8 12 21.8 12s-3.6 5.8-9.8 5.8S2.2 12 2.2 12z"></path><circle cx="12" cy="12" r="2.8"></circle></svg>';
+    const PART_EYE_CLOSED_ICON =
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M9.3 5.7A11.5 11.5 0 0 1 12 5.4c6.2 0 9.8 5.8 9.8 5.8a18.7 18.7 0 0 1-3.3 4.1"></path><path d="M14.8 14.9A4 4 0 0 1 9.1 9.2"></path><path d="M6.1 6.2A18.2 18.2 0 0 0 2.2 12s3.6 5.8 9.8 5.8c1.7 0 3.1-.4 4.4-1"></path></svg>';
+    const PART_ARROW_UP_ICON =
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 18V6"></path><path d="M7 11l5-5 5 5"></path></svg>';
+    const PART_ARROW_DOWN_ICON =
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12"></path><path d="M7 13l5 5 5-5"></path></svg>';
+    const PART_DELETE_ICON =
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg>';
 
     const els = {
       fileInput: document.getElementById("file-input"),
@@ -2205,22 +2266,21 @@
       poseCountBadge: document.getElementById("pose-count-badge"),
       targetWInput: document.getElementById("target-w-input"),
       targetHInput: document.getElementById("target-h-input"),
+      targetRoundSelect: document.getElementById("target-round-select"),
       rigEditor: document.getElementById("rig-editor"),
       normalizeBtn: document.getElementById("normalize-btn"),
       compileBtn: document.getElementById("compile-btn"),
+      undoBtn: document.getElementById("undo-btn"),
       saveSceneBtn: document.getElementById("save-scene-btn"),
       exportBtn: document.getElementById("export-btn"),
       status: document.getElementById("status-box"),
       sourceName: document.getElementById("source-name"),
       sceneEditor: document.getElementById("scene-editor"),
       guiSceneName: document.getElementById("gui-scene-name"),
-      guiScenePrefix: document.getElementById("gui-scene-prefix"),
       partsList: document.getElementById("parts-list"),
       partIdInput: document.getElementById("part-id-input"),
-      partLabelInput: document.getElementById("part-label-input"),
       partKindSelect: document.getElementById("part-kind-select"),
       partStrokeInput: document.getElementById("part-stroke-input"),
-      partLayerInput: document.getElementById("part-layer-input"),
       partColorModeSelect: document.getElementById("part-color-mode-select"),
       partColorValueInput: document.getElementById("part-color-value-input"),
       partColorHexInput: document.getElementById("part-color-hex-input"),
@@ -2245,6 +2305,7 @@
       stepInterpSelect: document.getElementById("step-interp-select"),
       clipNewCtx: document.getElementById("clip-new-ctx"),
       viewer: document.getElementById("viewer"),
+      canvasBody: document.querySelector(".canvas-body"),
       viewerShell: document.querySelector(".viewer-shell"),
       hud: document.getElementById("hud"),
       assetName: document.getElementById("asset-name"),
@@ -2297,11 +2358,31 @@
       dragPartPointerId: null,
       dragPartStartDesign: null,
       dragPartOriginalPoints: null,
+      viewerZoom: 1,
+      viewerPanX: 0,
+      viewerPanY: 0,
+      viewerPanPointerId: null,
+      viewerPanStartX: 0,
+      viewerPanStartY: 0,
+      viewerPanOriginX: 0,
+      viewerPanOriginY: 0,
+      undoStack: [],
+      undoRestoring: false,
+      gestureUndoArmed: false,
     };
 
     function setStatus(text, error = false) {
       els.status.textContent = text;
       els.status.classList.toggle("error", error);
+    }
+
+    function updateUndoUi() {
+      if (!els.undoBtn) return;
+      const count = Array.isArray(state.undoStack) ? state.undoStack.length : 0;
+      els.undoBtn.disabled = count === 0;
+      els.undoBtn.title = count > 0
+        ? `撤销上一次场景修改（剩余 ${count} 步，Ctrl/Cmd+Z）`
+        : "当前没有可撤销的修改";
     }
 
     function pointerPosOnViewer(event) {
@@ -2314,6 +2395,66 @@
 
     function safeStringify(value) {
       return JSON.stringify(value, null, 2);
+    }
+
+    function captureSceneSnapshot(docOverride = null) {
+      const doc = docOverride
+        ? normalizeSceneDoc(docOverride)
+        : (state.sceneDoc
+          ? normalizeSceneDoc(state.sceneDoc)
+          : normalizeSceneDoc(parseJsonInput(els.sceneEditor.value)));
+      return {
+        doc: deepClone(doc),
+        sourceName: state.sourceName || "",
+        selectedPoseIndex: state.selectedPoseIndex,
+        selectedClipIndex: state.selectedClipIndex,
+        selectedStepIndex: state.selectedStepIndex,
+        selectedPartId: state.selectedPartId || "",
+      };
+    }
+
+    function pushUndoSnapshot(snapshot = null) {
+      if (state.undoRestoring) return;
+      try {
+        const next = snapshot || captureSceneSnapshot();
+        const nextKey = safeStringify(next.doc);
+        const prev = state.undoStack.length ? state.undoStack[state.undoStack.length - 1] : null;
+        if (prev && safeStringify(prev.doc) === nextKey) {
+          return;
+        }
+        state.undoStack.push(next);
+        if (state.undoStack.length > 80) {
+          state.undoStack.shift();
+        }
+        updateUndoUi();
+      } catch (_) {
+        /* ignore snapshot failures while editor text is incomplete */
+      }
+    }
+
+    function restoreSceneSnapshot(snapshot, message = "已撤销。") {
+      if (!snapshot || !snapshot.doc) return;
+      state.undoRestoring = true;
+      state.sourceName = snapshot.sourceName || state.sourceName || "";
+      els.sourceName.textContent = state.sourceName || "未加载";
+      state.selectedPoseIndex = Number.isFinite(snapshot.selectedPoseIndex) ? snapshot.selectedPoseIndex : 0;
+      state.selectedClipIndex = Number.isFinite(snapshot.selectedClipIndex) ? snapshot.selectedClipIndex : 0;
+      state.selectedStepIndex = Number.isFinite(snapshot.selectedStepIndex) ? snapshot.selectedStepIndex : 0;
+      state.selectedPartId = snapshot.selectedPartId || "";
+      state.reopenClipStepDetail = false;
+      writeSceneDoc(snapshot.doc, message, true, false, false);
+      state.undoRestoring = false;
+      updateUndoUi();
+    }
+
+    function undoLastChange() {
+      if (!state.undoStack.length) {
+        setStatus("当前没有可撤销的修改。");
+        updateUndoUi();
+        return;
+      }
+      const snapshot = state.undoStack.pop();
+      restoreSceneSnapshot(snapshot, "已撤销上一步修改。");
     }
 
     function slugify(value, fallback = "item") {
@@ -2352,6 +2493,11 @@
       let out = String(value || fallback).replace(/[^A-Za-z0-9_]/g, "_");
       if (!/^[A-Za-z_]/.test(out)) out = "_" + out;
       return out || fallback;
+    }
+
+    function deriveScenePrefix(name, fallback = "scene") {
+      const root = slugify(name, fallback);
+      return sanitizeCIdent(root, fallback);
     }
 
     function normalizeCssHexColor(value, fallback = "#1F2329") {
@@ -2586,13 +2732,17 @@
     }
 
     function screenMetrics(asset, width, height) {
-      const scale = Math.min(width / asset.meta.viewboxW, height / asset.meta.viewboxH);
-      const rw = asset.meta.viewboxW * scale;
-      const rh = asset.meta.viewboxH * scale;
+      const baseScale = Math.min(width / asset.meta.viewboxW, height / asset.meta.viewboxH);
+      const scale = baseScale * (state.viewerZoom || 1);
+      const rw = asset.meta.viewboxW * baseScale;
+      const rh = asset.meta.viewboxH * baseScale;
+      const baseOffX = Math.floor((width - rw) * 0.5) - asset.meta.viewboxX * baseScale;
+      const baseOffY = Math.floor((height - rh) * 0.5) - asset.meta.viewboxY * baseScale;
       return {
         scale,
-        offX: Math.floor((width - rw) * 0.5) - asset.meta.viewboxX * scale,
-        offY: Math.floor((height - rh) * 0.5) - asset.meta.viewboxY * scale,
+        baseScale,
+        offX: baseOffX + (state.viewerPanX || 0) + (asset.meta.viewboxX * (baseScale - scale)),
+        offY: baseOffY + (state.viewerPanY || 0) + (asset.meta.viewboxY * (baseScale - scale)),
       };
     }
 
@@ -2618,39 +2768,14 @@
     }
 
     /**
-     * 导出 scene.json + .inc：优先用目录选择器写入同一文件夹；
-     * 不支持时回退为两次下载到浏览器默认下载目录。
+     * 导出 .inc：直接下载当前编译结果对应的 motion asset 头文件。
      */
     async function exportProjectBundle() {
-      const doc = normalizeSceneDoc(parseJsonInput(els.sceneEditor.value));
-      const sceneFilename = `${doc.name || "scene"}.scene.json`;
-      const sceneBody = safeStringify(doc);
-
       const asset = state.asset || compileFromEditor();
       const incFilename = `${asset.name}.inc`;
       const incBody = buildIncText(asset);
-
-      if (typeof window.showDirectoryPicker === "function") {
-        let dirHandle;
-        try {
-          dirHandle = await window.showDirectoryPicker({ mode: "readwrite" });
-        } catch (err) {
-          if (err && err.name === "AbortError") {
-            setStatus("已取消导出。");
-            return;
-          }
-          throw err;
-        }
-        await writeUtf8FileToDirectory(dirHandle, sceneFilename, sceneBody);
-        await writeUtf8FileToDirectory(dirHandle, incFilename, incBody);
-        setStatus(`已写入目录：${sceneFilename}、${incFilename}`);
-        return;
-      }
-
-      downloadText(sceneFilename, sceneBody);
-      await new Promise((r) => setTimeout(r, 250));
       downloadText(incFilename, incBody);
-      setStatus(`当前浏览器不支持选择目录，已依次下载：${sceneFilename}、${incFilename}`);
+      setStatus(`已导出：${incFilename}`);
     }
 
     function parseJsonInput(text) {
@@ -2805,9 +2930,6 @@
       if (totalAfter > SCENE_MAX_JOINTS) {
         throw new Error(`joint budget exceeded: ${totalAfter} > ${SCENE_MAX_JOINTS} after part ${part.id}`);
       }
-      if (part.layer_bit < 0 || part.layer_bit > 255) {
-        throw new Error(`part ${part.id} layer_bit must be 0..255`);
-      }
       if (part.opacity < 0 || part.opacity > 255) {
         throw new Error(`part ${part.id} opacity must be 0..255`);
       }
@@ -2862,6 +2984,10 @@
       }
 
       const viewbox = doc.meta && Array.isArray(doc.meta.viewbox) ? doc.meta.viewbox : [0, 0, 200, 200];
+      const meta = {
+        viewbox,
+        round_screen: !!(doc.meta && doc.meta.round_screen),
+      };
       const colorPalette = Array.isArray(doc.color_palette)
         ? doc.color_palette.map((value, index) => normalizeSceneColorValue(value, `color_palette[${index}]`))
         : [];
@@ -2882,10 +3008,10 @@
         kind: String(part.kind || "BEZIER_STRIP"),
         stroke_width: Number(part.stroke_width || 0),
         radius_hint: Number(part.radius_hint || 0),
-        layer_bit: Number(part.layer_bit || 0),
         resource_idx: Number(part.resource_idx || 0),
         color_idx: Number(part.color_idx || 0),
         opacity: Number(part.opacity || 0),
+        hidden: !!part.hidden,
       }));
 
       if (!parts.length) throw new Error("scene.parts is empty");
@@ -2973,8 +3099,8 @@
       return {
         schema: SCENE_SCHEMA,
         name: doc.name || "scene",
-        prefix: doc.prefix || "s_scene",
-        meta: { viewbox },
+        prefix: deriveScenePrefix(doc.prefix || doc.name || "scene", "scene"),
+        meta,
         layout,
         color_palette: colorPalette,
         parts,
@@ -3181,7 +3307,10 @@
         schema: SCENE_SCHEMA,
         name: gfx.name || lottie.nm || "scene_from_lottie",
         prefix: gfx.prefix || "s_scene",
-        meta: { viewbox },
+        meta: {
+          viewbox,
+          round_screen: !!(gfx.meta && gfx.meta.round_screen),
+        },
         layout,
         color_palette: colorPalette,
         parts,
@@ -3214,7 +3343,10 @@
       return state.sceneDoc;
     }
 
-    function writeSceneDoc(doc, message, autoCompile = true, silentStatus = false) {
+    function writeSceneDoc(doc, message, autoCompile = true, silentStatus = false, recordHistory = true) {
+      if (recordHistory && !state.undoRestoring) {
+        pushUndoSnapshot();
+      }
       const normalized = normalizeSceneDoc(doc);
       state.sceneDoc = normalized;
       els.sceneEditor.value = safeStringify(normalized);
@@ -3226,6 +3358,7 @@
           setStatus(message || "已更新 scene.json。");
         }
       }
+      updateUndoUi();
     }
 
     function debounce(fn, delay = 180) {
@@ -3240,7 +3373,9 @@
     }
 
     function saveSceneJsonToFile() {
-      const doc = normalizeSceneDoc(parseJsonInput(els.sceneEditor.value));
+      const sourceDoc = state.sceneDoc ? deepClone(state.sceneDoc) : parseJsonInput(els.sceneEditor.value);
+      const doc = normalizeSceneDoc(sourceDoc);
+      els.sceneEditor.value = safeStringify(doc);
       const filename = `${doc.name || "scene"}.scene.json`;
       downloadText(filename, safeStringify(doc));
       setStatus(`已保存：${filename}`);
@@ -3259,7 +3394,9 @@
     function applySceneMetaChanges() {
       const doc = deepClone(ensureSceneDoc());
       doc.name = els.guiSceneName.value.trim() || doc.name;
-      doc.prefix = els.guiScenePrefix.value.trim() || doc.prefix;
+      doc.prefix = deriveScenePrefix(doc.name, "scene");
+      doc.meta = doc.meta || {};
+      doc.meta.round_screen = els.targetRoundSelect.value === "true";
       writeSceneDoc(doc, "已更新场景信息。");
     }
 
@@ -3278,10 +3415,9 @@
         : desiredId;
 
       part.id = newId;
-      part.label = els.partLabelInput.value.trim() || newId;
+      part.label = newId;
       part.kind = els.partKindSelect.value;
       part.stroke_width = Math.max(0, Number(els.partStrokeInput.value) || 0);
-      part.layer_bit = Math.max(0, Math.min(255, Number(els.partLayerInput.value) || 0));
       part.opacity = Math.max(0, Math.min(255, Number(els.partOpacityInput.value) || 0));
       if (els.partColorModeSelect.value === "fixed") {
         const colorValue = normalizeSceneColorValue(
@@ -3478,6 +3614,56 @@
       if (!doc.parts.length) return null;
       const safeIndex = Math.max(0, Math.min(index, doc.parts.length - 1));
       return doc.parts[safeIndex] || null;
+    }
+
+    function setPartHidden(partIndex, hidden) {
+      try {
+        const doc = deepClone(ensureSceneDoc());
+        if (!doc.parts.length) return;
+        const safeIndex = Math.max(0, Math.min(partIndex, doc.parts.length - 1));
+        const part = doc.parts[safeIndex];
+        if (!part) return;
+        part.hidden = !!hidden;
+        state.selectedPartId = part.id;
+        state.selectedPartIndex = safeIndex;
+        writeSceneDoc(
+          doc,
+          part.hidden ? `已隐藏部件「${part.id}」；导出时将跳过。` : `已恢复部件「${part.id}」导出。`
+        );
+      } catch (err) {
+        setStatus(`切换部件导出状态失败：${err.message}`, true);
+      }
+    }
+
+    function movePartToIndex(fromIndex, toIndex) {
+      try {
+        const doc = deepClone(ensureSceneDoc());
+        if (!doc.parts.length) return;
+        const safeFrom = Math.max(0, Math.min(fromIndex, doc.parts.length - 1));
+        const safeTo = Math.max(0, Math.min(toIndex, doc.parts.length - 1));
+        if (safeFrom === safeTo) return;
+        const [part] = doc.parts.splice(safeFrom, 1);
+        doc.parts.splice(safeTo, 0, part);
+        state.selectedPartId = part.id;
+        state.selectedPartIndex = safeTo;
+        writeSceneDoc(doc, `已调整部件「${part.id}」层级。`);
+      } catch (err) {
+        setStatus(`调整部件层级失败：${err.message}`, true);
+      }
+    }
+
+    function movePartBy(index, delta) {
+      movePartToIndex(index, index + delta);
+    }
+
+    function movePartToTop(index) {
+      movePartToIndex(index, 0);
+    }
+
+    function movePartToBottom(index) {
+      const doc = ensureSceneDoc();
+      if (!doc.parts.length) return;
+      movePartToIndex(index, doc.parts.length - 1);
     }
 
     function currentPosePartId() {
@@ -3763,7 +3949,7 @@
         const delBtn = document.createElement("button");
         delBtn.type = "button";
         delBtn.className = "ghost pose-row-del";
-        delBtn.textContent = "×";
+        delBtn.innerHTML = PART_DELETE_ICON;
         delBtn.title = clip.steps.length <= 1 ? "至少保留一步" : "删除该步骤";
         delBtn.disabled = clip.steps.length <= 1;
         delBtn.addEventListener("click", (ev) => {
@@ -3800,13 +3986,10 @@
       const doc = state.sceneDoc;
       if (!doc) {
         els.guiSceneName.value = "";
-        els.guiScenePrefix.value = "";
         els.partsList.innerHTML = "";
         els.partIdInput.value = "";
-        els.partLabelInput.value = "";
         els.partKindSelect.value = "BEZIER_STRIP";
         els.partStrokeInput.value = "0";
-        els.partLayerInput.value = "0";
         syncPartColorInputs("runtime", state.color || "#101820");
         els.partOpacityInput.value = "0";
         els.posesList.innerHTML = "";
@@ -3830,21 +4013,32 @@
       state.selectedPartIndex = currentPartIndex();
 
       els.guiSceneName.value = doc.name || "";
-      els.guiScenePrefix.value = doc.prefix || "";
+      if (els.targetRoundSelect) {
+        els.targetRoundSelect.value = doc.meta && doc.meta.round_screen ? "true" : "false";
+      }
 
       els.partsList.innerHTML = "";
       doc.parts.forEach((part, index) => {
+        const row = document.createElement("div");
+        row.className = "pose-row";
+        row.setAttribute("role", "option");
+        row.setAttribute("aria-selected", part.id === state.selectedPartId ? "true" : "false");
+        if (part.id === state.selectedPartId) row.classList.add("active");
+
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.className = "chip";
-        const previewOpacity = part.opacity || 255;
-        const fixedColor = getPartFixedColorValue(doc, part);
-        const colorLabel = fixedColor != null
-          ? formatSceneColorHex(fixedColor).toUpperCase()
-          : "主色";
-        btn.textContent =
-          `${String(index).padStart(2, "0")} ${part.id} | ${kindLabel(part.kind)} | ` +
-          `线宽=${part.stroke_width || 0} 色=${colorLabel} O=${previewOpacity} L=${part.layer_bit || 0}`;
+        btn.className = "chip pose-row-main";
+        const idxSpan = document.createElement("span");
+        idxSpan.className = "pose-row-idx";
+        idxSpan.textContent = String(index).padStart(2, "0");
+        const idSpan = document.createElement("span");
+        idSpan.className = "pose-row-id";
+        idSpan.textContent = part.id;
+        btn.appendChild(idxSpan);
+        btn.appendChild(idSpan);
+        btn.title =
+          `${part.id} | ${kindLabel(part.kind)} | 线宽 ${part.stroke_width || 0}` +
+          `${part.hidden ? " | 已隐藏且不导出" : ""}`;
         btn.addEventListener("click", (event) => {
           if (event.detail !== 1) return;
           togglePartSelection(part.id);
@@ -3855,26 +4049,68 @@
           selectPart(part.id);
           openPartDetailDialog(part.id);
         });
-        if (part.id === state.selectedPartId) btn.classList.add("active");
-        els.partsList.appendChild(btn);
+
+        const actions = document.createElement("div");
+        actions.className = "part-row-actions";
+
+        const visBtn = document.createElement("button");
+        visBtn.type = "button";
+        visBtn.className = `ghost part-row-mini${part.hidden ? "" : " is-on"}`;
+        visBtn.innerHTML = part.hidden ? PART_EYE_CLOSED_ICON : PART_EYE_OPEN_ICON;
+        visBtn.title = part.hidden ? "当前隐藏且不导出，点击恢复导出" : "当前导出中，点击隐藏且不导出";
+        visBtn.setAttribute("aria-pressed", part.hidden ? "false" : "true");
+        visBtn.setAttribute("aria-label", part.hidden ? "显示并导出部件" : "隐藏并跳过导出");
+        visBtn.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setPartHidden(index, !part.hidden);
+        });
+
+        const upBtn = document.createElement("button");
+        upBtn.type = "button";
+        upBtn.className = "ghost part-row-mini";
+        upBtn.innerHTML = PART_ARROW_UP_ICON;
+        upBtn.title = "上移一层";
+        upBtn.disabled = index === 0;
+        upBtn.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          movePartBy(index, -1);
+        });
+
+        const downBtn = document.createElement("button");
+        downBtn.type = "button";
+        downBtn.className = "ghost part-row-mini";
+        downBtn.innerHTML = PART_ARROW_DOWN_ICON;
+        downBtn.title = "下移一层";
+        downBtn.disabled = index === doc.parts.length - 1;
+        downBtn.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          movePartBy(index, 1);
+        });
+
+        actions.appendChild(visBtn);
+        actions.appendChild(upBtn);
+        actions.appendChild(downBtn);
+
+        row.appendChild(btn);
+        row.appendChild(actions);
+        els.partsList.appendChild(row);
       });
 
       const part = state.selectedPartIndex >= 0 ? partByIndex(state.selectedPartIndex) : null;
       if (part) {
         els.partIdInput.value = part.id;
-        els.partLabelInput.value = part.label;
         els.partKindSelect.value = part.kind;
         els.partStrokeInput.value = String(part.stroke_width || 0);
-        els.partLayerInput.value = String(part.layer_bit || 0);
         syncPartColorInputs(part.color_idx > 0 ? "fixed" : "runtime",
           getPartFixedColorValue(doc, part) || state.color || "#101820");
         els.partOpacityInput.value = String(part.opacity || 0);
       } else {
         els.partIdInput.value = "";
-        els.partLabelInput.value = "";
         els.partKindSelect.value = "BEZIER_STRIP";
         els.partStrokeInput.value = "0";
-        els.partLayerInput.value = "0";
         syncPartColorInputs("runtime", state.color || "#101820");
         els.partOpacityInput.value = "0";
       }
@@ -3909,7 +4145,7 @@
         const delBtn = document.createElement("button");
         delBtn.type = "button";
         delBtn.className = "ghost pose-row-del";
-        delBtn.textContent = "×";
+        delBtn.innerHTML = PART_DELETE_ICON;
         delBtn.title = "删除该姿态（若关联的 JSON 在 rig 累加器中也一并移除）";
         delBtn.addEventListener("click", (ev) => {
           ev.stopPropagation();
@@ -3962,7 +4198,7 @@
         const delBtn = document.createElement("button");
         delBtn.type = "button";
         delBtn.className = "ghost pose-row-del";
-        delBtn.textContent = "×";
+        delBtn.innerHTML = PART_DELETE_ICON;
         delBtn.title = doc.clips.length <= 1 ? "至少保留一个动作" : "删除该动作";
         delBtn.disabled = doc.clips.length <= 1;
         delBtn.addEventListener("click", (ev) => {
@@ -3997,6 +4233,7 @@
       }
       state.sceneDoc = normalized;
       state.asset = compileSceneDoc(normalized);
+      clampViewerCamera();
       state.scene = createScene(state.asset);
       if (state.asset.clips.length) {
         state.selectedClipIndex = Math.max(0, Math.min(state.selectedClipIndex, state.asset.clips.length - 1));
@@ -4029,8 +4266,15 @@
       if ((sceneDoc.color_palette || []).length > SCENE_MAX_PALETTE) {
         throw new Error(`color_palette exceeds runtime max ${SCENE_MAX_PALETTE}`);
       }
+      const visibleParts = sceneDoc.parts.filter((part) => !part.hidden);
+      if (!visibleParts.length) {
+        throw new Error("scene.parts has no visible/exportable parts");
+      }
+      if (visibleParts.length > SCENE_MAX_SEGMENTS) {
+        throw new Error(`visible scene.parts exceeds runtime max ${SCENE_MAX_SEGMENTS}`);
+      }
 
-      sceneDoc.parts.forEach((part) => {
+      visibleParts.forEach((part) => {
         const count = sceneDoc.poses[0].parts[part.id].length;
         const compiledKind = validatePartTopology(
           part, count, jointCursor, (sceneDoc.color_palette || []).length
@@ -4047,7 +4291,6 @@
           jointCount: count,
           strokeWidth: part.stroke_width || 0,
           radiusHint: part.radius_hint || 0,
-          layerBit: part.layer_bit || 0,
           resourceIdx: part.resource_idx || 0,
           colorIdx: part.color_idx || 0,
           opacity: part.opacity || 0,
@@ -4061,7 +4304,7 @@
       const poses = sceneDoc.poses.map((pose, poseIndex) => {
         poseIndexById.set(pose.id, poseIndex);
         const coords = [];
-        for (const part of sceneDoc.parts) {
+        for (const part of visibleParts) {
           const pts = pose.parts[part.id];
           for (const pt of pts) {
             coords.push(Math.round(pt[0]), Math.round(pt[1]));
@@ -4233,6 +4476,81 @@
       };
     }
 
+
+    function resetViewerCamera() {
+      state.viewerZoom = 1;
+      state.viewerPanX = 0;
+      state.viewerPanY = 0;
+      state.viewerPanPointerId = null;
+    }
+
+    function clampViewerCamera(width = null, height = null) {
+      if (!state.asset) return;
+      const svgW = width != null ? width : Math.max(360, Math.round(els.viewer.clientWidth || 700));
+      const svgH = height != null ? height : Math.max(360, Math.round(els.viewer.clientHeight || 700));
+      const asset = state.asset;
+      const baseScale = Math.min(svgW / asset.meta.viewboxW, svgH / asset.meta.viewboxH);
+      const zoom = Math.max(1, Math.min(8, Number(state.viewerZoom) || 1));
+      state.viewerZoom = zoom;
+      const scaledW = asset.meta.viewboxW * baseScale * zoom;
+      const scaledH = asset.meta.viewboxH * baseScale * zoom;
+      const maxPanX = Math.max(0, (scaledW - svgW) * 0.5 + 32);
+      const maxPanY = Math.max(0, (scaledH - svgH) * 0.5 + 32);
+      state.viewerPanX = Math.max(-maxPanX, Math.min(maxPanX, Number(state.viewerPanX) || 0));
+      state.viewerPanY = Math.max(-maxPanY, Math.min(maxPanY, Number(state.viewerPanY) || 0));
+    }
+
+    function beginViewerPan(event) {
+      if (state.dragPartId) return;
+      state.viewerPanPointerId = event.pointerId;
+      state.viewerPanStartX = event.clientX;
+      state.viewerPanStartY = event.clientY;
+      state.viewerPanOriginX = state.viewerPanX || 0;
+      state.viewerPanOriginY = state.viewerPanY || 0;
+      els.viewer.classList.add('pd-panning');
+      try { els.viewer.setPointerCapture(event.pointerId); } catch (e) { /* empty */ }
+    }
+
+    function updateViewerPan(event) {
+      if (state.viewerPanPointerId == null || event.pointerId !== state.viewerPanPointerId) return;
+      state.viewerPanX = state.viewerPanOriginX + (event.clientX - state.viewerPanStartX);
+      state.viewerPanY = state.viewerPanOriginY + (event.clientY - state.viewerPanStartY);
+      clampViewerCamera();
+      renderAsset();
+    }
+
+    function endViewerPan(event = null) {
+      if (event && state.viewerPanPointerId != null && event.pointerId !== state.viewerPanPointerId) return;
+      if (state.viewerPanPointerId != null) {
+        try { els.viewer.releasePointerCapture(state.viewerPanPointerId); } catch (e) { /* empty */ }
+      }
+      state.viewerPanPointerId = null;
+      els.viewer.classList.remove('pd-panning');
+    }
+
+    function zoomViewerAt(screenPt, factor) {
+      if (!state.asset) return;
+      const width = Math.max(360, Math.round(els.viewer.clientWidth || 700));
+      const height = Math.max(360, Math.round(els.viewer.clientHeight || 700));
+      const before = screenMetrics(state.asset, width, height);
+      const designX = (screenPt.x - before.offX) / before.scale;
+      const designY = (screenPt.y - before.offY) / before.scale;
+      const prevZoom = state.viewerZoom || 1;
+      const nextZoom = Math.max(1, Math.min(8, prevZoom * factor));
+      if (Math.abs(nextZoom - prevZoom) < 1e-6) return;
+      state.viewerZoom = nextZoom;
+      const baseScale = Math.min(width / state.asset.meta.viewboxW, height / state.asset.meta.viewboxH);
+      const nextScale = baseScale * nextZoom;
+      const rw = state.asset.meta.viewboxW * baseScale;
+      const rh = state.asset.meta.viewboxH * baseScale;
+      const baseOffX = Math.floor((width - rw) * 0.5) - state.asset.meta.viewboxX * baseScale;
+      const baseOffY = Math.floor((height - rh) * 0.5) - state.asset.meta.viewboxY * baseScale;
+      state.viewerPanX = screenPt.x - baseOffX - designX * nextScale - state.asset.meta.viewboxX * (baseScale - nextScale);
+      state.viewerPanY = screenPt.y - baseOffY - designY * nextScale - state.asset.meta.viewboxY * (baseScale - nextScale);
+      clampViewerCamera(width, height);
+      renderAsset();
+    }
+
     function startPartDrag(event, partId) {
       if (!state.sceneDoc || !state.asset) return;
       const width = Math.max(360, Math.round(els.viewer.clientWidth || 700));
@@ -4245,6 +4563,10 @@
       state.dragPartPointerId = event.pointerId;
       state.dragPartStartDesign = screenToDesign(state.asset, pointerPosOnViewer(event), width, height);
       state.dragPartOriginalPoints = deepClone(pts);
+      if (!state.gestureUndoArmed) {
+        pushUndoSnapshot();
+        state.gestureUndoArmed = true;
+      }
       renderAsset();
     }
 
@@ -4258,7 +4580,7 @@
       const doc = deepClone(ensureSceneDoc());
       const pose = doc.poses[state.selectedPoseIndex];
       pose.parts[state.dragPartId] = translatePoints(state.dragPartOriginalPoints, dx, dy, doc.meta.viewbox);
-      writeSceneDoc(doc, "已整体拖动部件。", true, true);
+      writeSceneDoc(doc, "已整体拖动部件。", true, true, false);
     }
 
     function clearPartDrag() {
@@ -4266,6 +4588,7 @@
       state.dragPartPointerId = null;
       state.dragPartStartDesign = null;
       state.dragPartOriginalPoints = null;
+      state.gestureUndoArmed = false;
     }
 
     function bezierPath(ctrl, closed) {
@@ -4488,9 +4811,10 @@
     }
 
     function renderAsset() {
+      updateViewerShellFrame();
       const svg = els.viewer;
-      const width = Math.max(360, Math.round(svg.clientWidth || 700));
-      const height = Math.max(360, Math.round(svg.clientHeight || 700));
+      const width = Math.max(120, Math.round(svg.clientWidth || 700));
+      const height = Math.max(120, Math.round(svg.clientHeight || 700));
       const viewerTheme = resolveViewerTheme();
       applyViewerTheme(viewerTheme);
       svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
@@ -5004,6 +5328,10 @@
         circle.addEventListener("pointerdown", (ev) => {
           ev.preventDefault();
           ev.stopPropagation();
+          if (!state.gestureUndoArmed) {
+            pushUndoSnapshot();
+            state.gestureUndoArmed = true;
+          }
           pdState.dragIdx = idx;
           pdState.pointerId = ev.pointerId;
           svg.setPointerCapture(ev.pointerId);
@@ -5107,7 +5435,7 @@
       const doc = deepClone(ensureSceneDoc());
       const pose = doc.poses[Math.max(0, Math.min(state.selectedPoseIndex, doc.poses.length - 1))];
       pose.parts[pdState.partId] = pdState.pts.map((p) => [p[0], p[1]]);
-      writeSceneDoc(doc, "已在详情框拖拽控制点。", true, true);
+      writeSceneDoc(doc, "已在详情框拖拽控制点。", true, true, false);
       renderPartDetail();
     });
 
@@ -5121,6 +5449,7 @@
       if (pdState.pointerId !== ev.pointerId) return;
       pdState.dragIdx = -1;
       pdState.pointerId = null;
+      state.gestureUndoArmed = false;
       renderPartDetail();
     });
 
@@ -5128,6 +5457,11 @@
       if (pdState.pan && ev.pointerId === pdState.pan.pointerId) {
         pdState.pan = null;
         els.pdViewer.classList.remove("pd-panning");
+      }
+      if (pdState.pointerId === ev.pointerId) {
+        pdState.dragIdx = -1;
+        pdState.pointerId = null;
+        state.gestureUndoArmed = false;
       }
     });
 
@@ -5198,8 +5532,9 @@
       els.statSegments.textContent = String(asset.segments.length);
       els.statPoses.textContent = String(asset.poses.length);
       els.statClips.textContent = String(asset.clips.length);
+      const shapeText = state.sceneDoc && state.sceneDoc.meta && state.sceneDoc.meta.round_screen ? "圆屏" : "方屏";
       els.metaText.textContent =
-        `视口: [${asset.meta.viewboxX}, ${asset.meta.viewboxY}, ${asset.meta.viewboxW}, ${asset.meta.viewboxH}]  镜像轴: ${asset.layout.mirrorX}`;
+        `视口: [${asset.meta.viewboxX}, ${asset.meta.viewboxY}, ${asset.meta.viewboxW}, ${asset.meta.viewboxH}]  屏幕: ${shapeText}  镜像轴: ${asset.layout.mirrorX}`;
 
       els.clipSelect.innerHTML = "";
       asset.clips.forEach((clip, index) => {
@@ -5222,12 +5557,14 @@
       state.selectedPartId = doc.parts && doc.parts[0] ? doc.parts[0].id : "";
       refreshGuiPanels();
       setStatus(message);
+      updateUndoUi();
     }
 
     function normalizeEditorText() {
       const text = els.sceneEditor.value.trim();
       if (!text) throw new Error("编辑区为空");
       const detected = detectAndNormalize(text);
+      pushUndoSnapshot();
       sceneToEditor(detected.doc, state.sourceName || detected.kind,
         `已识别并整理为 scene.json v1（来源类型：${detected.kind}）。`);
       return detected.doc;
@@ -5242,6 +5579,17 @@
       const prefix = sanitizeCIdent(asset.prefix, "s_scene");
       const upper = prefix.toUpperCase();
       const lines = [];
+      const motionSegKind = (kind) => ({
+        GFX_SM_SEG_CAPSULE: "GFX_MOTION_SEG_CAPSULE",
+        GFX_SM_SEG_RING: "GFX_MOTION_SEG_RING",
+        GFX_SM_SEG_BEZIER_STRIP: "GFX_MOTION_SEG_BEZIER_STRIP",
+        GFX_SM_SEG_BEZIER_LOOP: "GFX_MOTION_SEG_BEZIER_LOOP",
+        GFX_SM_SEG_BEZIER_FILL: "GFX_MOTION_SEG_BEZIER_FILL",
+      }[kind] || kind);
+      const motionInterp = (interp) => ({
+        GFX_SM_INTERP_HOLD: "GFX_MOTION_INTERP_HOLD",
+        GFX_SM_INTERP_DAMPED: "GFX_MOTION_INTERP_DAMPED",
+      }[interp] || interp);
       const formatInt16Array = (values, perLine = 16) => {
         const out = [];
         for (let i = 0; i < values.length; i += perLine) {
@@ -5260,17 +5608,17 @@
       lines.push("");
       lines.push("#pragma once");
       lines.push("");
-      lines.push('#include "widget/gfx_sm_scene.h"');
+      lines.push('#include "widget/gfx_motion_scene.h"');
       lines.push("");
-      lines.push(`static const gfx_sm_meta_t ${prefix}_meta = {`);
-      lines.push("    .version   = GFX_SM_SCENE_SCHEMA_VERSION,");
+      lines.push(`static const gfx_motion_meta_t ${prefix}_meta = {`);
+      lines.push("    .version   = GFX_MOTION_SCENE_SCHEMA_VERSION,");
       lines.push(`    .viewbox_x = ${asset.meta.viewboxX},`);
       lines.push(`    .viewbox_y = ${asset.meta.viewboxY},`);
       lines.push(`    .viewbox_w = ${asset.meta.viewboxW},`);
       lines.push(`    .viewbox_h = ${asset.meta.viewboxH},`);
       lines.push("};");
       lines.push("");
-      lines.push(`static const gfx_sm_layout_t ${prefix}_layout = {`);
+      lines.push(`static const gfx_motion_layout_t ${prefix}_layout = {`);
       lines.push(`    .stroke_width    = ${asset.layout.strokeWidth},`);
       lines.push(`    .mirror_x        = ${asset.layout.mirrorX},`);
       lines.push(`    .ground_y        = ${asset.layout.groundY},`);
@@ -5293,7 +5641,7 @@
       lines.push("");
       lines.push(`#define ${upper}_POSE(arr) { .coords = (arr) }`);
       lines.push("");
-      lines.push(`static const gfx_sm_pose_t ${prefix}_poses[] = {`);
+      lines.push(`static const gfx_motion_pose_t ${prefix}_poses[] = {`);
       const poseRefs = asset.poses.map((_, index) => `${upper}_POSE(${prefix}_p${String(index).padStart(2, "0")})`);
       for (let i = 0; i < poseRefs.length; i += 3) {
         lines.push(`    ${poseRefs.slice(i, i + 3).join(",  ")},`);
@@ -5301,16 +5649,15 @@
       lines.push("};");
       lines.push("");
 
-      lines.push(`static const gfx_sm_segment_t ${prefix}_segments[] = {`);
+      lines.push(`static const gfx_motion_segment_t ${prefix}_segments[] = {`);
       asset.segments.forEach((seg) => {
         const fields = [
-          `.kind = ${seg.kind}`,
+          `.kind = ${motionSegKind(seg.kind)}`,
           `.joint_a = ${seg.jointA}`,
         ];
         if (seg.kind === "GFX_SM_SEG_CAPSULE") fields.push(`.joint_b = ${seg.jointB}`);
         if (seg.kind !== "GFX_SM_SEG_CAPSULE" && seg.kind !== "GFX_SM_SEG_RING") fields.push(`.joint_count = ${seg.jointCount}`);
         if (seg.strokeWidth) fields.push(`.stroke_width = ${seg.strokeWidth}`);
-        if (seg.layerBit) fields.push(`.layer_bit = ${seg.layerBit}`);
         if (seg.radiusHint) fields.push(`.radius_hint = ${seg.radiusHint}`);
         if (seg.resourceIdx) fields.push(`.resource_idx = ${seg.resourceIdx}`);
         if (seg.colorIdx) fields.push(`.color_idx = ${seg.colorIdx}`);
@@ -5329,9 +5676,9 @@
       lines.push("");
       asset.clips.forEach((clip, clipIndex) => {
         const clipId = sanitizeCIdent(clip.id, `clip_${clipIndex}`);
-        lines.push(`static const gfx_sm_clip_step_t ${prefix}_steps_${clipId}[] = {`);
+        lines.push(`static const gfx_motion_action_step_t ${prefix}_steps_${clipId}[] = {`);
         clip.steps.forEach((step) => {
-          lines.push(`    STEP(${step.poseIndex}, ${step.holdTicks}, ${step.facing}, ${step.interp}),`);
+          lines.push(`    STEP(${step.poseIndex}, ${step.holdTicks}, ${step.facing}, ${motionInterp(step.interp)}),`);
         });
         lines.push("};");
       });
@@ -5339,7 +5686,7 @@
 
       lines.push(`#define CLIP(arr, lp) { .steps = (arr), .step_count = (uint8_t)(sizeof(arr) / sizeof((arr)[0])), .loop = (lp) }`);
       lines.push("");
-      lines.push(`static const gfx_sm_clip_t ${prefix}_clips[] = {`);
+      lines.push(`static const gfx_motion_action_t ${prefix}_actions[] = {`);
       asset.clips.forEach((clip, clipIndex) => {
         const clipId = sanitizeCIdent(clip.id, `clip_${clipIndex}`);
         lines.push(`    /* ${clip.id} */ CLIP(${prefix}_steps_${clipId}, ${clip.loop ? "true" : "false"}),`);
@@ -5349,7 +5696,7 @@
 
       lines.push(`static const uint16_t ${prefix}_sequence[] = { ${asset.sequence.join(", ")} };`);
       lines.push("");
-      lines.push(`static const gfx_sm_asset_t ${prefix}_scene_asset = {`);
+      lines.push(`static const gfx_motion_asset_t ${prefix}_scene_asset = {`);
       lines.push(`    .meta           = &${prefix}_meta,`);
       lines.push(`    .joint_names    = ${prefix}_joint_names,`);
       lines.push(`    .joint_count    = (uint16_t)(sizeof(${prefix}_joint_names) / sizeof(${prefix}_joint_names[0])),`);
@@ -5357,8 +5704,8 @@
       lines.push(`    .segment_count  = (uint8_t)(sizeof(${prefix}_segments) / sizeof(${prefix}_segments[0])),`);
       lines.push(`    .poses          = ${prefix}_poses,`);
       lines.push(`    .pose_count     = (uint16_t)(sizeof(${prefix}_poses) / sizeof(${prefix}_poses[0])),`);
-      lines.push(`    .clips          = ${prefix}_clips,`);
-      lines.push(`    .clip_count     = (uint16_t)(sizeof(${prefix}_clips) / sizeof(${prefix}_clips[0])),`);
+      lines.push(`    .actions        = ${prefix}_actions,`);
+      lines.push(`    .action_count   = (uint16_t)(sizeof(${prefix}_actions) / sizeof(${prefix}_actions[0])),`);
       lines.push(`    .sequence       = ${prefix}_sequence,`);
       lines.push(`    .sequence_count = (uint16_t)(sizeof(${prefix}_sequence) / sizeof(${prefix}_sequence[0])),`);
       lines.push(`    .layout         = &${prefix}_layout,`);
@@ -5402,6 +5749,7 @@
     function handleJsonText(text, sourceName) {
       try {
         const detected = detectAndNormalize(text);
+        pushUndoSnapshot();
         // External scene / rig-legacy loads reset the rig accumulator so the
         // pose list can't imply a bogus JSON source per row.
         if (state.poses.length && els.poseCountBadge) {
@@ -5449,6 +5797,51 @@
       const h = parseFloat(els.targetHInput.value);
       if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return null;
       return { w: Math.round(w), h: Math.round(h) };
+    }
+
+    function getPreviewViewportSize() {
+      const target = getTargetSize();
+      if (target) return { w: target.w, h: target.h, from: "target" };
+      if (state.sceneDoc && state.sceneDoc.meta && Array.isArray(state.sceneDoc.meta.viewbox) && state.sceneDoc.meta.viewbox.length >= 4) {
+        const vb = state.sceneDoc.meta.viewbox;
+        const w = Math.max(1, Number(vb[2]) || 1);
+        const h = Math.max(1, Number(vb[3]) || 1);
+        return { w, h, from: "scene" };
+      }
+      if (state.asset) {
+        return {
+          w: Math.max(1, Number(state.asset.meta.viewboxW) || 1),
+          h: Math.max(1, Number(state.asset.meta.viewboxH) || 1),
+          from: "asset",
+        };
+      }
+      return { w: 1, h: 1, from: "default" };
+    }
+
+    function isRoundScreenEnabled() {
+      if (els.targetRoundSelect && els.targetRoundSelect.value) {
+        return els.targetRoundSelect.value === "true";
+      }
+      return !!(state.sceneDoc && state.sceneDoc.meta && state.sceneDoc.meta.round_screen);
+    }
+
+    function updateViewerShellFrame() {
+      if (!els.viewerShell || !els.canvasBody) return;
+      const viewport = getPreviewViewportSize();
+      const bodyW = Math.max(240, Math.round(els.canvasBody.clientWidth || 700));
+      const bodyH = Math.max(240, Math.round(els.canvasBody.clientHeight || 580));
+      const pad = 16;
+      const availW = Math.max(120, bodyW - pad * 2);
+      const availH = Math.max(120, bodyH - pad * 2);
+      const scale = Math.min(availW / viewport.w, availH / viewport.h);
+      const frameW = Math.max(120, Math.round(viewport.w * scale));
+      const frameH = Math.max(120, Math.round(viewport.h * scale));
+      els.viewerShell.style.inset = 'auto';
+      els.viewerShell.style.width = `${frameW}px`;
+      els.viewerShell.style.height = `${frameH}px`;
+      els.viewerShell.style.left = `${Math.round((bodyW - frameW) * 0.5)}px`;
+      els.viewerShell.style.top = `${Math.round((bodyH - frameH) * 0.5)}px`;
+      els.viewerShell.style.borderRadius = isRoundScreenEnabled() ? "9999px" : "";
     }
 
     function autoMergeAndWrite() {
@@ -6414,11 +6807,25 @@
 
     /* Changing the target size re-scales on the fly (if any poses imported). */
     function onTargetSizeChange() {
+      updateViewerShellFrame();
+      clampViewerCamera();
+      renderAsset();
       if (!state.poses.length) return;
       scheduleAutoMerge();
     }
     els.targetWInput.addEventListener("input", onTargetSizeChange);
     els.targetHInput.addEventListener("input", onTargetSizeChange);
+    if (els.targetRoundSelect) {
+      els.targetRoundSelect.addEventListener("change", () => {
+        updateViewerShellFrame();
+        renderAsset();
+        try {
+          applySceneMetaChanges();
+        } catch (err) {
+          setStatus(`更新屏幕形态失败：${err.message}`, true);
+        }
+      });
+    }
 
     /* Drag-drop anywhere inside the rig fold body = bulk-append poses. */
     function setRigDropState(on) {
@@ -6498,6 +6905,16 @@
       }
     });
 
+    if (els.undoBtn) {
+      els.undoBtn.addEventListener("click", () => {
+        try {
+          undoLastChange();
+        } catch (err) {
+          setStatus(`撤销失败：${err.message}`, true);
+        }
+      });
+    }
+
     const debouncedApplySceneMeta = debounce(() => {
       try {
         applySceneMetaChanges();
@@ -6529,11 +6946,8 @@
 
     ["input", "change"].forEach((eventName) => {
       els.guiSceneName.addEventListener(eventName, debouncedApplySceneMeta);
-      els.guiScenePrefix.addEventListener(eventName, debouncedApplySceneMeta);
       els.partIdInput.addEventListener(eventName, debouncedApplyPart);
-      els.partLabelInput.addEventListener(eventName, debouncedApplyPart);
       els.partStrokeInput.addEventListener(eventName, debouncedApplyPart);
-      els.partLayerInput.addEventListener(eventName, debouncedApplyPart);
       els.partOpacityInput.addEventListener(eventName, debouncedApplyPart);
       els.clipIdInput.addEventListener(eventName, debouncedApplyClip);
       els.stepHoldInput.addEventListener(eventName, debouncedApplyStep);
@@ -6616,6 +7030,7 @@
       state.scene = createScene(state.asset);
       state.accumMs = 0;
       state.seqAccumMs = 0;
+      resetViewerCamera();
       refreshCompiledUi();
       renderAsset();
     });
@@ -6677,27 +7092,66 @@
       state.seqAccumMs = 0;
     });
 
-    els.viewer.addEventListener("pointermove", (event) => {
-      if (!state.dragPartId) return;
-      if (state.dragPartPointerId != null && event.pointerId !== state.dragPartPointerId) return;
+    els.viewer.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      const target = event.target;
+      const isPartTarget = !!(target && target.classList && target.classList.contains('part-hit'));
+      if (isPartTarget && state.selectedPartId) {
+        return;
+      }
       event.preventDefault();
-      updateDraggedPart(pointerPosOnViewer(event));
+      beginViewerPan(event);
     });
+
+    els.viewer.addEventListener("pointermove", (event) => {
+      if (state.dragPartId) {
+        if (state.dragPartPointerId != null && event.pointerId !== state.dragPartPointerId) return;
+        event.preventDefault();
+        updateDraggedPart(pointerPosOnViewer(event));
+        return;
+      }
+      if (state.viewerPanPointerId != null) {
+        event.preventDefault();
+        updateViewerPan(event);
+      }
+    });
+
+    els.viewer.addEventListener("wheel", (event) => {
+      if (!state.asset) return;
+      event.preventDefault();
+      const factor = event.deltaY < 0 ? 1.12 : (1 / 1.12);
+      zoomViewerAt(pointerPosOnViewer(event), factor);
+    }, { passive: false });
 
     window.addEventListener("pointerup", (event) => {
       if (state.dragPartId) {
         if (state.dragPartPointerId != null && event.pointerId !== state.dragPartPointerId) return;
         clearPartDrag();
         renderAsset();
+        return;
       }
+      endViewerPan(event);
     });
 
-    window.addEventListener("pointercancel", () => {
+    window.addEventListener("pointercancel", (event) => {
       clearPartDrag();
+      endViewerPan(event);
       renderAsset();
     });
 
-    window.addEventListener("resize", renderAsset);
+    window.addEventListener("resize", () => {
+      updateViewerShellFrame();
+      clampViewerCamera();
+      renderAsset();
+    });
+
+    window.addEventListener("keydown", (event) => {
+      const key = String(event.key || "").toLowerCase();
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && key === "z") {
+        event.preventDefault();
+        undoLastChange();
+      }
+    });
 
     /* ------- Inspector tab switching (pure visual, no state changes) ----- */
     const tabBtns = document.querySelectorAll(".tab-bar .tab");
@@ -6718,6 +7172,8 @@
 
     refreshGuiPanels();
     syncViewerBgControls();
+    updateUndoUi();
+    updateViewerShellFrame();
     renderAsset();
     requestAnimationFrame(animate);
   </script>
