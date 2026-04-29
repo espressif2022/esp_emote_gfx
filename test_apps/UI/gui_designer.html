@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>gfx_sm 设计器</title>
+      <title>Pose Scene 设计器</title>
   <style>
     :root {
       --bg: #f3eee6;
@@ -415,6 +415,28 @@
       stroke-width: 2;
       stroke-dasharray: 8 6;
       pointer-events: none;
+    }
+
+    .part-focus-arrow-line {
+      stroke: rgba(217, 111, 59, 0.96);
+      stroke-width: 2.4;
+      stroke-linecap: round;
+      pointer-events: none;
+      filter: drop-shadow(0 2px 8px rgba(17, 24, 39, 0.18));
+    }
+
+    .part-focus-arrow-head {
+      fill: rgba(217, 111, 59, 0.98);
+      pointer-events: none;
+      filter: drop-shadow(0 2px 8px rgba(17, 24, 39, 0.18));
+    }
+
+    .part-focus-arrow-badge {
+      fill: rgba(255, 248, 242, 0.96);
+      stroke: rgba(217, 111, 59, 0.96);
+      stroke-width: 1.8;
+      pointer-events: none;
+      filter: drop-shadow(0 3px 10px rgba(17, 24, 39, 0.18));
     }
 
     .part-hit {
@@ -836,29 +858,40 @@
       --r-lg: 12px;
       --r-xl: 16px;
 
-      --shadow-1: 0 1px 2px rgba(30, 20, 10, 0.05),
-                  0 1px 3px rgba(30, 20, 10, 0.04);
-      --shadow-2: 0 2px 6px rgba(30, 20, 10, 0.08),
-                  0 4px 12px rgba(30, 20, 10, 0.05);
+      --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.28),
+                  0 8px 18px rgba(0, 0, 0, 0.12);
+      --shadow-2: 0 10px 28px rgba(0, 0, 0, 0.30),
+                  0 2px 10px rgba(0, 0, 0, 0.18);
 
-      --topbar-h: 48px;
-      --statusbar-h: 28px;
+      --topbar-h: 52px;
+      --statusbar-h: 30px;
 
-      --c-surface: #ffffff;
-      --c-surface-2: #f8f5f0;
-      --c-border: rgba(66, 52, 36, 0.12);
-      --c-border-strong: rgba(66, 52, 36, 0.22);
+      --bg: #161a21;
+      --text: #e7ebf2;
+      --muted: #98a2b3;
+      --accent: #18a0fb;
+      --accent-soft: rgba(24, 160, 251, 0.12);
+      --warn: #d97745;
 
-      /* 列表行：未选中白底；选中 / 高亮统一青色系 */
-      --ui-row-bg: #ffffff;
-      --ui-selected-bg: rgba(20, 110, 120, 0.10);
-      --ui-selected-border: rgba(20, 110, 120, 0.38);
+      --c-surface: #232932;
+      --c-surface-2: #1a1f27;
+      --c-border: rgba(255, 255, 255, 0.08);
+      --c-border-strong: rgba(255, 255, 255, 0.16);
+
+      /* 列表行：未选中深灰；选中 / 高亮统一蓝色系 */
+      --ui-row-bg: #2a303a;
+      --ui-selected-bg: rgba(24, 160, 251, 0.16);
+      --ui-selected-border: rgba(24, 160, 251, 0.42);
       --focus-ring: var(--accent);
-      --focus-ring-soft: rgba(20, 110, 120, 0.22);
+      --focus-ring-soft: rgba(24, 160, 251, 0.24);
     }
 
     body {
-      background: var(--bg);
+      background:
+        radial-gradient(circle at 18% 0%, rgba(24, 160, 251, 0.16), transparent 20%),
+        radial-gradient(circle at 82% 4%, rgba(91, 141, 239, 0.10), transparent 18%),
+        linear-gradient(180deg, #14171d 0%, #0f1217 100%);
+      color: var(--text);
       font-size: 13px;
       line-height: 1.5;
       min-height: 100vh;
@@ -866,6 +899,10 @@
 
     /* ---------- Shell grid: topbar / main / statusbar --------------------- */
     .app-shell {
+      --viewer-shell-bg: linear-gradient(180deg, #1d222b 0%, #171b22 100%);
+      --viewer-shell-border: rgba(255, 255, 255, 0.08);
+      --viewer-shell-shadow: 0 14px 32px rgba(0, 0, 0, 0.34),
+                             inset 0 1px 0 rgba(255, 255, 255, 0.04);
       display: grid;
       grid-template-rows: var(--topbar-h) minmax(0, 1fr) var(--statusbar-h);
       min-height: 100vh;
@@ -879,12 +916,13 @@
       gap: var(--sp-4);
       padding: 0 var(--sp-4);
       height: var(--topbar-h);
-      background: var(--c-surface);
+      background: rgba(24, 29, 36, 0.92);
       border-bottom: 1px solid var(--c-border);
       box-shadow: var(--shadow-1);
       position: sticky;
       top: 0;
       z-index: 20;
+      backdrop-filter: blur(16px);
     }
 
     .tb-brand {
@@ -1056,7 +1094,7 @@
       display: flex;
       flex-direction: column;
       gap: var(--sp-3);
-      background: var(--c-surface-2);
+      background: rgba(255, 255, 255, 0.04);
       min-height: 0;
       border-right: 1px solid var(--c-border);
       padding-top: 0;
@@ -1077,7 +1115,7 @@
       border: 1px solid var(--c-border);
       border-radius: var(--r-lg);
       padding: var(--sp-3);
-      box-shadow: none;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 8px 24px rgba(0, 0, 0, 0.18);
       gap: var(--sp-2);
     }
 
@@ -1096,7 +1134,7 @@
       background: var(--c-surface);
       border: 1px solid var(--c-border);
       border-radius: var(--r-lg);
-      box-shadow: none;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
     }
 
     .app-inspector details.fold > summary {
@@ -1159,11 +1197,17 @@
     .app-shell input[type="color"],
     .app-shell select {
       border: 1px solid var(--c-border);
-      background: var(--c-surface);
+      background: #2a3039;
+      color: var(--text);
       border-radius: var(--r-md);
       padding: 6px 9px;
       font: 13px/1.4 inherit;
       transition: border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .app-shell textarea::placeholder,
+    .app-shell input::placeholder {
+      color: #7f8898;
     }
 
     .app-shell textarea {
@@ -1268,17 +1312,28 @@
     .canvas-head {
       padding: var(--sp-2) var(--sp-4);
       border-bottom: 1px solid var(--c-border);
-      background: var(--c-surface);
+      background: rgba(24, 29, 36, 0.92);
       display: flex;
       align-items: center;
       flex-wrap: wrap;
       gap: var(--sp-3);
       justify-content: space-between;
       min-height: 44px;
+      backdrop-filter: blur(14px);
     }
 
     .canvas-head .badge-row {
       gap: 6px;
+    }
+
+    .canvas-head-tools {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+      flex: 1 1 280px;
+      justify-content: flex-end;
+      min-width: 0;
+      flex-wrap: wrap;
     }
 
     .canvas-head-clip {
@@ -1287,6 +1342,13 @@
       gap: 8px;
       flex: 1 1 160px;
       min-width: 0;
+    }
+
+    .canvas-head-stage {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     .canvas-head-clip label {
@@ -1300,10 +1362,33 @@
       min-width: 0;
     }
 
+    .canvas-head-stage label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
     .canvas-head-clip select {
       flex: 1 1 120px;
       min-width: 100px;
       max-width: 220px;
+    }
+
+    .canvas-head-stage select {
+      min-width: 136px;
+      max-width: 168px;
+    }
+
+    .canvas-head-stage input[type="color"] {
+      width: 30px;
+      height: 26px;
+      padding: 2px;
+      min-width: 30px;
+      border-radius: 8px;
     }
 
     .app-shell .badge {
@@ -1322,7 +1407,7 @@
       font: 12px/1.4 ui-monospace, "SFMono-Regular", monospace;
       color: var(--muted);
       padding: 3px 9px;
-      background: var(--c-surface-2);
+      background: rgba(255, 255, 255, 0.04);
       border: 1px solid var(--c-border);
       border-radius: 999px;
       white-space: nowrap;
@@ -1334,7 +1419,9 @@
     .canvas-body {
       position: relative;
       overflow: hidden;
-      background: var(--c-surface-2);
+      background:
+        radial-gradient(circle at 20% 8%, rgba(24, 160, 251, 0.09), transparent 22%),
+        linear-gradient(180deg, #171b22 0%, #11151b 100%);
       min-height: 0;
     }
 
@@ -1343,7 +1430,19 @@
       inset: var(--sp-4);
       min-height: 0;
       border-radius: var(--r-xl);
-      box-shadow: var(--shadow-2);
+      background: var(--viewer-shell-bg);
+      border: 1px solid var(--viewer-shell-border);
+      box-shadow: var(--viewer-shell-shadow);
+    }
+
+    .canvas-body .viewer-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 18% 10%, rgba(255, 255, 255, 0.07), transparent 24%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 28%);
+      pointer-events: none;
     }
 
     /* Playback toolbar below canvas */
@@ -1353,9 +1452,10 @@
       align-items: center;
       gap: var(--sp-3);
       padding: var(--sp-2) var(--sp-4);
-      background: var(--c-surface);
+      background: rgba(24, 29, 36, 0.92);
       border-top: 1px solid var(--c-border);
       min-height: 44px;
+      backdrop-filter: blur(14px);
     }
 
     .playback-main {
@@ -1403,12 +1503,13 @@
       gap: var(--sp-3);
       padding: 0 var(--sp-4);
       height: var(--statusbar-h);
-      background: var(--c-surface);
+      background: rgba(20, 24, 31, 0.94);
       border-top: 1px solid var(--c-border);
       font-size: 11px;
       color: var(--muted);
       white-space: nowrap;
       overflow: hidden;
+      backdrop-filter: blur(12px);
     }
 
     .sb-status {
@@ -1630,6 +1731,17 @@
         min-height: 40vh;
       }
     }
+
+    @media (max-width: 780px) {
+      .canvas-head-tools {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .canvas-head-stage {
+        justify-content: flex-end;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1645,7 +1757,7 @@
           <path d="M6.5 13.2 Q12 5.6 17.5 13.2"></path>
           <circle cx="12" cy="12" r="1.6" fill="currentColor"></circle>
         </svg>
-        <span class="tb-title">gfx_sm</span>
+        <span class="tb-title">Pose Scene</span>
         <span class="tb-sub">Scene Designer</span>
       </div>
 
@@ -1660,6 +1772,9 @@
         <span class="tb-sep"></span>
         <button id="compile-btn" type="button"
                 title="按资源页当前 scene.json 文本编译并启动仿真">编译并仿真</button>
+        <span class="tb-sep"></span>
+        <button class="ghost" id="save-scene-btn" type="button"
+                title="下载当前 scene.json">保存场景</button>
         <span class="tb-sep"></span>
         <button class="ghost" id="export-btn" type="button"
                 title="选择保存目录后写入 scene.json 与 .inc（不支持选目录的浏览器将依次下载）">导出</button>
@@ -1691,7 +1806,7 @@
                     <input id="file-input" type="file" accept=".json,.txt">
                   </label>
                   <button class="ghost" id="normalize-btn" type="button"
-                          title="根据编辑区内容：已是 scene.json 则补齐缺省字段并统一坐标格式；若是 Lottie 则解析为 gfx_sm_scene_v1 并写回（与打开文件导入等效）">
+                          title="根据编辑区内容：已是 scene.json 则补齐缺省字段并统一坐标格式；若是 Lottie 则解析为标准 scene schema 并写回（与打开文件导入等效）">
                     识别并整理
                   </button>
                 </div>
@@ -1794,9 +1909,9 @@
               <p class="mini" style="margin-top:4px;">
                 rig 导入时等比（fit）缩放到此尺寸并居中；留空沿用 Lottie 原始尺寸。
               </p>
-              <div class="inline-tools">
-                <button class="ghost" id="gui-save-scene-meta-btn" type="button">保存场景信息</button>
-              </div>
+              <p class="mini" style="margin-top:8px;">
+                这里的修改会立即写回当前 scene.json；文件落盘请用顶栏「保存场景」。
+              </p>
             </div>
           </section>
 
@@ -1804,7 +1919,7 @@
           <section class="tab-pane" data-pane="parts" role="tabpanel">
             <div class="card">
               <h3>部件列表</h3>
-              <p class="mini">双击预览区部件可弹框放大查看 / 编辑控制点。</p>
+              <p class="mini">单击 focus / 再点取消；focus 后双击可弹框放大查看 / 编辑控制点。</p>
               <div class="listbox" id="parts-list"></div>
             </div>
             <div class="card">
@@ -1832,10 +1947,37 @@
                   线宽
                   <input id="part-stroke-input" type="number" min="0" step="1" value="0">
                 </label>
+                <label>
+                  图层位
+                  <input id="part-layer-input" type="number" min="0" max="255" step="1" value="0">
+                </label>
+                <label>
+                  颜色模式
+                  <select id="part-color-mode-select">
+                    <option value="runtime">跟随主色</option>
+                    <option value="fixed">固定颜色</option>
+                  </select>
+                </label>
+                <label>
+                  部件颜色
+                  <input id="part-color-value-input" type="color" value="#101820">
+                </label>
+                <label>
+                  颜色值
+                  <input id="part-color-hex-input" type="text" placeholder="#RRGGBB">
+                </label>
+                <label>
+                  透明度
+                  <input id="part-opacity-input" type="number" min="0" max="255" step="1" value="0">
+                </label>
               </div>
-              <div class="inline-tools">
-                <button class="ghost" id="part-save-btn" type="button">保存部件</button>
-              </div>
+              <p class="mini" style="margin-top:4px;">
+                固定颜色会自动绑定到该部件；底层导出时会自动整理成内部调色板。
+                <code>opacity=0</code> 兼容导出为全不透明（255）。
+              </p>
+              <p class="mini" style="margin-top:8px;">
+                选中部件后，修改属性会立即生效。
+              </p>
             </div>
           </section>
 
@@ -1875,9 +2017,7 @@
                     </select>
                   </label>
                 </div>
-                <div class="tool-row">
-                  <button class="ghost" id="clip-save-btn" type="button">保存动作</button>
-                </div>
+                <p class="mini" style="margin-top:8px;">动作属性修改后会立即生效。</p>
               </div>
               <div class="edit-block">
                 <h4 class="subh">步骤 <span class="subh-hint">点行选中；右侧 × 删该步（至少 1 步）；底栏「+ 添加」用资源页当前姿态追加一步</span></h4>
@@ -1903,6 +2043,7 @@
                       <label title="本步停留节拍数">
                         hold
                         <input id="step-hold-input" type="number" min="1" step="1" value="30">
+                        <span class="mini" id="step-hold-ms-hint">约 990 ms</span>
                       </label>
                       <label>
                         朝向
@@ -1920,11 +2061,8 @@
                       </label>
                     </div>
                     <p class="mini" style="margin-top:8px;">
-                      改「姿态 / hold / 朝向 / 插值」后点「保存步骤」。追加新步请用步骤列表下方底栏的 <b>+ 添加步骤</b>（与动作列表相同：资源页当前高亮姿态）。
+                      改「姿态 / hold / 朝向 / 插值」后会立即写回。追加新步请用步骤列表下方底栏的 <b>+ 添加步骤</b>。
                     </p>
-                    <div class="tool-row tool-row--step">
-                      <button class="ghost" id="step-save-btn" type="button">保存步骤</button>
-                    </div>
                   </div>
                 </details>
               </div>
@@ -1942,10 +2080,26 @@
             <span class="badge" id="clip-badge">动作: -</span>
             <span class="badge" id="mode-badge">编译后资产模式</span>
           </div>
-          <div class="canvas-head-clip">
-            <label>播放
-              <select id="clip-select" aria-label="选择播放动作"></select>
-            </label>
+          <div class="canvas-head-tools">
+            <div class="canvas-head-clip">
+              <label>播放
+                <select id="clip-select" aria-label="选择播放动作"></select>
+              </label>
+            </div>
+            <div class="canvas-head-stage">
+              <label>背景
+                <select id="viewer-bg-preset" aria-label="选择预览背景预设">
+                  <option value="figma_dark">Figma Dark</option>
+                  <option value="graphite">Graphite</option>
+                  <option value="paper">Paper</option>
+                  <option value="warm">Warm</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+              <label>颜色
+                <input id="viewer-bg-input" type="color" value="#1f2329" aria-label="选择预览背景颜色">
+              </label>
+            </div>
           </div>
           <span class="asset-name" id="asset-name">未编译</span>
         </div>
@@ -1970,10 +2124,9 @@
             <label>主色
               <input id="color-input" type="color" value="#101820">
             </label>
-            <label>自动序列
-              <select id="autoseq-select">
-                <option value="on">开启</option>
-                <option value="off">关闭</option>
+            <label>动作切换
+              <select id="autoseq-select" disabled>
+                <option value="off">手动切换</option>
               </select>
             </label>
           </div>
@@ -2029,6 +2182,17 @@
       GFX_SM_SEG_BEZIER_LOOP: "贝塞尔闭环",
       GFX_SM_SEG_BEZIER_FILL: "贝塞尔填充",
     };
+    const SCENE_MAX_JOINTS = 512;
+    const SCENE_MAX_SEGMENTS = 64;
+    const SCENE_MAX_SEG_CTRL_PTS = 64;
+    const SCENE_MAX_CLIP_STEPS = 255;
+    const SCENE_MAX_PALETTE = 16;
+    const VIEWER_BG_PRESETS = {
+      figma_dark: "#1F2329",
+      graphite: "#171B22",
+      paper: "#F5F7FA",
+      warm: "#F3EEE6",
+    };
 
     const els = {
       fileInput: document.getElementById("file-input"),
@@ -2044,19 +2208,23 @@
       rigEditor: document.getElementById("rig-editor"),
       normalizeBtn: document.getElementById("normalize-btn"),
       compileBtn: document.getElementById("compile-btn"),
+      saveSceneBtn: document.getElementById("save-scene-btn"),
       exportBtn: document.getElementById("export-btn"),
       status: document.getElementById("status-box"),
       sourceName: document.getElementById("source-name"),
       sceneEditor: document.getElementById("scene-editor"),
       guiSceneName: document.getElementById("gui-scene-name"),
       guiScenePrefix: document.getElementById("gui-scene-prefix"),
-      guiSaveSceneMetaBtn: document.getElementById("gui-save-scene-meta-btn"),
       partsList: document.getElementById("parts-list"),
       partIdInput: document.getElementById("part-id-input"),
       partLabelInput: document.getElementById("part-label-input"),
       partKindSelect: document.getElementById("part-kind-select"),
       partStrokeInput: document.getElementById("part-stroke-input"),
-      partSaveBtn: document.getElementById("part-save-btn"),
+      partLayerInput: document.getElementById("part-layer-input"),
+      partColorModeSelect: document.getElementById("part-color-mode-select"),
+      partColorValueInput: document.getElementById("part-color-value-input"),
+      partColorHexInput: document.getElementById("part-color-hex-input"),
+      partOpacityInput: document.getElementById("part-opacity-input"),
       partDetailDialog: document.getElementById("part-detail-dialog"),
       pdViewer: document.getElementById("pd-viewer"),
       pdTitle: document.getElementById("pd-title"),
@@ -2072,17 +2240,19 @@
       clipStepConfigSummary: document.getElementById("clip-step-config-summary"),
       stepPoseSelect: document.getElementById("step-pose-select"),
       stepHoldInput: document.getElementById("step-hold-input"),
+      stepHoldMsHint: document.getElementById("step-hold-ms-hint"),
       stepFacingSelect: document.getElementById("step-facing-select"),
       stepInterpSelect: document.getElementById("step-interp-select"),
-      clipSaveBtn: document.getElementById("clip-save-btn"),
       clipNewCtx: document.getElementById("clip-new-ctx"),
-      stepSaveBtn: document.getElementById("step-save-btn"),
       viewer: document.getElementById("viewer"),
+      viewerShell: document.querySelector(".viewer-shell"),
       hud: document.getElementById("hud"),
       assetName: document.getElementById("asset-name"),
       tickBadge: document.getElementById("tick-badge"),
       clipBadge: document.getElementById("clip-badge"),
       clipSelect: document.getElementById("clip-select"),
+      viewerBgPreset: document.getElementById("viewer-bg-preset"),
+      viewerBgInput: document.getElementById("viewer-bg-input"),
       playBtn: document.getElementById("play-btn"),
       stepBtn: document.getElementById("step-btn"),
       resetBtn: document.getElementById("reset-btn"),
@@ -2108,9 +2278,11 @@
          layer-panel below the list. -1 when nothing selected. */
       activePoseIdx: -1,
       playing: true,
-      autoSequence: true,
+      autoSequence: false,
       speed: 1,
       color: "#101820",
+      viewerBgPreset: "figma_dark",
+      viewerBg: VIEWER_BG_PRESETS.figma_dark,
       accumMs: 0,
       seqAccumMs: 0,
       lastTs: performance.now(),
@@ -2164,10 +2336,122 @@
       return candidate;
     }
 
+    function nextPosClipId(existingIds) {
+      let maxId = 0;
+      for (const value of existingIds || []) {
+        const m = String(value).match(/^pos_(\d+)$/);
+        if (!m) continue;
+        maxId = Math.max(maxId, Number(m[1]) || 0);
+      }
+      let n = Math.max(1, maxId + 1);
+      while (existingIds.has(`pos_${n}`)) n += 1;
+      return `pos_${n}`;
+    }
+
     function sanitizeCIdent(value, fallback = "item") {
       let out = String(value || fallback).replace(/[^A-Za-z0-9_]/g, "_");
       if (!/^[A-Za-z_]/.test(out)) out = "_" + out;
       return out || fallback;
+    }
+
+    function normalizeCssHexColor(value, fallback = "#1F2329") {
+      const text = String(value || "").trim();
+      const shortMatch = text.match(/^#?([0-9a-fA-F]{3})$/);
+      if (shortMatch) {
+        const short = shortMatch[1];
+        return `#${short[0]}${short[0]}${short[1]}${short[1]}${short[2]}${short[2]}`.toUpperCase();
+      }
+      const match = text.match(/^#?([0-9a-fA-F]{6})$/);
+      if (match) {
+        return `#${match[1].toUpperCase()}`;
+      }
+      return fallback.toUpperCase();
+    }
+
+    function hexToRgb(hex) {
+      const normalized = normalizeCssHexColor(hex, "#1F2329").slice(1);
+      return {
+        r: parseInt(normalized.slice(0, 2), 16),
+        g: parseInt(normalized.slice(2, 4), 16),
+        b: parseInt(normalized.slice(4, 6), 16),
+      };
+    }
+
+    function mixRgb(a, b, amount) {
+      const t = Math.max(0, Math.min(1, Number(amount) || 0));
+      return {
+        r: Math.round(a.r + (b.r - a.r) * t),
+        g: Math.round(a.g + (b.g - a.g) * t),
+        b: Math.round(a.b + (b.b - a.b) * t),
+      };
+    }
+
+    function rgbCss(rgb, alpha = 1) {
+      const a = Math.max(0, Math.min(1, Number(alpha)));
+      if (a >= 1) {
+        return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+      }
+      return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${a})`;
+    }
+
+    function rgbLuma(rgb) {
+      return (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+    }
+
+    function syncViewerBgControls() {
+      if (els.viewerBgPreset) {
+        els.viewerBgPreset.value = state.viewerBgPreset;
+      }
+      if (els.viewerBgInput) {
+        els.viewerBgInput.value = normalizeCssHexColor(
+          state.viewerBg,
+          VIEWER_BG_PRESETS.figma_dark
+        ).toLowerCase();
+      }
+    }
+
+    function resolveViewerTheme() {
+      const bgHex = normalizeCssHexColor(state.viewerBg, VIEWER_BG_PRESETS.figma_dark);
+      const bgRgb = hexToRgb(bgHex);
+      const light = rgbLuma(bgRgb) > 0.58;
+      const ink = light ? { r: 20, g: 24, b: 31 } : { r: 255, g: 255, b: 255 };
+      const white = { r: 255, g: 255, b: 255 };
+      const black = { r: 0, g: 0, b: 0 };
+      const shellTop = light ? mixRgb(bgRgb, white, 0.18) : mixRgb(bgRgb, white, 0.05);
+      const shellBottom = light ? mixRgb(bgRgb, black, 0.05) : mixRgb(bgRgb, black, 0.12);
+      return {
+        stageFill: bgHex,
+        gridMinor: rgbCss(ink, light ? 0.08 : 0.10),
+        gridMajor: rgbCss(ink, light ? 0.14 : 0.18),
+        ground: rgbCss(ink, light ? 0.14 : 0.16),
+        emptyText: rgbCss(ink, light ? 0.42 : 0.52),
+        shellBg: `linear-gradient(180deg, ${rgbCss(shellTop)} 0%, ${rgbCss(shellBottom)} 100%)`,
+        shellBorder: light ? "rgba(20, 24, 31, 0.10)" : "rgba(255, 255, 255, 0.08)",
+        shellShadow: light
+          ? "0 14px 32px rgba(15, 18, 24, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.48)"
+          : "0 18px 38px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+        hudBg: light ? "rgba(255, 255, 255, 0.86)" : "rgba(13, 16, 22, 0.82)",
+        hudText: light ? "#2C3644" : "#E8EEF8",
+        hudBorder: light ? "rgba(20, 24, 31, 0.10)" : "rgba(255, 255, 255, 0.08)",
+        hudShadow: light
+          ? "0 10px 28px rgba(0, 0, 0, 0.08)"
+          : "0 10px 28px rgba(0, 0, 0, 0.26)",
+      };
+    }
+
+    function applyViewerTheme(theme) {
+      if (!theme) return;
+      if (els.viewerShell) {
+        els.viewerShell.style.setProperty("--viewer-shell-bg", theme.shellBg);
+        els.viewerShell.style.setProperty("--viewer-shell-border", theme.shellBorder);
+        els.viewerShell.style.setProperty("--viewer-shell-shadow", theme.shellShadow);
+      }
+      if (els.hud) {
+        els.hud.style.background = theme.hudBg;
+        els.hud.style.color = theme.hudText;
+        els.hud.style.borderColor = theme.hudBorder;
+        els.hud.style.boxShadow = theme.hudShadow;
+      }
     }
 
     function kindLabel(kind) {
@@ -2176,6 +2460,129 @@
 
     function interpLabel(interp) {
       return interp === "HOLD" ? "保持" : "缓动";
+    }
+
+    function currentTimerPeriodMs(doc = state.sceneDoc, asset = state.asset) {
+      if (doc && doc.layout && doc.layout.timer_period_ms != null) {
+        return Math.max(1, Number(doc.layout.timer_period_ms) || 33);
+      }
+      if (asset && asset.layout && asset.layout.timerPeriodMs != null) {
+        return Math.max(1, Number(asset.layout.timerPeriodMs) || 33);
+      }
+      return 33;
+    }
+
+    function holdTicksToMs(holdTicks, doc = state.sceneDoc, asset = state.asset) {
+      const ticks = Math.max(1, Number(holdTicks) || 1);
+      return ticks * currentTimerPeriodMs(doc, asset);
+    }
+
+    function updateStepHoldHint(holdTicks = null) {
+      if (!els.stepHoldMsHint) return;
+      const ticks = holdTicks != null ? holdTicks : Number(els.stepHoldInput.value);
+      const ms = holdTicksToMs(ticks);
+      els.stepHoldMsHint.textContent = `约 ${ms} ms`;
+    }
+
+    function normalizeSceneColorValue(value, label = "color") {
+      let parsed = null;
+      if (typeof value === "number" && Number.isFinite(value)) {
+        parsed = value;
+      } else if (typeof value === "string") {
+        const text = value.trim();
+        if (!text) {
+          throw new Error(`${label} is empty`);
+        }
+        if (/^#[0-9a-f]{6}$/i.test(text)) {
+          parsed = parseInt(text.slice(1), 16);
+        } else if (/^0x[0-9a-f]{6}$/i.test(text)) {
+          parsed = parseInt(text.slice(2), 16);
+        } else if (/^\d+$/.test(text)) {
+          parsed = Number(text);
+        }
+      }
+      if (!Number.isInteger(parsed) || parsed < 0 || parsed > 0xFFFFFF) {
+        throw new Error(`${label} must be 0xRRGGBB / #RRGGBB / decimal 0..16777215`);
+      }
+      return parsed >>> 0;
+    }
+
+    function formatSceneColorHex(value) {
+      return `#${normalizeSceneColorValue(value).toString(16).padStart(6, "0")}`;
+    }
+
+    function getPartFixedColorValue(doc, part) {
+      if (!doc || !part) return null;
+      const idx = Number(part.color_idx || 0);
+      if (idx <= 0) return null;
+      const palette = Array.isArray(doc.color_palette) ? doc.color_palette : [];
+      if (idx > palette.length) return null;
+      return normalizeSceneColorValue(palette[idx - 1]);
+    }
+
+    function ensurePaletteColorIndex(doc, rawValue) {
+      const palette = Array.isArray(doc.color_palette) ? doc.color_palette.slice() : [];
+      const target = normalizeSceneColorValue(rawValue);
+      const found = palette.findIndex((value) => normalizeSceneColorValue(value) === target);
+      if (found >= 0) {
+        doc.color_palette = palette;
+        return found + 1;
+      }
+      if (palette.length >= SCENE_MAX_PALETTE) {
+        throw new Error(`固定颜色最多 ${SCENE_MAX_PALETTE} 个不同值，请先统一或减少颜色种类`);
+      }
+      palette.push(target);
+      doc.color_palette = palette;
+      return palette.length;
+    }
+
+    function compactScenePalette(doc) {
+      const oldPalette = Array.isArray(doc.color_palette) ? doc.color_palette.slice() : [];
+      if (!oldPalette.length) {
+        doc.color_palette = [];
+        return;
+      }
+      const usedValues = [];
+      const remap = new Map();
+      doc.parts.forEach((part) => {
+        const idx = Number(part.color_idx || 0);
+        if (idx <= 0 || idx > oldPalette.length) {
+          part.color_idx = 0;
+          return;
+        }
+        const colorValue = normalizeSceneColorValue(oldPalette[idx - 1]);
+        let newIdx = remap.get(colorValue);
+        if (!newIdx) {
+          usedValues.push(colorValue);
+          newIdx = usedValues.length;
+          remap.set(colorValue, newIdx);
+        }
+        part.color_idx = newIdx;
+      });
+      doc.color_palette = usedValues;
+    }
+
+    function syncPartColorInputs(mode, colorValue) {
+      const fixed = mode === "fixed";
+      const hex = formatSceneColorHex(colorValue != null ? colorValue : state.color || "#101820").toUpperCase();
+      els.partColorModeSelect.value = fixed ? "fixed" : "runtime";
+      els.partColorValueInput.disabled = !fixed;
+      els.partColorHexInput.disabled = !fixed;
+      els.partColorValueInput.value = hex;
+      els.partColorHexInput.value = hex;
+    }
+
+    function resolvePreviewSegmentColor(asset, seg) {
+      if (seg && seg.colorIdx > 0 && Array.isArray(asset.colorPalette) && seg.colorIdx <= asset.colorPalette.length) {
+        return formatSceneColorHex(asset.colorPalette[seg.colorIdx - 1]);
+      }
+      return state.color || "#101820";
+    }
+
+    function resolvePreviewSegmentOpacity(seg) {
+      const raw = Number(seg && seg.opacity != null ? seg.opacity : 0);
+      const clamped = Math.max(0, Math.min(255, Number.isFinite(raw) ? raw : 0));
+      return (clamped === 0 ? 255 : clamped) / 255;
     }
 
     function screenMetrics(asset, width, height) {
@@ -2383,6 +2790,71 @@
       return out;
     }
 
+    function compiledKindOrThrow(kind, partId = "part") {
+      const compiled = SEG_KIND[kind] || kind;
+      if (!KIND_LABELS[compiled]) {
+        throw new Error(`part ${partId} has unsupported kind ${kind}`);
+      }
+      return compiled;
+    }
+
+    function validatePartTopology(part, count, totalBefore = 0, paletteSize = 0) {
+      const compiledKind = compiledKindOrThrow(part.kind, part.id);
+      const totalAfter = totalBefore + count;
+
+      if (totalAfter > SCENE_MAX_JOINTS) {
+        throw new Error(`joint budget exceeded: ${totalAfter} > ${SCENE_MAX_JOINTS} after part ${part.id}`);
+      }
+      if (part.layer_bit < 0 || part.layer_bit > 255) {
+        throw new Error(`part ${part.id} layer_bit must be 0..255`);
+      }
+      if (part.opacity < 0 || part.opacity > 255) {
+        throw new Error(`part ${part.id} opacity must be 0..255`);
+      }
+      if (part.color_idx < 0 || part.color_idx > SCENE_MAX_PALETTE) {
+        throw new Error(`part ${part.id} color_idx must be 0..${SCENE_MAX_PALETTE}`);
+      }
+      if (part.color_idx > 0 && part.color_idx > paletteSize) {
+        throw new Error(`part ${part.id} color_idx ${part.color_idx} exceeds color_palette size ${paletteSize}`);
+      }
+      if (part.resource_idx > 0) {
+        throw new Error(`part ${part.id} resource_idx is not supported by gui_designer.html export yet`);
+      }
+
+      switch (compiledKind) {
+      case "GFX_SM_SEG_CAPSULE":
+        if (count !== 2) {
+          throw new Error(`part ${part.id} CAPSULE requires exactly 2 points`);
+        }
+        break;
+
+      case "GFX_SM_SEG_RING":
+        if (count !== 1) {
+          throw new Error(`part ${part.id} RING requires exactly 1 point`);
+        }
+        break;
+
+      case "GFX_SM_SEG_BEZIER_STRIP":
+      case "GFX_SM_SEG_BEZIER_LOOP":
+      case "GFX_SM_SEG_BEZIER_FILL":
+        if (count < 4) {
+          throw new Error(`part ${part.id} requires at least 4 control points`);
+        }
+        if (count > SCENE_MAX_SEG_CTRL_PTS) {
+          throw new Error(`part ${part.id} exceeds max ${SCENE_MAX_SEG_CTRL_PTS} control points`);
+        }
+        if (((count - 1) % 3) !== 0) {
+          throw new Error(`part ${part.id} control point count must satisfy 3k+1`);
+        }
+        break;
+
+      default:
+        throw new Error(`part ${part.id} has unsupported compiled kind ${compiledKind}`);
+      }
+
+      return compiledKind;
+    }
+
     function normalizeSceneDoc(input) {
       const doc = deepClone(input);
       if (doc.schema !== SCENE_SCHEMA) {
@@ -2390,6 +2862,12 @@
       }
 
       const viewbox = doc.meta && Array.isArray(doc.meta.viewbox) ? doc.meta.viewbox : [0, 0, 200, 200];
+      const colorPalette = Array.isArray(doc.color_palette)
+        ? doc.color_palette.map((value, index) => normalizeSceneColorValue(value, `color_palette[${index}]`))
+        : [];
+      if (colorPalette.length > SCENE_MAX_PALETTE) {
+        throw new Error(`color_palette exceeds max ${SCENE_MAX_PALETTE}`);
+      }
       const layout = {
         stroke_width: Number(doc.layout && doc.layout.stroke_width != null ? doc.layout.stroke_width : 4),
         mirror_x: Number(doc.layout && doc.layout.mirror_x != null ? doc.layout.mirror_x : 0),
@@ -2404,6 +2882,10 @@
         kind: String(part.kind || "BEZIER_STRIP"),
         stroke_width: Number(part.stroke_width || 0),
         radius_hint: Number(part.radius_hint || 0),
+        layer_bit: Number(part.layer_bit || 0),
+        resource_idx: Number(part.resource_idx || 0),
+        color_idx: Number(part.color_idx || 0),
+        opacity: Number(part.opacity || 0),
       }));
 
       if (!parts.length) throw new Error("scene.parts is empty");
@@ -2433,9 +2915,10 @@
       const clips = (doc.clips || []).map((clip, index) => {
         const id = String(clip.id || `clip_${index}`);
         const steps = (clip.steps || []).map((step) => {
-          if (!poseMap.has(step.pose)) throw new Error(`clip ${id} references unknown pose ${step.pose}`);
+          const poseId = String(step.pose || "");
+          if (poseId && !poseMap.has(poseId)) throw new Error(`clip ${id} references unknown pose ${poseId}`);
           return {
-            pose: String(step.pose),
+            pose: poseId,
             hold_ticks: Number(step.hold_ticks != null ? step.hold_ticks : 30),
             facing: Number(step.facing != null ? step.facing : 1),
             interp: String(step.interp || "DAMPED"),
@@ -2468,6 +2951,24 @@
           }
         }
       }
+      if (parts.length > SCENE_MAX_SEGMENTS) {
+        throw new Error(`scene.parts exceeds max ${SCENE_MAX_SEGMENTS}`);
+      }
+      let jointBudget = 0;
+      for (const part of parts) {
+        jointBudget += poses[0].parts[part.id].length;
+        validatePartTopology(
+          part,
+          poses[0].parts[part.id].length,
+          jointBudget - poses[0].parts[part.id].length,
+          colorPalette.length
+        );
+      }
+      for (const clip of clips) {
+        if (clip.steps.length > SCENE_MAX_CLIP_STEPS) {
+          throw new Error(`clip ${clip.id} exceeds max ${SCENE_MAX_CLIP_STEPS} steps`);
+        }
+      }
 
       return {
         schema: SCENE_SCHEMA,
@@ -2475,6 +2976,7 @@
         prefix: doc.prefix || "s_scene",
         meta: { viewbox },
         layout,
+        color_palette: colorPalette,
         parts,
         poses,
         clips,
@@ -2496,18 +2998,18 @@
         damping_div: Number(gfx.layout && gfx.layout.damping_div != null ? gfx.layout.damping_div : 4),
       };
 
-      /* Skip the lottielab watermark group (sentinel ind 12345679 + known names)
-         so dropping a raw std_* lottie export doesn't import the "Made with
-         Lottielab" badge as 22 tiny stray parts. */
+      /* Skip the lottielab watermark sentinel group. Some user-authored rigs
+         legitimately keep names like "lottielab.com" on real parts (for
+         example the right eye outline in claw_line/idle.json), so name-based
+         filtering would incorrectly drop visible geometry. */
       const WATERMARK_IND_LT = 12345679;
-      const WATERMARK_NAMES_LT = new Set(["lottielab.com", "Group Layer 8"]);
       const shapeLayers = (lottie.layers || []).filter(
-        (layer) => layer.ty === 4 && layer.ind !== WATERMARK_IND_LT && !WATERMARK_NAMES_LT.has(layer.nm)
+        (layer) => layer.ty === 4 && layer.ind !== WATERMARK_IND_LT
       );
       const segCfg = new Map((gfx.segments || []).map((segment) => [segment.layer, segment]));
       const orderedLayers = segCfg.size
         ? (gfx.segments || []).map((segment) => shapeLayers.find((layer) => layer.nm === segment.layer)).filter(Boolean)
-        : shapeLayers;
+        : [...shapeLayers].reverse();
 
       const markers = (lottie.markers && lottie.markers.length)
         ? [...lottie.markers].sort((a, b) => a.tm - b.tm)
@@ -2523,6 +3025,32 @@
       const parts = [];
       const usedPartIds = new Set();
       const partSrc = []; /* parallel: { layer, pathKey, hasAnim } for pose sampling */
+      const colorPalette = [];
+      const colorIndexByValue = new Map();
+      function allocPaletteIndex(colorValue) {
+        if (colorValue == null) return 0;
+        const normalized = normalizeSceneColorValue(colorValue);
+        if (colorIndexByValue.has(normalized)) {
+          return colorIndexByValue.get(normalized);
+        }
+        if (colorPalette.length >= SCENE_MAX_PALETTE) {
+          return 0;
+        }
+        colorPalette.push(normalized);
+        const idx = colorPalette.length;
+        colorIndexByValue.set(normalized, idx);
+        return idx;
+      }
+      function allocUniquePartId(rawId) {
+        let partId = rawId;
+        if (usedPartIds.has(partId)) {
+          let n = 2;
+          while (usedPartIds.has(`${partId}_${n}`)) n++;
+          partId = `${partId}_${n}`;
+        }
+        usedPartIds.add(partId);
+        return partId;
+      }
 
       for (const layer of orderedLayers) {
         const shapes = layerWorldShapes(layer, layerMapByInd);
@@ -2541,35 +3069,61 @@
             .replace(/^L\d+\/?/, "")
             .replace(/[^\w]+/g, "_")
             .replace(/^_+|_+$/g, "");
-          let partId = suffix ? `${base}_${suffix}` : base;
-          if (usedPartIds.has(partId)) {
-            let n = 2;
-            while (usedPartIds.has(`${partId}_${n}`)) n++;
-            partId = `${partId}_${n}`;
-          }
-          usedPartIds.add(partId);
-
-          let kind = cfg.kind;
-          if (!kind) {
-            /* Stroke-only widget: promote fill-only closed paths to LOOP so
-             * they render as outlines instead of overlapping solid blobs. */
-            kind = conv.closed ? "BEZIER_LOOP" : "BEZIER_STRIP";
-          }
-
-          /* Fill-only shapes have no Lottie stroke width — fall back to the
-           * scene's layout default so the promoted outline is actually
-           * visible instead of a zero-width (invisible) loop. */
+          const partBaseId = suffix ? `${base}_${suffix}` : base;
           const fallbackSW = layout.stroke_width;
           const rawSW = cfg.stroke_width != null ? Number(cfg.stroke_width)
                                                   : (s.strokeWidth || 0);
-          parts.push({
-            id: partId,
-            label: partId,
-            kind,
-            stroke_width: rawSW > 0 ? rawSW : fallbackSW,
-            radius_hint: 0,
-          });
-          partSrc.push({ layer, pathKey: s.pathKey, hasAnim });
+          const outlineSW = rawSW > 0 ? rawSW : fallbackSW;
+          const variants = [];
+
+          if (cfg.kind) {
+            variants.push({
+              id: allocUniquePartId(partBaseId),
+              kind: cfg.kind,
+              stroke_width: cfg.kind === "BEZIER_FILL" ? 0 : outlineSW,
+              color_idx: allocPaletteIndex(chooseImportStyleColor(s, cfg.kind)),
+              opacity: chooseImportStyleOpacity(s, cfg.kind),
+            });
+          } else if (conv.closed && s.hasFill && s.hasStroke) {
+            variants.push({
+              id: allocUniquePartId(`${partBaseId}_fill`),
+              kind: "BEZIER_FILL",
+              stroke_width: 0,
+              color_idx: allocPaletteIndex(chooseImportStyleColor(s, "BEZIER_FILL")),
+              opacity: chooseImportStyleOpacity(s, "BEZIER_FILL"),
+            });
+            variants.push({
+              id: allocUniquePartId(`${partBaseId}_stroke`),
+              kind: "BEZIER_LOOP",
+              stroke_width: outlineSW,
+              color_idx: allocPaletteIndex(chooseImportStyleColor(s, "BEZIER_LOOP")),
+              opacity: chooseImportStyleOpacity(s, "BEZIER_LOOP"),
+            });
+          } else {
+            const kind = conv.closed
+              ? (s.hasFill ? "BEZIER_FILL" : "BEZIER_LOOP")
+              : "BEZIER_STRIP";
+            variants.push({
+              id: allocUniquePartId(partBaseId),
+              kind,
+              stroke_width: kind === "BEZIER_FILL" ? 0 : outlineSW,
+              color_idx: allocPaletteIndex(chooseImportStyleColor(s, kind)),
+              opacity: chooseImportStyleOpacity(s, kind),
+            });
+          }
+
+          for (const variant of variants) {
+            parts.push({
+              id: variant.id,
+              label: variant.id,
+              kind: variant.kind,
+              stroke_width: variant.stroke_width,
+              radius_hint: 0,
+              color_idx: variant.color_idx,
+              opacity: variant.opacity,
+            });
+            partSrc.push({ layer, pathKey: s.pathKey, hasAnim });
+          }
         }
       }
 
@@ -2629,6 +3183,7 @@
         prefix: gfx.prefix || "s_scene",
         meta: { viewbox },
         layout,
+        color_palette: colorPalette,
         parts,
         poses,
         clips,
@@ -2673,6 +3228,136 @@
       }
     }
 
+    function debounce(fn, delay = 180) {
+      let timer = null;
+      return (...args) => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          timer = null;
+          fn(...args);
+        }, delay);
+      };
+    }
+
+    function saveSceneJsonToFile() {
+      const doc = normalizeSceneDoc(parseJsonInput(els.sceneEditor.value));
+      const filename = `${doc.name || "scene"}.scene.json`;
+      downloadText(filename, safeStringify(doc));
+      setStatus(`已保存：${filename}`);
+    }
+
+    function hasUnresolvedClipSteps(doc) {
+      if (!doc || !Array.isArray(doc.clips)) return false;
+      for (const clip of doc.clips) {
+        for (const step of (clip.steps || [])) {
+          if (!String(step.pose || "").trim()) return true;
+        }
+      }
+      return false;
+    }
+
+    function applySceneMetaChanges() {
+      const doc = deepClone(ensureSceneDoc());
+      doc.name = els.guiSceneName.value.trim() || doc.name;
+      doc.prefix = els.guiScenePrefix.value.trim() || doc.prefix;
+      writeSceneDoc(doc, "已更新场景信息。");
+    }
+
+    function applySelectedPartChanges() {
+      const doc = deepClone(ensureSceneDoc());
+      if (!doc.parts.length || !state.selectedPartId) return;
+      const safeIndex = Math.max(0, Math.min(state.selectedPartIndex, doc.parts.length - 1));
+      const part = doc.parts[safeIndex];
+      const oldId = part.id;
+      const desiredId = slugify(els.partIdInput.value.trim() || oldId, oldId);
+      const otherIds = new Set(
+        doc.parts.filter((_, index) => index !== safeIndex).map((item) => item.id)
+      );
+      const newId = otherIds.has(desiredId)
+        ? makeUniqueId(desiredId, otherIds, desiredId)
+        : desiredId;
+
+      part.id = newId;
+      part.label = els.partLabelInput.value.trim() || newId;
+      part.kind = els.partKindSelect.value;
+      part.stroke_width = Math.max(0, Number(els.partStrokeInput.value) || 0);
+      part.layer_bit = Math.max(0, Math.min(255, Number(els.partLayerInput.value) || 0));
+      part.opacity = Math.max(0, Math.min(255, Number(els.partOpacityInput.value) || 0));
+      if (els.partColorModeSelect.value === "fixed") {
+        const colorValue = normalizeSceneColorValue(
+          els.partColorHexInput.value || els.partColorValueInput.value,
+          `${newId} color`
+        );
+        part.color_idx = ensurePaletteColorIndex(doc, colorValue);
+      } else {
+        part.color_idx = 0;
+      }
+      compactScenePalette(doc);
+
+      if (oldId !== newId) {
+        doc.poses.forEach((pose) => {
+          const oldPts = pose.parts[oldId];
+          delete pose.parts[oldId];
+          pose.parts[newId] = oldPts;
+        });
+        state.selectedPartId = newId;
+      }
+
+      state.selectedPartIndex = safeIndex;
+      writeSceneDoc(doc, "已更新部件。");
+    }
+
+    function applySelectedClipChanges() {
+      const doc = deepClone(ensureSceneDoc());
+      if (!doc.clips.length) return;
+      const safeIndex = Math.max(0, Math.min(state.selectedClipIndex, doc.clips.length - 1));
+      const clip = doc.clips[safeIndex];
+      const oldId = clip.id;
+      const desiredId = slugify(els.clipIdInput.value.trim() || oldId, oldId);
+      const otherIds = new Set(
+        doc.clips.filter((_, index) => index !== safeIndex).map((item) => item.id)
+      );
+      const newId = otherIds.has(desiredId)
+        ? makeUniqueId(desiredId, otherIds, desiredId)
+        : desiredId;
+
+      clip.id = newId;
+      clip.label = newId;
+      clip.label_cn = newId;
+      clip.loop = els.clipLoopSelect.value === "true";
+      if (oldId !== newId) {
+        doc.sequence = doc.sequence.map((item) => item === oldId ? newId : item);
+      }
+
+      state.selectedClipIndex = safeIndex;
+      writeSceneDoc(doc, "已更新动作。");
+    }
+
+    function applySelectedStepChanges() {
+      const doc = deepClone(ensureSceneDoc());
+      if (!doc.clips.length) return;
+      const clipIndex = Math.max(0, Math.min(state.selectedClipIndex, doc.clips.length - 1));
+      const clip = doc.clips[clipIndex];
+      if (!clip.steps.length) return;
+      const stepIndex = Math.max(0, Math.min(state.selectedStepIndex, clip.steps.length - 1));
+      const step = clip.steps[stepIndex];
+
+      step.pose = els.stepPoseSelect.value;
+      step.hold_ticks = Math.max(1, Number(els.stepHoldInput.value) || 1);
+      step.facing = Number(els.stepFacingSelect.value) || 1;
+      step.interp = els.stepInterpSelect.value === "HOLD" ? "HOLD" : "DAMPED";
+
+      state.selectedClipIndex = clipIndex;
+      state.selectedStepIndex = stepIndex;
+      state.reopenClipStepDetail = true;
+      const unresolved = hasUnresolvedClipSteps(doc);
+      writeSceneDoc(
+        doc,
+        unresolved ? "已更新步骤；当前仍有未选择姿态的动作，暂不编译。" : "已更新步骤。",
+        !unresolved
+      );
+    }
+
     function poseByIndex(index) {
       const doc = ensureSceneDoc();
       return doc.poses[Math.max(0, Math.min(index, doc.poses.length - 1))];
@@ -2686,18 +3371,14 @@
     function addClipFromSelectedPose() {
       try {
         const doc = deepClone(ensureSceneDoc());
-        const pose = doc.poses[state.selectedPoseIndex];
-        if (!pose) {
-          throw new Error("没有可用姿态");
-        }
-        const newId = makeUniqueId(`${pose.id}_clip`, new Set(doc.clips.map((c) => c.id)), pose.id);
+        const newId = nextPosClipId(new Set(doc.clips.map((c) => c.id)));
         doc.clips.push({
           id: newId,
           label: newId,
           label_cn: newId,
           loop: true,
           steps: [{
-            pose: pose.id,
+            pose: "",
             hold_ticks: 30,
             facing: 1,
             interp: "DAMPED",
@@ -2709,8 +3390,8 @@
         if (els.clipStepConfig) {
           els.clipStepConfig.open = false;
         }
-        state.reopenClipStepDetail = false;
-        writeSceneDoc(doc, `已添加动作「${newId}」（一步 → ${pose.id}）。`);
+        state.reopenClipStepDetail = true;
+        writeSceneDoc(doc, `已添加动作「${newId}」，默认空步骤，请手动选择姿态。`, false);
       } catch (err) {
         setStatus(`添加动作失败：${err.message}`, true);
       }
@@ -2794,20 +3475,22 @@
 
     function partByIndex(index) {
       const doc = ensureSceneDoc();
-      return doc.parts[Math.max(0, Math.min(index, doc.parts.length - 1))];
+      if (!doc.parts.length) return null;
+      const safeIndex = Math.max(0, Math.min(index, doc.parts.length - 1));
+      return doc.parts[safeIndex] || null;
     }
 
     function currentPosePartId() {
       const doc = ensureSceneDoc();
       return state.selectedPartId && doc.parts.some((part) => part.id === state.selectedPartId)
         ? state.selectedPartId
-        : (doc.parts[0] ? doc.parts[0].id : "");
+        : "";
     }
 
     function currentPartIndex() {
       const doc = ensureSceneDoc();
       const found = doc.parts.findIndex((part) => part.id === state.selectedPartId);
-      return found >= 0 ? found : 0;
+      return found >= 0 ? found : -1;
     }
 
     function partBounds(points) {
@@ -2834,6 +3517,111 @@
         centerX: (minX + maxX) * 0.5,
         centerY: (minY + maxY) * 0.5,
       };
+    }
+
+    function screenBoundsFromPoints(points) {
+      if (!Array.isArray(points) || !points.length) return null;
+      let minX = Number(points[0].x);
+      let minY = Number(points[0].y);
+      let maxX = Number(points[0].x);
+      let maxY = Number(points[0].y);
+      for (const pt of points) {
+        const x = Number(pt.x);
+        const y = Number(pt.y);
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+      return {
+        minX,
+        minY,
+        maxX,
+        maxY,
+        width: maxX - minX,
+        height: maxY - minY,
+        centerX: (minX + maxX) * 0.5,
+        centerY: (minY + maxY) * 0.5,
+      };
+    }
+
+    function expandScreenBounds(bounds, pad) {
+      if (!bounds) return null;
+      return {
+        minX: bounds.minX - pad,
+        minY: bounds.minY - pad,
+        maxX: bounds.maxX + pad,
+        maxY: bounds.maxY + pad,
+        width: bounds.width + pad * 2,
+        height: bounds.height + pad * 2,
+        centerX: bounds.centerX,
+        centerY: bounds.centerY,
+      };
+    }
+
+    function appendFocusArrow(svg, bounds, width, height) {
+      if (!bounds) return;
+      const badgeR = 12;
+      const edgePad = 20;
+      const preferLeft = bounds.centerX > width * 0.48;
+      let badgeCx = preferLeft ? bounds.minX - 34 : bounds.maxX + 34;
+      let badgeCy = bounds.minY - 22;
+      badgeCx = Math.max(edgePad + badgeR, Math.min(width - edgePad - badgeR, badgeCx));
+      badgeCy = Math.max(edgePad + badgeR, Math.min(height - edgePad - badgeR, badgeCy));
+
+      const targetX = Math.max(edgePad, Math.min(width - edgePad, preferLeft ? bounds.minX + 6 : bounds.maxX - 6));
+      const targetY = Math.max(edgePad, Math.min(height - edgePad, bounds.minY + Math.min(20, Math.max(6, bounds.height * 0.28))));
+
+      const dx = targetX - badgeCx;
+      const dy = targetY - badgeCy;
+      const len = Math.max(1, Math.hypot(dx, dy));
+      const ux = dx / len;
+      const uy = dy / len;
+      const lineStartX = badgeCx + ux * (badgeR + 3);
+      const lineStartY = badgeCy + uy * (badgeR + 3);
+      const lineEndX = targetX - ux * 11;
+      const lineEndY = targetY - uy * 11;
+      const nx = -uy;
+      const ny = ux;
+      const headBackX = targetX - ux * 15;
+      const headBackY = targetY - uy * 15;
+      const headHalfW = 7;
+
+      const badge = document.createElementNS(NS, "circle");
+      badge.setAttribute("cx", String(badgeCx));
+      badge.setAttribute("cy", String(badgeCy));
+      badge.setAttribute("r", String(badgeR));
+      badge.setAttribute("class", "part-focus-arrow-badge");
+      svg.appendChild(badge);
+
+      const arrowGlyph = document.createElementNS(NS, "path");
+      const gx = badgeCx;
+      const gy = badgeCy;
+      arrowGlyph.setAttribute(
+        "d",
+        `M ${gx - 4.5} ${gy - 3.5} L ${gx + 2.2} ${gy - 3.5} L ${gx + 2.2} ${gy - 7.2} ` +
+        `L ${gx + 8} ${gy} L ${gx + 2.2} ${gy + 7.2} L ${gx + 2.2} ${gy + 3.5} L ${gx - 4.5} ${gy + 3.5} Z`
+      );
+      arrowGlyph.setAttribute("class", "part-focus-arrow-head");
+      svg.appendChild(arrowGlyph);
+
+      const line = document.createElementNS(NS, "line");
+      line.setAttribute("x1", String(lineStartX));
+      line.setAttribute("y1", String(lineStartY));
+      line.setAttribute("x2", String(lineEndX));
+      line.setAttribute("y2", String(lineEndY));
+      line.setAttribute("class", "part-focus-arrow-line");
+      svg.appendChild(line);
+
+      const head = document.createElementNS(NS, "path");
+      head.setAttribute(
+        "d",
+        `M ${targetX} ${targetY} ` +
+        `L ${headBackX + nx * headHalfW} ${headBackY + ny * headHalfW} ` +
+        `L ${headBackX - nx * headHalfW} ${headBackY - ny * headHalfW} Z`
+      );
+      head.setAttribute("class", "part-focus-arrow-head");
+      svg.appendChild(head);
     }
 
     function translatePoints(points, dx, dy, viewbox) {
@@ -2869,7 +3657,22 @@
       state.selectedPartIndex = index;
       refreshGuiPanels();
       renderAsset();
-      openPartDetailDialog(partId);
+    }
+
+    function clearPartSelection() {
+      state.selectedPartId = "";
+      state.selectedPartIndex = -1;
+      refreshGuiPanels();
+      renderAsset();
+    }
+
+    function togglePartSelection(partId) {
+      if (!partId || !state.sceneDoc) return;
+      if (state.selectedPartId === partId) {
+        clearPartSelection();
+        return;
+      }
+      selectPart(partId);
     }
 
     function renderClipStepEditor() {
@@ -2891,6 +3694,12 @@
       els.clipLoopSelect.value = clip.loop ? "true" : "false";
 
       els.stepPoseSelect.innerHTML = "";
+      {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "— 未选择姿态 —";
+        els.stepPoseSelect.appendChild(option);
+      }
       doc.poses.forEach((pose, index) => {
         const option = document.createElement("option");
         option.value = pose.id;
@@ -2928,10 +3737,10 @@
         idxSpan.textContent = String(index).padStart(2, "0");
         const idSpan = document.createElement("span");
         idSpan.className = "pose-row-id";
-        idSpan.textContent = step.pose;
+        idSpan.textContent = step.pose || "未选择姿态";
         const srcSpan = document.createElement("span");
         srcSpan.className = "pose-row-src";
-        srcSpan.textContent = `hold ${step.hold_ticks} · ${facingLabel} · ${interpLabel(step.interp)}`;
+        srcSpan.textContent = `hold ${step.hold_ticks} (~${holdTicksToMs(step.hold_ticks, doc, null)} ms) · ${facingLabel} · ${interpLabel(step.interp)}`;
         main.appendChild(idxSpan);
         main.appendChild(idSpan);
         main.appendChild(srcSpan);
@@ -2973,10 +3782,11 @@
         const step = clip.steps[safeStepIndex];
         if (els.clipStepConfigSummary) {
           els.clipStepConfigSummary.textContent =
-            `步骤 ${safeStepIndex + 1} / ${clip.steps.length} · ${step.pose}（展开编辑姿态、hold、朝向、插值）`;
+            `步骤 ${safeStepIndex + 1} / ${clip.steps.length} · ${step.pose || "未选择姿态"}（展开编辑姿态、hold、朝向、插值）`;
         }
         els.stepPoseSelect.value = step.pose;
         els.stepHoldInput.value = String(step.hold_ticks);
+        updateStepHoldHint(step.hold_ticks);
         els.stepFacingSelect.value = String(step.facing);
         els.stepInterpSelect.value = step.interp;
         if (state.reopenClipStepDetail) {
@@ -2996,6 +3806,9 @@
         els.partLabelInput.value = "";
         els.partKindSelect.value = "BEZIER_STRIP";
         els.partStrokeInput.value = "0";
+        els.partLayerInput.value = "0";
+        syncPartColorInputs("runtime", state.color || "#101820");
+        els.partOpacityInput.value = "0";
         els.posesList.innerHTML = "";
         els.clipsList.innerHTML = "";
         els.clipStepsList.innerHTML = "";
@@ -3014,7 +3827,7 @@
       state.selectedPoseIndex = Math.max(0, Math.min(state.selectedPoseIndex, doc.poses.length - 1));
       state.selectedClipIndex = Math.max(0, Math.min(state.selectedClipIndex, doc.clips.length - 1));
       state.selectedPartId = currentPosePartId();
-      state.selectedPartIndex = Math.max(0, Math.min(currentPartIndex(), doc.parts.length - 1));
+      state.selectedPartIndex = currentPartIndex();
 
       els.guiSceneName.value = doc.name || "";
       els.guiScenePrefix.value = doc.prefix || "";
@@ -3024,23 +3837,47 @@
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "chip";
-        btn.textContent = `${String(index).padStart(2, "0")} ${part.id} | ${kindLabel(part.kind)} | 线宽=${part.stroke_width || 0}`;
-        btn.onclick = () => {
-          state.selectedPartIndex = index;
-          state.selectedPartId = part.id;
-          refreshGuiPanels();
-          renderAsset();
+        const previewOpacity = part.opacity || 255;
+        const fixedColor = getPartFixedColorValue(doc, part);
+        const colorLabel = fixedColor != null
+          ? formatSceneColorHex(fixedColor).toUpperCase()
+          : "主色";
+        btn.textContent =
+          `${String(index).padStart(2, "0")} ${part.id} | ${kindLabel(part.kind)} | ` +
+          `线宽=${part.stroke_width || 0} 色=${colorLabel} O=${previewOpacity} L=${part.layer_bit || 0}`;
+        btn.addEventListener("click", (event) => {
+          if (event.detail !== 1) return;
+          togglePartSelection(part.id);
+        });
+        btn.addEventListener("dblclick", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          selectPart(part.id);
           openPartDetailDialog(part.id);
-        };
+        });
         if (part.id === state.selectedPartId) btn.classList.add("active");
         els.partsList.appendChild(btn);
       });
 
-      const part = partByIndex(state.selectedPartIndex);
-      els.partIdInput.value = part.id;
-      els.partLabelInput.value = part.label;
-      els.partKindSelect.value = part.kind;
-      els.partStrokeInput.value = String(part.stroke_width || 0);
+      const part = state.selectedPartIndex >= 0 ? partByIndex(state.selectedPartIndex) : null;
+      if (part) {
+        els.partIdInput.value = part.id;
+        els.partLabelInput.value = part.label;
+        els.partKindSelect.value = part.kind;
+        els.partStrokeInput.value = String(part.stroke_width || 0);
+        els.partLayerInput.value = String(part.layer_bit || 0);
+        syncPartColorInputs(part.color_idx > 0 ? "fixed" : "runtime",
+          getPartFixedColorValue(doc, part) || state.color || "#101820");
+        els.partOpacityInput.value = String(part.opacity || 0);
+      } else {
+        els.partIdInput.value = "";
+        els.partLabelInput.value = "";
+        els.partKindSelect.value = "BEZIER_STRIP";
+        els.partStrokeInput.value = "0";
+        els.partLayerInput.value = "0";
+        syncPartColorInputs("runtime", state.color || "#101820");
+        els.partOpacityInput.value = "0";
+      }
 
       /* Pose list: unified view of scene poses + their originating JSON file
          (when the rig accumulator is aligned by index). Each row has a × to
@@ -3155,6 +3992,9 @@
 
     function compileFromSceneDoc(doc, options = {}) {
       const normalized = normalizeSceneDoc(doc);
+      if (hasUnresolvedClipSteps(normalized)) {
+        throw new Error("存在未选择姿态的动作步骤，请先在动作编辑区为步骤选择 pose。");
+      }
       state.sceneDoc = normalized;
       state.asset = compileSceneDoc(normalized);
       state.scene = createScene(state.asset);
@@ -3183,13 +4023,22 @@
       const partOffsets = new Map();
       let jointCursor = 0;
 
+      if (sceneDoc.parts.length > SCENE_MAX_SEGMENTS) {
+        throw new Error(`scene.parts exceeds runtime max ${SCENE_MAX_SEGMENTS}`);
+      }
+      if ((sceneDoc.color_palette || []).length > SCENE_MAX_PALETTE) {
+        throw new Error(`color_palette exceeds runtime max ${SCENE_MAX_PALETTE}`);
+      }
+
       sceneDoc.parts.forEach((part) => {
         const count = sceneDoc.poses[0].parts[part.id].length;
+        const compiledKind = validatePartTopology(
+          part, count, jointCursor, (sceneDoc.color_palette || []).length
+        );
         partOffsets.set(part.id, { jointA: jointCursor, count });
         for (let i = 0; i < count; i++) {
           jointNames.push(`${part.id}_${i}`);
         }
-        const compiledKind = SEG_KIND[part.kind] || part.kind;
         segments.push({
           id: part.id,
           kind: compiledKind,
@@ -3198,9 +4047,16 @@
           jointCount: count,
           strokeWidth: part.stroke_width || 0,
           radiusHint: part.radius_hint || 0,
+          layerBit: part.layer_bit || 0,
+          resourceIdx: part.resource_idx || 0,
+          colorIdx: part.color_idx || 0,
+          opacity: part.opacity || 0,
         });
         jointCursor += count;
       });
+      if (jointCursor > SCENE_MAX_JOINTS) {
+        throw new Error(`joint budget exceeds runtime max ${SCENE_MAX_JOINTS}`);
+      }
 
       const poses = sceneDoc.poses.map((pose, poseIndex) => {
         poseIndexById.set(pose.id, poseIndex);
@@ -3221,6 +4077,9 @@
 
       const clips = sceneDoc.clips.map((clip, clipIndex) => {
         clipIndexById.set(clip.id, clipIndex);
+        if (clip.steps.length > SCENE_MAX_CLIP_STEPS) {
+          throw new Error(`clip ${clip.id} exceeds runtime max ${SCENE_MAX_CLIP_STEPS} steps`);
+        }
         return {
           id: clip.id,
           loop: !!clip.loop,
@@ -3252,6 +4111,7 @@
           timerPeriodMs: sceneDoc.layout.timer_period_ms,
           dampingDiv: sceneDoc.layout.damping_div,
         },
+        colorPalette: sceneDoc.color_palette || [],
         jointNames,
         segments,
         poses,
@@ -3631,8 +4491,43 @@
       const svg = els.viewer;
       const width = Math.max(360, Math.round(svg.clientWidth || 700));
       const height = Math.max(360, Math.round(svg.clientHeight || 700));
+      const viewerTheme = resolveViewerTheme();
+      applyViewerTheme(viewerTheme);
       svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
       svg.innerHTML = "";
+
+      const defs = document.createElementNS(NS, "defs");
+      const pattern = document.createElementNS(NS, "pattern");
+      pattern.setAttribute("id", "viewer-grid");
+      pattern.setAttribute("width", "24");
+      pattern.setAttribute("height", "24");
+      pattern.setAttribute("patternUnits", "userSpaceOnUse");
+      const minor = document.createElementNS(NS, "path");
+      minor.setAttribute("d", "M 24 0 L 0 0 0 24");
+      minor.setAttribute("fill", "none");
+      minor.setAttribute("stroke", viewerTheme.gridMinor);
+      minor.setAttribute("stroke-width", "1");
+      pattern.appendChild(minor);
+      const major = document.createElementNS(NS, "path");
+      major.setAttribute("d", "M 96 0 L 0 0 0 96");
+      major.setAttribute("fill", "none");
+      major.setAttribute("stroke", viewerTheme.gridMajor);
+      major.setAttribute("stroke-width", "1.2");
+      const patternMajor = document.createElementNS(NS, "pattern");
+      patternMajor.setAttribute("id", "viewer-grid-major");
+      patternMajor.setAttribute("width", "96");
+      patternMajor.setAttribute("height", "96");
+      patternMajor.setAttribute("patternUnits", "userSpaceOnUse");
+      const majorMinor = document.createElementNS(NS, "path");
+      majorMinor.setAttribute("d", "M 24 0 L 0 0 0 24 M 48 0 L 48 96 M 72 0 L 72 96 M 0 48 L 96 48 M 0 72 L 96 72");
+      majorMinor.setAttribute("fill", "none");
+      majorMinor.setAttribute("stroke", viewerTheme.gridMinor);
+      majorMinor.setAttribute("stroke-width", "1");
+      patternMajor.appendChild(majorMinor);
+      patternMajor.appendChild(major);
+      defs.appendChild(pattern);
+      defs.appendChild(patternMajor);
+      svg.appendChild(defs);
 
       const bg = document.createElementNS(NS, "rect");
       bg.setAttribute("x", "0");
@@ -3640,8 +4535,26 @@
       bg.setAttribute("width", String(width));
       bg.setAttribute("height", String(height));
       bg.setAttribute("rx", "28");
-      bg.setAttribute("fill", "#fffdfa");
+      bg.setAttribute("fill", viewerTheme.stageFill);
       svg.appendChild(bg);
+
+      const gridMinor = document.createElementNS(NS, "rect");
+      gridMinor.setAttribute("x", "0");
+      gridMinor.setAttribute("y", "0");
+      gridMinor.setAttribute("width", String(width));
+      gridMinor.setAttribute("height", String(height));
+      gridMinor.setAttribute("rx", "28");
+      gridMinor.setAttribute("fill", "url(#viewer-grid)");
+      svg.appendChild(gridMinor);
+
+      const gridMajor = document.createElementNS(NS, "rect");
+      gridMajor.setAttribute("x", "0");
+      gridMajor.setAttribute("y", "0");
+      gridMajor.setAttribute("width", String(width));
+      gridMajor.setAttribute("height", String(height));
+      gridMajor.setAttribute("rx", "28");
+      gridMajor.setAttribute("fill", "url(#viewer-grid-major)");
+      svg.appendChild(gridMajor);
 
       if (!state.asset || !state.scene) {
         const text = document.createElementNS(NS, "text");
@@ -3649,7 +4562,7 @@
         text.setAttribute("y", String(height / 2));
         text.setAttribute("text-anchor", "middle");
         text.setAttribute("font-size", "18");
-        text.setAttribute("fill", "#7b6755");
+        text.setAttribute("fill", viewerTheme.emptyText);
         text.textContent = "等待编译 scene.json";
         svg.appendChild(text);
         els.hud.textContent = "尚未编译资产";
@@ -3658,8 +4571,8 @@
 
       const asset = state.asset;
       const scene = state.scene;
-      const strokeColor = state.color;
       const defaultStroke = scalarPx(asset, width, height, asset.layout.strokeWidth || 4);
+      let selectedCalloutBounds = null;
 
       if (Number.isFinite(asset.layout.groundY)) {
         const ground = toScreen(asset, { x: asset.meta.viewboxX, y: asset.layout.groundY }, width, height);
@@ -3668,7 +4581,7 @@
         line.setAttribute("x2", String(width - 26));
         line.setAttribute("y1", String(ground.y));
         line.setAttribute("y2", String(ground.y));
-        line.setAttribute("stroke", "rgba(36,27,19,0.14)");
+        line.setAttribute("stroke", viewerTheme.ground);
         line.setAttribute("stroke-width", "2");
         line.setAttribute("stroke-dasharray", "7 7");
         svg.appendChild(line);
@@ -3679,6 +4592,8 @@
           ? scalarPx(asset, width, height, seg.strokeWidth)
           : defaultStroke;
         const isSelectedPart = seg.id === currentPosePartId();
+        const segColor = resolvePreviewSegmentColor(asset, seg);
+        const segOpacity = resolvePreviewSegmentOpacity(seg);
 
         if (seg.kind === "GFX_SM_SEG_CAPSULE") {
           const a = toScreen(asset, scene.poseCur[seg.jointA], width, height);
@@ -3688,7 +4603,8 @@
           line.setAttribute("y1", String(a.y));
           line.setAttribute("x2", String(b.x));
           line.setAttribute("y2", String(b.y));
-          line.setAttribute("stroke", strokeColor);
+          line.setAttribute("stroke", segColor);
+          line.setAttribute("stroke-opacity", String(segOpacity));
           line.setAttribute("stroke-width", String(strokeWidth));
           line.setAttribute("stroke-linecap", "round");
           svg.appendChild(line);
@@ -3701,10 +4617,17 @@
           hit.setAttribute("stroke-width", String(Math.max(18, strokeWidth + 16)));
           hit.setAttribute("stroke-linecap", "round");
           hit.setAttribute("class", `part-hit${isSelectedPart ? " selected" : ""}${state.dragPartId === seg.id ? " dragging" : ""}`);
+          hit.addEventListener("click", (event) => {
+            if (event.detail !== 1) return;
+            event.preventDefault();
+            event.stopPropagation();
+            togglePartSelection(seg.id);
+          });
           hit.addEventListener("dblclick", (event) => {
             event.preventDefault();
             event.stopPropagation();
             selectPart(seg.id);
+            openPartDetailDialog(seg.id);
           });
           if (isSelectedPart) {
             hit.addEventListener("pointerdown", (event) => {
@@ -3725,6 +4648,10 @@
             highlight.setAttribute("stroke-width", String(Math.max(6, strokeWidth + 8)));
             highlight.setAttribute("class", "part-highlight");
             svg.appendChild(highlight);
+            selectedCalloutBounds = expandScreenBounds(
+              screenBoundsFromPoints([a, b]),
+              Math.max(10, strokeWidth * 0.75)
+            );
           }
           continue;
         }
@@ -3737,7 +4664,8 @@
           circle.setAttribute("cy", String(c.y));
           circle.setAttribute("r", String(radius));
           circle.setAttribute("fill", "none");
-          circle.setAttribute("stroke", strokeColor);
+          circle.setAttribute("stroke", segColor);
+          circle.setAttribute("stroke-opacity", String(segOpacity));
           circle.setAttribute("stroke-width", String(strokeWidth));
           svg.appendChild(circle);
 
@@ -3747,10 +4675,17 @@
           hit.setAttribute("r", String(radius));
           hit.setAttribute("stroke-width", String(Math.max(18, strokeWidth + 16)));
           hit.setAttribute("class", `part-hit${isSelectedPart ? " selected" : ""}${state.dragPartId === seg.id ? " dragging" : ""}`);
+          hit.addEventListener("click", (event) => {
+            if (event.detail !== 1) return;
+            event.preventDefault();
+            event.stopPropagation();
+            togglePartSelection(seg.id);
+          });
           hit.addEventListener("dblclick", (event) => {
             event.preventDefault();
             event.stopPropagation();
             selectPart(seg.id);
+            openPartDetailDialog(seg.id);
           });
           if (isSelectedPart) {
             hit.addEventListener("pointerdown", (event) => {
@@ -3768,6 +4703,16 @@
             highlight.setAttribute("r", String(radius + Math.max(4, strokeWidth * 0.5)));
             highlight.setAttribute("class", "part-highlight");
             svg.appendChild(highlight);
+            selectedCalloutBounds = {
+              minX: c.x - radius,
+              minY: c.y - radius,
+              maxX: c.x + radius,
+              maxY: c.y + radius,
+              width: radius * 2,
+              height: radius * 2,
+              centerX: c.x,
+              centerY: c.y,
+            };
           }
           continue;
         }
@@ -3777,16 +4722,24 @@
         if (seg.kind === "GFX_SM_SEG_BEZIER_FILL") {
           const path = document.createElementNS(NS, "path");
           path.setAttribute("d", bezierPath(ctrl, true));
-          path.setAttribute("fill", strokeColor);
+          path.setAttribute("fill", segColor);
+          path.setAttribute("fill-opacity", String(segOpacity));
           svg.appendChild(path);
 
           const hit = document.createElementNS(NS, "path");
           hit.setAttribute("d", bezierPath(ctrl, true));
           hit.setAttribute("class", `part-hit${isSelectedPart ? " selected" : ""}${state.dragPartId === seg.id ? " dragging" : ""}`);
+          hit.addEventListener("click", (event) => {
+            if (event.detail !== 1) return;
+            event.preventDefault();
+            event.stopPropagation();
+            togglePartSelection(seg.id);
+          });
           hit.addEventListener("dblclick", (event) => {
             event.preventDefault();
             event.stopPropagation();
             selectPart(seg.id);
+            openPartDetailDialog(seg.id);
           });
           if (isSelectedPart) {
             hit.addEventListener("pointerdown", (event) => {
@@ -3802,6 +4755,10 @@
             highlight.setAttribute("d", bezierPath(ctrl, true));
             highlight.setAttribute("class", "part-highlight");
             svg.appendChild(highlight);
+            selectedCalloutBounds = expandScreenBounds(
+              screenBoundsFromPoints(ctrl),
+              Math.max(10, strokeWidth * 0.6)
+            );
           }
           continue;
         }
@@ -3810,7 +4767,8 @@
           const path = document.createElementNS(NS, "path");
           path.setAttribute("d", bezierPath(ctrl, seg.kind === "GFX_SM_SEG_BEZIER_LOOP"));
           path.setAttribute("fill", "none");
-          path.setAttribute("stroke", strokeColor);
+          path.setAttribute("stroke", segColor);
+          path.setAttribute("stroke-opacity", String(segOpacity));
           path.setAttribute("stroke-width", String(strokeWidth));
           path.setAttribute("stroke-linecap", "round");
           path.setAttribute("stroke-linejoin", "round");
@@ -3822,10 +4780,17 @@
           hit.setAttribute("stroke-linecap", "round");
           hit.setAttribute("stroke-linejoin", "round");
           hit.setAttribute("class", `part-hit${isSelectedPart ? " selected" : ""}${state.dragPartId === seg.id ? " dragging" : ""}`);
+          hit.addEventListener("click", (event) => {
+            if (event.detail !== 1) return;
+            event.preventDefault();
+            event.stopPropagation();
+            togglePartSelection(seg.id);
+          });
           hit.addEventListener("dblclick", (event) => {
             event.preventDefault();
             event.stopPropagation();
             selectPart(seg.id);
+            openPartDetailDialog(seg.id);
           });
           if (isSelectedPart) {
             hit.addEventListener("pointerdown", (event) => {
@@ -3841,8 +4806,16 @@
             highlight.setAttribute("d", bezierPath(ctrl, seg.kind === "GFX_SM_SEG_BEZIER_LOOP"));
             highlight.setAttribute("class", "part-highlight");
             svg.appendChild(highlight);
+            selectedCalloutBounds = expandScreenBounds(
+              screenBoundsFromPoints(ctrl),
+              Math.max(10, strokeWidth * 0.6)
+            );
           }
         }
+      }
+
+      if (selectedCalloutBounds) {
+        appendFocusArrow(svg, selectedCalloutBounds, width, height);
       }
 
       svg.classList.toggle("is-editing", !!state.sceneDoc);
@@ -4269,6 +5242,13 @@
       const prefix = sanitizeCIdent(asset.prefix, "s_scene");
       const upper = prefix.toUpperCase();
       const lines = [];
+      const formatInt16Array = (values, perLine = 16) => {
+        const out = [];
+        for (let i = 0; i < values.length; i += perLine) {
+          out.push(`    ${values.slice(i, i + perLine).join(", ")},`);
+        }
+        return out;
+      };
 
       lines.push("/*");
       lines.push(" * SPDX-FileCopyrightText: 2026 Espressif Systems (Shanghai) CO LTD");
@@ -4306,7 +5286,9 @@
       lines.push("");
 
       asset.poses.forEach((pose, index) => {
-        lines.push(`static const int16_t ${prefix}_p${String(index).padStart(2, "0")}[] = { ${pose.coords.join(", ")} }; /* ${pose.id} */`);
+        lines.push(`static const int16_t ${prefix}_p${String(index).padStart(2, "0")}[] = { /* ${pose.id} */`);
+        lines.push(...formatInt16Array(pose.coords));
+        lines.push("};");
       });
       lines.push("");
       lines.push(`#define ${upper}_POSE(arr) { .coords = (arr) }`);
@@ -4328,11 +5310,20 @@
         if (seg.kind === "GFX_SM_SEG_CAPSULE") fields.push(`.joint_b = ${seg.jointB}`);
         if (seg.kind !== "GFX_SM_SEG_CAPSULE" && seg.kind !== "GFX_SM_SEG_RING") fields.push(`.joint_count = ${seg.jointCount}`);
         if (seg.strokeWidth) fields.push(`.stroke_width = ${seg.strokeWidth}`);
+        if (seg.layerBit) fields.push(`.layer_bit = ${seg.layerBit}`);
         if (seg.radiusHint) fields.push(`.radius_hint = ${seg.radiusHint}`);
+        if (seg.resourceIdx) fields.push(`.resource_idx = ${seg.resourceIdx}`);
+        if (seg.colorIdx) fields.push(`.color_idx = ${seg.colorIdx}`);
+        if (seg.opacity) fields.push(`.opacity = ${seg.opacity}`);
         lines.push(`    /* ${seg.id} */ { ${fields.join(", ")} },`);
       });
       lines.push("};");
       lines.push("");
+
+      if (asset.colorPalette && asset.colorPalette.length) {
+        lines.push(`static const uint32_t ${prefix}_color_palette[] = { ${asset.colorPalette.join(", ")} };`);
+        lines.push("");
+      }
 
       lines.push(`#define STEP(p, h, f, i) { .pose_index = (p), .hold_ticks = (h), .interp = (i), .facing = (f) }`);
       lines.push("");
@@ -4371,6 +5362,10 @@
       lines.push(`    .sequence       = ${prefix}_sequence,`);
       lines.push(`    .sequence_count = (uint16_t)(sizeof(${prefix}_sequence) / sizeof(${prefix}_sequence[0])),`);
       lines.push(`    .layout         = &${prefix}_layout,`);
+      if (asset.colorPalette && asset.colorPalette.length) {
+        lines.push(`    .color_palette  = ${prefix}_color_palette,`);
+        lines.push(`    .color_palette_count = (uint8_t)(sizeof(${prefix}_color_palette) / sizeof(${prefix}_color_palette[0])),`);
+      }
       lines.push("};");
 
       return lines.join("\n");
@@ -4396,17 +5391,6 @@
           sceneAdvance(state.scene);
           sceneTick(state.scene);
 
-          if (state.autoSequence && state.asset.sequence.length) {
-            state.seqAccumMs += period;
-            const holdMs = clipHoldMs(state.asset, state.scene.activeClip);
-            if (state.seqAccumMs >= holdMs) {
-              state.seqAccumMs = 0;
-              state.scene.sequenceIndex = (state.scene.sequenceIndex + 1) % state.asset.sequence.length;
-              const nextClip = state.asset.sequence[state.scene.sequenceIndex];
-              setClip(state.scene, nextClip, false);
-              refreshCompiledUi();
-            }
-          }
         }
 
         renderAsset();
@@ -4554,12 +5538,24 @@
       }, 400);
     }
 
+    function rigPoseReferencePriority(name) {
+      const text = String(name || "");
+      if (/原始位置|base|frame[_ -]?0*1|std[_ -]?active[_ -]?frame[_ -]?1/i.test(text)) return 0;
+      return 1;
+    }
+
     function addPose(doc, name) {
       if (!doc || typeof doc !== "object") {
         throw new Error("JSON 不是对象");
       }
-      state.poses.push({ doc, name: name || `pose_${state.poses.length + 1}.json` });
-      state.activePoseIdx = state.poses.length - 1;
+      const entry = { doc, name: name || `pose_${state.poses.length + 1}.json` };
+      if (rigPoseReferencePriority(entry.name) === 0) {
+        state.poses.unshift(entry);
+        state.activePoseIdx = 0;
+      } else {
+        state.poses.push(entry);
+        state.activePoseIdx = state.poses.length - 1;
+      }
       els.rigEditor.value = JSON.stringify(doc, null, 2);
       els.rigFold.open = true;
       updatePoseCount();
@@ -4794,6 +5790,145 @@
       return 0;
     }
 
+    function lottieColor24(prop, fallback = null) {
+      const value = lottiePropStatic(prop, fallback);
+      if (!Array.isArray(value) || value.length < 3) return fallback;
+      const r = Math.max(0, Math.min(255, Math.round(Number(value[0] || 0) * 255)));
+      const g = Math.max(0, Math.min(255, Math.round(Number(value[1] || 0) * 255)));
+      const b = Math.max(0, Math.min(255, Math.round(Number(value[2] || 0) * 255)));
+      return ((r << 16) | (g << 8) | b) >>> 0;
+    }
+
+    function lottieOpacity255(prop, fallback = 255) {
+      const value = lottiePropStatic(prop, fallback);
+      const scalar = Array.isArray(value) ? value[0] : value;
+      if (!Number.isFinite(Number(scalar))) return fallback;
+      return Math.max(0, Math.min(255, Math.round(Number(scalar) * 255 / 100)));
+    }
+
+    function chooseImportStyleColor(style, preferredKind = "BEZIER_STRIP") {
+      if (!style) return null;
+      if (preferredKind === "BEZIER_FILL") {
+        if (style.hasFill && style.fillColor != null) return style.fillColor;
+        if (style.hasStroke && style.strokeColor != null) return style.strokeColor;
+        return null;
+      }
+      if (style.hasStroke && style.strokeColor != null) return style.strokeColor;
+      if (style.hasFill && style.fillColor != null) return style.fillColor;
+      return null;
+    }
+
+    function chooseImportStyleOpacity(style, preferredKind = "BEZIER_STRIP") {
+      if (!style) return 255;
+      if (preferredKind === "BEZIER_FILL") {
+        if (style.hasFill && style.fillOpacity != null) return style.fillOpacity;
+        if (style.hasStroke && style.strokeOpacity != null) return style.strokeOpacity;
+        return 255;
+      }
+      if (style.hasStroke && style.strokeOpacity != null) return style.strokeOpacity;
+      if (style.hasFill && style.fillOpacity != null) return style.fillOpacity;
+      return 255;
+    }
+
+    function ctrlPointsBounds(points) {
+      if (!Array.isArray(points) || !points.length) return null;
+      let minX = Number(points[0][0]);
+      let minY = Number(points[0][1]);
+      let maxX = minX;
+      let maxY = minY;
+      for (const pt of points) {
+        const x = Number(pt[0]);
+        const y = Number(pt[1]);
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+      return {
+        minX,
+        minY,
+        maxX,
+        maxY,
+        centerX: (minX + maxX) * 0.5,
+        centerY: (minY + maxY) * 0.5,
+      };
+    }
+
+    function colorDistance24(a, b) {
+      if (a == null || b == null) return 0xFFFFFF;
+      const aa = normalizeSceneColorValue(a);
+      const bb = normalizeSceneColorValue(b);
+      const ar = (aa >> 16) & 0xFF, ag = (aa >> 8) & 0xFF, ab = aa & 0xFF;
+      const br = (bb >> 16) & 0xFF, bg = (bb >> 8) & 0xFF, bb2 = bb & 0xFF;
+      return Math.abs(ar - br) + Math.abs(ag - bg) + Math.abs(ab - bb2);
+    }
+
+    function rigShapeMatchInfo(shapeRec, conv) {
+      const preferredKind = conv && conv.closed ? "BEZIER_LOOP" : "BEZIER_STRIP";
+      const bounds = ctrlPointsBounds(conv ? conv.points : null);
+      return {
+        localPathKey: String(shapeRec.pathKey || "").replace(/^L\d+\/?/, ""),
+        pointCount: conv ? conv.points.length : 0,
+        closed: !!(conv && conv.closed),
+        hasFill: !!shapeRec.hasFill,
+        hasStroke: !!shapeRec.hasStroke,
+        strokeWidth: Number(shapeRec.strokeWidth || 0),
+        color: chooseImportStyleColor(shapeRec, preferredKind),
+        opacity: chooseImportStyleOpacity(shapeRec, preferredKind),
+        centerX: bounds ? bounds.centerX : 0,
+        centerY: bounds ? bounds.centerY : 0,
+      };
+    }
+
+    function buildRigPoseShapeCandidates(doc, layerMapByInd, isWatermark) {
+      const out = [];
+      const layers = (doc.layers || []).filter((l) => l.ty === 4 && !isWatermark(l));
+      for (const layer of layers) {
+        const shapes = layerWorldShapes(layer, layerMapByInd);
+        for (const shapeRec of shapes) {
+          const conv = lottieShapeToCtrlPts(shapeRec.shape);
+          if (!conv || !conv.points.length) continue;
+          const info = rigShapeMatchInfo(shapeRec, conv);
+          out.push({
+            id: `${layer.ind}|${shapeRec.pathKey}`,
+            layerInd: layer.ind,
+            pathKey: shapeRec.pathKey,
+            layer,
+            shapeRec,
+            conv,
+            info,
+          });
+        }
+      }
+      return out;
+    }
+
+    function pickBestRigPoseCandidate(refInfo, candidates, usedIds) {
+      let best = null;
+      let bestScore = Number.POSITIVE_INFINITY;
+      for (const candidate of candidates) {
+        if (usedIds && usedIds.has(candidate.id)) continue;
+        const info = candidate.info;
+        if (!info || info.pointCount !== refInfo.pointCount) continue;
+        if (info.closed !== refInfo.closed) continue;
+
+        let score = 0;
+        if (info.localPathKey !== refInfo.localPathKey) score += 6000;
+        if (info.hasStroke !== refInfo.hasStroke) score += 1800;
+        if (info.hasFill !== refInfo.hasFill) score += 1200;
+        score += Math.abs((info.strokeWidth || 0) - (refInfo.strokeWidth || 0)) * 40;
+        score += colorDistance24(info.color, refInfo.color) * 0.5;
+        score += Math.abs((info.opacity || 255) - (refInfo.opacity || 255)) * 2;
+        score += Math.abs(info.centerX - refInfo.centerX) + Math.abs(info.centerY - refInfo.centerY);
+
+        if (score < bestScore) {
+          bestScore = score;
+          best = candidate;
+        }
+      }
+      return best;
+    }
+
     /* Recursively collect EVERY geometry primitive (sh/el/rc) reachable from
        `items`, composing group transforms innermost→outermost and inheriting
        fl/st style from enclosing groups. Each primitive is returned together
@@ -4818,13 +5953,25 @@
         hasFill: !!(inheritedStyle && inheritedStyle.hasFill),
         hasStroke: !!(inheritedStyle && inheritedStyle.hasStroke),
         strokeWidth: inheritedStyle ? inheritedStyle.strokeWidth : 0,
+        fillColor: inheritedStyle ? inheritedStyle.fillColor : null,
+        fillOpacity: inheritedStyle ? inheritedStyle.fillOpacity : 255,
+        strokeColor: inheritedStyle ? inheritedStyle.strokeColor : null,
+        strokeOpacity: inheritedStyle ? inheritedStyle.strokeOpacity : 255,
       };
       for (const it of items) {
-        if (it.ty === "fl") style.hasFill = true;
+        if (it.ty === "fl") {
+          style.hasFill = true;
+          const fillColor = lottieColor24(it.c, style.fillColor);
+          if (fillColor != null) style.fillColor = fillColor;
+          style.fillOpacity = lottieOpacity255(it.o, style.fillOpacity);
+        }
         if (it.ty === "st") {
           style.hasStroke = true;
           const w = lottieStrokeW(it);
           if (w) style.strokeWidth = w;
+          const strokeColor = lottieColor24(it.c, style.strokeColor);
+          if (strokeColor != null) style.strokeColor = strokeColor;
+          style.strokeOpacity = lottieOpacity255(it.o, style.strokeOpacity);
         }
       }
 
@@ -4852,6 +5999,10 @@
             hasFill: style.hasFill,
             hasStroke: style.hasStroke,
             strokeWidth: style.strokeWidth,
+            fillColor: style.fillColor,
+            fillOpacity: style.fillOpacity,
+            strokeColor: style.strokeColor,
+            strokeOpacity: style.strokeOpacity,
           });
           continue;
         }
@@ -4863,6 +6014,10 @@
             hasFill: style.hasFill,
             hasStroke: style.hasStroke,
             strokeWidth: style.strokeWidth,
+            fillColor: style.fillColor,
+            fillOpacity: style.fillOpacity,
+            strokeColor: style.strokeColor,
+            strokeOpacity: style.strokeOpacity,
           });
           continue;
         }
@@ -4874,6 +6029,10 @@
             hasFill: style.hasFill,
             hasStroke: style.hasStroke,
             strokeWidth: style.strokeWidth,
+            fillColor: style.fillColor,
+            fillOpacity: style.fillOpacity,
+            strokeColor: style.strokeColor,
+            strokeOpacity: style.strokeOpacity,
           });
           continue;
         }
@@ -4929,9 +6088,9 @@
          the ty=4 shape layers define one skeletal pose.
        - The FIRST pose is the structural reference: it determines the part
          list (unique id, kind, stroke width) and the viewbox. Subsequent
-         poses only contribute per-part control points, aligned by layer.ind
-         + structural pathKey (e.g. "L0/gr[0]/gr[1]/sh[0]") so unnamed
-         primitives still match.
+         poses first try exact layer.ind + structural pathKey matching, then
+         fall back to a geometry/style similarity search so eye / matte groups
+         with shuffled layer indices are less likely to disappear.
        - A part is emitted only if every other pose either has a matching
          shape with the same point count, or is missing the shape entirely
          (in which case the reference points are reused for that pose — the
@@ -4968,17 +6127,16 @@
         new Map((p.doc.layers || []).map((l) => [l.ind, l]))
       );
 
-      /* Skip decorative lottielab watermark layers. They are identified by:
-         - the sentinel ind 12345679 (lottielab's "Made with Lottielab" group)
-         - the explicit name "lottielab.com" or "Group Layer 8" (its sibling). */
+      /* Skip only the lottielab watermark sentinel group. Real rigs may reuse
+         the default layer names on visible parts, so name-based filtering is
+         too aggressive and can drop geometry such as the right eye outline. */
       const WATERMARK_IND = 12345679;
-      const WATERMARK_NAMES = new Set(["lottielab.com", "Group Layer 8"]);
       const isWatermark = (l) =>
-        l.ind === WATERMARK_IND || WATERMARK_NAMES.has(l.nm);
+        l.ind === WATERMARK_IND;
 
       const refLayers = (ref.layers || []).filter(
         (l) => l.ty === 4 && !isWatermark(l)
-      );
+      ).reverse();
 
       /*
        * Stroke widths: preserve Lottie's authored values (no inflation).
@@ -5006,9 +6164,35 @@
       /* Stroke widths are authored in source space; scale by the fit factor
          before rounding so lines don't stay bold after shrinking the canvas. */
       const normSW = (sw) => sw ? Math.max(1, Math.round(sw * scale)) : 0;
+      const colorPalette = [];
+      const colorIndexByValue = new Map();
+      function allocPaletteIndex(colorValue) {
+        if (colorValue == null) return 0;
+        const normalized = normalizeSceneColorValue(colorValue);
+        if (colorIndexByValue.has(normalized)) {
+          return colorIndexByValue.get(normalized);
+        }
+        if (colorPalette.length >= SCENE_MAX_PALETTE) {
+          return 0;
+        }
+        colorPalette.push(normalized);
+        const idx = colorPalette.length;
+        colorIndexByValue.set(normalized, idx);
+        return idx;
+      }
 
       const parts = [];
       const usedPartIds = new Set();
+      function allocUniqueRigPartId(rawId) {
+        let partId = rawId;
+        if (usedPartIds.has(partId)) {
+          let n = 2;
+          while (usedPartIds.has(`${partId}_${n}`)) n++;
+          partId = `${partId}_${n}`;
+        }
+        usedPartIds.add(partId);
+        return partId;
+      }
       const scenePoses = poseDocs.map((p, i) => {
         const rawName = (p.name || `pose_${i + 1}`).replace(/\.json$/i, "");
         const safeId = slugify(rawName, `pose_${i + 1}`);
@@ -5040,23 +6224,27 @@
         Math.round(pt[0] * scale + offX),
         Math.round(pt[1] * scale + offY),
       ]);
+      const poseCandidates = poseDocs.map((p, pi) =>
+        buildRigPoseShapeCandidates(p.doc, maps[pi], isWatermark)
+      );
+      const poseCandidateByExactKey = poseCandidates.map((list) => {
+        const byKey = new Map();
+        for (const candidate of list) {
+          byKey.set(`${candidate.layerInd}|${candidate.pathKey}`, candidate);
+        }
+        return byKey;
+      });
+      const poseUsedCandidateIds = poseDocs.map(() => new Set());
 
       for (const layerRef of refLayers) {
         /* World-space primitives for the reference pose. */
         const shapesRef = layerWorldShapes(layerRef, maps[0]);
         if (!shapesRef.length) continue;
 
-        /* For every other pose: pathKey → shape lookup, aligned by layer.ind. */
-        const byKeyPerPose = [null]; /* slot 0 unused (ref) */
-        for (let pi = 1; pi < poseDocs.length; pi++) {
-          const layerI = maps[pi].get(layerRef.ind);
-          const shapesI = layerI ? layerWorldShapes(layerI, maps[pi]) : [];
-          byKeyPerPose.push(new Map(shapesI.map((s) => [s.pathKey, s])));
-        }
-
         for (const sRef of shapesRef) {
           const convRef = lottieShapeToCtrlPts(sRef.shape);
           if (!convRef || !convRef.points.length) continue;
+          const refInfo = rigShapeMatchInfo(sRef, convRef);
 
           /* Collect matching control points for every pose. A null entry
              means "missing in this pose → reuse ref points". A mismatching
@@ -5065,11 +6253,24 @@
           const convPerPose = [convRef];
           let mismatch = false;
           for (let pi = 1; pi < poseDocs.length; pi++) {
-            const sI = byKeyPerPose[pi].get(sRef.pathKey);
-            const convI = sI ? lottieShapeToCtrlPts(sI.shape) : null;
+            const exactKey = `${layerRef.ind}|${sRef.pathKey}`;
+            let candidate = poseCandidateByExactKey[pi].get(exactKey) || null;
+            if (candidate && poseUsedCandidateIds[pi].has(candidate.id)) {
+              candidate = null;
+            }
+            if (candidate && candidate.info.pointCount !== convRef.points.length) {
+              candidate = null;
+            }
+            if (!candidate) {
+              candidate = pickBestRigPoseCandidate(refInfo, poseCandidates[pi], poseUsedCandidateIds[pi]);
+            }
+            const convI = candidate ? candidate.conv : null;
             if (convI && convI.points.length !== convRef.points.length) {
               mismatch = true;
               break;
+            }
+            if (candidate) {
+              poseUsedCandidateIds[pi].add(candidate.id);
             }
             convPerPose.push(convI);
           }
@@ -5083,33 +6284,52 @@
             .replace(/^L\d+\/?/, "")
             .replace(/[^\w]+/g, "_")
             .replace(/^_+|_+$/g, "");
-          let partId = suffix ? `${base}_${suffix}` : base;
-          if (usedPartIds.has(partId)) {
-            let n = 2;
-            while (usedPartIds.has(`${partId}_${n}`)) n++;
-            partId = `${partId}_${n}`;
-          }
-          usedPartIds.add(partId);
-
-          /* Stroke-only widget: closed paths always rendered as outline loop
-             (monochrome scene would otherwise blob out). */
-          const kind = convRef.closed ? "BEZIER_LOOP" : "BEZIER_STRIP";
-
-          /* Fill-only Lottie shapes have strokeWidth==0. Fall back to the
-             layout default so the promoted outline is actually drawn. */
           const normalizedSW = normSW(sRef.strokeWidth || 0);
           const strokeWidth  = normalizedSW > 0 ? normalizedSW : layoutSW;
-          parts.push({
-            id: partId,
-            label: partId,
-            kind,
-            stroke_width: strokeWidth,
-            radius_hint: 0,
-          });
+          const partBaseId = suffix ? `${base}_${suffix}` : base;
+          const variants = [];
+          if (convRef.closed && sRef.hasFill && sRef.hasStroke) {
+            variants.push({
+              id: allocUniqueRigPartId(`${partBaseId}_fill`),
+              kind: "BEZIER_FILL",
+              stroke_width: 0,
+              color_idx: allocPaletteIndex(chooseImportStyleColor(sRef, "BEZIER_FILL")),
+              opacity: chooseImportStyleOpacity(sRef, "BEZIER_FILL"),
+            });
+            variants.push({
+              id: allocUniqueRigPartId(`${partBaseId}_stroke`),
+              kind: "BEZIER_LOOP",
+              stroke_width: strokeWidth,
+              color_idx: allocPaletteIndex(chooseImportStyleColor(sRef, "BEZIER_LOOP")),
+              opacity: chooseImportStyleOpacity(sRef, "BEZIER_LOOP"),
+            });
+          } else {
+            const kind = convRef.closed
+              ? (sRef.hasFill ? "BEZIER_FILL" : "BEZIER_LOOP")
+              : "BEZIER_STRIP";
+            variants.push({
+              id: allocUniqueRigPartId(partBaseId),
+              kind,
+              stroke_width: kind === "BEZIER_FILL" ? 0 : strokeWidth,
+              color_idx: allocPaletteIndex(chooseImportStyleColor(sRef, kind)),
+              opacity: chooseImportStyleOpacity(sRef, kind),
+            });
+          }
 
-          for (let pi = 0; pi < poseDocs.length; pi++) {
-            const cpts = convPerPose[pi] ? convPerPose[pi].points : convRef.points;
-            scenePoses[pi].parts[partId] = round2(cpts);
+          for (const variant of variants) {
+            parts.push({
+              id: variant.id,
+              label: variant.id,
+              kind: variant.kind,
+              stroke_width: variant.stroke_width,
+              radius_hint: 0,
+              color_idx: variant.color_idx,
+              opacity: variant.opacity,
+            });
+            for (let pi = 0; pi < poseDocs.length; pi++) {
+              const cpts = convPerPose[pi] ? convPerPose[pi].points : convRef.points;
+              scenePoses[pi].parts[variant.id] = round2(cpts);
+            }
           }
         }
       }
@@ -5133,6 +6353,7 @@
           timer_period_ms: 33,
           damping_div: 4,
         },
+        color_palette: colorPalette,
         parts,
         poses: scenePoses,
         clips: [{
@@ -5174,7 +6395,8 @@
 
     /* Batch multiple selected files: append all, merge once at the end. */
     els.poseFileInput.addEventListener("change", async (event) => {
-      const files = Array.from(event.target.files || []);
+      const files = Array.from(event.target.files || []).sort((a, b) =>
+        rigPoseReferencePriority(a.name) - rigPoseReferencePriority(b.name));
       for (const file of files) {
         await addPoseFromFile(file);
       }
@@ -5268,64 +6490,73 @@
       });
     });
 
-    els.guiSaveSceneMetaBtn.addEventListener("click", () => {
+    els.saveSceneBtn.addEventListener("click", () => {
       try {
-        const doc = deepClone(ensureSceneDoc());
-        doc.name = els.guiSceneName.value.trim() || doc.name;
-        doc.prefix = els.guiScenePrefix.value.trim() || doc.prefix;
-        writeSceneDoc(doc, "已更新场景信息。");
+        saveSceneJsonToFile();
       } catch (err) {
-        setStatus(`保存场景信息失败：${err.message}`, true);
+        setStatus(`保存场景失败：${err.message}`, true);
       }
     });
 
-    els.partSaveBtn.addEventListener("click", () => {
+    const debouncedApplySceneMeta = debounce(() => {
       try {
-        const doc = deepClone(ensureSceneDoc());
-        const part = doc.parts[state.selectedPartIndex];
-        const oldId = part.id;
-        const desiredId = slugify(els.partIdInput.value.trim() || oldId, oldId);
-        const otherIds = new Set(doc.parts.filter((_, index) => index !== state.selectedPartIndex).map((item) => item.id));
-        const newId = otherIds.has(desiredId) ? makeUniqueId(desiredId, otherIds, desiredId) : desiredId;
-        part.id = newId;
-        part.label = els.partLabelInput.value.trim() || newId;
-        part.kind = els.partKindSelect.value;
-        part.stroke_width = Math.max(0, Number(els.partStrokeInput.value) || 0);
-
-        if (oldId !== newId) {
-          doc.poses.forEach((pose) => {
-            const oldPts = pose.parts[oldId];
-            delete pose.parts[oldId];
-            pose.parts[newId] = oldPts;
-          });
-          state.selectedPartId = newId;
-        }
-
-        writeSceneDoc(doc, "已保存部件。");
+        applySceneMetaChanges();
       } catch (err) {
-        setStatus(`保存部件失败：${err.message}`, true);
+        setStatus(`更新场景信息失败：${err.message}`, true);
+      }
+    });
+    const debouncedApplyPart = debounce(() => {
+      try {
+        applySelectedPartChanges();
+      } catch (err) {
+        setStatus(`更新部件失败：${err.message}`, true);
+      }
+    });
+    const debouncedApplyClip = debounce(() => {
+      try {
+        applySelectedClipChanges();
+      } catch (err) {
+        setStatus(`更新动作失败：${err.message}`, true);
+      }
+    });
+    const debouncedApplyStep = debounce(() => {
+      try {
+        applySelectedStepChanges();
+      } catch (err) {
+        setStatus(`更新步骤失败：${err.message}`, true);
       }
     });
 
-    els.clipSaveBtn.addEventListener("click", () => {
-      try {
-        const doc = deepClone(ensureSceneDoc());
-        const clip = doc.clips[state.selectedClipIndex];
-        const oldId = clip.id;
-        const desiredId = slugify(els.clipIdInput.value.trim() || oldId, oldId);
-        const otherIds = new Set(doc.clips.filter((_, index) => index !== state.selectedClipIndex).map((item) => item.id));
-        const newId = otherIds.has(desiredId) ? makeUniqueId(desiredId, otherIds, desiredId) : desiredId;
-        clip.id = newId;
-        clip.label = newId;
-        clip.label_cn = newId;
-        clip.loop = els.clipLoopSelect.value === "true";
-        if (oldId !== newId) {
-          doc.sequence = doc.sequence.map((item) => item === oldId ? newId : item);
+    ["input", "change"].forEach((eventName) => {
+      els.guiSceneName.addEventListener(eventName, debouncedApplySceneMeta);
+      els.guiScenePrefix.addEventListener(eventName, debouncedApplySceneMeta);
+      els.partIdInput.addEventListener(eventName, debouncedApplyPart);
+      els.partLabelInput.addEventListener(eventName, debouncedApplyPart);
+      els.partStrokeInput.addEventListener(eventName, debouncedApplyPart);
+      els.partLayerInput.addEventListener(eventName, debouncedApplyPart);
+      els.partOpacityInput.addEventListener(eventName, debouncedApplyPart);
+      els.clipIdInput.addEventListener(eventName, debouncedApplyClip);
+      els.stepHoldInput.addEventListener(eventName, debouncedApplyStep);
+    });
+
+    [els.partKindSelect, els.partColorModeSelect, els.clipLoopSelect].forEach((el) => {
+      el.addEventListener("change", () => {
+        try {
+          if (el === els.partColorModeSelect) {
+            const fallback =
+              els.partColorHexInput.value || els.partColorValueInput.value || state.color || "#101820";
+            syncPartColorInputs(els.partColorModeSelect.value, fallback);
+          }
+          if (el === els.clipLoopSelect) {
+            applySelectedClipChanges();
+          } else {
+            applySelectedPartChanges();
+          }
+        } catch (err) {
+          const label = el === els.clipLoopSelect ? "动作" : "部件";
+          setStatus(`更新${label}失败：${err.message}`, true);
         }
-        writeSceneDoc(doc, "已保存动作。");
-      } catch (err) {
-        setStatus(`保存动作失败：${err.message}`, true);
-      }
+      });
     });
 
     if (els.clipAddInlineBtn) {
@@ -5334,21 +6565,36 @@
     if (els.stepAddInlineBtn) {
       els.stepAddInlineBtn.addEventListener("click", () => addStepToCurrentClip());
     }
-
-    els.stepSaveBtn.addEventListener("click", () => {
-      try {
-        const doc = deepClone(ensureSceneDoc());
-        const clip = doc.clips[state.selectedClipIndex];
-        const step = clip.steps[state.selectedStepIndex];
-        step.pose = els.stepPoseSelect.value;
-        step.hold_ticks = Math.max(1, Number(els.stepHoldInput.value) || 1);
-        step.facing = Number(els.stepFacingSelect.value) || 1;
-        step.interp = els.stepInterpSelect.value === "HOLD" ? "HOLD" : "DAMPED";
-        state.reopenClipStepDetail = true;
-        writeSceneDoc(doc, "已保存步骤。");
-      } catch (err) {
-        setStatus(`保存步骤失败：${err.message}`, true);
-      }
+    if (els.partColorValueInput) {
+      els.partColorValueInput.addEventListener("input", () => {
+        els.partColorHexInput.value = String(els.partColorValueInput.value || "").toUpperCase();
+        debouncedApplyPart();
+      });
+    }
+    if (els.partColorHexInput) {
+      els.partColorHexInput.addEventListener("change", () => {
+        try {
+          const normalized = formatSceneColorHex(els.partColorHexInput.value).toUpperCase();
+          els.partColorHexInput.value = normalized;
+          els.partColorValueInput.value = normalized;
+          applySelectedPartChanges();
+        } catch (err) {
+          setStatus(`颜色值无效：${err.message}`, true);
+        }
+      });
+    }
+    if (els.stepHoldInput) {
+      els.stepHoldInput.addEventListener("input", () => updateStepHoldHint());
+      els.stepHoldInput.addEventListener("change", () => updateStepHoldHint());
+    }
+    [els.stepPoseSelect, els.stepFacingSelect, els.stepInterpSelect].forEach((el) => {
+      el.addEventListener("change", () => {
+        try {
+          applySelectedStepChanges();
+        } catch (err) {
+          setStatus(`更新步骤失败：${err.message}`, true);
+        }
+      });
     });
 
     /* 鼠标从别处点过来时，部分浏览器会先让按钮获焦再吃第一次 click；挡住默认对焦，保证一次点击即切换播放 */
@@ -5398,13 +6644,36 @@
       els.speedInput.value = state.speed.toFixed(1);
     });
 
+    if (els.viewerBgPreset) {
+      els.viewerBgPreset.addEventListener("change", () => {
+        const preset = els.viewerBgPreset.value;
+        if (preset !== "custom" && VIEWER_BG_PRESETS[preset]) {
+          state.viewerBgPreset = preset;
+          state.viewerBg = VIEWER_BG_PRESETS[preset];
+        } else {
+          state.viewerBgPreset = "custom";
+        }
+        syncViewerBgControls();
+        renderAsset();
+      });
+    }
+
+    if (els.viewerBgInput) {
+      els.viewerBgInput.addEventListener("input", () => {
+        state.viewerBgPreset = "custom";
+        state.viewerBg = normalizeCssHexColor(els.viewerBgInput.value, VIEWER_BG_PRESETS.figma_dark);
+        syncViewerBgControls();
+        renderAsset();
+      });
+    }
+
     els.colorInput.addEventListener("input", () => {
       state.color = els.colorInput.value;
       renderAsset();
     });
 
     els.autoseqSelect.addEventListener("change", () => {
-      state.autoSequence = els.autoseqSelect.value === "on";
+      state.autoSequence = false;
       state.seqAccumMs = 0;
     });
 
@@ -5448,6 +6717,7 @@
     });
 
     refreshGuiPanels();
+    syncViewerBgControls();
     renderAsset();
     requestAnimationFrame(animate);
   </script>
