@@ -12,6 +12,8 @@ The widget API provides specialized functionality for different types of graphic
    gfx_img
    gfx_label
    gfx_qrcode
+   gfx_motion
+   gfx_motion_scene
 
 Widget Modules
 --------------
@@ -22,3 +24,5 @@ Widget Modules
 * :doc:`gfx_img` - Image (gfx_img)
 * :doc:`gfx_label` - Label (gfx_label)
 * :doc:`gfx_qrcode` - QR Code (gfx_qrcode)
+* :doc:`gfx_motion` - Motion Driver (gfx_motion)
+* :doc:`gfx_motion_scene` - Motion Scene and Player (gfx_motion_scene)

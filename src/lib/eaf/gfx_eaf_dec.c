@@ -56,8 +56,8 @@ static uint32_t dec_calculate_checksum(const uint8_t *data, uint32_t length);
 static eaf_dec_huffman_node_t *huffman_node_create(void);
 static void huffman_tree_free(eaf_dec_huffman_node_t *node);
 static esp_err_t huffman_decode_data(const uint8_t *in_data, size_t in_size,
-        const uint8_t *dict_data, size_t dict_len,
-        uint8_t *out_data, size_t *out_size);
+                                     const uint8_t *dict_data, size_t dict_len,
+                                     uint8_t *out_data, size_t *out_size);
 
 /**********************
  *   STATIC FUNCTIONS
@@ -89,8 +89,8 @@ static void huffman_tree_free(eaf_dec_huffman_node_t *node)
 }
 
 static esp_err_t huffman_decode_data(const uint8_t *in_data, size_t in_size,
-        const uint8_t *dict_data, size_t dict_len,
-        uint8_t *out_data, size_t *out_size)
+                                     const uint8_t *dict_data, size_t dict_len,
+                                     uint8_t *out_data, size_t *out_size)
 {
     if (!in_data || !dict_data || in_size == 0 || dict_len == 0) {
         *out_size = 0;
@@ -342,8 +342,8 @@ bool eaf_dec_get_palette_color(const eaf_dec_header_t *header, uint8_t color_ind
  **********************/
 
 static esp_err_t decode_huffman_rle(const uint8_t *in_data, size_t in_size,
-                                   uint8_t *out_data, size_t *out_size,
-                                   bool swap_color)
+                                    uint8_t *out_data, size_t *out_size,
+                                    bool swap_color)
 {
     if (out_size == NULL || *out_size == 0) {
         GFX_LOGE(TAG, "Output size is invalid");
@@ -605,7 +605,7 @@ hs_fail:
 
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 esp_err_t eaf_dec_decode_jpeg(const uint8_t *in_data, size_t in_size,
-                             uint8_t *out_data, size_t *out_size, bool swap_color)
+                              uint8_t *out_data, size_t *out_size, bool swap_color)
 {
     esp_err_t ret = ESP_OK;
     uint32_t w, h;
@@ -665,8 +665,8 @@ err:
 #endif // CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 
 esp_err_t eaf_dec_decode_huffman(const uint8_t *in_data, size_t in_size,
-                                     uint8_t *out_data, size_t *out_size,
-                                     bool swap_color)
+                                 uint8_t *out_data, size_t *out_size,
+                                 bool swap_color)
 {
     (void)swap_color;
     size_t out_len = *out_size;
@@ -859,8 +859,8 @@ int eaf_dec_get_frame_size(eaf_dec_handle_t handle, int index)
 }
 
 esp_err_t eaf_dec_decode_frame(eaf_dec_handle_t handle, int frame_index,
-                                  uint8_t *out_data, size_t out_size,
-                                  bool swap_bytes)
+                               uint8_t *out_data, size_t out_size,
+                               bool swap_bytes)
 {
     if (!handle || !out_data) {
         return ESP_ERR_INVALID_STATE;

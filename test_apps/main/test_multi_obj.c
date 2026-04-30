@@ -79,7 +79,7 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
     gfx_emote_unlock(emote_handle);
 }
 
-TEST_CASE("test function obj multi", "")
+TEST_CASE("object: multi scene demo", "[widget][object]")
 {
     test_app_runtime_t runtime;
 

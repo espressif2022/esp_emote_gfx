@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -245,7 +245,7 @@ esp_err_t eaf_dec_decode_jpeg(const uint8_t *in_data, size_t in_size,
  * @return ESP_OK on success, ESP_FAIL on failure
  */
 esp_err_t eaf_dec_decode_block(const eaf_dec_header_t *header, const uint8_t *block_data,
-                              int block_len, uint8_t *out_data, bool swap_color);
+                               int block_len, uint8_t *out_data, bool swap_color);
 
 /**********************
  *  FORMAT OPERATIONS
@@ -300,8 +300,8 @@ int eaf_dec_get_frame_size(eaf_dec_handle_t handle, int index);
  * @return ESP_OK on success, ESP_FAIL on failure
  */
 esp_err_t eaf_dec_decode_frame(eaf_dec_handle_t handle, int frame_index,
-                              uint8_t *out_data, size_t out_size,
-                              bool swap_bytes);
+                               uint8_t *out_data, size_t out_size,
+                               bool swap_bytes);
 
 #ifdef __cplusplus
 }

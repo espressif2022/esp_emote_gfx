@@ -6,7 +6,7 @@ ESP Emote GFX is a lightweight graphics framework for ESP-IDF that provides a si
 Architecture
 ------------
 
-The framework is built around a core object system where all graphical elements (images, labels, animations, buttons, QR codes) are treated as objects. These objects share common properties like position, size, visibility, and alignment.
+The framework is built around a core object system where all graphical elements (images, labels, animations, buttons, QR codes, motion scenes) are treated as objects. These objects share common properties like position, size, visibility, and alignment.
 
 Core Components
 ---------------
@@ -99,6 +99,19 @@ The QR code widget provides:
 * Configurable size and error correction
 * Custom foreground and background colors
 
+Motion Scene Widget
+~~~~~~~~~~~~~~~~~~~
+
+The motion scene runtime provides:
+
+* Path-driven articulated animation built from joints, poses, and actions
+* Segment primitives for capsules, rings, open/closed Bezier strokes, and Bezier fills
+* Per-segment solid color, palette color, opacity, or texture binding
+* Display-space scaling through a configurable canvas and asset viewbox
+* Touch-friendly runtime usage for interactive characters and emotes
+
+The public entry points are ``gfx_motion_player_init()``, ``gfx_motion_player_set_canvas()``, ``gfx_motion_player_set_action()``, and ``gfx_motion_player_set_color()``. The underlying asset format is described by ``gfx_motion_asset_t`` in ``widget/gfx_motion_scene.h``.
+
 Memory Management
 -----------------
 
@@ -137,6 +150,7 @@ Dependencies
 * ESP-IDF 5.0 or higher
 * FreeType (for TTF/OTF font support)
 * ESP New JPEG (for JPEG decoding)
+* No NanoVG or libtess2 dependency is required for the current motion scene path
 
 License
 -------

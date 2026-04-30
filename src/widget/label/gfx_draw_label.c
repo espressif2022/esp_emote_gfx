@@ -7,8 +7,6 @@
 /*********************
  *      INCLUDES
  *********************/
-#include "sdkconfig.h"
-
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -17,6 +15,7 @@
 #include "esp_err.h"
 #include "esp_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_DRAW_LABEL
+#include "common/gfx_config_internal.h"
 #include "common/gfx_log_priv.h"
 #include "common/gfx_comm.h"
 #include "core/display/gfx_refr_priv.h"
@@ -32,24 +31,9 @@
  *      DEFINES
  *********************/
 
-#ifndef CONFIG_GFX_LABEL_GLYPH_CACHE_MAX_ENTRIES
-#define CONFIG_GFX_LABEL_GLYPH_CACHE_MAX_ENTRIES 64
-#endif
-
-#ifndef CONFIG_GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES
-#define CONFIG_GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES (12 * 1024)
-#endif
-
-#ifndef CONFIG_GFX_LABEL_GLYPH_ATLAS_PAGE_BYTES
-#define CONFIG_GFX_LABEL_GLYPH_ATLAS_PAGE_BYTES 1024
-#endif
-
 static const char *TAG = "draw_label";
 
 #define CHECK_OBJ_TYPE_LABEL(obj) CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_LABEL, TAG)
-#define GFX_LABEL_GLYPH_CACHE_MAX_ENTRIES CONFIG_GFX_LABEL_GLYPH_CACHE_MAX_ENTRIES
-#define GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES CONFIG_GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES
-#define GFX_LABEL_GLYPH_ATLAS_PAGE_BYTES CONFIG_GFX_LABEL_GLYPH_ATLAS_PAGE_BYTES
 
 /**********************
  *      TYPEDEFS
@@ -117,7 +101,7 @@ static gfx_font_glyph_cache_t *s_font_glyph_caches;
 
 static int gfx_utf8_to_unicode(const char **p, uint32_t *unicode);
 static int32_t gfx_calculate_snap_offset(gfx_label_t *label, gfx_font_handle_t font,
-                                         int32_t current_offset, int32_t target_width);
+        int32_t current_offset, int32_t target_width);
 static void gfx_update_scroll_state(gfx_obj_t *obj);
 static size_t gfx_get_mask_buffer_size(const gfx_obj_t *obj);
 static int gfx_get_glyph_advance_width(gfx_font_handle_t font, uint32_t unicode);
@@ -129,7 +113,7 @@ static void gfx_glyph_cache_clear(gfx_font_glyph_cache_t *cache);
 static void gfx_glyph_cache_trim(gfx_font_glyph_cache_t *cache, size_t incoming_alloc_size);
 static size_t gfx_glyph_cache_get_page_capacity(size_t bitmap_size);
 static uint8_t *gfx_glyph_cache_alloc_atlas(gfx_font_glyph_cache_t *cache, size_t bitmap_size,
-                                            gfx_glyph_atlas_page_t **out_page);
+        gfx_glyph_atlas_page_t **out_page);
 static void gfx_glyph_cache_log_stats(const gfx_font_glyph_cache_t *cache, const char *reason);
 static esp_err_t gfx_get_cached_glyph(gfx_font_handle_t font, uint32_t unicode,
                                       gfx_label_glyph_cache_entry_t **out_entry);
@@ -203,7 +187,7 @@ static int gfx_utf8_to_unicode(const char **p, uint32_t *unicode)
  * @return Snap offset aligned to character/word boundary
  */
 static int32_t gfx_calculate_snap_offset(gfx_label_t *label, gfx_font_handle_t font,
-                                         int32_t current_offset, int32_t target_width)
+        int32_t current_offset, int32_t target_width)
 {
     if (!label->text.text || !font) {
         return target_width;
@@ -550,8 +534,8 @@ static void gfx_glyph_cache_trim(gfx_font_glyph_cache_t *cache, size_t incoming_
     }
 
     while (cache->glyphs != NULL &&
-           (cache->glyph_count >= GFX_LABEL_GLYPH_CACHE_MAX_ENTRIES ||
-            cache->allocated_bytes + incoming_alloc_size > GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES)) {
+            (cache->glyph_count >= GFX_LABEL_GLYPH_CACHE_MAX_ENTRIES ||
+             cache->allocated_bytes + incoming_alloc_size > GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES)) {
         gfx_label_glyph_cache_entry_t *prev = NULL;
         gfx_label_glyph_cache_entry_t *entry = cache->glyphs;
 
@@ -599,7 +583,7 @@ static void gfx_glyph_cache_trim(gfx_font_glyph_cache_t *cache, size_t incoming_
 }
 
 static uint8_t *gfx_glyph_cache_alloc_atlas(gfx_font_glyph_cache_t *cache, size_t bitmap_size,
-                                            gfx_glyph_atlas_page_t **out_page)
+        gfx_glyph_atlas_page_t **out_page)
 {
     if (cache == NULL || out_page == NULL || bitmap_size == 0) {
         return NULL;
@@ -920,7 +904,7 @@ static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const 
             uint8_t c = (uint8_t) * p_before;
             gfx_label_glyph_cache_entry_t *glyph_entry = NULL;
             if (gfx_get_cached_glyph(font, unicode, &glyph_entry) == ESP_OK &&
-                glyph_entry != NULL && glyph_entry->available) {
+                    glyph_entry != NULL && glyph_entry->available) {
                 int char_width = glyph_entry->advance_width;
 
                 /* Check if this character would go beyond viewport */
@@ -964,12 +948,12 @@ static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const 
 
         gfx_label_glyph_cache_entry_t *glyph_entry = NULL;
         if (gfx_get_cached_glyph(font, unicode, &glyph_entry) != ESP_OK ||
-            glyph_entry == NULL || !glyph_entry->available) {
+                glyph_entry == NULL || !glyph_entry->available) {
             continue;
         }
 
         if (glyph_entry->glyph_dsc.box_w > 0 && glyph_entry->glyph_dsc.box_h > 0 &&
-            glyph_entry->alpha_bitmap == NULL) {
+                glyph_entry->alpha_bitmap == NULL) {
             continue;
         }
 

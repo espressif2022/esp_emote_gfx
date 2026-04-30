@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: CC0-1.0
  */
@@ -26,6 +26,14 @@ typedef void (*test_app_disp_update_cb_t)(gfx_disp_t *disp, gfx_disp_event_t eve
 #define TEST_APP_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
 #define TEST_APP_ASSETS_PARTITION_DEFAULT "assets_test"
 
+/**
+ * Periodic SRAM/PSRAM monitor period (ms) when explicitly enabled.
+ * Set to 0 to disable monitor startup.
+ */
+#ifndef TEST_APP_MEM_MONITOR_PERIOD_MS
+#define TEST_APP_MEM_MONITOR_PERIOD_MS 10000
+#endif
+
 /* External declarations */
 extern const gfx_image_dsc_t icon_rgb565;
 extern const gfx_image_dsc_t icon_rgb565A8;
@@ -49,6 +57,9 @@ void test_app_log_case(const char *tag, const char *case_name);
 void test_app_log_step(const char *tag, const char *step_name);
 void test_app_set_touch_event_cb(test_app_touch_event_cb_t cb, void *user_data);
 void test_app_set_disp_update_cb(test_app_disp_update_cb_t cb, void *user_data);
+void test_app_mem_log_snapshot(const char *tag, const char *label);
+void test_app_mem_monitor_start(uint32_t period_ms);
+void test_app_mem_monitor_stop(void);
 
 /**
  * @brief Initialize display and graphics system

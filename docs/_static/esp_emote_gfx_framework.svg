@@ -1,0 +1,88 @@
+<svg width="1040" height="520" viewBox="0 0 1040 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .bg { fill: #ffffff; }
+      .frame { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.2; }
+      .group { fill: #ffffff; stroke: #d8dee8; stroke-width: 1.2; }
+      .group-soft { fill: #f9fbfd; stroke: #d8dee8; stroke-width: 1.2; }
+      .accent { fill: #ecfdf5; stroke: #0f766e; stroke-width: 1.4; }
+      .asset { fill: #fff7ed; stroke: #d97706; stroke-width: 1.4; }
+      text { font-family: Arial, sans-serif; }
+      .title { font-size: 28px; font-weight: 700; fill: #111827; }
+      .caption { font-size: 14px; font-weight: 500; fill: #64748b; }
+      .section { font-size: 16px; font-weight: 700; fill: #334155; }
+      .label { font-size: 14px; font-weight: 700; fill: #111827; }
+      .small { font-size: 12px; font-weight: 500; fill: #64748b; }
+      .line { stroke: #94a3b8; stroke-width: 1.5; stroke-linecap: round; }
+      .arrow { fill: #94a3b8; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1040" height="520" rx="20"/>
+  <rect class="frame" x="24" y="24" width="992" height="472" rx="18"/>
+
+  <text class="title" x="520" y="62" text-anchor="middle">Functional Framework</text>
+  <text class="caption" x="520" y="88" text-anchor="middle">Widgets, runtime services, software rendering, and embedded display integration</text>
+
+  <rect class="group" x="72" y="120" width="896" height="96" rx="14"/>
+  <text class="section" x="96" y="150">Widget Layer</text>
+
+  <g>
+    <rect class="accent" x="244" y="138" width="92" height="42" rx="9"/>
+    <text class="label" x="290" y="164" text-anchor="middle">Label</text>
+    <rect class="accent" x="352" y="138" width="92" height="42" rx="9"/>
+    <text class="label" x="398" y="164" text-anchor="middle">Image</text>
+    <rect class="accent" x="460" y="138" width="92" height="42" rx="9"/>
+    <text class="label" x="506" y="164" text-anchor="middle">Button</text>
+    <rect class="accent" x="568" y="138" width="92" height="42" rx="9"/>
+    <text class="label" x="614" y="164" text-anchor="middle">QR Code</text>
+    <rect class="accent" x="676" y="138" width="112" height="42" rx="9"/>
+    <text class="label" x="732" y="164" text-anchor="middle">Animation</text>
+    <rect class="accent" x="804" y="138" width="126" height="42" rx="9"/>
+    <text class="label" x="867" y="164" text-anchor="middle">Motion Scene</text>
+  </g>
+
+  <text class="small" x="96" y="184">User-facing UI objects</text>
+  <text class="small" x="244" y="200">Object properties, layout, invalidation, and drawing callbacks</text>
+
+  <line class="line" x1="520" y1="216" x2="520" y2="244"/>
+  <path class="arrow" d="M520 252L514 242H526L520 252Z"/>
+
+  <rect class="group" x="72" y="252" width="896" height="104" rx="14"/>
+  <text class="section" x="96" y="284">Core Runtime</text>
+
+  <g>
+    <rect class="group-soft" x="244" y="274" width="126" height="48" rx="9"/>
+    <text class="label" x="307" y="301" text-anchor="middle">Object Tree</text>
+    <text class="small" x="307" y="316" text-anchor="middle">state + hierarchy</text>
+
+    <rect class="group-soft" x="392" y="274" width="136" height="48" rx="9"/>
+    <text class="label" x="460" y="301" text-anchor="middle">Display Route</text>
+    <text class="small" x="460" y="316" text-anchor="middle">refresh + flush</text>
+
+    <rect class="group-soft" x="550" y="274" width="112" height="48" rx="9"/>
+    <text class="label" x="606" y="301" text-anchor="middle">Timer</text>
+    <text class="small" x="606" y="316" text-anchor="middle">animation ticks</text>
+
+    <rect class="group-soft" x="684" y="274" width="112" height="48" rx="9"/>
+    <text class="label" x="740" y="301" text-anchor="middle">Touch</text>
+    <text class="small" x="740" y="316" text-anchor="middle">input events</text>
+  </g>
+
+  <text class="small" x="96" y="318">Shared services</text>
+  <text class="small" x="244" y="342">Coordinates widget lifecycle, refresh scheduling, input dispatch, and thread-safe access.</text>
+
+  <line class="line" x1="520" y1="356" x2="520" y2="382"/>
+  <path class="arrow" d="M520 390L514 380H526L520 390Z"/>
+
+  <rect class="group" x="72" y="390" width="428" height="72" rx="14"/>
+  <text class="section" x="96" y="422">Rendering &amp; Assets</text>
+  <text class="small" x="96" y="446">Software draw · blend · mesh image · fonts · EAF · image converter</text>
+
+  <rect class="asset" x="540" y="390" width="428" height="72" rx="14"/>
+  <text class="section" x="564" y="422">Platform Integration</text>
+  <text class="small" x="564" y="446">Display buffer · flush callback · input source · component packaging</text>
+
+  <line class="line" x1="500" y1="426" x2="540" y2="426"/>
+  <path class="arrow" d="M548 426L538 420V432L548 426Z"/>
+</svg>

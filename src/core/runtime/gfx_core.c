@@ -195,7 +195,7 @@ gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
                                        disp_ctx, cfg->task.task_priority, NULL, stack_caps);
     } else {
         task_ret = xTaskCreatePinnedToCoreWithCaps(gfx_render_loop_task, "gfx_render", cfg->task.task_stack,
-                                                   disp_ctx, cfg->task.task_priority, NULL, cfg->task.task_affinity, stack_caps);
+                   disp_ctx, cfg->task.task_priority, NULL, cfg->task.task_affinity, stack_caps);
     }
     ESP_GOTO_ON_FALSE(task_ret == pdPASS, ESP_ERR_NO_MEM, err, TAG, "Failed to create render task");
 

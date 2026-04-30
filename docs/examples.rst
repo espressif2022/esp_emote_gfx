@@ -240,6 +240,27 @@ Generate and display a QR code:
        gfx_obj_align(qrcode, GFX_ALIGN_CENTER, 0, 0);
    }
 
+Motion Scene Playback
+~~~~~~~~~~~~~~~~~~~~~
+
+Load a generated scene asset and start an action:
+
+.. code-block:: c
+
+   #include "gfx.h"
+   #include "rig_active.inc"
+
+   static gfx_motion_player_t motion_player;
+
+   void setup_motion_scene(gfx_disp_t *disp)
+   {
+       gfx_motion_player_init(&motion_player, disp, &s_motion_scene_asset);
+       gfx_motion_player_set_canvas(&motion_player, 0, 0, 360, 360);
+       gfx_motion_player_set_action(&motion_player, 0, true);
+   }
+
+For a complete interactive example with touch-driven movement and action switching, see ``test_apps/main/test_motion.c``.
+
 Thread-Safe Operations
 ~~~~~~~~~~~~~~~~~~~~~~
 

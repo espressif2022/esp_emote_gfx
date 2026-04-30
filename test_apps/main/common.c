@@ -1,14 +1,16 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: CC0-1.0
  */
 #include <inttypes.h>
+#include <stdlib.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_check.h"
 #include "esp_err.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
@@ -24,6 +26,7 @@ static test_app_touch_event_cb_t s_test_app_touch_event_cb = NULL;
 static void *s_test_app_touch_event_user_data = NULL;
 static test_app_disp_update_cb_t s_test_app_disp_update_cb = NULL;
 static void *s_test_app_disp_update_user_data = NULL;
+static TaskHandle_t s_mem_mon_task = NULL;
 
 /* Shared globals (declared in common.h) */
 gfx_handle_t emote_handle = NULL;
@@ -115,6 +118,92 @@ void test_app_set_disp_update_cb(test_app_disp_update_cb_t cb, void *user_data)
 {
     s_test_app_disp_update_cb = cb;
     s_test_app_disp_update_user_data = user_data;
+}
+
+void test_app_mem_log_snapshot(const char *tag, const char *label)
+{
+    (void)tag;
+    const char *lbl = label ? label : "?";
+    const uint32_t cap_internal = MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT;
+    const uint32_t cap_spiram   = MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT;
+
+    printf("[%s]\n", lbl);
+    printf("\tDescription\tInternal\tSPIRAM\n");
+    printf("Current Free Memory\t%zu\t\t%zu\n",
+           heap_caps_get_free_size(cap_internal),
+           heap_caps_get_free_size(cap_spiram));
+    printf("Largest Free Block\t%zu\t\t%zu\n",
+           heap_caps_get_largest_free_block(cap_internal),
+           heap_caps_get_largest_free_block(cap_spiram));
+    printf("Min. Ever Free Size\t%zu\t\t%zu\n",
+           heap_caps_get_minimum_free_size(cap_internal),
+           heap_caps_get_minimum_free_size(cap_spiram));
+}
+
+#if CONFIG_FREERTOS_USE_TRACE_FACILITY
+static void test_app_mem_log_task_table(void)
+{
+    char *buf = (char *)malloc(3072);
+
+    if (buf == NULL) {
+        ESP_LOGW(TAG, "task list: malloc failed");
+        return;
+    }
+
+    memset(buf, 0, 3072);
+    vTaskList(buf);
+    ESP_LOGI(TAG, "Task list (Name / State / Prio / Stack / Num):\n%s", buf);
+    free(buf);
+}
+#else
+static void test_app_mem_log_task_table(void)
+{
+}
+#endif
+
+static void test_app_mem_monitor_task(void *arg)
+{
+    uint32_t period_ms = *(uint32_t *)arg;
+
+    if (period_ms == 0U) {
+        s_mem_mon_task = NULL;
+        vTaskDelete(NULL);
+        return;
+    }
+
+    ESP_LOGI(TAG, "mem_mon task started (period %" PRIu32 " ms)", period_ms);
+
+    while (true) {
+        test_app_mem_log_snapshot(TAG, "monitor");
+        test_app_mem_log_task_table();
+        vTaskDelay(pdMS_TO_TICKS(period_ms));
+    }
+}
+
+void test_app_mem_monitor_stop(void)
+{
+    if (s_mem_mon_task != NULL) {
+        vTaskDelete(s_mem_mon_task);
+        s_mem_mon_task = NULL;
+    }
+}
+
+void test_app_mem_monitor_start(uint32_t period_ms)
+{
+    static uint32_t stored_period_ms;
+
+    test_app_mem_monitor_stop();
+
+    if (period_ms == 0U) {
+        return;
+    }
+
+    stored_period_ms = period_ms;
+    if (xTaskCreate(test_app_mem_monitor_task, "test_mem_mon", 4096,
+                    &stored_period_ms, tskIDLE_PRIORITY + 1, &s_mem_mon_task) != pdPASS) {
+        s_mem_mon_task = NULL;
+        ESP_LOGW(TAG, "mem_mon task create failed");
+    }
 }
 
 esp_err_t test_app_runtime_open(test_app_runtime_t *runtime, const char *partition_label)

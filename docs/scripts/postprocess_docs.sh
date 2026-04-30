@@ -30,7 +30,8 @@ done
 DOC_BUILD_ROOT="docs/_build/html"
 DOXYGEN_DIR="${DOC_BUILD_ROOT}/doxygen"
 ASSETS_DIR="${DOC_BUILD_ROOT}/assets"
-mkdir -p "$DOC_BUILD_ROOT" "$ASSETS_DIR" "${DOC_BUILD_ROOT}/en" "${DOC_BUILD_ROOT}/zh_CN"
+DOXYFILE_PATH="docs/_build/Doxyfile"
+mkdir -p "$DOC_BUILD_ROOT" "$ASSETS_DIR" "${DOC_BUILD_ROOT}/en" "${DOC_BUILD_ROOT}/zh_CN" "$(dirname "$DOXYFILE_PATH")"
 
 if [[ "$BUILD_API_RST" -eq 1 ]]; then
   echo "[docs] Generating API RST sources..."
@@ -78,9 +79,8 @@ cat <<'EOF' > "${DOC_BUILD_ROOT}/index.html"
 </html>
 EOF
 
-# Create Doxyfile if it doesn't exist
-if [ ! -f Doxyfile ]; then
-  cat <<'EOF' > Doxyfile
+# Create a build-local Doxyfile so docs generation does not touch the repo root.
+cat <<'EOF' > "$DOXYFILE_PATH"
 PROJECT_NAME           = esp_emote_gfx
 OUTPUT_DIRECTORY       = docs/doxygen_output
 GENERATE_HTML          = YES
@@ -94,7 +94,6 @@ GENERATE_LATEX         = NO
 WARN_IF_UNDOCUMENTED   = NO
 QUIET                  = YES
 EOF
-fi
 
 if [[ "$BUILD_DOXYGEN" -eq 1 ]] && ! command -v doxygen >/dev/null 2>&1; then
   echo "Warning: doxygen not found, Doxygen API docs will be skipped"
@@ -104,7 +103,7 @@ rm -rf "$DOXYGEN_DIR"
 mkdir -p "$DOXYGEN_DIR"
 
 if [[ "$BUILD_DOXYGEN" -eq 1 ]] && command -v doxygen >/dev/null 2>&1; then
-  doxygen Doxyfile
+  doxygen "$DOXYFILE_PATH"
   if [ -d docs/doxygen_output/html ]; then
     cp -r docs/doxygen_output/html/. "$DOXYGEN_DIR"/
   fi

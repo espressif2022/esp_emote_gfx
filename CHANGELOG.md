@@ -2,6 +2,12 @@
 
 All notable changes to the ESP Emote GFX component will be documented in this file.
 
+## [3.0.5] - 2026-04-30
+- Add motion scene widget documentation covering `gfx_motion`, `gfx_motion_scene`, asset layout, and runtime usage
+- Add motion widget example references to README and Sphinx docs
+- Simplify the motion rendering path by removing NanoVG and libtess2 dependencies
+- Keep polygon fill on the internal scanline fallback path for a leaner release footprint
+
 ## [3.0.4] - 2026-04-21
 - restore gfx_disp_event_t
 - Render loop: sleep `GFX_RENDER_TASK_IDLE_SLEEP_MS` once before the main loop so the first frame is not driven until the caller can finish setup after `add_disp()` (avoids a startup deadlock)

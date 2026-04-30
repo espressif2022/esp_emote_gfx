@@ -400,7 +400,7 @@ static void test_anim_run_case_emote_gen(mmap_assets_handle_t assets_handle)
  *   TEST CASES
  **********************/
 
-TEST_CASE("test function obj anim emote gen", "")
+TEST_CASE("anim: emote create scene", "[widget][anim][emote_gen]")
 {
     test_app_runtime_t runtime;
 

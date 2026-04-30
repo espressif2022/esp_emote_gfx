@@ -122,7 +122,7 @@ static gfx_anim_src_t gfx_anim_make_memory_src_desc(const void *src_data, size_t
 static esp_err_t gfx_anim_validate_src_desc(const gfx_anim_src_t *src_desc);
 static esp_err_t gfx_anim_set_src_desc_internal(gfx_obj_t *obj, const gfx_anim_src_t *src_desc);
 static esp_err_t gfx_anim_set_src_desc_with_decoder_internal(gfx_obj_t *obj, const gfx_anim_decoder_ops_t *decoder,
-                                                             const gfx_anim_src_t *src_desc);
+        const gfx_anim_src_t *src_desc);
 static void gfx_anim_calculate_offsets(const gfx_anim_frame_desc_t *frame_desc, uint32_t *offsets);
 static size_t gfx_anim_get_pixel_buffer_size(const gfx_anim_frame_desc_t *frame_desc);
 static esp_err_t gfx_anim_init_palette_cache(gfx_obj_t *obj, gfx_anim_t *anim);
@@ -144,10 +144,10 @@ static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t de
                                         gfx_area_t *clip_area,
                                         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
 static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
-                                         const uint8_t *src_pixels, gfx_coord_t src_stride,
-                                         const gfx_anim_frame_desc_t *frame_desc, uint32_t *palette_cache,
-                                         gfx_area_t *clip_area,
-                                         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
+        const uint8_t *src_pixels, gfx_coord_t src_stride,
+        const gfx_anim_frame_desc_t *frame_desc, uint32_t *palette_cache,
+        gfx_area_t *clip_area,
+        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset);
 static void gfx_anim_timer_callback(void *arg);
 
 /**********************
@@ -632,10 +632,10 @@ static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t de
 }
 
 static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
-                                         const uint8_t *src_pixels, gfx_coord_t src_stride,
-                                         const gfx_anim_frame_desc_t *frame_desc, uint32_t *palette_cache,
-                                         gfx_area_t *clip_area,
-                                         gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
+        const uint8_t *src_pixels, gfx_coord_t src_stride,
+        const gfx_anim_frame_desc_t *frame_desc, uint32_t *palette_cache,
+        gfx_area_t *clip_area,
+        gfx_mirror_mode_t mirror_mode, int16_t mirror_offset, int dest_x_offset)
 {
     (void)frame_desc;
     (void)palette_cache;
@@ -793,11 +793,11 @@ static esp_err_t gfx_draw_animation(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
         int dest_x_offset = clip_block.x1 - ctx->buf_area.x1;
 
         esp_err_t render_result = gfx_anim_render_pixels(frame_desc->bit_depth,
-                                                         dest_pixels, ctx->stride,
-                                                         src_pixels, src_stride,
-                                                         frame_desc, palette_cache,
-                                                         &clip_block,
-                                                         anim->mirror_mode, anim->mirror_offset, dest_x_offset);
+                                  dest_pixels, ctx->stride,
+                                  src_pixels, src_stride,
+                                  frame_desc, palette_cache,
+                                  &clip_block,
+                                  anim->mirror_mode, anim->mirror_offset, dest_x_offset);
         if (render_result != ESP_OK) {
             continue;
         }
@@ -865,8 +865,8 @@ static void gfx_anim_timer_callback(void *arg)
             repeat_current_segment = (anim->segments != NULL && anim->segment_count > 0U &&
                                       anim->segment_play_remaining > 1U);
             end_action = (anim->segments != NULL && anim->segment_count > 0U)
-                             ? anim->segments[anim->segment_index].end_action
-                             : GFX_ANIM_SEGMENT_ACTION_CONTINUE;
+                         ? anim->segments[anim->segment_index].end_action
+                         : GFX_ANIM_SEGMENT_ACTION_CONTINUE;
         }
 
         if (infinite_loop || repeat_current_segment) {
@@ -993,7 +993,7 @@ static esp_err_t gfx_anim_set_src_desc_internal(gfx_obj_t *obj, const gfx_anim_s
 }
 
 static esp_err_t gfx_anim_set_src_desc_with_decoder_internal(gfx_obj_t *obj, const gfx_anim_decoder_ops_t *decoder,
-                                                             const gfx_anim_src_t *src_desc)
+        const gfx_anim_src_t *src_desc)
 {
     esp_err_t ret = ESP_OK;
     void *new_handle = NULL;
