@@ -151,7 +151,7 @@ static void test_qrcode_run(void)
     test_app_unlock();
 }
 
-TEST_CASE("widget qrcode", "[widget][qrcode]")
+TEST_CASE("qrcode: render test case", "[widget][qrcode]")
 {
     test_app_runtime_t runtime;
 

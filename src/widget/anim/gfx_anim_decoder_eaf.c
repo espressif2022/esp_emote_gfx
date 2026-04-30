@@ -206,7 +206,7 @@ static int gfx_anim_eaf_get_frame_size(void *handle, int frame_index)
 }
 
 static esp_err_t gfx_anim_eaf_decode_block(const gfx_anim_frame_desc_t *frame_desc, const uint8_t *block_data,
-                                           int block_len, uint8_t *out_data, bool swap_color)
+        int block_len, uint8_t *out_data, bool swap_color)
 {
     eaf_dec_header_t header;
 
@@ -219,7 +219,7 @@ static esp_err_t gfx_anim_eaf_decode_block(const gfx_anim_frame_desc_t *frame_de
 }
 
 static bool gfx_anim_eaf_get_palette_color(const gfx_anim_frame_desc_t *frame_desc, uint8_t color_index,
-                                           bool swap_bytes, gfx_color_t *result)
+        bool swap_bytes, gfx_color_t *result)
 {
     eaf_dec_header_t header;
 

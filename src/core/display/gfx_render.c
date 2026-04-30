@@ -372,9 +372,9 @@ bool gfx_render_handler(gfx_core_context_t *ctx)
             GFX_LOGD(TAG,
                      "%.1f%% (%" PRIu64 "ms) (%" PRIu64 "|%" PRIu64 ")",
                      dirty_pct,
-                     frame_time_us /1000,
-                     disp->render.render_time_us /1000,
-                     disp->render.flush_time_us /1000);
+                     frame_time_us / 1000,
+                     disp->render.render_time_us / 1000,
+                     disp->render.flush_time_us / 1000);
         }
 
         gfx_render_cleanup(disp);

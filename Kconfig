@@ -31,4 +31,122 @@ menu "ESP Emote Graphics Framework"
 
     comment "Heatshrink support is unavailable due to static bit mismatch"
         depends on !HEATSHRINK_DYNAMIC_ALLOC && (HEATSHRINK_STATIC_WINDOW_BITS != 8 || HEATSHRINK_STATIC_LOOKAHEAD_BITS != 4)
+
+    menu "Software Blend"
+
+        config GFX_BLEND_TRI_EDGE_AA_RANGE
+            int "Triangle edge AA range"
+            range 0 4096
+            default 0
+            help
+                Edge anti-aliasing distance threshold for the software
+                triangle rasterizer, in mesh sub-pixel units. 0 means one
+                logical pixel in the mesh fixed-point format (256 for Q8).
+
+        config GFX_MESH_IMG_SCANLINE_MAX_VERTS
+            int "Mesh image scanline fill max vertices"
+            range 16 2048
+            default 512
+            help
+                Maximum polygon vertices accepted by mesh_img scanline fill.
+                Higher values support more complex filled motion paths, but
+                increase per-object scratch memory when scanline fill is used.
+
+        config GFX_BLEND_POLYGON_MAX_INTERSECTIONS
+            int "Polygon fill max scanline intersections"
+            range 16 256
+            default 64
+            help
+                Maximum number of edge intersections stored per polygon scanline
+                sample. 32 is faster and enough for simple convex-ish shapes.
+                Increase to 64/128 for complex filled Bezier loops to avoid
+                clipped or broken scanline spans.
+
+        config GFX_BLEND_POLYGON_SUB_SAMPLES
+            int "Polygon fill vertical AA sub-samples"
+            range 1 16
+            default 8
+            help
+                Number of vertical sub-samples used by software polygon fill.
+                Higher values produce smoother coverage but cost more CPU.
+
+        config GFX_BLEND_POLYGON_COVERAGE_MAX_WIDTH
+            int "Polygon fill coverage buffer max width"
+            range 64 2048
+            default 512
+            help
+                Maximum pixel width of a polygon fill coverage row. Larger
+                values support wider dirty chunks at the cost of stack memory.
+
+        config GFX_BLEND_POLYGON_INWARD_AA
+            bool "Keep polygon AA inside filled shapes"
+            default y
+            help
+                Do not blend partially covered pixels whose centre is outside
+                the polygon. This avoids bright/dark halos when solid filled
+                Bezier parts are drawn over changing framebuffer contents.
+
+        config GFX_BLEND_POLYGON_SOLID_HARD_EDGE
+            bool "Use hard edge for fully opaque polygon fills"
+            default y
+            depends on GFX_BLEND_POLYGON_INWARD_AA
+            help
+                For opacity=255 polygon fills, write the fill colour directly
+                for inward edge pixels instead of blending coverage with the
+                destination framebuffer. This is faster and prevents colour
+                contamination, but the edge is less smooth.
+
+    endmenu
+
+    menu "Motion Widget"
+
+        config GFX_MOTION_BEZIER_STROKE_SEGS_PER_SEG
+            int "Bezier stroke samples per cubic segment"
+            range 2 24
+            default 6
+            help
+                Tessellation samples per cubic Bezier segment for motion
+                BEZIER_LOOP and BEZIER_STRIP strokes.
+
+        config GFX_MOTION_BEZIER_FILL_LOOP_SEGS_PER_SEG
+            int "Generic Bezier fill samples per cubic segment"
+            range 2 24
+            default 12
+            help
+                Tessellation samples per cubic Bezier segment for generic
+                filled closed loops. Higher values produce smoother fill
+                outlines but increase setup and raster cost.
+
+        config GFX_MOTION_BEZIER_FILL_SEGS
+            int "Preset Bezier fill segments"
+            range 4 64
+            default 24
+            help
+                Segment count for special 7/13-point eye/ellipse fills.
+
+        config GFX_MOTION_HUB_FILL_MAX_POINTS
+            int "Generic Bezier fill max hub mesh points"
+            range 64 1024
+            default 512
+            help
+                Scratch point budget for generic filled Bezier loops.
+
+        choice GFX_MOTION_BEZIER_FILL_RASTERIZER
+            prompt "Bezier fill rasterizer"
+            default GFX_MOTION_BEZIER_FILL_RASTERIZER_SCANLINE
+            help
+                Select how BEZIER_FILL mesh objects are rasterized.
+                Scanline is stable for arbitrary filled paths and avoids
+                triangle fan artifacts. Mesh triangles use the regular mesh
+                triangle rasterizer and can produce smoother AA on some simple
+                cartoon shapes, but may show artifacts on concave paths.
+
+            config GFX_MOTION_BEZIER_FILL_RASTERIZER_SCANLINE
+                bool "Scanline polygon fill"
+
+            config GFX_MOTION_BEZIER_FILL_RASTERIZER_TRIANGLE
+                bool "Mesh triangle fill"
+        endchoice
+
+    endmenu
 endmenu

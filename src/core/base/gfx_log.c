@@ -38,6 +38,7 @@ static const char *s_module_names[GFX_LOG_MODULE_COUNT] = {
     [GFX_LOG_MODULE_BUTTON] = "button",
     [GFX_LOG_MODULE_ANIM] = "anim",
     [GFX_LOG_MODULE_ANIM_DEC] = "anim_dec",
+    [GFX_LOG_MODULE_MOTION] = "motion",
     [GFX_LOG_MODULE_EAF_DEC] = "eaf_dec",
     [GFX_LOG_MODULE_QRCODE_LIB] = "qrcode_lib",
 };

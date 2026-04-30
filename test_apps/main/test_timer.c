@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: CC0-1.0
  */
@@ -92,8 +92,8 @@ static void test_timer_update_status(test_timer_scene_t *scene, const char *titl
 }
 
 static void test_timer_expect_close_counts(const test_timer_phase_t *phase,
-                                           const test_timer_counter_t *gfx_counter,
-                                           const test_timer_counter_t *ref_counter)
+        const test_timer_counter_t *gfx_counter,
+        const test_timer_counter_t *ref_counter)
 {
     uint32_t gfx_count = (uint32_t)gfx_counter->count;
     uint32_t ref_count = (uint32_t)ref_counter->count;
@@ -107,8 +107,8 @@ static void test_timer_expect_close_counts(const test_timer_phase_t *phase,
              delta);
 
     TEST_ASSERT_LESS_OR_EQUAL_UINT32_MESSAGE(phase->max_delta,
-                                             delta,
-                                             phase->name);
+            delta,
+            phase->name);
 }
 
 static void test_timer_wait_and_validate(test_timer_scene_t *scene, const test_timer_phase_t *phase)
@@ -261,7 +261,7 @@ static void test_timer_run(void)
     test_app_unlock();
 }
 
-TEST_CASE("timer api", "[timer]")
+TEST_CASE("timer: api validate case", "[timer]")
 {
     test_app_runtime_t runtime;
 

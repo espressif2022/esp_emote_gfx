@@ -1,3 +1,0 @@
-# This file ensures the _static directory is tracked by git
-# Sphinx requires this directory to exist for static assets
-

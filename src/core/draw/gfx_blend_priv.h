@@ -139,6 +139,7 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                                     const gfx_area_t *buf_area, const gfx_area_t *clip_area,
                                     const gfx_color_t *src_buf, gfx_coord_t src_stride, gfx_coord_t src_height,
                                     const gfx_opa_t *mask, gfx_coord_t mask_stride,
+                                    gfx_opa_t opa,
                                     const gfx_sw_blend_img_vertex_t *v0,
                                     const gfx_sw_blend_img_vertex_t *v1,
                                     const gfx_sw_blend_img_vertex_t *v2,
@@ -159,6 +160,7 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
 void gfx_sw_blend_polygon_fill(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                                const gfx_area_t *buf_area, const gfx_area_t *clip_area,
                                gfx_color_t color,
+                               gfx_opa_t opa,
                                const int32_t *vx, const int32_t *vy,
                                int vertex_count,
                                bool swap);

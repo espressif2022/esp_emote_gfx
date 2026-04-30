@@ -1,5 +1,5 @@
-version: "3.0.4~1"
-description: ESP Emote GFX - A lightweight graphics framework component for ESP-IDF, optimized for efficient graphics rendering.
+version: "3.0.5"
+description: ESP Emote GFX - A lightweight UI graphics library for compact embedded displays.
 url: https://github.com/espressif2022/esp_emote_gfx
 repository: "https://github.com/espressif2022/esp_emote_gfx.git"
 documentation: "https://espressif2022.github.io/esp_emote_gfx/en/index.html"

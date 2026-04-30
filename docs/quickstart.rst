@@ -126,6 +126,28 @@ Creating an Animation
    gfx_anim_set_segment(anim, 0, 0xFFFF, 15, true);
    gfx_anim_start(anim);
 
+Creating a Rig Scene
+~~~~~~~~~~~~~~~~~~~~
+
+Rig scenes are created from a generated ``gfx_motion_asset_t`` and managed by ``gfx_motion_player_t``.
+
+.. code-block:: c
+
+   #include "gfx.h"
+   #include "rig_active.inc"
+
+   static gfx_motion_player_t motion_player;
+
+   void setup_motion_scene(gfx_disp_t *disp)
+   {
+       gfx_motion_player_init(&motion_player, disp, &s_motion_scene_asset);
+       gfx_motion_player_set_canvas(&motion_player, 0, 0, 320, 240);
+       gfx_motion_player_set_color(&motion_player, GFX_COLOR_HEX(0xFF7A00));
+       gfx_motion_player_set_action(&motion_player, 0, true);
+   }
+
+Use ``gfx_motion_player_deinit()`` when the scene is no longer needed.
+
 Object touch callback (e.g. drag)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -209,5 +231,6 @@ Next Steps
 ----------
 
 * Read the :doc:`Core API Reference <api/core/index>` for detailed API documentation
+* Read the :doc:`Rig Widget Guide <motion_widget>` for the scene asset model and playback flow
 * Check out the :doc:`Widget API Reference <api/widgets/index>` for widget-specific functions
 * See :doc:`Examples <examples>` for more complex usage patterns

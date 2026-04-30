@@ -116,7 +116,7 @@ static void test_image_run(mmap_assets_handle_t assets_handle)
     test_app_unlock();
 }
 
-TEST_CASE("widget image sources", "[widget][image]")
+TEST_CASE("image: source render set", "[widget][image]")
 {
     test_app_runtime_t runtime;
 
