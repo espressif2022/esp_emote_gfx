@@ -1,11 +1,42 @@
-{# Extends sphinx_idf_theme: ZH/EN bar + theme CSS (see conf.py html_css_files). #}
+{# Extends sphinx_idf_theme with ESP-style branding and language links. #}
 {% extends "!layout.html" %}
 
-{% block extrabody %}
-{{ super() }}
-<div id="gfx-langbar" class="gfx-langbar" role="navigation" aria-label="Language">
-  <a id="gfx-lang-en" class="gfx-lang-btn" href="#">EN</a>
-  <span class="gfx-lang-sep" aria-hidden="true">|</span>
+{% block sidebartitle %}
+<a href="{{ pathto(master_doc) }}" class="gfx-sidebar-brand" aria-label="ESP Emote GFX">
+  <span class="gfx-sidebar-logo" aria-hidden="true">E</span>
+  <span class="gfx-sidebar-text">
+    <span class="gfx-sidebar-company">Espressif Systems</span>
+    <span class="gfx-sidebar-project">{{ project }}</span>
+  </span>
+</a>
+
+{% if idf_targets %}
+  <div class="selectors">
+    <select id="target-select" style="width: 150px;" hidden>
+      <option value="" disabled selected>Choose target...</option>
+    </select>
+  </div>
+{% endif %}
+
+<div class="selectors">
+  <select id="version-select" style="width: 150px;" hidden>
+    <option value="" disabled selected>Choose version...</option>
+  </select>
+</div>
+
+{% include "searchbox.html" %}
+{% endblock %}
+
+{% block mobile_nav %}
+<i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+<a href="{{ pathto(master_doc) }}">Espressif Systems · {{ project }}</a>
+{% endblock %}
+
+{% block document %}
+<div id="gfx-lang-switch" class="gfx-lang-switch" role="navigation" aria-label="Switch documentation language">
+  <span class="gfx-lang-label">Language</span>
+  <a id="gfx-lang-en" class="gfx-lang-btn" href="#">English</a>
   <a id="gfx-lang-zh" class="gfx-lang-btn" href="#">中文</a>
 </div>
+{{ super() }}
 {% endblock %}

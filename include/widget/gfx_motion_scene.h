@@ -48,9 +48,8 @@
 #include <stdint.h>
 
 #include "esp_err.h"
-#include "core/gfx_obj.h"
+#include "core/gfx_disp.h"
 #include "widget/gfx_img.h"
-#include "widget/gfx_motion.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -244,138 +243,134 @@ typedef struct {
 } gfx_motion_asset_t;
 
 /* ------------------------------------------------------------------ */
-/*  Layer 2 — PARSER runtime state                                    */
-/* ------------------------------------------------------------------ */
-
-/**
- * Maximum total control points per asset.
- * Raised beyond 512 so closed-loop rigs can duplicate outline control points
- * for BEZIER_FILL companions without immediately exhausting the budget.
- */
-#define GFX_MOTION_SCENE_MAX_POINTS 640U
-
-/**
- * Maximum control points in a single BEZIER_* segment.
- * Shared by scene/player code so invalid assets fail early at compile/import time.
- */
-#define GFX_MOTION_SCENE_MAX_SEG_CTRL_POINTS 64U
-
-typedef struct {
-    int16_t x;
-    int16_t y;
-} gfx_motion_point_t;
-
-typedef struct {
-    const gfx_motion_asset_t *asset;
-
-    gfx_motion_point_t  pose_cur[GFX_MOTION_SCENE_MAX_POINTS]; /**< Current (animated) positions */
-    gfx_motion_point_t  pose_tgt[GFX_MOTION_SCENE_MAX_POINTS]; /**< Target positions              */
-
-    uint16_t     active_action;
-    uint8_t      active_step;
-    uint16_t     step_ticks;
-    bool         action_loop_override_en;
-    bool         action_loop_override;
-    bool         dirty;
-} gfx_motion_scene_t;
-
-esp_err_t gfx_motion_scene_init(gfx_motion_scene_t *scene, const gfx_motion_asset_t *asset);
-esp_err_t gfx_motion_scene_set_action(gfx_motion_scene_t *scene, uint16_t action_index, bool snap_now);
-esp_err_t gfx_motion_scene_set_action_loop(gfx_motion_scene_t *scene, bool loop);
-esp_err_t gfx_motion_scene_clear_action_loop_override(gfx_motion_scene_t *scene);
-
-/** Ease pose_cur toward pose_tgt one tick.  Returns true if any coord changed. */
-bool gfx_motion_scene_tick(gfx_motion_scene_t *scene);
-
-/** Advance the action timeline (hold_ticks countdown and step transitions). */
-void gfx_motion_scene_advance(gfx_motion_scene_t *scene);
-
-/**
- * Debug: print active action index, step index, pose index, hold ticks, facing, and interp.
- * Generated Motion Scene Assets expose action enums in their .inc files; the
- * parser only sees numeric action/pose indices at runtime.
- */
-void gfx_motion_scene_log_active_step(const gfx_motion_scene_t *scene, const char *reason);
-
-/* ------------------------------------------------------------------ */
 /*  Layer 3 — RUNTIME (unified renderer)                              */
 /* ------------------------------------------------------------------ */
 
-/** Maximum mesh_img objects per runtime (one per segment). */
-#define GFX_MOTION_PLAYER_MAX_SEGMENTS 64U
-
-/** Maximum colour palette entries (colour_idx 1..GFX_MOTION_PALETTE_MAX). */
-#define GFX_MOTION_PALETTE_MAX 16U
-
 /**
- * Unified animation runtime.
+ * Opaque animation runtime.
  *
- * Owns a gfx_motion_scene_t (scene state) + gfx_motion_t (timer driver) + one gfx_mesh_img
- * per segment.  Dispatches rendering based on segment kind — no separate
- * "stickman renderer" vs "face renderer".
+ * It owns the parser state, timer driver, scratch buffers, and one mesh object
+ * per segment. The fields are intentionally private so applications cannot
+ * depend on runtime layout.
  *
  * Usage:
- *   gfx_motion_player_t player = {0};
- *   gfx_motion_player_init(&player, disp, &my_asset);
- *   gfx_motion_player_set_color(&player, GFX_COLOR_HEX(0xFFFFFF));
- *   gfx_motion_player_set_action(&player, action_index, false);
+ *   gfx_motion_player_t *player = gfx_motion_player_create(disp, &my_asset);
+ *   gfx_motion_player_set_color(player, GFX_COLOR_HEX(0xFFFFFF));
+ *   gfx_motion_player_set_action(player, action_index, false);
+ *   gfx_motion_player_delete(player);
  */
-typedef struct {
-    gfx_motion_scene_t  scene;
-    gfx_motion_t        motion;
-    /* ── private ── */
-    gfx_obj_t      *seg_objs[GFX_MOTION_PLAYER_MAX_SEGMENTS]; /**< One mesh_img per segment */
-    uint8_t         seg_grid_cols[GFX_MOTION_PLAYER_MAX_SEGMENTS];
-    uint8_t         seg_grid_rows[GFX_MOTION_PLAYER_MAX_SEGMENTS];
-    uint8_t         seg_obj_count;
-    gfx_color_t     stroke_color;
-    uint32_t        layer_mask;
-    uint16_t        solid_pixel;
-    gfx_image_dsc_t solid_img;
-    /** Per-palette-entry native pixels and their 1×1 image descriptors. */
-    uint16_t        palette_pixels[GFX_MOTION_PALETTE_MAX];
-    gfx_image_dsc_t palette_imgs[GFX_MOTION_PALETTE_MAX];
-    gfx_coord_t     canvas_x;
-    gfx_coord_t     canvas_y;
-    uint16_t        canvas_w;
-    uint16_t        canvas_h;
-    bool            mesh_dirty;
-    void           *scratch;
-} gfx_motion_player_t;
+typedef struct gfx_motion_player gfx_motion_player_t;
 
 /**
- * Initialise the player: parse the asset, create mesh objects, and start the motion timer.
- * Canvas defaults to full display; override with gfx_motion_player_set_canvas().
+ * @brief Create a motion player for a display.
+ *
+ * The player parses the asset, creates one mesh object per segment, and starts
+ * the internal motion timer. The canvas defaults to the full display; use
+ * gfx_motion_player_set_canvas() to override it.
+ *
+ * @param disp Display that owns the generated segment objects.
+ * @param asset Motion scene asset descriptor.
+ * @return Motion player handle on success, or NULL on failure.
  */
-esp_err_t gfx_motion_player_init(gfx_motion_player_t *player,
-                                 gfx_disp_t *disp,
-                                 const gfx_motion_asset_t *asset);
+gfx_motion_player_t *gfx_motion_player_create(gfx_disp_t *disp, const gfx_motion_asset_t *asset);
 
-/** Destroy all mesh_img objects and stop the motion timer. */
-void      gfx_motion_player_deinit(gfx_motion_player_t *player);
+/**
+ * @brief Delete a motion player.
+ *
+ * This stops the internal timer and destroys all mesh objects owned by the
+ * player. Passing NULL is allowed.
+ *
+ * @param player Motion player handle returned from gfx_motion_player_create().
+ */
+void gfx_motion_player_delete(gfx_motion_player_t *player);
 
-/** Change the stroke colour for all segments. */
+/**
+ * @brief Set the runtime color used by solid-color segments.
+ *
+ * Segments bound to a texture resource or fixed asset palette color keep their
+ * own source/color and are not changed by this call.
+ *
+ * @param player Motion player handle.
+ * @param color Runtime segment color.
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
+ */
 esp_err_t gfx_motion_player_set_color(gfx_motion_player_t *player, gfx_color_t color);
 
-/** Override the canvas region the scene is scaled into. */
+/**
+ * @brief Set the canvas region used to scale and place the scene.
+ *
+ * The asset viewbox is mapped into this rectangle before segment meshes are
+ * updated.
+ *
+ * @param player Motion player handle.
+ * @param x Canvas origin X in screen coordinates.
+ * @param y Canvas origin Y in screen coordinates.
+ * @param w Canvas width in pixels; must be greater than 0.
+ * @param h Canvas height in pixels; must be greater than 0.
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
+ */
 esp_err_t gfx_motion_player_set_canvas(gfx_motion_player_t *player,
                                        gfx_coord_t x, gfx_coord_t y,
                                        uint16_t w, uint16_t h);
 
 /**
- * Set the visible segment layer mask.
+ * @brief Set the visible segment layer mask.
  *
  * Segment layer_bit == 0 is always visible. Segment layer_bit N (1..32)
  * is visible when BIT(N - 1) is set in layer_mask.
+ *
+ * @param player Motion player handle.
+ * @param layer_mask Visibility mask for segment layers.
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
  */
 esp_err_t gfx_motion_player_set_layer_mask(gfx_motion_player_t *player, uint32_t layer_mask);
 
-/** Force the current player state to be applied immediately without advancing time. */
+/**
+ * @brief Apply the current player state immediately without advancing time.
+ *
+ * @param player Motion player handle.
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
+ */
 esp_err_t gfx_motion_player_sync(gfx_motion_player_t *player);
 
-/** Switch to an action by index. */
+/**
+ * @brief Reset the internal motion timer.
+ *
+ * @param player Motion player handle.
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
+ */
+esp_err_t gfx_motion_player_reset_timer(gfx_motion_player_t *player);
+
+/**
+ * @brief Switch to an action by index.
+ *
+ * @param player Motion player handle.
+ * @param action_idx Action index in gfx_motion_asset_t.actions.
+ * @param snap Whether to snap directly to the first target pose.
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
+ */
 esp_err_t gfx_motion_player_set_action(gfx_motion_player_t *player, uint16_t action_idx, bool snap);
+
+/**
+ * @brief Override the loop setting of the active action.
+ *
+ * The override remains active across action switches until cleared with
+ * gfx_motion_player_clear_action_loop_override().
+ *
+ * @param player Motion player handle.
+ * @param loop true to force looping, false to force one-shot playback.
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
+ */
 esp_err_t gfx_motion_player_set_action_loop(gfx_motion_player_t *player, bool loop);
+
+/**
+ * @brief Clear the action loop override.
+ *
+ * After this call, each action uses its asset-defined loop flag again.
+ *
+ * @param player Motion player handle.
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
+ */
 esp_err_t gfx_motion_player_clear_action_loop_override(gfx_motion_player_t *player);
 
 #ifdef __cplusplus

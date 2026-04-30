@@ -7,8 +7,9 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdint.h>
 
-#include "core/gfx_obj.h"
+#include "esp_err.h"
 #include "widget/gfx_img.h"
 
 #ifdef __cplusplus
@@ -286,6 +287,8 @@ esp_err_t gfx_mesh_img_set_aa_inward(gfx_obj_t *obj, bool inward);
  * Compared with `gfx_mesh_img_set_aa_inward()`, this changes edge topology
  * interpretation rather than AA direction.
  *
+ * @param obj Mesh image object.
+ * @param wrap Whether the first and last grid columns should be treated as adjacent.
  * @return ESP_OK on success, ESP_ERR_* otherwise
  */
 esp_err_t gfx_mesh_img_set_wrap_cols(gfx_obj_t *obj, bool wrap);

@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 #include "esp_err.h"
+#include "core/gfx_disp.h"
 #include "core/gfx_obj.h"
 #include "core/gfx_timer.h"
 
@@ -17,15 +18,7 @@
 extern "C" {
 #endif
 
-/**
- * Lightweight motion driver.
- *
- * Goal: let higher-level scene/player code focus on state changes only.
- * - The driver owns a timer and calls `tick_cb` periodically.
- * - When `tick_cb` reports changes (or `force_apply`), the driver calls `apply_cb`.
- */
-
-typedef struct gfx_motion_cfg_t {
+typedef struct {
     uint16_t timer_period_ms;
     int16_t damping_div;
 } gfx_motion_cfg_t;
@@ -56,13 +49,10 @@ esp_err_t gfx_motion_init(gfx_motion_t *motion,
                           void *user_data);
 
 void gfx_motion_deinit(gfx_motion_t *motion);
-
 esp_err_t gfx_motion_set_period(gfx_motion_t *motion, uint16_t period_ms);
-
-/** Run one tick immediately (no wait). */
+gfx_timer_handle_t gfx_motion_get_timer(const gfx_motion_t *motion);
 esp_err_t gfx_motion_step(gfx_motion_t *motion, bool force_apply);
-
-/** Utility: damped step for int16 values (same policy as existing widgets). */
+esp_err_t gfx_motion_apply(gfx_motion_t *motion, bool force_apply);
 int16_t gfx_motion_ease_i16(int16_t cur, int16_t tgt, int16_t div);
 
 #ifdef __cplusplus

@@ -13,8 +13,8 @@
 
 #include "esp_check.h"
 #include "esp_err.h"
-#include "esp_log.h"
-#define GFX_LOG_MODULE GFX_LOG_MODULE_IMG
+#define GFX_LOG_MODULE GFX_LOG_MODULE_MESH_IMG
+#define GFX_LOG_TAG    "mesh_img"
 #include "common/gfx_log_priv.h"
 #include "common/gfx_comm.h"
 #include "common/gfx_config_internal.h"
@@ -67,12 +67,6 @@ typedef struct {
     int32_t *scanline_vy;
     size_t scanline_capacity;
 } gfx_mesh_img_t;
-
-/**********************
- *  STATIC VARIABLES
- **********************/
-
-static const char *TAG = "mesh_img";
 
 /**********************
  *  STATIC PROTOTYPES
@@ -327,7 +321,7 @@ static void gfx_mesh_img_update_bounds(gfx_obj_t *obj, gfx_mesh_img_t *mesh)
     if (min_x < INT16_MIN || min_y < INT16_MIN || max_x > INT16_MAX || max_y > INT16_MAX ||
             (int64_t)max_x - min_x + 1 > UINT16_MAX ||
             (int64_t)max_y - min_y + 1 > UINT16_MAX) {
-        GFX_LOGW(TAG, "mesh bounds exceed geometry range, clamping");
+        GFX_LOGW("mesh bounds exceed geometry range, clamping");
     }
     mesh->bounds_min_x = (gfx_coord_t)gfx_mesh_img_clamp_i32(min_x, INT16_MIN, INT16_MAX);
     mesh->bounds_min_y = (gfx_coord_t)gfx_mesh_img_clamp_i32(min_y, INT16_MIN, INT16_MAX);
@@ -432,18 +426,18 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     const gfx_opa_t *alpha_mask = NULL;
 
     if (obj == NULL || obj->src == NULL || ctx == NULL) {
-        GFX_LOGE(TAG, "draw mesh image: invalid object or source");
+        GFX_LOGE("draw mesh image: invalid object or source");
         return ESP_ERR_INVALID_ARG;
     }
 
     if (obj->type != GFX_OBJ_TYPE_MESH_IMAGE) {
-        GFX_LOGE(TAG, "draw mesh image: object type mismatch");
+        GFX_LOGE("draw mesh image: object type mismatch");
         return ESP_ERR_INVALID_ARG;
     }
 
     mesh = (gfx_mesh_img_t *)obj->src;
     if (mesh->image_src.data == NULL) {
-        GFX_LOGD(TAG, "draw mesh image: source descriptor has no payload");
+        GFX_LOGD("draw mesh image: source descriptor has no payload");
         return ESP_ERR_INVALID_STATE;
     }
     if (mesh->opacity == 0U) {
@@ -452,14 +446,14 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 
     color_format = (gfx_color_format_t)mesh->header.cf;
     if (color_format != GFX_COLOR_FORMAT_RGB565 && color_format != GFX_COLOR_FORMAT_RGB565A8) {
-        GFX_LOGW(TAG, "draw mesh image: unsupported color format %u", color_format);
+        GFX_LOGW("draw mesh image: unsupported color format %u", color_format);
         return ESP_ERR_NOT_SUPPORTED;
     }
 
     ESP_RETURN_ON_ERROR(gfx_mesh_img_prepare_decoder(mesh, &decoder_dsc), TAG, "draw mesh image: open decoder failed");
 
     if (decoder_dsc.data == NULL) {
-        GFX_LOGE(TAG, "draw mesh image: decoder returned no data");
+        GFX_LOGE("draw mesh image: decoder returned no data");
         gfx_image_decoder_close(&decoder_dsc);
         return ESP_ERR_INVALID_STATE;
     }
@@ -517,7 +511,7 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
                                       pvx, pvy, poly_n, ctx->swap);
             scanline_drawn = true;
         } else {
-            GFX_LOGW(TAG, "draw mesh image: scanline fill capacity too small (%d > %u)",
+            GFX_LOGW("draw mesh image: scanline fill capacity too small (%d > %u)",
                      poly_n, (unsigned int)mesh->scanline_capacity);
         }
 
@@ -816,13 +810,13 @@ gfx_obj_t *gfx_mesh_img_create(gfx_disp_t *disp)
     gfx_mesh_img_t *mesh;
 
     if (disp == NULL) {
-        GFX_LOGE(TAG, "create mesh image: display is NULL");
+        GFX_LOGE("create mesh image: display is NULL");
         return NULL;
     }
 
     mesh = calloc(1, sizeof(gfx_mesh_img_t));
     if (mesh == NULL) {
-        GFX_LOGE(TAG, "create mesh image: no mem for state");
+        GFX_LOGE("create mesh image: no mem for state");
         return NULL;
     }
     mesh->opacity = 0xFFU;
@@ -840,7 +834,7 @@ gfx_obj_t *gfx_mesh_img_create(gfx_disp_t *disp)
         return NULL;
     }
 
-    GFX_LOGD(TAG, "create mesh image: object created");
+    GFX_LOGD("create mesh image: object created");
     return obj;
 }
 
@@ -868,7 +862,7 @@ esp_err_t gfx_mesh_img_set_src_desc(gfx_obj_t *obj, const gfx_img_src_t *src)
     gfx_obj_update_layout(obj);
     gfx_obj_invalidate(obj);
 
-    GFX_LOGD(TAG, "set mesh image src: %ux%u grid=%ux%u",
+    GFX_LOGD("set mesh image src: %ux%u grid=%ux%u",
              header.w, header.h, mesh->grid_cols, mesh->grid_rows);
     return ESP_OK;
 }
@@ -898,7 +892,7 @@ esp_err_t gfx_mesh_img_set_grid(gfx_obj_t *obj, uint8_t cols, uint8_t rows)
     gfx_obj_update_layout(obj);
     gfx_obj_invalidate(obj);
 
-    GFX_LOGD(TAG, "set mesh grid: %ux%u", cols, rows);
+    GFX_LOGD("set mesh grid: %ux%u", cols, rows);
     return ESP_OK;
 }
 

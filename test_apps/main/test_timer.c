@@ -10,7 +10,7 @@
 #include "unity.h"
 #include "common.h"
 
-static const char *TAG = "test_timer";
+static const char *const TAG = "test_timer";
 
 #define TEST_TIMER_DEFAULT_PERIOD_MS      200U
 #define TEST_TIMER_FAST_PERIOD_MS         100U

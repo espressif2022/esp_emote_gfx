@@ -19,5 +19,6 @@ idf_component_register(
         "include"
     PRIV_INCLUDE_DIRS
         ${PRIV_INCLUDE_DIRS}
-    REQUIRES esp_timer
+    REQUIRES
+        esp_timer
 )

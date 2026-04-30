@@ -1,158 +1,70 @@
 Overview
 ========
 
-ESP Emote GFX is a lightweight graphics framework for ESP-IDF that provides a simple yet powerful API for rendering graphics on embedded displays. It is designed with memory efficiency and performance in mind, making it ideal for resource-constrained embedded systems.
+ESP Emote GFX is a lightweight graphics library for embedded displays. It
+provides a small object model, common widgets, software rendering, animation
+playback, and Motion scene support while keeping memory use predictable.
 
 Architecture
 ------------
 
-The framework is built around a core object system where all graphical elements (images, labels, animations, buttons, QR codes, motion scenes) are treated as objects. These objects share common properties like position, size, visibility, and alignment.
+The library is organized around a display-owned object tree:
 
-Core Components
----------------
-
-Core System
-~~~~~~~~~~~
-
-The core system (`gfx_core`) manages:
-
-* Graphics context initialization and deinitialization
-* Buffer management (internal or external)
-* Rendering pipeline
-* Thread safety with mutex locking
-* Screen refresh and invalidation
-
-Object System
-~~~~~~~~~~~~~
-
-The object system (`gfx_obj`) provides:
-
-* Base object structure for all graphical elements
-* Position and size management
-* Alignment system (similar to LVGL)
-* Visibility control
-* Object lifecycle management
-
-Timer System
-~~~~~~~~~~~~
-
-The timer system (`gfx_timer`) provides:
-
-* High-resolution timers for animations
-* Callback-based timer events
-* Repeat count and period control
-* System tick management
+* ``gfx_core`` initializes the graphics context and owns the render/timer runtime.
+* ``gfx_disp`` owns display buffers, dirty-region refresh, and the flush callback.
+* ``gfx_obj`` provides shared widget behavior such as position, size, alignment,
+  visibility, lifecycle, and touch dispatch.
+* Widget modules render images, labels, buttons, animations, QR codes, mesh
+  images, and Motion scenes.
+* Draw modules provide software blending, clipping, image sampling, and mesh
+  rasterization.
 
 Widgets
 -------
 
-Image Widget
-~~~~~~~~~~~~
+The public widget set currently includes:
 
-The image widget supports:
+* Image: RGB565 and RGB565A8 image descriptors.
+* Mesh Image: deformable image grids used directly or by Motion scenes.
+* Label: bitmap/LVGL fonts, FreeType fonts, wrapping, clipping, and scrolling.
+* Button: text button with pressed state and border styling.
+* Animation: EAF playback with segments, looping, mirroring, and frame decoding.
+* QR Code: generated QR code widget with configurable size and colors.
+* Motion Scene: path-driven emote/character playback from generated scene assets.
 
-* RGB565 format (16-bit color)
-* RGB565A8 format (16-bit color with 8-bit alpha)
-* C array and binary formats
-* Automatic format detection
-
-Label Widget
-~~~~~~~~~~~~
-
-The label widget provides:
-
-* Text rendering with multiple font formats
-* LVGL font support
-* FreeType TTF/OTF font support
-* Text alignment (left, center, right)
-* Long text handling (wrap, scroll, clip)
-* Background colors and opacity
-
-Button Widget
-~~~~~~~~~~~~~
-
-The button widget provides:
-
-* Text label management
-* Normal and pressed background colors
-* Border color and width configuration
-* Font and text alignment control
-
-Animation Widget
-~~~~~~~~~~~~~~~~
-
-The animation widget supports:
-
-* EAF (ESP Animation Format) files
-* Frame-by-frame playback control
-* Segment playback (start/end frames)
-* FPS control
-* Loop and repeat options
-* Mirror effects
-
-QR Code Widget
-~~~~~~~~~~~~~~
-
-The QR code widget provides:
-
-* Dynamic QR code generation
-* Configurable size and error correction
-* Custom foreground and background colors
-
-Motion Scene Widget
-~~~~~~~~~~~~~~~~~~~
-
-The motion scene runtime provides:
-
-* Path-driven articulated animation built from joints, poses, and actions
-* Segment primitives for capsules, rings, open/closed Bezier strokes, and Bezier fills
-* Per-segment solid color, palette color, opacity, or texture binding
-* Display-space scaling through a configurable canvas and asset viewbox
-* Touch-friendly runtime usage for interactive characters and emotes
-
-The public entry points are ``gfx_motion_player_init()``, ``gfx_motion_player_set_canvas()``, ``gfx_motion_player_set_action()``, and ``gfx_motion_player_set_color()``. The underlying asset format is described by ``gfx_motion_asset_t`` in ``widget/gfx_motion_scene.h``.
-
-Memory Management
------------------
-
-The framework supports two buffer management modes:
-
-Internal Buffers
-~~~~~~~~~~~~~~~~
-
-The framework automatically allocates and manages frame buffers internally. This is the simplest mode but requires sufficient heap memory.
-
-External Buffers
-~~~~~~~~~~~~~~~~
-
-You can provide your own buffers, allowing you to:
-
-* Use memory-mapped regions
-* Control buffer placement (SRAM, SPIRAM, etc.)
-* Optimize for specific memory constraints
-
-Thread Safety
+Runtime Model
 -------------
 
-All widget operations should be performed within a graphics lock to ensure thread safety:
+Applications normally follow this flow:
 
-.. code-block:: c
+1. Initialize ``gfx_handle_t`` with ``gfx_emote_init()``.
+2. Add one or more displays with ``gfx_disp_add()``.
+3. Create widgets on a display.
+4. Update widgets from the graphics task, or hold ``gfx_emote_lock()`` when
+   updating from another task.
+5. Deinitialize the graphics context with ``gfx_emote_deinit()`` when finished.
 
-   gfx_emote_lock(handle);
-   // Perform operations
-   gfx_obj_set_pos(obj, x, y);
-   gfx_label_set_text(label, "New text");
-   gfx_emote_unlock(handle);
+Memory and Refresh
+------------------
 
-Dependencies
-------------
+Frame buffers can be allocated by the library or supplied by the application.
+Displays track dirty areas and only refresh changed regions unless configured
+otherwise. Widgets should invalidate themselves when their visual state changes.
 
-* ESP-IDF 5.0 or higher
-* FreeType (for TTF/OTF font support)
-* ESP New JPEG (for JPEG decoding)
-* No NanoVG or libtess2 dependency is required for the current motion scene path
+Optional Features
+-----------------
 
-License
--------
+Some features depend on optional components:
 
-This project is licensed under the Apache License 2.0.
+* FreeType support for TTF/OTF fonts.
+* JPEG decoding through ``esp_new_jpeg``.
+* Touch input through ``esp_lcd_touch``.
+* Heatshrink decoding for compressed animation assets.
+
+Next Steps
+----------
+
+* Follow :doc:`quickstart` for a minimal setup.
+* Browse :doc:`examples` for ready-to-run test app scenarios.
+* Read :doc:`motion_widget` for Motion scene usage.
+* Use :doc:`api/core/index` and :doc:`api/widgets/index` for API details.

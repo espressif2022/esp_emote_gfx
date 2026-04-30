@@ -19,6 +19,7 @@
 
 #include "esp_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_MOTION
+#define GFX_LOG_TAG    "gfx_motion_player"
 #include "common/gfx_log_priv.h"
 
 #include "core/gfx_disp.h"
@@ -26,14 +27,10 @@
 #include "widget/motion/gfx_motion_player_priv.h"
 
 /**********************
- *  STATIC VARIABLES
- **********************/
-
-static const char *TAG = "gfx_motion_player";
-
-/**********************
  *   STATIC FUNCTIONS
  **********************/
+
+static void gfx_motion_player_deinit(gfx_motion_player_t *player);
 
 static void gfx_motion_player_to_screen(const gfx_motion_asset_t *asset,
                                         const gfx_motion_point_t *dp,
@@ -329,9 +326,9 @@ static esp_err_t gfx_motion_player_apply_cb(gfx_motion_t *motion, void *user_dat
  *   PUBLIC FUNCTIONS
  **********************/
 
-esp_err_t gfx_motion_player_init(gfx_motion_player_t *player,
-                                 gfx_disp_t *disp,
-                                 const gfx_motion_asset_t *asset)
+static esp_err_t gfx_motion_player_init(gfx_motion_player_t *player,
+                                        gfx_disp_t *disp,
+                                        const gfx_motion_asset_t *asset)
 {
     esp_err_t ret = ESP_OK;
     gfx_img_src_t solid_src;
@@ -407,7 +404,7 @@ err:
     return ret;
 }
 
-void gfx_motion_player_deinit(gfx_motion_player_t *player)
+static void gfx_motion_player_deinit(gfx_motion_player_t *player)
 {
     if (player == NULL) {
         return;
@@ -425,6 +422,32 @@ void gfx_motion_player_deinit(gfx_motion_player_t *player)
     }
 
     memset(player, 0, sizeof(*player));
+}
+
+gfx_motion_player_t *gfx_motion_player_create(gfx_disp_t *disp, const gfx_motion_asset_t *asset)
+{
+    gfx_motion_player_t *player = calloc(1, sizeof(gfx_motion_player_t));
+
+    if (player == NULL) {
+        return NULL;
+    }
+
+    if (gfx_motion_player_init(player, disp, asset) != ESP_OK) {
+        free(player);
+        return NULL;
+    }
+
+    return player;
+}
+
+void gfx_motion_player_delete(gfx_motion_player_t *player)
+{
+    if (player == NULL) {
+        return;
+    }
+
+    gfx_motion_player_deinit(player);
+    free(player);
 }
 
 esp_err_t gfx_motion_player_set_color(gfx_motion_player_t *player, gfx_color_t color)
@@ -495,9 +518,20 @@ esp_err_t gfx_motion_player_sync(gfx_motion_player_t *player)
         return ESP_OK;
     }
 
-    ESP_RETURN_ON_FALSE(player->motion.apply_cb != NULL,
-                        ESP_ERR_INVALID_STATE, TAG, "player apply callback is NULL");
-    return player->motion.apply_cb(&player->motion, player->motion.user_data, true);
+    return gfx_motion_apply(&player->motion, true);
+}
+
+esp_err_t gfx_motion_player_reset_timer(gfx_motion_player_t *player)
+{
+    gfx_timer_handle_t timer;
+
+    ESP_RETURN_ON_FALSE(player != NULL, ESP_ERR_INVALID_ARG, TAG, "player is NULL");
+
+    timer = gfx_motion_get_timer(&player->motion);
+    ESP_RETURN_ON_FALSE(timer != NULL, ESP_ERR_INVALID_STATE, TAG, "motion timer is NULL");
+
+    gfx_timer_reset(timer);
+    return ESP_OK;
 }
 
 esp_err_t gfx_motion_player_set_action(gfx_motion_player_t *player, uint16_t action_idx, bool snap)

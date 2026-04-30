@@ -9,7 +9,7 @@
 #include "unity.h"
 #include "common.h"
 
-static const char *TAG = "test_multi";
+static const char *const TAG = "test_multi";
 
 static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
 {

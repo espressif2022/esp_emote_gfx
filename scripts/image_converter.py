@@ -217,7 +217,7 @@ def generate_bin_file(image_path, output_path, swap16=False, use_alpha=True):
         if use_alpha:
             print(f'Alpha data: {len(alpha_data)} bytes ({width * height} bytes)')
         print(f'Stride: {stride} bytes per row')
-        print(f'Data offset: 12 bytes')
+        print('Data offset: 12 bytes')
         print(f'Total file size: {len(header) + len(final_data)} bytes')
         print(f"Swap16: {'enabled' if swap16 else 'disabled'}")
         print(f'Header layout: magic=0x{magic:02x}, cf=0x{cf:02x}, flags=0x{flags:04x}')

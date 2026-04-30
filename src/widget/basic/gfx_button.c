@@ -24,6 +24,7 @@
 #include "core/object/gfx_obj_priv.h"
 #include "core/gfx_touch.h"
 #include "widget/gfx_button.h"
+#include "widget/label/gfx_label_draw_priv.h"
 #include "widget/label/gfx_label_priv.h"
 
 /*********************
@@ -59,7 +60,7 @@ typedef struct {
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "button";
+static const char *const TAG = "button";
 
 /**********************
  *  STATIC PROTOTYPES
@@ -150,7 +151,7 @@ static bool gfx_button_contains_point(gfx_obj_t *obj, uint16_t x, uint16_t y)
 
 static esp_err_t gfx_button_call_label_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 {
-    int original_type = obj->type;
+    uint8_t original_type = obj->type;
     esp_err_t ret;
 
     obj->type = GFX_OBJ_TYPE_LABEL;
@@ -162,7 +163,7 @@ static esp_err_t gfx_button_call_label_draw(gfx_obj_t *obj, const gfx_draw_ctx_t
 
 static esp_err_t gfx_button_call_label_update(gfx_obj_t *obj)
 {
-    int original_type = obj->type;
+    uint8_t original_type = obj->type;
     esp_err_t ret;
 
     obj->type = GFX_OBJ_TYPE_LABEL;
@@ -174,7 +175,7 @@ static esp_err_t gfx_button_call_label_update(gfx_obj_t *obj)
 
 static esp_err_t gfx_button_call_label_delete(gfx_obj_t *obj)
 {
-    int original_type = obj->type;
+    uint8_t original_type = obj->type;
     esp_err_t ret;
 
     obj->type = GFX_OBJ_TYPE_LABEL;

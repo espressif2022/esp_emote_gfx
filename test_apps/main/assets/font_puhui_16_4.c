@@ -134828,4 +134828,3 @@ lv_font_t font_puhui_16_4 = {
 
 
 #endif /*#if FONT_PUHUI_16_4*/
-

@@ -31,13 +31,40 @@
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "touch";
-static const uint32_t DEFAULT_POLL_MS = 15;
-static const uint32_t DEFAULT_IRQ_POLL_MS = 5;
+static const char *const TAG = "touch";
+static const uint32_t s_default_poll_ms = 15;
+static const uint32_t s_default_irq_poll_ms = 5;
 
 /**********************
  *      TYPEDEFS
  **********************/
+
+/** Touch node (one per device); list chained by next; public API uses opaque gfx_touch_t */
+struct gfx_touch {
+    struct gfx_touch *next;
+    struct gfx_core_context *ctx;
+    esp_lcd_touch_handle_t handle;
+    gfx_disp_t *disp;
+    gfx_timer_handle_t poll_timer;
+    gfx_touch_event_cb_t event_cb;
+    void *user_data;
+    uint32_t poll_ms;
+
+    bool pressed;
+    uint16_t last_x;
+    uint16_t last_y;
+    uint16_t last_strength;
+    uint8_t last_id;
+
+    /** Object that received PRESS; gets MOVE/RELEASE for same track until RELEASE (for drag) */
+    struct gfx_obj *pressed_obj;
+    uint8_t pressed_id;
+
+    gpio_num_t int_gpio_num;
+    bool irq_enabled;
+    volatile bool irq_pending;
+    void *isr_ctx;
+};
 
 typedef struct {
     gfx_touch_t *touch;
@@ -50,6 +77,7 @@ typedef struct {
  **********************/
 
 static void gfx_touch_poll_cb(void *user_data);
+static esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *cfg);
 
 /**********************
  *   STATIC FUNCTIONS
@@ -271,7 +299,7 @@ static void gfx_touch_poll_cb(void *user_data)
  *   PUBLIC FUNCTIONS
  **********************/
 
-esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *cfg)
+static esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *cfg)
 {
     if (!touch || !touch->ctx || !cfg) {
         return ESP_ERR_INVALID_ARG;
@@ -305,7 +333,7 @@ esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *cfg)
         touch->int_gpio_num = GPIO_NUM_NC;
     }
 
-    uint32_t default_poll = irq_requested ? DEFAULT_IRQ_POLL_MS : DEFAULT_POLL_MS;
+    uint32_t default_poll = irq_requested ? s_default_irq_poll_ms : s_default_poll_ms;
     touch->poll_ms = cfg->poll_ms ? cfg->poll_ms : default_poll;
     touch->pressed = false;
     touch->last_x = 0;
@@ -322,7 +350,7 @@ esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *cfg)
             touch->irq_enabled = false;
             touch->irq_pending = false;
             if (!cfg->poll_ms) {
-                touch->poll_ms = DEFAULT_POLL_MS;
+                touch->poll_ms = s_default_poll_ms;
             }
         }
     }
@@ -338,6 +366,19 @@ esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *cfg)
 
     GFX_LOGD(TAG, "init touch: polling started (%"PRIu32" ms)", touch->poll_ms);
     return ESP_OK;
+}
+
+void gfx_touch_delete_all(gfx_core_context_t *ctx)
+{
+    if (ctx == NULL) {
+        return;
+    }
+
+    while (ctx->touch != NULL) {
+        gfx_touch_t *touch = ctx->touch;
+        gfx_touch_del(touch);
+        free(touch);
+    }
 }
 
 void gfx_touch_del(gfx_touch_t *touch)

@@ -45,6 +45,9 @@ typedef struct {
     /* FPS statistics */
     uint32_t fps_last_report_tick;
     uint32_t fps_report_interval_ms;
+    uint32_t render_fps_last_tick;
+    uint32_t render_fps_samples;
+    uint32_t render_fps_elapsed_ms;
 } gfx_timer_mgr_t;
 
 /**********************

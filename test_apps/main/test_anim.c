@@ -8,7 +8,7 @@
 #include "unity.h"
 #include "common.h"
 
-static const char *TAG = "test_anim";
+static const char *const TAG = "test_anim";
 
 typedef struct {
     int asset_id;

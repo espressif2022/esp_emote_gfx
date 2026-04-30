@@ -32,7 +32,7 @@ typedef struct gfx_draw_ctx {
     void *buf;                  /**< Buffer start (chunk start or offset into full-frame) */
     gfx_area_t buf_area;        /**< Half-open screen rect [x1, x2) x [y1, y2); buf[0] maps to (buf_area.x1, buf_area.y1) */
     gfx_area_t clip_area;       /**< Half-open screen rect [x1, x2) x [y1, y2) for this draw pass */
-    int stride;                 /**< Row stride in pixels (chunk width or h_res) */
+    gfx_coord_t stride;         /**< Row stride in pixels (chunk width or h_res) */
     bool swap;                  /**< Color byte swap */
 } gfx_draw_ctx_t;
 
@@ -52,7 +52,7 @@ typedef struct gfx_widget_class {
 
 struct gfx_obj {
     void *src;                  /**< Source data (image, label, etc.) */
-    int type;                   /**< Object type */
+    uint8_t type;               /**< Object type */
     const gfx_widget_class_t *klass; /**< Registered class metadata */
     gfx_disp_t *disp;           /**< Display this object belongs to (from gfx_emote_add_disp) */
 

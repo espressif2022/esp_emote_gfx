@@ -5,12 +5,6 @@
  */
 
 #include "sdkconfig.h"
-
-#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
-
-/*********************
- *      INCLUDES
- *********************/
 #include <string.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -18,13 +12,16 @@
 #include "esp_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_FONT_FT
 #include "common/gfx_log_priv.h"
+#include "widget/gfx_label.h"
+#include "widget/gfx_font_lvgl.h"
+#include "widget/font/gfx_font_priv.h"
+
+#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
+
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
 #include FT_SIZES_H
-#include "widget/gfx_label.h"
-#include "widget/gfx_font_lvgl.h"
-#include "widget/font/gfx_font_priv.h"
 
 /*********************
  *      DEFINES
@@ -38,7 +35,7 @@
  *   STATIC VARIABLES
  **********************/
 
-static const char *TAG = "font_ft";
+static const char *const TAG = "font_ft";
 static FT_Library s_library = NULL;
 static gfx_ft_lib_handle_t s_font_lib = NULL;
 
@@ -359,6 +356,21 @@ void gfx_font_ft_init_adapter(gfx_font_handle_t font_adapter, const void *font)
     font_adapter->get_pixel_value = gfx_font_ft_get_pixel_value;
     font_adapter->adjust_baseline_offset = gfx_font_ft_adjust_baseline_offset;
     font_adapter->get_advance_width = gfx_font_ft_get_advance_width;
+}
+
+#else
+
+esp_err_t gfx_label_new_font(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
+{
+    (void)cfg;
+    (void)ret_font;
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
+esp_err_t gfx_label_delete_font(gfx_font_t font)
+{
+    (void)font;
+    return ESP_ERR_NOT_SUPPORTED;
 }
 
 #endif /* CONFIG_GFX_FONT_FREETYPE_SUPPORT */

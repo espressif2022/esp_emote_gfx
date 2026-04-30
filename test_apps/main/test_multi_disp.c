@@ -10,7 +10,7 @@
 #include "bsp/esp-bsp.h"
 #include "common.h"
 
-static const char *TAG = "test_multi_disp";
+static const char *const TAG = "test_multi_disp";
 
 typedef struct {
     gfx_disp_t *disp_left;
@@ -23,7 +23,8 @@ static int32_t s_drag_offset_x = 0;
 static int32_t s_drag_offset_y = 0;
 static bool s_drag_active = false;
 
-static void test_multi_disp_flush_cb(gfx_disp_t *disp, int x1, int y1, int x2, int y2, const void *data)
+static void test_multi_disp_flush_cb(gfx_disp_t *disp, gfx_coord_t x1, gfx_coord_t y1,
+                                     gfx_coord_t x2, gfx_coord_t y2, const void *data)
 {
     esp_lcd_panel_handle_t panel = (esp_lcd_panel_handle_t)gfx_disp_get_user_data(disp);
 

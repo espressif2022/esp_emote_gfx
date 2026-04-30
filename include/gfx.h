@@ -1,40 +1,25 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-#include "core/gfx_types.h"
-#include "core/gfx_core.h"
-#include "core/gfx_disp.h"
-#include "core/gfx_log.h"
-#include "core/gfx_timer.h"
-#include "core/gfx_touch.h"
-#include "core/gfx_obj.h"
+/*
+ * Main public umbrella header.
+ *
+ * Applications should usually include only this file. It exposes the public
+ * core API plus the built-in widgets. Private implementation headers stay
+ * under src/ and are intentionally not reachable from here.
+ */
+
+#include "gfx_base.h"
+#include "widget/gfx_anim.h"
+#include "widget/gfx_button.h"
+#include "widget/gfx_font_lvgl.h"
 #include "widget/gfx_img.h"
+#include "widget/gfx_label.h"
 #include "widget/gfx_mesh_img.h"
-#include "widget/gfx_motion.h"
 #include "widget/gfx_motion_scene.h"
 #include "widget/gfx_qrcode.h"
-#include "widget/gfx_label.h"
-#include "widget/gfx_button.h"
-#include "widget/gfx_anim.h"
-#include "widget/gfx_font_lvgl.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/*********************
- *      DEFINES
- *********************/
-
-/**********************
- *      TYPEDEFS
- **********************/
-
-#ifdef __cplusplus
-}
-#endif

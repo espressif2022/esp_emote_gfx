@@ -6,7 +6,8 @@
 
 #pragma once
 
-#include "gfx_types.h"
+#include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,12 +20,10 @@ extern "C" {
 /**********************
  *      TYPEDEFS
  **********************/
+typedef void *gfx_timer_handle_t;
 
 /* Timer callback function type */
 typedef void (*gfx_timer_cb_t)(void *);
-
-/* Timer handle type for external use */
-typedef void *gfx_timer_handle_t;
 
 /**********************
  * GLOBAL PROTOTYPES

@@ -8,10 +8,9 @@
 
 #include "esp_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_MOTION
+#define GFX_LOG_TAG    "gfx_motion_style"
 #include "common/gfx_log_priv.h"
 #include "widget/motion/gfx_motion_player_priv.h"
-
-static const char *TAG = "gfx_motion_style";
 
 uint16_t gfx_motion_player_layout_timer_period_ms(const gfx_motion_layout_t *layout)
 {

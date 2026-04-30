@@ -7,7 +7,7 @@
 #include "common.h"
 #include "widget/gfx_qrcode.h"
 
-static const char *TAG = "test_qrcode";
+static const char *const TAG = "test_qrcode";
 
 typedef struct {
     const char *step_name;

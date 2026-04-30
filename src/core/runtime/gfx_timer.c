@@ -29,7 +29,7 @@
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "timer";
+static const char *const TAG = "timer";
 
 /**********************
  *  STATIC PROTOTYPES

@@ -7,8 +7,8 @@
 #pragma once
 
 #include "esp_err.h"
-#include "gfx_types.h"
-#include "core/gfx_disp.h"
+#include "core/gfx_types.h"
+#include "core/gfx_touch.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -60,10 +60,7 @@ extern "C" {
 /**********************
  *      TYPEDEFS
  **********************/
-
-/* Opaque object type - actual definition in gfx_obj_priv.h */
 typedef struct gfx_obj gfx_obj_t;
-typedef struct gfx_touch_event gfx_touch_event_t;
 
 /**
  * @brief Application-level touch callback (register with gfx_obj_set_touch_cb)
@@ -82,6 +79,7 @@ typedef void (*gfx_obj_touch_cb_t)(gfx_obj_t *obj, const gfx_touch_event_t *even
  * @param obj Pointer to the object
  * @param x X coordinate
  * @param y Y coordinate
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
  */
 esp_err_t gfx_obj_set_pos(gfx_obj_t *obj, gfx_coord_t x, gfx_coord_t y);
 
@@ -90,6 +88,7 @@ esp_err_t gfx_obj_set_pos(gfx_obj_t *obj, gfx_coord_t x, gfx_coord_t y);
  * @param obj Pointer to the object
  * @param w Width
  * @param h Height
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
  */
 esp_err_t gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h);
 
@@ -99,6 +98,7 @@ esp_err_t gfx_obj_set_size(gfx_obj_t *obj, uint16_t w, uint16_t h);
  * @param align Alignment type (see GFX_ALIGN_* constants)
  * @param x_ofs X offset from the alignment position
  * @param y_ofs Y offset from the alignment position
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
  */
 esp_err_t gfx_obj_align(gfx_obj_t *obj, uint8_t align, gfx_coord_t x_ofs, gfx_coord_t y_ofs);
 
@@ -117,6 +117,7 @@ esp_err_t gfx_obj_align_to(gfx_obj_t *obj, gfx_obj_t *base, uint8_t align, gfx_c
  * @brief Set object visibility
  * @param obj Object to set visibility for
  * @param visible True to make object visible, false to hide
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
  */
 esp_err_t gfx_obj_set_visible(gfx_obj_t *obj, bool visible);
 
@@ -142,6 +143,7 @@ void gfx_obj_update_layout(gfx_obj_t *obj);
  * @param obj Pointer to the object
  * @param x Pointer to store X coordinate
  * @param y Pointer to store Y coordinate
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
  */
 esp_err_t gfx_obj_get_pos(gfx_obj_t *obj, gfx_coord_t *x, gfx_coord_t *y);
 
@@ -150,6 +152,7 @@ esp_err_t gfx_obj_get_pos(gfx_obj_t *obj, gfx_coord_t *x, gfx_coord_t *y);
  * @param obj Pointer to the object
  * @param w Pointer to store width
  * @param h Pointer to store height
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
  */
 esp_err_t gfx_obj_get_size(gfx_obj_t *obj, uint16_t *w, uint16_t *h);
 
@@ -158,6 +161,7 @@ esp_err_t gfx_obj_get_size(gfx_obj_t *obj, uint16_t *w, uint16_t *h);
 /**
  * @brief Delete an object
  * @param obj Pointer to the object to delete
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
  */
 esp_err_t gfx_obj_delete(gfx_obj_t *obj);
 
@@ -177,21 +181,21 @@ esp_err_t gfx_obj_set_touch_cb(gfx_obj_t *obj, gfx_obj_touch_cb_t cb, void *user
 /**
  * @brief Get object creation sequence id (monotonic per process lifetime)
  * @param obj Object pointer
- * @return uint32_t Sequence id, 0 if obj is NULL
+ * @return Sequence id, or 0 if obj is NULL
  */
 uint32_t gfx_obj_get_trace_id(gfx_obj_t *obj);
 
 /**
  * @brief Get object class name (from registered widget class metadata)
  * @param obj Object pointer
- * @return const char* Class name string, or NULL
+ * @return Class name string, or NULL
  */
 const char *gfx_obj_get_class_name(gfx_obj_t *obj);
 
 /**
  * @brief Get object creation tag (creation-site annotation)
  * @param obj Object pointer
- * @return const char* Creation tag string, or NULL
+ * @return Creation tag string, or NULL
  */
 const char *gfx_obj_get_trace_tag(gfx_obj_t *obj);
 

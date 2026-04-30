@@ -1,42 +1,172 @@
 /**
- * Minimal overrides: EN/中文 switcher only. Theme colors come from sphinx_idf_theme (light).
+ * Small ESP-IDF-docs-inspired polish on top of sphinx_idf_theme.
+ * Keep this layer thin so the site stays close to Espressif documentation.
  */
 
-.gfx-langbar {
-  position: fixed;
-  top: 0;
-  right: 12px;
-  z-index: 400;
+:root {
+  --gfx-accent: #e7352c;
+  --gfx-accent-dark: #b91f18;
+  --gfx-ink: #1f2933;
+  --gfx-muted: #64748b;
+  --gfx-line: #d9dee7;
+  --gfx-soft: #f6f8fb;
+}
+
+.wy-nav-content {
+  max-width: 980px;
+}
+
+.wy-side-nav-search {
+  background: #202632;
+  padding: 1.2rem 0.9rem 1rem;
+}
+
+.wy-side-nav-search .wy-dropdown > a {
+  color: #fff;
+  font-weight: 700;
+}
+
+.gfx-sidebar-brand {
+  display: grid !important;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  color: #fff !important;
+  text-decoration: none !important;
+  margin: 0 0 1rem !important;
+  padding: 0 !important;
+}
+
+.gfx-sidebar-logo {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: var(--gfx-accent);
+  color: #fff;
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.08em;
+  box-shadow: 0 10px 24px rgba(231, 53, 44, 0.24);
+}
+
+.gfx-sidebar-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.18;
+}
+
+.gfx-sidebar-company {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.gfx-sidebar-project {
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+  white-space: normal;
+  text-align: left;
+}
+
+.wy-menu-vertical a:hover {
+  background: rgba(231, 53, 44, 0.08);
+  color: var(--gfx-accent);
+}
+
+.rst-content a,
+.rst-content a:visited {
+  color: var(--gfx-accent-dark);
+}
+
+.rst-content a:hover {
+  color: var(--gfx-accent);
+}
+
+.rst-content h1,
+.rst-content h2,
+.rst-content h3 {
+  color: var(--gfx-ink);
+  font-weight: 700;
+}
+
+.rst-content h1 {
+  border-bottom: 1px solid var(--gfx-line);
+  padding-bottom: 0.45rem;
+}
+
+.rst-content code.literal,
+.rst-content tt.literal {
+  color: #b42318;
+  background: #fff5f4;
+  border: 1px solid #ffd7d3;
+  border-radius: 4px;
+  padding: 0.08rem 0.28rem;
+}
+
+.rst-content div[class^="highlight"] {
+  border-radius: 8px;
+  border: 1px solid var(--gfx-line);
+  background: var(--gfx-soft);
+}
+
+.rst-content table.docutils {
+  border: 1px solid var(--gfx-line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.rst-content table.docutils thead {
+  background: #eef2f7;
+}
+
+.rst-content .admonition {
+  border-radius: 8px;
+  border-color: var(--gfx-line);
+}
+
+.gfx-lang-switch {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  margin: 0;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  margin: 0 0 1rem;
   font-size: 13px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background: rgba(252, 252, 252, 0.95);
   color: #404040;
-  border: 1px solid #d0d0d0;
-  border-radius: 0 0 6px 6px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.gfx-lang-label {
+  color: var(--gfx-muted);
+  font-weight: 600;
+  margin-right: 0.2rem;
 }
 
 .gfx-lang-btn {
-  color: #2980b9 !important;
+  color: #3b4657 !important;
   text-decoration: none !important;
   font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--gfx-line);
+  border-radius: 999px;
+  background: #fff;
 }
 
 .gfx-lang-btn:hover {
-  color: #2e8bcc !important;
-  background: rgba(41, 128, 185, 0.08);
+  color: var(--gfx-accent-dark) !important;
+  border-color: rgba(231, 53, 44, 0.38);
+  background: #fff7f6;
 }
 
 .gfx-lang-btn.is-active {
-  color: #2b2b2b !important;
-  background: #e8e8e8;
+  color: #fff !important;
+  border-color: var(--gfx-accent);
+  background: var(--gfx-accent);
 }
 
 .gfx-lang-btn--muted {
@@ -44,13 +174,10 @@
   pointer-events: none;
 }
 
-.gfx-lang-sep {
-  opacity: 0.45;
-  user-select: none;
-}
-
 @media (max-width: 768px) {
-  .wy-nav-content {
-    padding-top: 2.25rem;
+  .gfx-lang-switch {
+    justify-content: flex-start;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
   }
 }

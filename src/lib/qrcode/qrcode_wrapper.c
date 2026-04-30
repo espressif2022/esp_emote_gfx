@@ -14,9 +14,9 @@
 #include "qrcodegen.h"
 #include "qrcode_wrapper.h"
 
-static const char *TAG = "qrcode_lib";
+static const char *const TAG = "qrcode_lib";
 
-static const char *lt[] = {
+static const char *const lt[] = {
     /* 0 */ "  ",
     /* 1 */ "\u2580 ",
     /* 2 */ " \u2580",

@@ -45,7 +45,7 @@
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "eaf_dec";
+static const char *const TAG = "eaf_dec";
 static eaf_dec_block_decoder_cb_t s_eaf_decoders[EAF_DEC_ENCODING_MAX] = {0};
 
 /**********************
