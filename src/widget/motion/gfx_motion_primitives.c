@@ -9,10 +9,9 @@
 
 #include "esp_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_MOTION
+#define GFX_LOG_TAG    "gfx_motion_prim"
 #include "common/gfx_log_priv.h"
 #include "widget/motion/gfx_motion_player_priv.h"
-
-static const char *TAG = "gfx_motion_prim";
 
 uint8_t gfx_motion_player_ring_segs(float radius)
 {

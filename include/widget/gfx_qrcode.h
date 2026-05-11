@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include <stdint.h>
+
+#include "esp_err.h"
+#include "core/gfx_disp.h"
 #include "core/gfx_obj.h"
 
 #ifdef __cplusplus
@@ -36,8 +40,8 @@ typedef enum {
 
 /**
  * @brief Create a QR Code object on a display
- * @param disp Display from gfx_emote_add_disp(handle, &disp_cfg)
- * @return Pointer to the created QR Code object
+ * @param disp Display from gfx_disp_add()
+ * @return Pointer to the created QR Code object, or NULL on failure
  */
 gfx_obj_t *gfx_qrcode_create(gfx_disp_t *disp);
 

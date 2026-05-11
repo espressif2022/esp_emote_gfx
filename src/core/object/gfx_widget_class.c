@@ -16,7 +16,7 @@
 #include "core/display/gfx_refr_priv.h"
 #include "core/object/gfx_obj_priv.h"
 
-static const char *TAG = "widget_class";
+static const char *const TAG = "widget_class";
 
 static const gfx_widget_class_t *s_widget_classes[UINT8_MAX + 1U];
 static uint32_t s_obj_create_seq = 0U;

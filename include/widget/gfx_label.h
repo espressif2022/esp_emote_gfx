@@ -7,7 +7,10 @@
 #pragma once
 
 #include <stddef.h>
-#include "sdkconfig.h"
+#include <stdint.h>
+
+#include "esp_err.h"
+#include "core/gfx_disp.h"
 #include "core/gfx_obj.h"
 
 #ifdef __cplusplus
@@ -58,12 +61,11 @@ typedef struct {
 
 /**
  * @brief Create a label object on a display
- * @param disp Display from gfx_emote_add_disp(handle, &disp_cfg)
- * @return Pointer to the created label object
+ * @param disp Display from gfx_disp_add()
+ * @return Pointer to the created label object, or NULL on failure
  */
 gfx_obj_t *gfx_label_create(gfx_disp_t *disp);
 
-#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
 /* Font management */
 
 /**
@@ -80,7 +82,6 @@ esp_err_t gfx_label_new_font(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font);
  * @return ESP_OK on success, error code otherwise
  */
 esp_err_t gfx_label_delete_font(gfx_font_t font);
-#endif
 
 /* Label setters */
 
@@ -136,6 +137,7 @@ esp_err_t gfx_label_set_opa(gfx_obj_t *obj, gfx_opa_t opa);
  * @brief Set the font for a label object
  * @param obj Pointer to the label object
  * @param font Font handle
+ * @return ESP_OK on success, error code otherwise
  */
 esp_err_t gfx_label_set_font(gfx_obj_t *obj, gfx_font_t font);
 

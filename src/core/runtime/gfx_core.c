@@ -18,15 +18,13 @@
 #define GFX_LOG_MODULE GFX_LOG_MODULE_CORE
 #include "common/gfx_log_priv.h"
 
+#include "common/gfx_subsystem_init_priv.h"
 #include "core/gfx_obj.h"
 #include "core/display/gfx_refr_priv.h"
 #include "core/display/gfx_render_priv.h"
 #include "core/object/gfx_obj_priv.h"
 #include "core/runtime/gfx_timer_priv.h"
 #include "core/runtime/gfx_touch_priv.h"
-
-#include "widget/img/gfx_img_dec_priv.h"
-#include "widget/font/gfx_font_priv.h"
 
 /*********************
  *      DEFINES
@@ -40,7 +38,7 @@
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "core";
+static const char *const TAG = "core";
 
 /**********************
  *  STATIC PROTOTYPES
@@ -155,9 +153,7 @@ gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
     bool lifecycle_events_created = false;
     bool mutex_created = false;
     bool decoder_inited = false;
-#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
     bool font_lib_created = false;
-#endif
 
     ESP_GOTO_ON_FALSE(cfg, ESP_ERR_INVALID_ARG, err, TAG, "Invalid configuration");
 
@@ -177,15 +173,13 @@ gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
     ESP_GOTO_ON_FALSE(disp_ctx->sync.render_mutex, ESP_ERR_NO_MEM, err, TAG, "Failed to create recursive render mutex");
     mutex_created = true;
 
-#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
-    ret = gfx_ft_lib_create();
+    ret = gfx_subsystem_font_init();
     ESP_GOTO_ON_ERROR(ret, err, TAG, "Failed to create font library");
     font_lib_created = true;
-#endif
 
     gfx_timer_mgr_init(&disp_ctx->timer_mgr, cfg->fps);
 
-    ret = gfx_image_decoder_init();
+    ret = gfx_subsystem_image_decoder_init();
     ESP_GOTO_ON_ERROR(ret, err, TAG, "Failed to initialize image decoder");
     decoder_inited = true;
 
@@ -203,13 +197,11 @@ gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
 
 err:
     if (decoder_inited) {
-        gfx_image_decoder_deinit();
+        gfx_subsystem_image_decoder_deinit();
     }
-#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
     if (font_lib_created) {
-        gfx_ft_lib_cleanup();
+        gfx_subsystem_font_deinit();
     }
-#endif
     if (mutex_created) {
         vSemaphoreDelete(disp_ctx->sync.render_mutex);
     }
@@ -242,17 +234,11 @@ void gfx_emote_deinit(gfx_handle_t handle)
         free(d);
     }
 
-    while (ctx->touch != NULL) {
-        gfx_touch_t *t = ctx->touch;
-        gfx_touch_del(t);
-        free(t);
-    }
+    gfx_touch_delete_all(ctx);
 
     gfx_timer_mgr_deinit(&ctx->timer_mgr);
 
-#ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
-    gfx_ft_lib_cleanup();
-#endif
+    gfx_subsystem_font_deinit();
 
     if (ctx->sync.render_mutex) {
         vSemaphoreDelete(ctx->sync.render_mutex);
@@ -269,7 +255,7 @@ void gfx_emote_deinit(gfx_handle_t handle)
         ctx->sync.render_events = NULL;
     }
 
-    gfx_image_decoder_deinit();
+    gfx_subsystem_image_decoder_deinit();
     free(ctx);
 }
 

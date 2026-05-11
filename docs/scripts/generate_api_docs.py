@@ -383,10 +383,17 @@ TITLE_OVERRIDES = {
     'gfx_timer': 'Timer',
     'gfx_img': 'Image',
     'gfx_label': 'Label',
+    'gfx_mesh_img': 'Mesh Image',
     'gfx_anim': 'Animation',
     'gfx_qrcode': 'QR Code',
     'gfx_button': 'Button',
     'gfx_font_lvgl': 'LVGL Font Compatibility',
+}
+
+SKIP_API_STEMS = {
+    # Low-level Motion driver used by the scene player. The public guide should
+    # direct users to gfx_motion_scene APIs instead.
+    'gfx_motion',
 }
 
 # 各 API 子目录的 index 配置：(子目录名, 页面标题, 引言段落, “模块列表”小节标题)
@@ -435,6 +442,8 @@ def discover_header_mapping(repo_root: Path) -> List[Tuple[str, str, str]]:
 
         for header_path in sorted(full_dir.glob('*.h')):
             stem = header_path.stem
+            if stem in SKIP_API_STEMS:
+                continue
             rel_header = str(Path(header_dir) / header_path.name)
             rel_rst = str(Path(rst_dir) / f'{stem}.rst')
             mapping.append((rel_header, rel_rst, title_for_header(stem)))

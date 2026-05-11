@@ -16,6 +16,7 @@
 #include "core/display/gfx_disp_priv.h"
 #include "core/display/gfx_refr_priv.h"
 #include "core/object/gfx_obj_priv.h"
+#include "widget/label/gfx_label_draw_priv.h"
 #include "widget/label/gfx_label_priv.h"
 
 /*********************
@@ -28,7 +29,7 @@
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "label_obj";
+static const char *const TAG = "label_obj";
 
 /**********************
  *  STATIC PROTOTYPES

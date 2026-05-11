@@ -11,9 +11,9 @@ The widget API provides specialized functionality for different types of graphic
    gfx_font_lvgl
    gfx_img
    gfx_label
-   gfx_qrcode
-   gfx_motion
+   gfx_mesh_img
    gfx_motion_scene
+   gfx_qrcode
 
 Widget Modules
 --------------
@@ -23,6 +23,6 @@ Widget Modules
 * :doc:`gfx_font_lvgl` - LVGL Font Compatibility (gfx_font_lvgl)
 * :doc:`gfx_img` - Image (gfx_img)
 * :doc:`gfx_label` - Label (gfx_label)
+* :doc:`gfx_mesh_img` - Mesh Image (gfx_mesh_img)
+* :doc:`gfx_motion_scene` - Motion Scene (gfx_motion_scene)
 * :doc:`gfx_qrcode` - QR Code (gfx_qrcode)
-* :doc:`gfx_motion` - Motion Driver (gfx_motion)
-* :doc:`gfx_motion_scene` - Motion Scene and Player (gfx_motion_scene)

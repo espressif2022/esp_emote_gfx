@@ -7,7 +7,7 @@
 #pragma once
 
 /* Widget-internal label lifecycle hooks and shared private label state. */
-#include "widget/label/gfx_draw_label_priv.h"
+#include "widget/label/gfx_label_types_priv.h"
 
 #ifdef __cplusplus
 extern "C" {

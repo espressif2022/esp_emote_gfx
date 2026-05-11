@@ -37,7 +37,7 @@ typedef struct {
 /**********************
  *  STATIC VARIABLES
  **********************/
-static const char *TAG = "img";
+static const char *const TAG = "img";
 
 /**********************
  *  STATIC PROTOTYPES

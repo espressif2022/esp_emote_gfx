@@ -1,7 +1,26 @@
-ESP Emote GFX Documentation
-===========================
+ESP Emote GFX Programming Guide
+===============================
 
-Welcome to the ESP Emote GFX API documentation. This is a lightweight graphics framework for ESP-IDF with support for images, labels, animations, buttons, QR codes, fonts, and path-driven motion scenes.
+ESP Emote GFX provides a compact widget and rendering layer for embedded displays.
+It includes common UI widgets, animation playback, QR code rendering, touch input,
+and path-driven Motion scenes.
+
+Start Here
+----------
+
+* :doc:`overview` - what the library provides and how the major modules fit together
+* :doc:`quickstart` - minimal setup flow from graphics core to first widget
+* :doc:`examples` - curated test app scenarios and where to find them
+* :doc:`motion_widget` - Motion scene asset model and playback API
+
+Reference
+---------
+
+* :doc:`api/core/index` - core, display, object, timer, touch, and log APIs
+* :doc:`api/widgets/index` - widget APIs
+* :doc:`motion_mesh_rendering_architecture` - Motion, mesh image, and renderer internals
+* `Doxygen API Reference <../doxygen/index.html>`_ - generated C/C++ reference
+* :doc:`changelog` - release history
 
 .. toctree::
    :maxdepth: 2
@@ -9,49 +28,15 @@ Welcome to the ESP Emote GFX API documentation. This is a lightweight graphics f
 
    overview
    quickstart
+   examples
    motion_widget
    api/core/index
    api/widgets/index
-   examples
+   motion_mesh_rendering_architecture
    changelog
 
-Overview
---------
-
-ESP Emote GFX is a graphics framework designed for embedded systems, providing:
-
-* **Images**: Display images in RGB565A8 format with alpha transparency
-* **Animations**: GIF animations with ESP32 tools (EAF format)
-* **Buttons**: Interactive button widgets with text, border, and pressed-state styling
-* **Motion Scenes**: Path-based articulated widgets using joints, poses, actions, and mesh segments
-* **Fonts**: LVGL fonts and FreeType TTF/OTF support
-* **Timers**: Built-in timing system for smooth animations
-* **Memory Optimized**: Designed for embedded systems with limited resources
-
-Features
---------
-
-* Lightweight and memory-efficient
-* Thread-safe operations with mutex locking
-* Support for multiple object types (images, labels, animations, buttons, QR codes, motion scenes)
-* Flexible buffer management (internal or external buffers)
-* Rich text rendering with scrolling and wrapping
-* Animation playback control with segments and loops
-* Path-driven character playback with touch-friendly scene runtime
-
-Quick Links
------------
-
-* :doc:`Quick Start Guide <quickstart>`
-* :doc:`Motion Widget Guide <motion_widget>`
-* :doc:`Core API Reference <api/core/index>`
-* :doc:`Widget API Reference <api/widgets/index>`
-* :doc:`Examples <examples>`
-* `Doxygen API Reference <../doxygen/index.html>`_ - Auto-generated C/C++ API documentation
-
-Indices and tables
-==================
+Indices and Tables
+------------------
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`

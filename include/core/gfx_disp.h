@@ -9,7 +9,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "esp_err.h"
-#include "gfx_types.h"
+#include "core/gfx_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,8 +18,8 @@ extern "C" {
 /*********************
  *      TYPEDEFS
  *********************/
-/** Display handle: one per screen; from gfx_disp_add(), use with all gfx_disp_* APIs */
 typedef struct gfx_disp gfx_disp_t;
+
 typedef enum {
     GFX_DISP_EVENT_IDLE = 0,
     GFX_DISP_EVENT_ONE_FRAME_DONE,
@@ -51,7 +51,8 @@ typedef struct {
     gfx_blend_perf_stats_t blend;     /**< Blend-stage details */
 } gfx_disp_perf_stats_t;
 
-typedef void (*gfx_disp_flush_cb_t)(gfx_disp_t *disp, int x1, int y1, int x2, int y2, const void *data);
+typedef void (*gfx_disp_flush_cb_t)(gfx_disp_t *disp, gfx_coord_t x1, gfx_coord_t y1,
+                                    gfx_coord_t x2, gfx_coord_t y2, const void *data);
 typedef void (*gfx_disp_update_cb_t)(gfx_disp_t *disp, gfx_disp_event_t event, const void *obj);
 
 /*********************
@@ -87,7 +88,7 @@ typedef struct {
  *
  * @param handle Graphics handle from gfx_emote_init
  * @param cfg Display configuration (resolution, flush callback, buffers)
- * @return gfx_disp_t* New display pointer on success, NULL on error
+ * @return New display pointer on success, or NULL on failure
  */
 gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg);
 
@@ -111,7 +112,7 @@ void gfx_disp_refresh_all(gfx_disp_t *disp);
  *
  * @param disp Display from gfx_disp_add
  * @param swap_act_buf Whether to swap the active buffer
- * @return bool True on success
+ * @return true on success, false on failure
  */
 bool gfx_disp_flush_ready(gfx_disp_t *disp, bool swap_act_buf);
 
@@ -119,7 +120,7 @@ bool gfx_disp_flush_ready(gfx_disp_t *disp, bool swap_act_buf);
  * @brief Get user data for a display
  *
  * @param disp Display from gfx_disp_add
- * @return void* User data, or NULL
+ * @return User data pointer, or NULL
  */
 void *gfx_disp_get_user_data(gfx_disp_t *disp);
 
@@ -127,7 +128,7 @@ void *gfx_disp_get_user_data(gfx_disp_t *disp);
  * @brief Get display horizontal resolution in pixels
  *
  * @param disp Display from gfx_disp_add (NULL allowed; returns default width)
- * @return uint32_t Width in pixels
+ * @return Width in pixels
  */
 uint32_t gfx_disp_get_hor_res(gfx_disp_t *disp);
 
@@ -135,7 +136,7 @@ uint32_t gfx_disp_get_hor_res(gfx_disp_t *disp);
  * @brief Get display vertical resolution in pixels
  *
  * @param disp Display from gfx_disp_add (NULL allowed; returns default height)
- * @return uint32_t Height in pixels
+ * @return Height in pixels
  */
 uint32_t gfx_disp_get_ver_res(gfx_disp_t *disp);
 
@@ -155,7 +156,7 @@ bool gfx_disp_is_flushing_last(gfx_disp_t *disp);
  *
  * @param disp Display handle
  * @param out_stats Output stats structure
- * @return ESP_OK on success
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
  */
 esp_err_t gfx_disp_get_perf_stats(gfx_disp_t *disp, gfx_disp_perf_stats_t *out_stats);
 
@@ -164,7 +165,7 @@ esp_err_t gfx_disp_get_perf_stats(gfx_disp_t *disp, gfx_disp_perf_stats_t *out_s
  *
  * @param disp Display from gfx_disp_add
  * @param color Background color (e.g. RGB565)
- * @return esp_err_t ESP_OK on success
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
  */
 esp_err_t gfx_disp_set_bg_color(gfx_disp_t *disp, gfx_color_t color);
 

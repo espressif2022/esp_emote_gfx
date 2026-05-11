@@ -21,13 +21,12 @@
 
 #include "esp_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_MOTION
+#define GFX_LOG_TAG    "gfx_motion_scene"
 #include "common/gfx_config_internal.h"
 #include "common/gfx_log_priv.h"
 
-#include "widget/gfx_motion.h"
-#include "widget/gfx_motion_scene.h"
-
-static const char *TAG = "gfx_motion_scene";
+#include "widget/motion/gfx_motion_priv.h"
+#include "widget/motion/gfx_motion_scene_priv.h"
 
 static const char *s_interp_str(gfx_motion_interp_t i)
 {
@@ -68,29 +67,29 @@ void gfx_motion_scene_log_active_step(const gfx_motion_scene_t *scene, const cha
         return;
     }
     if (scene->active_action >= scene->asset->action_count) {
-        GFX_LOGW(TAG, "%s: invalid active_action=%u",
+        GFX_LOGW("%s: invalid active_action=%u",
                  reason ? reason : "?", (unsigned)scene->active_action);
         return;
     }
     action = &scene->asset->actions[scene->active_action];
     if (action->step_count == 0U || action->steps == NULL ||
             scene->active_step >= action->step_count) {
-        GFX_LOGW(TAG, "%s: action[%u] bad step=%u count=%u",
+        GFX_LOGW("%s: action[%u] bad step=%u count=%u",
                  reason ? reason : "?", (unsigned)scene->active_action,
                  (unsigned)scene->active_step,
                  (unsigned)action->step_count);
         return;
     }
     step = &action->steps[scene->active_step];
-    GFX_LOGI(TAG,
-             "%s | action_idx=%u/%u step_idx=%u/%u pose_idx=%u hold_ticks=%u step_tick=%u/%u facing=%d interp=%s loop=%d",
-             reason ? reason : "",
-             (unsigned)scene->active_action, (unsigned)scene->asset->action_count,
-             (unsigned)scene->active_step, (unsigned)action->step_count,
-             (unsigned)step->pose_index, (unsigned)step->hold_ticks,
-             (unsigned)scene->step_ticks, (unsigned)step->hold_ticks,
-             (int)step->facing, s_interp_str(step->interp),
-             s_action_loop_enabled(scene, action) ? 1 : 0);
+    GFX_LOGI(
+        "%s | action_idx=%u/%u step_idx=%u/%u pose_idx=%u hold_ticks=%u step_tick=%u/%u facing=%d interp=%s loop=%d",
+        reason ? reason : "",
+        (unsigned)scene->active_action, (unsigned)scene->asset->action_count,
+        (unsigned)scene->active_step, (unsigned)action->step_count,
+        (unsigned)step->pose_index, (unsigned)step->hold_ticks,
+        (unsigned)scene->step_ticks, (unsigned)step->hold_ticks,
+        (int)step->facing, s_interp_str(step->interp),
+        s_action_loop_enabled(scene, action) ? 1 : 0);
 }
 
 /* ------------------------------------------------------------------ */

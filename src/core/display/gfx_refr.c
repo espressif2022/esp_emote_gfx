@@ -30,7 +30,7 @@
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "refr";
+static const char *const TAG = "refr";
 
 /**********************
  *  STATIC PROTOTYPES

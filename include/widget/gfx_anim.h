@@ -6,8 +6,12 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
+#include "esp_err.h"
+#include "core/gfx_disp.h"
 #include "core/gfx_obj.h"
 
 #ifdef __cplusplus
@@ -77,8 +81,8 @@ typedef struct {
 
 /**
  * @brief Create an animation object on a display
- * @param disp Display from gfx_emote_add_disp(handle, &disp_cfg)
- * @return Pointer to the created animation object
+ * @param disp Display from gfx_disp_add()
+ * @return Pointer to the created animation object, or NULL on failure
  */
 gfx_obj_t *gfx_anim_create(gfx_disp_t *disp);
 

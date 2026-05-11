@@ -6,7 +6,7 @@
 #include "unity.h"
 #include "common.h"
 
-static const char *TAG = "test_image";
+static const char *const TAG = "test_image";
 
 typedef struct {
     gfx_obj_t *img_primary;

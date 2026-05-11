@@ -12,19 +12,15 @@
 #include "esp_check.h"
 
 #define GFX_LOG_MODULE GFX_LOG_MODULE_MOTION
+#define GFX_LOG_TAG    "gfx_motion"
 #include "common/gfx_log_priv.h"
 
 #include "core/display/gfx_disp_priv.h"
-#include "widget/gfx_motion.h"
+#include "widget/motion/gfx_motion_priv.h"
 
 /*********************
  *      TYPEDEFS
  *********************/
-
-/**********************
- *  STATIC VARIABLES
- **********************/
-static const char *TAG = "gfx_motion";
 
 /**********************
  *  STATIC PROTOTYPES
@@ -111,6 +107,11 @@ esp_err_t gfx_motion_set_period(gfx_motion_t *motion, uint16_t period_ms)
     return ESP_OK;
 }
 
+gfx_timer_handle_t gfx_motion_get_timer(const gfx_motion_t *motion)
+{
+    return (motion != NULL) ? motion->timer : NULL;
+}
+
 esp_err_t gfx_motion_step(gfx_motion_t *motion, bool force_apply)
 {
     bool changed;
@@ -123,6 +124,14 @@ esp_err_t gfx_motion_step(gfx_motion_t *motion, bool force_apply)
         return motion->apply_cb(motion, motion->user_data, force_apply);
     }
     return ESP_OK;
+}
+
+esp_err_t gfx_motion_apply(gfx_motion_t *motion, bool force_apply)
+{
+    ESP_RETURN_ON_FALSE(motion != NULL, ESP_ERR_INVALID_ARG, TAG, "motion is NULL");
+    ESP_RETURN_ON_FALSE(motion->apply_cb != NULL, ESP_ERR_INVALID_STATE, TAG, "apply callback not ready");
+
+    return motion->apply_cb(motion, motion->user_data, force_apply);
 }
 
 int16_t gfx_motion_ease_i16(int16_t cur, int16_t tgt, int16_t div)

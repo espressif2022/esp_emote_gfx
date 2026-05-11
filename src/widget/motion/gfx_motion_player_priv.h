@@ -15,6 +15,8 @@
 #include "core/gfx_obj.h"
 #include "widget/gfx_mesh_img.h"
 #include "widget/gfx_motion_scene.h"
+#include "widget/motion/gfx_motion_priv.h"
+#include "widget/motion/gfx_motion_scene_priv.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,6 +38,9 @@ extern "C" {
 #define MOTION_BEZIER_FILL_SEGS     GFX_MOTION_BEZIER_FILL_SEGS
 #define MOTION_HUB_FILL_MAX_PTS     GFX_MOTION_HUB_FILL_MAX_POINTS
 #define MOTION_BEZIER_FILL_USE_SCANLINE GFX_MOTION_BEZIER_FILL_USE_SCANLINE
+
+/** Maximum mesh_img objects per runtime (one per segment). */
+#define GFX_MOTION_PLAYER_MAX_SEGMENTS 64U
 
 #define MOTION_BEZIER_FILL_MAX_TESS   ((((MOTION_BEZIER_MAX_PTS - 1U) / 3U) * MOTION_BEZIER_FILL_LOOP_SEGS_PER_SEG) + 1U)
 #define MOTION_BEZIER_STROKE_MAX_TESS ((((MOTION_BEZIER_MAX_PTS - 1U) / 3U) * MOTION_BEZIER_SEGS_PER_SEG) + 1U)
@@ -66,6 +71,27 @@ typedef struct {
     gfx_motion_player_screen_point_t fill_lower[MOTION_BEZIER_FILL_SEGS + 1U];
     gfx_motion_player_screen_point_t ctrl_pts[MOTION_BEZIER_MAX_PTS];
 } gfx_motion_player_runtime_scratch_t;
+
+struct gfx_motion_player {
+    gfx_motion_scene_t scene;
+    gfx_motion_t motion;
+    gfx_obj_t *seg_objs[GFX_MOTION_PLAYER_MAX_SEGMENTS];
+    uint8_t seg_grid_cols[GFX_MOTION_PLAYER_MAX_SEGMENTS];
+    uint8_t seg_grid_rows[GFX_MOTION_PLAYER_MAX_SEGMENTS];
+    uint8_t seg_obj_count;
+    gfx_color_t stroke_color;
+    uint32_t layer_mask;
+    uint16_t solid_pixel;
+    gfx_image_dsc_t solid_img;
+    uint16_t palette_pixels[GFX_MOTION_PALETTE_MAX];
+    gfx_image_dsc_t palette_imgs[GFX_MOTION_PALETTE_MAX];
+    gfx_coord_t canvas_x;
+    gfx_coord_t canvas_y;
+    uint16_t canvas_w;
+    uint16_t canvas_h;
+    bool mesh_dirty;
+    void *scratch;
+};
 
 uint8_t gfx_motion_player_ring_segs(float radius);
 esp_err_t gfx_motion_player_apply_capsule(gfx_obj_t *obj,

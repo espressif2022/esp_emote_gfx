@@ -22,7 +22,7 @@
 #include "widget/gfx_motion_scene.h"
 #include "common.h"
 
-static const char *TAG = "test_motion";
+static const char *const TAG = "test_motion";
 
 #include "claw_motion.inc"
 
@@ -34,7 +34,7 @@ static const char *const s_motion_action_names[] = {
 };
 
 typedef struct {
-    gfx_motion_player_t      rt;
+    gfx_motion_player_t     *rt;
     uint16_t              seq_index;
     const gfx_motion_asset_t *asset;
     const char           *dbg_label;
@@ -42,6 +42,8 @@ typedef struct {
     uint16_t              disp_h;
     gfx_coord_t           canvas_home_x;
     gfx_coord_t           canvas_home_y;
+    gfx_coord_t           canvas_x;
+    gfx_coord_t           canvas_y;
     gfx_coord_t           move_y;
     uint16_t              canvas_w;
     uint16_t              canvas_h;
@@ -63,6 +65,7 @@ static test_motion_slot_t s_motion_slot;
 
 static void s_slot_force_apply(test_motion_slot_t *slot);
 static void s_slot_apply_action(test_motion_slot_t *slot, uint16_t action_idx, bool snap);
+static void s_slot_reset_runtime_motion_timer(test_motion_slot_t *slot);
 
 #define MOTION_TOUCH_DRAG_THRESHOLD_PX 12
 #define MOTION_MOVE_ACTION_IDX         CLAW_MOTION_ACTION_POS_MOVE
@@ -137,10 +140,12 @@ static void s_slot_set_canvas(test_motion_slot_t *slot, gfx_coord_t x, gfx_coord
         return;
     }
 
-    if (gfx_motion_player_set_canvas(&slot->rt, x, y, slot->canvas_w, slot->canvas_h) != ESP_OK) {
+    if (gfx_motion_player_set_canvas(slot->rt, x, y, slot->canvas_w, slot->canvas_h) != ESP_OK) {
         ESP_LOGW(TAG, "[%s] set canvas failed", slot->dbg_label ? slot->dbg_label : "?");
         return;
     }
+    slot->canvas_x = x;
+    slot->canvas_y = y;
 
     if (force_apply) {
         s_slot_force_apply(slot);
@@ -219,7 +224,7 @@ static void s_slot_force_apply(test_motion_slot_t *slot)
         return;
     }
 
-    err = gfx_motion_player_sync(&slot->rt);
+    err = gfx_motion_player_sync(slot->rt);
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "[%s] touch force-apply failed (%d)",
                  slot->dbg_label ? slot->dbg_label : "?", (int)err);
@@ -276,7 +281,7 @@ static void s_slot_apply_action(test_motion_slot_t *slot, uint16_t action_idx, b
     slot->seq_index = s_sequence_index_of_action(slot->asset, action_idx);
     slot->active_action = action_idx;
     s_log_action_switch(slot, slot->seq_index, action_idx);
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_motion_player_set_action(&slot->rt, action_idx, snap));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_motion_player_set_action(slot->rt, action_idx, snap));
 
     if (action_idx == MOTION_MOVE_ACTION_IDX) {
         s_slot_spawn_move_from_right(slot, false);
@@ -328,8 +333,8 @@ static void s_slot_motion_timer_cb(void *user_data)
     }
 
     if (slot->move_target_active) {
-        dx = s_abs_coord_diff(slot->rt.canvas_x, slot->move_target_x);
-        dy = s_abs_coord_diff(slot->rt.canvas_y, slot->move_target_y);
+        dx = s_abs_coord_diff(slot->canvas_x, slot->move_target_x);
+        dy = s_abs_coord_diff(slot->canvas_y, slot->move_target_y);
         dist_hint = (gfx_coord_t)(dx + (dy / 2));
         chase_step = (gfx_coord_t)(MOTION_MOVE_CHASE_STEP_MIN + (dist_hint / 18));
         if (chase_step < MOTION_MOVE_CHASE_STEP_MIN) {
@@ -338,8 +343,8 @@ static void s_slot_motion_timer_cb(void *user_data)
         if (chase_step > MOTION_MOVE_CHASE_STEP_MAX) {
             chase_step = MOTION_MOVE_CHASE_STEP_MAX;
         }
-        next_x = s_step_coord_toward(slot->rt.canvas_x, slot->move_target_x, chase_step);
-        next_y = s_step_coord_toward(slot->rt.canvas_y, slot->move_target_y, chase_step);
+        next_x = s_step_coord_toward(slot->canvas_x, slot->move_target_x, chase_step);
+        next_y = s_step_coord_toward(slot->canvas_y, slot->move_target_y, chase_step);
         s_slot_set_canvas(slot, next_x, next_y, true);
         return;
     }
@@ -352,13 +357,22 @@ static void s_slot_motion_timer_cb(void *user_data)
         return;
     }
 
-    next_x = (gfx_coord_t)(slot->rt.canvas_x - (gfx_coord_t)slot->move_step_px);
+    next_x = (gfx_coord_t)(slot->canvas_x - (gfx_coord_t)slot->move_step_px);
     if (next_x <= -(gfx_coord_t)slot->canvas_w) {
         s_slot_spawn_move_from_right(slot, true);
         return;
     }
 
     s_slot_set_canvas(slot, next_x, slot->move_y, true);
+}
+
+static void s_slot_reset_runtime_motion_timer(test_motion_slot_t *slot)
+{
+    if (slot == NULL) {
+        return;
+    }
+
+    (void)gfx_motion_player_reset_timer(slot->rt);
 }
 
 static void s_slot_touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t *event, void *user_data)
@@ -383,9 +397,7 @@ static void s_slot_touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t *e
         slot->touch_press_y = event->y;
         s_slot_set_move_target_from_touch(slot, event->x, event->y);
         s_slot_force_apply(slot);
-        if (slot->rt.motion.timer != NULL) {
-            gfx_timer_reset(slot->rt.motion.timer);
-        }
+        s_slot_reset_runtime_motion_timer(slot);
         break;
 
     case GFX_TOUCH_EVENT_MOVE:
@@ -401,9 +413,7 @@ static void s_slot_touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t *e
         }
         s_slot_set_move_target_from_touch(slot, event->x, event->y);
         s_slot_force_apply(slot);
-        if (slot->rt.motion.timer != NULL) {
-            gfx_timer_reset(slot->rt.motion.timer);
-        }
+        s_slot_reset_runtime_motion_timer(slot);
         break;
 
     case GFX_TOUCH_EVENT_RELEASE:
@@ -414,9 +424,7 @@ static void s_slot_touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t *e
             if (!slot->touch_moved && s_slot_supports_touch_action_switch(slot)) {
                 s_slot_cycle_next_action(slot, true);
             }
-            if (slot->rt.motion.timer != NULL) {
-                gfx_timer_reset(slot->rt.motion.timer);
-            }
+            s_slot_reset_runtime_motion_timer(slot);
         }
         break;
     }
@@ -453,10 +461,10 @@ static void test_motion_widget_run(void)
     s_motion_slot.move_hold_ticks = 0U;
     s_motion_slot.move_respawn_pad_px = 0U;
 
+    s_motion_slot.rt = gfx_motion_player_create(disp_default, &claw_motion_scene_asset);
+    TEST_ASSERT_NOT_NULL(s_motion_slot.rt);
     TEST_ASSERT_EQUAL(ESP_OK,
-                      gfx_motion_player_init(&s_motion_slot.rt, disp_default, &claw_motion_scene_asset));
-    TEST_ASSERT_EQUAL(ESP_OK,
-                      gfx_motion_player_set_canvas(&s_motion_slot.rt,
+                      gfx_motion_player_set_canvas(s_motion_slot.rt,
                               s_motion_slot.canvas_home_x,
                               s_motion_slot.canvas_home_y,
                               s_motion_slot.canvas_w,
@@ -486,7 +494,8 @@ static void test_motion_widget_run(void)
         gfx_timer_delete(emote_handle, s_motion_slot.motion_timer);
         s_motion_slot.motion_timer = NULL;
     }
-    gfx_motion_player_deinit(&s_motion_slot.rt);
+    gfx_motion_player_delete(s_motion_slot.rt);
+    s_motion_slot.rt = NULL;
     test_app_unlock();
 }
 

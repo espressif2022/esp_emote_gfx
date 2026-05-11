@@ -34,10 +34,10 @@ extern "C" {
 typedef struct {
     uint32_t fps;                               /**< Target FPS (frames per second) */
     struct {
-        int task_priority;                       /**< Render task priority (1–20) */
-        int task_stack;                         /**< Render task stack size (bytes) */
-        int task_affinity;                       /**< CPU core (-1: any, 0/1: pinned) */
-        unsigned task_stack_caps;                /**< Stack heap caps (see esp_heap_caps.h) */
+        uint32_t task_priority;                  /**< Render task priority (1-20) */
+        uint32_t task_stack;                     /**< Render task stack size (bytes) */
+        int32_t task_affinity;                   /**< CPU core (-1: any, 0/1: pinned) */
+        uint32_t task_stack_caps;                /**< Stack heap caps (see esp_heap_caps.h) */
     } task;
 } gfx_core_config_t;
 
@@ -67,7 +67,7 @@ void gfx_emote_deinit(gfx_handle_t handle);
  * @brief Lock the recursive render mutex to prevent rendering during external operations
  *
  * @param handle Graphics handle
- * @return esp_err_t ESP_OK on success, otherwise an error code
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
  */
 esp_err_t gfx_emote_lock(gfx_handle_t handle);
 
@@ -75,7 +75,7 @@ esp_err_t gfx_emote_lock(gfx_handle_t handle);
  * @brief Unlock the recursive render mutex after external operations
  *
  * @param handle Graphics handle
- * @return esp_err_t ESP_OK on success, otherwise an error code
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
  */
 esp_err_t gfx_emote_unlock(gfx_handle_t handle);
 
@@ -84,7 +84,7 @@ esp_err_t gfx_emote_unlock(gfx_handle_t handle);
  *        Holds the render mutex for the duration; safe to call from any task.
  *
  * @param handle Graphics handle
- * @return esp_err_t ESP_OK on success, otherwise an error code
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
  */
 esp_err_t gfx_refr_now(gfx_handle_t handle);
 

@@ -28,7 +28,7 @@
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "obj";
+static const char *const TAG = "obj";
 
 /**********************
  *  STATIC PROTOTYPES

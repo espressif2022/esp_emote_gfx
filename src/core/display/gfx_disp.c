@@ -31,7 +31,7 @@
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "disp";
+static const char *const TAG = "disp";
 
 /**********************
  *  STATIC PROTOTYPES
@@ -340,8 +340,8 @@ void gfx_disp_refresh_all(gfx_disp_t *disp)
     gfx_area_t full_screen;
     full_screen.x1 = 0;
     full_screen.y1 = 0;
-    full_screen.x2 = (int)disp->res.h_res - 1;
-    full_screen.y2 = (int)disp->res.v_res - 1;
+    full_screen.x2 = (gfx_coord_t)disp->res.h_res - 1;
+    full_screen.y2 = (gfx_coord_t)disp->res.v_res - 1;
     gfx_invalidate_area_disp(disp, &full_screen);
 }
 

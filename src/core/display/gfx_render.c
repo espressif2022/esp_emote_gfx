@@ -32,7 +32,7 @@
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "render";
+static const char *const TAG = "render";
 
 /**********************
  *  STATIC PROTOTYPES
@@ -52,7 +52,7 @@ static void gfx_render_sync_dirty_areas(gfx_disp_t *disp)
 
     uint16_t *dst_screen_buf = disp->buf.buf_act;
     uint16_t *src_screen_buf = (disp->buf.buf_act == disp->buf.buf1) ? disp->buf.buf2 : disp->buf.buf1;
-    uint32_t stride = disp->res.h_res;
+    gfx_coord_t stride = (gfx_coord_t)disp->res.h_res;
     const size_t px_size = sizeof(uint16_t);
 
     for (uint8_t i = 0; i < disp->sync_pending.count; i++) {
@@ -69,9 +69,9 @@ static void gfx_render_sync_dirty_areas(gfx_disp_t *disp)
         if (covered) {
             continue;
         }
-        uint32_t w = (uint32_t)(a->x2 - a->x1 + 1);
-        uint32_t h = (uint32_t)(a->y2 - a->y1 + 1);
-        for (uint32_t y = 0; y < h; y++) {
+        size_t w = (size_t)(a->x2 - a->x1 + 1);
+        size_t h = (size_t)(a->y2 - a->y1 + 1);
+        for (size_t y = 0; y < h; y++) {
             size_t offset = (size_t)(a->y1 + (gfx_coord_t)y) * stride + (size_t)a->x1;
             memcpy(dst_screen_buf + offset, src_screen_buf + offset, w * px_size);
         }
@@ -196,7 +196,7 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
 
         uint16_t *buf = disp->buf.buf_act;
 
-        int dest_stride = disp->flags.full_frame ? disp->res.h_res : (chunk_x2 - chunk_x1);
+        gfx_coord_t dest_stride = disp->flags.full_frame ? (gfx_coord_t)disp->res.h_res : (chunk_x2 - chunk_x1);
 
         gfx_area_t buf_area;
         if (disp->flags.full_frame) {
@@ -323,25 +323,22 @@ void gfx_render_cleanup(gfx_disp_t *disp)
  */
 bool gfx_render_handler(gfx_core_context_t *ctx)
 {
-    static const uint32_t fps_sample_window = 100;
-    static uint32_t fps_samples = 0;
-    static uint32_t fps_elapsed_ms = 0;
-    static uint32_t last_tick_ms = 0;
-
     uint32_t now_ms = gfx_timer_tick_get();
-    if (last_tick_ms == 0) {
-        last_tick_ms = now_ms;
-    } else {
-        uint32_t elapsed_ms = gfx_timer_tick_elaps(last_tick_ms);
-        fps_samples++;
-        fps_elapsed_ms += elapsed_ms;
-        last_tick_ms = now_ms;
+    gfx_timer_mgr_t *mgr = &ctx->timer_mgr;
+    const uint32_t fps_sample_window = 100;
 
-        if (fps_samples >= fps_sample_window) {
-            gfx_timer_mgr_t *mgr = &ctx->timer_mgr;
-            mgr->actual_fps = (fps_samples * 1000) / fps_elapsed_ms;
-            fps_samples = 0;
-            fps_elapsed_ms = 0;
+    if (mgr->render_fps_last_tick == 0) {
+        mgr->render_fps_last_tick = now_ms;
+    } else {
+        uint32_t elapsed_ms = gfx_timer_tick_elaps(mgr->render_fps_last_tick);
+        mgr->render_fps_samples++;
+        mgr->render_fps_elapsed_ms += elapsed_ms;
+        mgr->render_fps_last_tick = now_ms;
+
+        if (mgr->render_fps_samples >= fps_sample_window) {
+            mgr->actual_fps = (mgr->render_fps_samples * 1000) / mgr->render_fps_elapsed_ms;
+            mgr->render_fps_samples = 0;
+            mgr->render_fps_elapsed_ms = 0;
         }
     }
 

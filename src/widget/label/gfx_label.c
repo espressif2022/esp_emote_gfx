@@ -20,6 +20,7 @@
 #include "core/display/gfx_refr_priv.h"
 
 #include "widget/gfx_label.h"
+#include "widget/label/gfx_label_draw_priv.h"
 #include "widget/label/gfx_label_priv.h"
 
 /*********************
@@ -31,7 +32,7 @@
 /**********************
  *  STATIC VARIABLES
  **********************/
-static const char *TAG = "label";
+static const char *const TAG = "label";
 
 /**********************
  *   PUBLIC FUNCTIONS
@@ -126,34 +127,43 @@ esp_err_t gfx_label_set_text(gfx_obj_t *obj, const char *text)
 
 esp_err_t gfx_label_set_text_fmt(gfx_obj_t *obj, const char *fmt, ...)
 {
+    char *new_text;
+    int len;
+
     CHECK_OBJ_TYPE_LABEL(obj);
     ESP_RETURN_ON_FALSE(fmt, ESP_ERR_INVALID_ARG, TAG, "Format string is NULL");
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
 
-    if (label->text.text != NULL) {
-        free(label->text.text);
-        label->text.text = NULL;
-    }
-
     va_list args;
     va_start(args, fmt);
 
-    /*Allocate space for the new text by using trick from C99 standard section 7.19.6.12*/
+    /* Allocate space for the new text using the C99 vsnprintf sizing pass. */
     va_list args_copy;
     va_copy(args_copy, args);
-    uint32_t len = vsnprintf(NULL, 0, fmt, args_copy);
+    len = vsnprintf(NULL, 0, fmt, args_copy);
     va_end(args_copy);
+    if (len < 0) {
+        va_end(args);
+        return ESP_FAIL;
+    }
 
-    label->text.text = malloc(len + 1);
-    if (label->text.text == NULL) {
+    new_text = malloc((size_t)len + 1U);
+    if (new_text == NULL) {
         va_end(args);
         return ESP_ERR_NO_MEM;
     }
-    label->text.text[len] = '\0';
+    new_text[len] = '\0';
 
-    vsnprintf(label->text.text, len + 1, fmt, args);
+    len = vsnprintf(new_text, (size_t)len + 1U, fmt, args);
     va_end(args);
+    if (len < 0) {
+        free(new_text);
+        return ESP_FAIL;
+    }
+
+    free(label->text.text);
+    label->text.text = new_text;
 
     label->text.text_width = 0;
     label->scroll.offset = 0;

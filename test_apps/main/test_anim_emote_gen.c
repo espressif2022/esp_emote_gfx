@@ -49,7 +49,7 @@ typedef struct {
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "anim_emote_gen";
+static const char *const TAG = "anim_emote_gen";
 static EventGroupHandle_t s_anim_events;
 static gfx_obj_t *s_anim_wait_obj;
 static test_anim_index_item_t s_index_items[TEST_ANIM_INDEX_MAX];

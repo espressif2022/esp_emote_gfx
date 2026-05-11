@@ -25,13 +25,13 @@
 
 #include "widget/gfx_label.h"
 #include "widget/font/gfx_font_priv.h"
-#include "widget/label/gfx_draw_label_priv.h"
+#include "widget/label/gfx_label_draw_priv.h"
 
 /*********************
  *      DEFINES
  *********************/
 
-static const char *TAG = "draw_label";
+static const char *const TAG = "draw_label";
 
 #define CHECK_OBJ_TYPE_LABEL(obj) CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_LABEL, TAG)
 

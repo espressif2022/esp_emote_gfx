@@ -1,7 +1,9 @@
 Motion Scene Widget
 ===================
 
-The motion scene widget is the path-driven character and emote runtime in ESP Emote GFX. It is designed for assets exported as a ``gfx_motion_asset_t`` bundle and rendered through ``gfx_motion_player_t``.
+The motion scene widget is the path-driven character and emote runtime in ESP
+Emote GFX. It consumes a generated ``gfx_motion_asset_t`` bundle and renders it
+through ``gfx_motion_player_t``.
 
 When to Use It
 --------------
@@ -58,8 +60,8 @@ Typical runtime usage:
 5. Select an initial action using ``gfx_motion_player_set_action()``.
 6. When finished, call ``gfx_motion_player_deinit()``.
 
-Example
--------
+Minimal Example
+---------------
 
 .. code-block:: c
 
@@ -91,13 +93,8 @@ An end-to-end example is available in ``test_apps/main/test_motion.c``. It demon
 * touch-guided movement by changing the runtime canvas
 * timer-driven autonomous movement between touch interactions
 
-Current Notes
--------------
+Architecture Notes
+------------------
 
-The current implementation intentionally keeps the dependency chain small:
-
-* no NanoVG dependency
-* no libtess2 dependency
-* filled polygon rendering uses the internal software path
-
-This makes the widget easier to release and integrate into ESP-IDF projects, while keeping the scene model stable for designer/export tooling.
+For renderer internals, module boundaries, and optimization notes, see
+:doc:`motion_mesh_rendering_architecture`.

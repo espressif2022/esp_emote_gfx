@@ -6,9 +6,6 @@
 
 #pragma once
 
-#include <stdbool.h>
-#include <stdarg.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -41,6 +38,7 @@ typedef enum {
     GFX_LOG_MODULE_FONT_LV,
     GFX_LOG_MODULE_FONT_FT,
     GFX_LOG_MODULE_IMG,
+    GFX_LOG_MODULE_MESH_IMG,
     GFX_LOG_MODULE_QRCODE,
     GFX_LOG_MODULE_BUTTON,
     GFX_LOG_MODULE_ANIM,
@@ -55,13 +53,31 @@ typedef enum {
  *   PUBLIC API
  **********************/
 
+/**
+ * @brief Set the log level for one module.
+ *
+ * Messages with a level numerically higher than the configured level are
+ * suppressed. Invalid modules are ignored.
+ *
+ * @param module Log module to configure.
+ * @param level Maximum level to output.
+ */
 void gfx_log_set_level(gfx_log_module_t module, gfx_log_level_t level);
+
+/**
+ * @brief Get the configured log level for one module.
+ *
+ * @param module Log module to query.
+ * @return Configured log level, or GFX_LOG_LEVEL_NONE if module is invalid.
+ */
 gfx_log_level_t gfx_log_get_level(gfx_log_module_t module);
+
+/**
+ * @brief Set the log level for all modules.
+ *
+ * @param level Maximum level to output for every module.
+ */
 void gfx_log_set_level_all(gfx_log_level_t level);
-bool gfx_log_should_output(gfx_log_module_t module, gfx_log_level_t level);
-const char *gfx_log_module_name(gfx_log_module_t module);
-void gfx_log_write(gfx_log_module_t module, gfx_log_level_t level, const char *tag, const char *format, ...);
-void gfx_log_writev(gfx_log_module_t module, gfx_log_level_t level, const char *tag, const char *format, va_list args);
 
 #ifdef __cplusplus
 }

@@ -40,7 +40,7 @@ static const void *gfx_image_decoder_get_payload(const gfx_image_decoder_dsc_t *
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "img_dec";
+static const char *const TAG = "img_dec";
 static gfx_image_decoder_t *s_registered_decoders[GFX_IMAGE_DECODER_MAX_COUNT] = {NULL};
 static uint8_t s_decoder_count = 0;
 

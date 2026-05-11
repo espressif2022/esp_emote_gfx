@@ -7,7 +7,7 @@
 #include "unity.h"
 #include "common.h"
 
-static const char *TAG = "test_label";
+static const char *const TAG = "test_label";
 
 typedef struct {
     gfx_obj_t *title;

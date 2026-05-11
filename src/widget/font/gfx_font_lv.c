@@ -25,7 +25,7 @@
  *  STATIC VARIABLES
  **********************/
 
-static const char *TAG = "font_lv";
+static const char *const TAG = "font_lv";
 
 /**********************
  *   STATIC PROTOTYPES

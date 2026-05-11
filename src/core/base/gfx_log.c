@@ -8,18 +8,19 @@
  *      INCLUDES
  *********************/
 #include <inttypes.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "esp_timer.h"
 
-#include "core/gfx_log.h"
+#include "common/gfx_log_priv.h"
 
 /**********************
  *  STATIC VARIABLES
  **********************/
 
-static const char *s_module_names[GFX_LOG_MODULE_COUNT] = {
+static const char *const s_module_names[GFX_LOG_MODULE_COUNT] = {
     [GFX_LOG_MODULE_CORE] = "core",
     [GFX_LOG_MODULE_DISP] = "disp",
     [GFX_LOG_MODULE_OBJ] = "obj",
@@ -34,6 +35,7 @@ static const char *s_module_names[GFX_LOG_MODULE_COUNT] = {
     [GFX_LOG_MODULE_FONT_LV] = "font_lv",
     [GFX_LOG_MODULE_FONT_FT] = "font_ft",
     [GFX_LOG_MODULE_IMG] = "img",
+    [GFX_LOG_MODULE_MESH_IMG] = "mesh_img",
     [GFX_LOG_MODULE_QRCODE] = "qrcode",
     [GFX_LOG_MODULE_BUTTON] = "button",
     [GFX_LOG_MODULE_ANIM] = "anim",
@@ -158,7 +160,7 @@ bool gfx_log_should_output(gfx_log_module_t module, gfx_log_level_t level)
     return level <= s_module_levels[module];
 }
 
-const char *gfx_log_module_name(gfx_log_module_t module)
+static const char *gfx_log_module_name(gfx_log_module_t module)
 {
     if (module < 0 || module >= GFX_LOG_MODULE_COUNT) {
         return "unknown";
@@ -167,7 +169,7 @@ const char *gfx_log_module_name(gfx_log_module_t module)
     return s_module_names[module];
 }
 
-void gfx_log_writev(gfx_log_module_t module, gfx_log_level_t level, const char *tag, const char *format, va_list args)
+static void gfx_log_writev(gfx_log_module_t module, gfx_log_level_t level, const char *tag, const char *format, va_list args)
 {
     const char *module_name;
     const char *color;

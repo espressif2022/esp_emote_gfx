@@ -10,6 +10,7 @@
 #include "esp_err.h"
 #include "esp_lcd_touch.h"
 
+#include "core/gfx_types.h"
 #include "core/gfx_disp.h"
 
 #ifdef __cplusplus
@@ -19,7 +20,6 @@ extern "C" {
 /*********************
  *      TYPEDEFS
  *********************/
-/** Touch handle: from gfx_touch_add(), pass to event_cb and other touch APIs */
 typedef struct gfx_touch gfx_touch_t;
 
 typedef enum {
@@ -58,7 +58,7 @@ typedef struct {
  *
  * @param handle Graphics handle from gfx_emote_init
  * @param cfg Touch configuration (handle, poll_ms, event_cb, etc.); required
- * @return gfx_touch_t* Touch pointer on success, NULL on error
+ * @return Touch pointer on success, or NULL on failure
  */
 gfx_touch_t *gfx_touch_add(gfx_handle_t handle, const gfx_touch_config_t *cfg);
 

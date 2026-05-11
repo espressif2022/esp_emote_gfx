@@ -1,4 +1,4 @@
-# Publishes Sphinx + Doxygen output from docs/scripts/postprocess_docs.sh to GitHub Pages.
+# Publishes esp-docs build-docs + Doxygen output from docs/scripts/build_docs.sh to GitHub Pages.
 #
 # We intentionally do NOT use actions/configure-pages: it calls the REST API to fetch the Pages
 # site metadata and returns 404 "Not Found" in some org/repo setups. Pre-built static HTML only
@@ -14,7 +14,6 @@ on:
   push:
     branches:
       - main
-      - feat/update_anim
   workflow_dispatch:
 
 permissions:
@@ -24,7 +23,7 @@ permissions:
 
 concurrency:
   group: "pages"
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -55,10 +54,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y doxygen graphviz
 
-      - name: Generate API docs, gettext, Sphinx (en + zh_CN), Doxygen
+      - name: Build docs with esp-docs
         shell: bash
         run: |
-          bash docs/scripts/postprocess_docs.sh
+          docs/scripts/build_docs.sh
 
       - name: Ensure .nojekyll
         run: |

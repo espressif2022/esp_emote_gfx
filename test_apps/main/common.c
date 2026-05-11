@@ -21,7 +21,7 @@
 #include "bsp/touch.h"
 #include "common.h"
 
-static const char *TAG = "common";
+static const char *const TAG = "common";
 static test_app_touch_event_cb_t s_test_app_touch_event_cb = NULL;
 static void *s_test_app_touch_event_user_data = NULL;
 static test_app_disp_update_cb_t s_test_app_disp_update_cb = NULL;
@@ -36,7 +36,7 @@ gfx_touch_t *touch_default = NULL;
 esp_lcd_panel_io_handle_t io_handle = NULL;
 esp_lcd_panel_handle_t panel_handle = NULL;
 
-static esp_lcd_touch_handle_t touch_handle = NULL;   // LCD touch handle
+static esp_lcd_touch_handle_t s_touch_handle = NULL;
 
 static void test_app_configure_gfx_log_levels(void)
 {
@@ -49,6 +49,7 @@ static void test_app_configure_gfx_log_levels(void)
     gfx_log_set_level(GFX_LOG_MODULE_FONT_LV, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_ANIM, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_IMG, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_MESH_IMG, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_QRCODE, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_BUTTON, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_RENDER, GFX_LOG_LEVEL_INFO);
@@ -75,7 +76,8 @@ static bool flush_dpi_panel_ready_callback(esp_lcd_panel_handle_t panel_io,
 }
 #endif
 
-static void disp_flush_callback(gfx_disp_t *disp, int x1, int y1, int x2, int y2, const void *data)
+static void disp_flush_callback(gfx_disp_t *disp, gfx_coord_t x1, gfx_coord_t y1,
+                                gfx_coord_t x2, gfx_coord_t y2, const void *data)
 {
     esp_lcd_panel_handle_t panel = (esp_lcd_panel_handle_t)gfx_disp_get_user_data(disp);
     esp_lcd_panel_draw_bitmap(panel, x1, y1, x2, y2, data);
@@ -331,8 +333,8 @@ esp_err_t display_and_graphics_init(const char *partition_label, uint32_t max_fi
 
     /* Initialize touch */
     bsp_i2c_init();
-    bsp_touch_new(NULL, &touch_handle);
-    ESP_GOTO_ON_FALSE(touch_handle != NULL, ESP_FAIL, err_assets, TAG, "Failed to initialize touch");
+    bsp_touch_new(NULL, &s_touch_handle);
+    ESP_GOTO_ON_FALSE(s_touch_handle != NULL, ESP_FAIL, err_assets, TAG, "Failed to initialize touch");
 
     /* Initialize graphics system */
     gfx_core_config_t gfx_cfg = {
@@ -375,7 +377,7 @@ esp_err_t display_and_graphics_init(const char *partition_label, uint32_t max_fi
 #endif
     /* Add touch */
     gfx_touch_config_t touch_cfg = {
-        .handle = touch_handle,
+        .handle = s_touch_handle,
         .event_cb = touch_event_cb,
         .disp = disp_default,
         .poll_ms = 50,
@@ -425,9 +427,9 @@ void display_and_graphics_clean(mmap_assets_handle_t assets_handle)
     bsp_display_delete();
     bsp_touch_delete();
 #endif
-    if (touch_handle != NULL) {
-        esp_lcd_touch_del(touch_handle);
-        touch_handle = NULL;
+    if (s_touch_handle != NULL) {
+        esp_lcd_touch_del(s_touch_handle);
+        s_touch_handle = NULL;
     }
     bsp_i2c_deinit();
 
