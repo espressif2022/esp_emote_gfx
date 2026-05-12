@@ -367,6 +367,7 @@ static esp_err_t gfx_mesh_img_validate_src(const gfx_img_src_t *src)
 
     switch (src->type) {
     case GFX_IMG_SRC_TYPE_IMAGE_DSC:
+    case GFX_IMG_SRC_TYPE_JPEG:
         return ESP_OK;
     default:
         return ESP_ERR_NOT_SUPPORTED;
@@ -456,6 +457,7 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
         return ESP_ERR_NOT_SUPPORTED;
     }
 
+    decoder_dsc.swap = ctx->swap;
     ESP_RETURN_ON_ERROR(gfx_mesh_img_prepare_decoder(mesh, &decoder_dsc), TAG, "draw mesh image: open decoder failed");
 
     if (decoder_dsc.data == NULL) {

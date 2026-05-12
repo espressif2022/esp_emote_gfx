@@ -49,6 +49,17 @@ typedef struct {
 } gfx_image_dsc_t;
 
 /**
+ * @brief In-memory JPEG bitstream descriptor.
+ *
+ * The JPEG payload stays owned by the caller. The decoder may copy the input
+ * into a hardware-friendly buffer during draw.
+ */
+typedef struct {
+    const uint8_t *data;        /**< Pointer to the JPEG bitstream */
+    uint32_t data_size;         /**< Size of the JPEG bitstream in bytes */
+} gfx_jpeg_dsc_t;
+
+/**
  * @brief Public image source type.
  *
  * Use this enum together with `gfx_img_src_t` to describe where an image
@@ -57,6 +68,7 @@ typedef struct {
  */
 typedef enum {
     GFX_IMG_SRC_TYPE_IMAGE_DSC = 0, /**< In-memory gfx_image_dsc_t payload */
+    GFX_IMG_SRC_TYPE_JPEG = 1,      /**< In-memory gfx_jpeg_dsc_t payload */
 } gfx_img_src_type_t;
 
 /**

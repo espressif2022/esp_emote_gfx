@@ -106,6 +106,7 @@ static esp_err_t gfx_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
         .header = header,
         .data = NULL,
         .data_size = 0,
+        .swap = ctx->swap,
         .user_data = NULL
     };
 
@@ -133,7 +134,7 @@ static esp_err_t gfx_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
         return ESP_OK;
     }
 
-    gfx_coord_t src_stride = image_width;
+    gfx_coord_t src_stride = (header.stride > 0U) ? (gfx_coord_t)(header.stride / GFX_PIXEL_SIZE_16BPP) : (gfx_coord_t)image_width;
 
     gfx_color_t *dest_pixels = GFX_DRAW_CTX_DEST_PTR(ctx, clip_area.x1, clip_area.y1);
     gfx_color_t *src_pixels = (gfx_color_t *)GFX_BUFFER_OFFSET_16BPP(image_data,
@@ -173,6 +174,7 @@ static esp_err_t gfx_img_resolve_src_payload(const gfx_img_src_t *src, const voi
 
     switch (src->type) {
     case GFX_IMG_SRC_TYPE_IMAGE_DSC:
+    case GFX_IMG_SRC_TYPE_JPEG:
         *out_payload = src->data;
         return ESP_OK;
     default:
