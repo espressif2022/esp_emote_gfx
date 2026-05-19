@@ -18,6 +18,9 @@
 #include "gfx_eaf_dec.h"
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 #include "esp_jpeg_dec.h"
+#if CONFIG_SOC_JPEG_DECODE_SUPPORTED
+#include "driver/jpeg_decode.h"
+#endif
 #endif
 
 #ifdef CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
@@ -47,6 +50,10 @@
 
 static const char *TAG = "eaf_dec";
 static eaf_dec_block_decoder_cb_t s_eaf_decoders[EAF_DEC_ENCODING_MAX] = {0};
+#if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT && CONFIG_SOC_JPEG_DECODE_SUPPORTED
+static jpeg_decoder_handle_t s_eaf_jpeg_decoder_engine = NULL;
+static uint32_t s_eaf_parser_count = 0;
+#endif
 
 /**********************
  *  STATIC PROTOTYPES
@@ -58,6 +65,16 @@ static void huffman_tree_free(eaf_dec_huffman_node_t *node);
 static esp_err_t huffman_decode_data(const uint8_t *in_data, size_t in_size,
                                      const uint8_t *dict_data, size_t dict_len,
                                      uint8_t *out_data, size_t *out_size);
+#if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT && CONFIG_SOC_JPEG_DECODE_SUPPORTED
+static jpeg_dec_rgb_element_order_t eaf_dec_get_jpeg_rgb_order(bool swap_color);
+static esp_err_t eaf_dec_ensure_hw_jpeg_engine(void);
+static esp_err_t eaf_dec_decode_jpeg_hardware(const uint8_t *in_data, size_t in_size,
+        uint8_t *out_data, size_t *out_size, bool swap_color);
+#endif
+#if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
+static esp_err_t eaf_dec_decode_jpeg_software(const uint8_t *in_data, size_t in_size,
+        uint8_t *out_data, size_t *out_size, bool swap_color);
+#endif
 
 /**********************
  *   STATIC FUNCTIONS
@@ -166,6 +183,180 @@ static esp_err_t huffman_decode_data(const uint8_t *in_data, size_t in_size,
     huffman_tree_free(root);
     return ESP_OK;
 }
+
+#if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT && CONFIG_SOC_JPEG_DECODE_SUPPORTED
+static jpeg_dec_rgb_element_order_t eaf_dec_get_jpeg_rgb_order(bool swap_color)
+{
+    /* Keep hardware output aligned with the software fallback:
+     * swap_color=false -> RGB565 little-endian
+     * swap_color=true  -> RGB565 big-endian */
+    return swap_color ? JPEG_DEC_RGB_ELEMENT_ORDER_RGB : JPEG_DEC_RGB_ELEMENT_ORDER_BGR;
+}
+
+static esp_err_t eaf_dec_ensure_hw_jpeg_engine(void)
+{
+    if (s_eaf_jpeg_decoder_engine != NULL) {
+        return ESP_OK;
+    }
+
+    jpeg_decode_engine_cfg_t engine_cfg = {
+        .intr_priority = 0,
+        .timeout_ms = -1,
+    };
+
+    esp_err_t ret = jpeg_new_decoder_engine(&engine_cfg, &s_eaf_jpeg_decoder_engine);
+    if (ret != ESP_OK) {
+        GFX_LOGE(TAG, "JPEG decoder open failed: %s", esp_err_to_name(ret));
+    }
+
+    return ret;
+}
+
+static esp_err_t eaf_dec_decode_jpeg_hardware(const uint8_t *in_data, size_t in_size,
+        uint8_t *out_data, size_t *out_size, bool swap_color)
+{
+    jpeg_decode_picture_info_t picture_info = {0};
+    jpeg_decode_cfg_t decode_cfg = {
+        .output_format = JPEG_DECODE_OUT_FORMAT_RGB565,
+        .rgb_order = eaf_dec_get_jpeg_rgb_order(swap_color),
+        .conv_std = JPEG_YUV_RGB_CONV_STD_BT601,
+    };
+    jpeg_decode_memory_alloc_cfg_t input_mem_cfg = {
+        .buffer_direction = JPEG_DEC_ALLOC_INPUT_BUFFER,
+    };
+    jpeg_decode_memory_alloc_cfg_t output_mem_cfg = {
+        .buffer_direction = JPEG_DEC_ALLOC_OUTPUT_BUFFER,
+    };
+    uint8_t *input_buf = NULL;
+    uint8_t *decode_buf = NULL;
+    size_t input_buf_size = 0;
+    size_t decode_buf_size = 0;
+    uint32_t process_w = 0;
+    uint32_t process_h = 0;
+    uint32_t decoded_size = 0;
+    uint32_t mcu_w = 0;
+    uint32_t mcu_h = 0;
+    size_t required_size = 0;
+    esp_err_t ret = ESP_OK;
+
+    ESP_RETURN_ON_FALSE(in_data != NULL && out_data != NULL && out_size != NULL, ESP_ERR_INVALID_ARG, TAG, "Invalid JPEG decode arguments");
+    ESP_RETURN_ON_ERROR(eaf_dec_ensure_hw_jpeg_engine(), TAG, "Hardware JPEG engine unavailable");
+    ESP_RETURN_ON_ERROR(jpeg_decoder_get_info(in_data, in_size, &picture_info), TAG, "JPEG get info failed");
+
+    switch (picture_info.sample_method) {
+    case JPEG_DOWN_SAMPLING_YUV444:
+        mcu_w = 8U;
+        mcu_h = 8U;
+        break;
+    case JPEG_DOWN_SAMPLING_YUV422:
+        mcu_w = 16U;
+        mcu_h = 8U;
+        break;
+    case JPEG_DOWN_SAMPLING_YUV420:
+        mcu_w = 16U;
+        mcu_h = 16U;
+        break;
+    default:
+        GFX_LOGW(TAG, "Unsupported hardware JPEG sample method %d", (int)picture_info.sample_method);
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+
+    process_w = ((picture_info.width + mcu_w - 1U) / mcu_w) * mcu_w;
+    process_h = ((picture_info.height + mcu_h - 1U) / mcu_h) * mcu_h;
+    required_size = (size_t)picture_info.width * (size_t)picture_info.height * sizeof(gfx_color_t);
+    ESP_RETURN_ON_FALSE(*out_size >= required_size, ESP_ERR_INVALID_SIZE, TAG,
+                        "Buffer too small: need %zu, got %zu", required_size, *out_size);
+
+    input_buf = jpeg_alloc_decoder_mem(in_size, &input_mem_cfg, &input_buf_size);
+    ESP_GOTO_ON_FALSE(input_buf != NULL, ESP_ERR_NO_MEM, err, TAG, "No mem for JPEG input buffer");
+    memcpy(input_buf, in_data, in_size);
+    (void)input_buf_size;
+
+    decode_buf = jpeg_alloc_decoder_mem((size_t)process_w * (size_t)process_h * sizeof(gfx_color_t), &output_mem_cfg, &decode_buf_size);
+    ESP_GOTO_ON_FALSE(decode_buf != NULL, ESP_ERR_NO_MEM, err, TAG, "No mem for JPEG output buffer");
+
+    ret = jpeg_decoder_process(s_eaf_jpeg_decoder_engine, &decode_cfg, input_buf, in_size,
+                               decode_buf, decode_buf_size, &decoded_size);
+    ESP_GOTO_ON_ERROR(ret, err, TAG, "JPEG decode failed");
+
+    for (uint32_t row = 0; row < picture_info.height; row++) {
+        const uint8_t *src_row = decode_buf + (size_t)row * process_w * sizeof(gfx_color_t);
+        uint8_t *dst_row = out_data + (size_t)row * picture_info.width * sizeof(gfx_color_t);
+        memcpy(dst_row, src_row, (size_t)picture_info.width * sizeof(gfx_color_t));
+    }
+
+    (void)decoded_size;
+    *out_size = required_size;
+    free(decode_buf);
+    free(input_buf);
+    return ESP_OK;
+
+err:
+    free(decode_buf);
+    free(input_buf);
+    return ret;
+}
+#endif
+
+#if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
+static esp_err_t eaf_dec_decode_jpeg_software(const uint8_t *in_data, size_t in_size,
+        uint8_t *out_data, size_t *out_size, bool swap_color)
+{
+    esp_err_t ret = ESP_OK;
+    uint32_t w, h;
+    jpeg_dec_handle_t jpeg_dec = NULL;
+    jpeg_dec_io_t *jpeg_io = NULL;
+    jpeg_dec_header_info_t *out_info = NULL;
+
+    jpeg_dec_config_t config = {
+        .output_type = swap_color ? JPEG_PIXEL_FORMAT_RGB565_BE : JPEG_PIXEL_FORMAT_RGB565_LE,
+        .rotate = JPEG_ROTATE_0D,
+    };
+
+    ESP_GOTO_ON_ERROR(jpeg_dec_open(&config, &jpeg_dec), err, TAG, "JPEG decoder open failed");
+
+    jpeg_io = malloc(sizeof(jpeg_dec_io_t));
+    ESP_GOTO_ON_FALSE(jpeg_io, ESP_ERR_NO_MEM, err, TAG, "No mem for jpeg_io");
+
+    out_info = malloc(sizeof(jpeg_dec_header_info_t));
+    ESP_GOTO_ON_FALSE(out_info, ESP_ERR_NO_MEM, err, TAG, "No mem for out_info");
+
+    jpeg_io->inbuf = (unsigned char *)in_data;
+    jpeg_io->inbuf_len = in_size;
+
+    jpeg_error_t jpeg_ret = jpeg_dec_parse_header(jpeg_dec, jpeg_io, out_info);
+    ESP_GOTO_ON_FALSE(jpeg_ret == JPEG_ERR_OK, ESP_FAIL, err, TAG, "JPEG header parse failed");
+
+    w = out_info->width;
+    h = out_info->height;
+
+    size_t required_size = (size_t)w * (size_t)h * sizeof(gfx_color_t);
+    ESP_GOTO_ON_FALSE(*out_size >= required_size, ESP_ERR_INVALID_SIZE, err, TAG,
+                      "Buffer too small: need %zu, got %zu", required_size, *out_size);
+
+    jpeg_io->outbuf = out_data;
+    jpeg_ret = jpeg_dec_process(jpeg_dec, jpeg_io);
+    ESP_GOTO_ON_FALSE(jpeg_ret == JPEG_ERR_OK, ESP_FAIL, err, TAG, "JPEG decode failed: %d", jpeg_ret);
+
+    *out_size = required_size;
+    free(jpeg_io);
+    free(out_info);
+    jpeg_dec_close(jpeg_dec);
+    return ESP_OK;
+
+err:
+    if (jpeg_io) {
+        free(jpeg_io);
+    }
+    if (out_info) {
+        free(out_info);
+    }
+    if (jpeg_dec) {
+        jpeg_dec_close(jpeg_dec);
+    }
+    return ret;
+}
+#endif
 
 eaf_dec_type_t eaf_dec_probe_frame_info(eaf_dec_handle_t handle, int frame_index)
 {
@@ -607,60 +798,15 @@ hs_fail:
 esp_err_t eaf_dec_decode_jpeg(const uint8_t *in_data, size_t in_size,
                               uint8_t *out_data, size_t *out_size, bool swap_color)
 {
-    esp_err_t ret = ESP_OK;
-    uint32_t w, h;
-    jpeg_dec_handle_t jpeg_dec = NULL;
-    jpeg_dec_io_t *jpeg_io = NULL;
-    jpeg_dec_header_info_t *out_info = NULL;
-
-    jpeg_dec_config_t config = {
-        .output_type = swap_color ? JPEG_PIXEL_FORMAT_RGB565_BE : JPEG_PIXEL_FORMAT_RGB565_LE,
-        .rotate = JPEG_ROTATE_0D,
-    };
-
-    ESP_GOTO_ON_ERROR(jpeg_dec_open(&config, &jpeg_dec), err, TAG, "JPEG decoder open failed");
-
-    jpeg_io = malloc(sizeof(jpeg_dec_io_t));
-    ESP_GOTO_ON_FALSE(jpeg_io, ESP_ERR_NO_MEM, err, TAG, "No mem for jpeg_io");
-
-    out_info = malloc(sizeof(jpeg_dec_header_info_t));
-    ESP_GOTO_ON_FALSE(out_info, ESP_ERR_NO_MEM, err, TAG, "No mem for out_info");
-
-    jpeg_io->inbuf = (unsigned char *)in_data;
-    jpeg_io->inbuf_len = in_size;
-
-    jpeg_error_t jpeg_ret = jpeg_dec_parse_header(jpeg_dec, jpeg_io, out_info);
-    ESP_GOTO_ON_FALSE(jpeg_ret == JPEG_ERR_OK, ESP_FAIL, err, TAG, "JPEG header parse failed");
-
-    w = out_info->width;
-    h = out_info->height;
-
-    size_t required_size = w * h * 2;
-    ESP_GOTO_ON_FALSE(*out_size >= required_size, ESP_ERR_INVALID_SIZE, err, TAG,
-                      "Buffer too small: need %zu, got %zu", required_size, *out_size);
-
-    jpeg_io->outbuf = out_data;
-    jpeg_ret = jpeg_dec_process(jpeg_dec, jpeg_io);
-    ESP_GOTO_ON_FALSE(jpeg_ret == JPEG_ERR_OK, ESP_FAIL, err, TAG, "JPEG decode failed: %d", jpeg_ret);
-
-    *out_size = required_size;
-
-    free(jpeg_io);
-    free(out_info);
-    jpeg_dec_close(jpeg_dec);
-    return ESP_OK;
-
-err:
-    if (jpeg_io) {
-        free(jpeg_io);
+#if CONFIG_SOC_JPEG_DECODE_SUPPORTED
+    esp_err_t ret = eaf_dec_decode_jpeg_hardware(in_data, in_size, out_data, out_size, swap_color);
+    if (ret == ESP_OK) {
+        return ESP_OK;
     }
-    if (out_info) {
-        free(out_info);
-    }
-    if (jpeg_dec) {
-        jpeg_dec_close(jpeg_dec);
-    }
-    return ret;
+
+    ESP_LOGW(TAG, "Hardware JPEG decode fallback to software: %s", esp_err_to_name(ret));
+#endif
+    return eaf_dec_decode_jpeg_software(in_data, in_size, out_data, out_size, swap_color);
 }
 #endif // CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 
@@ -782,6 +928,9 @@ esp_err_t eaf_dec_init(const uint8_t *data, size_t data_len, eaf_dec_handle_t *r
     parser->total_frames = total_frames;
 
     *ret_parser = (eaf_dec_handle_t)parser;
+#if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT && CONFIG_SOC_JPEG_DECODE_SUPPORTED
+    s_eaf_parser_count++;
+#endif
 
     return ESP_OK;
 
@@ -810,6 +959,15 @@ esp_err_t eaf_dec_deinit(eaf_dec_handle_t handle)
         }
         free(parser);
     }
+#if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT && CONFIG_SOC_JPEG_DECODE_SUPPORTED
+    if (s_eaf_parser_count > 0) {
+        s_eaf_parser_count--;
+    }
+    if (s_eaf_parser_count == 0 && s_eaf_jpeg_decoder_engine != NULL) {
+        jpeg_del_decoder_engine(s_eaf_jpeg_decoder_engine);
+        s_eaf_jpeg_decoder_engine = NULL;
+    }
+#endif
     return ESP_OK;
 }
 

@@ -218,12 +218,20 @@ esp_err_t gfx_image_decoder_init(void)
         return ret;
     }
 
+    ret = gfx_image_decoder_register_jpeg();
+    if (ret != ESP_OK) {
+        gfx_image_decoder_deinit();
+        return ret;
+    }
+
     GFX_LOGD(TAG, "init image decoder: %d decoders registered", s_decoder_count);
     return ESP_OK;
 }
 
 esp_err_t gfx_image_decoder_deinit(void)
 {
+    gfx_image_decoder_unregister_jpeg();
+
     for (int i = 0; i < s_decoder_count; i++) {
         s_registered_decoders[i] = NULL;
     }

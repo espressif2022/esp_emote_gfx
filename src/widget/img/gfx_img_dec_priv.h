@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "esp_err.h"
 #include "widget/gfx_img.h"
@@ -32,6 +33,7 @@ typedef struct {
     gfx_image_header_t header;  /**< Image header information */
     const uint8_t *data;        /**< Decoded/native image pixel data */
     uint32_t data_size;         /**< Size of decoded data */
+    bool swap;                  /**< Target framebuffer byte order */
     void *user_data;            /**< User data for decoder */
 } gfx_image_decoder_dsc_t;
 
@@ -55,6 +57,8 @@ esp_err_t gfx_image_decoder_open(gfx_image_decoder_dsc_t *dsc);
 void gfx_image_decoder_close(gfx_image_decoder_dsc_t *dsc);
 esp_err_t gfx_image_decoder_init(void);
 esp_err_t gfx_image_decoder_deinit(void);
+esp_err_t gfx_image_decoder_register_jpeg(void);
+esp_err_t gfx_image_decoder_unregister_jpeg(void);
 
 #ifdef __cplusplus
 }
