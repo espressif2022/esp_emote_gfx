@@ -2,6 +2,11 @@
 
 All notable changes to the ESP Emote GFX component will be documented in this file.
 
+## [3.0.6] - 2026-05-19
+- Add `gfx_list` widget for selectable list-style UI layouts
+- Update motion widget playback, scene handling, and style behavior
+- Refresh motion and animation test app coverage and example assets
+
 ## [3.0.5] - 2026-04-30
 - Add motion scene widget documentation covering `gfx_motion`, `gfx_motion_scene`, asset layout, and runtime usage
 - Add motion widget example references to README and Sphinx docs

@@ -30,7 +30,7 @@ extern "C" {
 #define GFX_MOTION_SCENE_MAX_SEG_CTRL_POINTS 64U
 
 /** Maximum colour palette entries (colour_idx 1..GFX_MOTION_PALETTE_MAX). */
-#define GFX_MOTION_PALETTE_MAX 16U
+#define GFX_MOTION_PALETTE_MAX 64U
 
 typedef struct {
     int16_t x;
@@ -48,6 +48,7 @@ typedef struct {
     uint16_t step_ticks;
     bool action_loop_override_en;
     bool action_loop_override;
+    bool action_ended;
     bool dirty;
 } gfx_motion_scene_t;
 
@@ -56,7 +57,7 @@ esp_err_t gfx_motion_scene_set_action(gfx_motion_scene_t *scene, uint16_t action
 esp_err_t gfx_motion_scene_set_action_loop(gfx_motion_scene_t *scene, bool loop);
 esp_err_t gfx_motion_scene_clear_action_loop_override(gfx_motion_scene_t *scene);
 bool gfx_motion_scene_tick(gfx_motion_scene_t *scene);
-void gfx_motion_scene_advance(gfx_motion_scene_t *scene);
+bool gfx_motion_scene_advance(gfx_motion_scene_t *scene);
 void gfx_motion_scene_log_active_step(const gfx_motion_scene_t *scene, const char *reason);
 
 #ifdef __cplusplus

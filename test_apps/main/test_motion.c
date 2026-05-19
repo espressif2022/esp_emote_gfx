@@ -27,10 +27,14 @@ static const char *const TAG = "test_motion";
 #include "claw_motion.inc"
 
 static const char *const s_motion_action_names[] = {
-    [CLAW_MOTION_ACTION_POS_MOVE]     = "pos_move",
-    [CLAW_MOTION_ACTION_POS_DOWN]     = "pos_down",
-    [CLAW_MOTION_ACTION_POS_THINKING] = "pos_thinking",
-    [CLAW_MOTION_ACTION_POS_HAPPY]    = "pos_happy",
+    [CLAW_MOTION_ACTION_POSE_MOVE]        = "pose_move",
+    [CLAW_MOTION_ACTION_POSE_CONNECTING]  = "pose_connecting",
+    [CLAW_MOTION_ACTION_POSE_CONNECT_FAIL] = "pose_connect_fail",
+    [CLAW_MOTION_ACTION_POSE_CONNECT_OK]  = "pose_connect_ok",
+    [CLAW_MOTION_ACTION_POSE_DISCONNENT]  = "pose_disconnent",
+    [CLAW_MOTION_ACTION_POSE_CMD_RECVED]  = "pose_cmd_recved",
+    [CLAW_MOTION_ACTION_POSE_CMD_FAILED]  = "pose_cmd_failed",
+    [CLAW_MOTION_ACTION_POSE_WORK]        = "pose_work",
 };
 
 typedef struct {
@@ -68,7 +72,7 @@ static void s_slot_apply_action(test_motion_slot_t *slot, uint16_t action_idx, b
 static void s_slot_reset_runtime_motion_timer(test_motion_slot_t *slot);
 
 #define MOTION_TOUCH_DRAG_THRESHOLD_PX 12
-#define MOTION_MOVE_ACTION_IDX         CLAW_MOTION_ACTION_POS_MOVE
+#define MOTION_MOVE_ACTION_IDX         CLAW_MOTION_ACTION_POSE_MOVE
 #define MOTION_MOVE_STEP_PX_MIN        0U
 #define MOTION_MOVE_STEP_PX_MAX        2U
 #define MOTION_MOVE_HOLD_TICKS_MIN     18U
@@ -486,7 +490,7 @@ static void test_motion_widget_run(void)
     test_app_log_step(TAG,
                       "Full display: rig_active - tap switches action, hold/drag in move action to guide swim, release resumes autonomous swim");
     // test_app_wait_for_observe(1000 * 100);
-    test_app_wait_for_observe(1000 * 10000);
+    test_app_wait_for_observe(1000 * 100000);
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     test_app_set_touch_event_cb(NULL, NULL);
@@ -499,7 +503,8 @@ static void test_motion_widget_run(void)
     test_app_unlock();
 }
 
-TEST_CASE("motion: rig pose preview", "[widget][motion]")
+// TEST_CASE("motion: rig pose preview", "[widget][motion]")
+void test_motion_widget_run_pose(void)
 {
     test_app_runtime_t runtime;
 

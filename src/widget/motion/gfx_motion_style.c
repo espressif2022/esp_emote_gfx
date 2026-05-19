@@ -12,6 +12,48 @@
 #include "common/gfx_log_priv.h"
 #include "widget/motion/gfx_motion_player_priv.h"
 
+esp_err_t gfx_motion_player_bind_style_common(gfx_motion_player_t *player,
+        const gfx_motion_segment_t *seg, gfx_obj_t *obj, const gfx_img_src_t *solid_src)
+{
+    ESP_RETURN_ON_FALSE(player != NULL && seg != NULL && obj != NULL && solid_src != NULL,
+                        ESP_ERR_INVALID_ARG, TAG, "style target is NULL");
+
+    ESP_RETURN_ON_ERROR(
+        gfx_mesh_img_set_scanline_fill(obj, false, gfx_motion_player_resolve_fill_color(player, seg)),
+        TAG, "clear scanline fill");
+
+    if (seg->resource_idx > 0U &&
+            player->scene.asset != NULL &&
+            player->scene.asset->resources != NULL &&
+            (uint8_t)(seg->resource_idx - 1U) < player->scene.asset->resource_count &&
+            player->scene.asset->resources[seg->resource_idx - 1U].image != NULL) {
+        gfx_img_src_t res_src = {
+            .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+            .data = (const void *)player->scene.asset->resources[seg->resource_idx - 1U].image,
+        };
+        ESP_RETURN_ON_ERROR(gfx_mesh_img_set_src_desc(obj, &res_src), TAG, "set resource src");
+    } else if (seg->color_idx > 0U && seg->color_idx <= GFX_MOTION_PALETTE_MAX) {
+        gfx_img_src_t pal_src = {
+            .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+            .data = &player->palette_imgs[seg->color_idx - 1U],
+        };
+        ESP_RETURN_ON_ERROR(gfx_mesh_img_set_src_desc(obj, &pal_src), TAG, "set palette src");
+    } else {
+        ESP_RETURN_ON_ERROR(gfx_mesh_img_set_src_desc(obj, solid_src), TAG, "set solid src");
+    }
+
+    ESP_RETURN_ON_ERROR(gfx_mesh_img_set_opa(obj, gfx_motion_player_segment_opacity(seg)),
+                        TAG, "set opacity");
+    if (MOTION_BEZIER_FILL_USE_SCANLINE &&
+            seg->kind == GFX_MOTION_SEG_BEZIER_FILL && seg->resource_idx == 0U) {
+        ESP_RETURN_ON_ERROR(
+            gfx_mesh_img_set_scanline_fill(obj, true, gfx_motion_player_resolve_fill_color(player, seg)),
+            TAG, "set scanline fill");
+    }
+
+    return ESP_OK;
+}
+
 uint16_t gfx_motion_player_layout_timer_period_ms(const gfx_motion_layout_t *layout)
 {
     return (layout != NULL && layout->timer_period_ms > 0U) ?
@@ -128,37 +170,17 @@ esp_err_t gfx_motion_player_bind_segment_style(gfx_motion_player_t *player, uint
                         ESP_ERR_INVALID_ARG, TAG, "style segment index out of range");
 
     seg = &asset->segments[seg_idx];
+    ESP_RETURN_ON_ERROR(gfx_motion_player_bind_style_common(player, seg, obj, solid_src),
+                        TAG, "bind common style seg[%u]", seg_idx);
     if (seg->resource_idx > 0U &&
             asset->resources != NULL &&
             (uint8_t)(seg->resource_idx - 1U) < asset->resource_count &&
             asset->resources[seg->resource_idx - 1U].image != NULL) {
-        gfx_img_src_t res_src = {
-            .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
-            .data = (const void *)asset->resources[seg->resource_idx - 1U].image,
-        };
-        ESP_RETURN_ON_ERROR(gfx_mesh_img_set_src_desc(obj, &res_src), TAG, "set resource src seg[%u]", seg_idx);
         ESP_RETURN_ON_ERROR(
             gfx_motion_player_apply_resource_uv(player, seg_idx, obj,
                                                 player->seg_grid_cols[seg_idx],
                                                 player->seg_grid_rows[seg_idx]),
             TAG, "set resource uv seg[%u]", seg_idx);
-    } else if (seg->color_idx > 0U && seg->color_idx <= GFX_MOTION_PALETTE_MAX) {
-        gfx_img_src_t pal_src = {
-            .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
-            .data = &player->palette_imgs[seg->color_idx - 1U],
-        };
-        ESP_RETURN_ON_ERROR(gfx_mesh_img_set_src_desc(obj, &pal_src), TAG, "set palette src seg[%u]", seg_idx);
-    } else {
-        ESP_RETURN_ON_ERROR(gfx_mesh_img_set_src_desc(obj, solid_src), TAG, "set solid src seg[%u]", seg_idx);
-    }
-
-    ESP_RETURN_ON_ERROR(gfx_mesh_img_set_opa(obj, gfx_motion_player_segment_opacity(seg)),
-                        TAG, "set opacity seg[%u]", seg_idx);
-    if (MOTION_BEZIER_FILL_USE_SCANLINE &&
-            seg->kind == GFX_MOTION_SEG_BEZIER_FILL && seg->resource_idx == 0U) {
-        ESP_RETURN_ON_ERROR(
-            gfx_mesh_img_set_scanline_fill(obj, true, gfx_motion_player_resolve_fill_color(player, seg)),
-            TAG, "set scanline fill seg[%u]", seg_idx);
     }
 
     return ESP_OK;

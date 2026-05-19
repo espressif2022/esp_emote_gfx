@@ -41,6 +41,7 @@ extern "C" {
 
 /** Maximum mesh_img objects per runtime (one per segment). */
 #define GFX_MOTION_PLAYER_MAX_SEGMENTS 64U
+#define GFX_MOTION_PLAYER_MAX_ICON_SEGMENTS 32U
 
 #define MOTION_BEZIER_FILL_MAX_TESS   ((((MOTION_BEZIER_MAX_PTS - 1U) / 3U) * MOTION_BEZIER_FILL_LOOP_SEGS_PER_SEG) + 1U)
 #define MOTION_BEZIER_STROKE_MAX_TESS ((((MOTION_BEZIER_MAX_PTS - 1U) / 3U) * MOTION_BEZIER_SEGS_PER_SEG) + 1U)
@@ -79,6 +80,10 @@ struct gfx_motion_player {
     uint8_t seg_grid_cols[GFX_MOTION_PLAYER_MAX_SEGMENTS];
     uint8_t seg_grid_rows[GFX_MOTION_PLAYER_MAX_SEGMENTS];
     uint8_t seg_obj_count;
+    gfx_obj_t *icon_objs[GFX_MOTION_PLAYER_MAX_ICON_SEGMENTS];
+    uint8_t icon_grid_cols[GFX_MOTION_PLAYER_MAX_ICON_SEGMENTS];
+    uint8_t icon_grid_rows[GFX_MOTION_PLAYER_MAX_ICON_SEGMENTS];
+    uint8_t icon_obj_count;
     gfx_color_t stroke_color;
     uint32_t layer_mask;
     uint16_t solid_pixel;
@@ -89,7 +94,10 @@ struct gfx_motion_player {
     gfx_coord_t canvas_y;
     uint16_t canvas_w;
     uint16_t canvas_h;
+    gfx_motion_player_action_end_cb_t action_end_cb;
+    void *action_end_user_data;
     bool mesh_dirty;
+    bool visible;
     void *scratch;
 };
 
@@ -122,6 +130,8 @@ esp_err_t gfx_motion_player_apply_resource_uv(const gfx_motion_player_t *rt, uin
         gfx_obj_t *obj, uint8_t cols, uint8_t rows);
 esp_err_t gfx_motion_player_bind_segment_style(gfx_motion_player_t *player, uint8_t seg_idx,
         gfx_obj_t *obj, const gfx_img_src_t *solid_src);
+esp_err_t gfx_motion_player_bind_style_common(gfx_motion_player_t *player,
+        const gfx_motion_segment_t *seg, gfx_obj_t *obj, const gfx_img_src_t *solid_src);
 
 #ifdef __cplusplus
 }

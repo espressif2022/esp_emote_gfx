@@ -58,6 +58,7 @@ struct gfx_touch {
 
     /** Object that received PRESS; gets MOVE/RELEASE for same track until RELEASE (for drag) */
     struct gfx_obj *pressed_obj;
+    uint32_t pressed_obj_seq;
     uint8_t pressed_id;
 
     gpio_num_t int_gpio_num;
@@ -109,6 +110,22 @@ static gfx_obj_t *gfx_touch_hit_test(gfx_disp_t *disp, uint16_t x, uint16_t y)
     return hit;
 }
 
+static bool gfx_touch_obj_is_active(gfx_disp_t *disp, gfx_obj_t *target, uint32_t create_seq)
+{
+    if (!disp || !target) {
+        return false;
+    }
+
+    for (gfx_obj_child_t *n = disp->child_list; n != NULL; n = n->next) {
+        gfx_obj_t *obj = (gfx_obj_t *)n->src;
+        if (obj == target) {
+            return obj->state.is_visible && obj->trace.create_seq == create_seq;
+        }
+    }
+
+    return false;
+}
+
 static uint32_t gfx_touch_now_ms(void)
 {
     return (uint32_t)(esp_timer_get_time() / 1000);
@@ -139,19 +156,25 @@ static void gfx_touch_dispatch(gfx_touch_t *touch, gfx_touch_event_type_t type, 
             hit_obj = gfx_touch_hit_test(touch->disp, evt.x, evt.y);
             if (hit_obj != NULL) {
                 touch->pressed_obj = (gfx_obj_t *)hit_obj;
+                touch->pressed_obj_seq = touch->pressed_obj->trace.create_seq;
                 touch->pressed_id = evt.track_id;
             } else {
                 touch->pressed_obj = NULL;
+                touch->pressed_obj_seq = 0;
             }
         } else {
             /* MOVE / RELEASE: keep delivering to the object that got PRESS (drag support) */
-            if (touch->pressed_obj != NULL && evt.track_id == touch->pressed_id) {
+            if (touch->pressed_obj != NULL && evt.track_id == touch->pressed_id &&
+                    gfx_touch_obj_is_active(touch->disp, touch->pressed_obj, touch->pressed_obj_seq)) {
                 hit_obj = (gfx_obj_t *)touch->pressed_obj;
             } else {
                 hit_obj = NULL;
+                touch->pressed_obj = NULL;
+                touch->pressed_obj_seq = 0;
             }
             if (type == GFX_TOUCH_EVENT_RELEASE) {
                 touch->pressed_obj = NULL;
+                touch->pressed_obj_seq = 0;
             }
         }
         if (hit_obj != NULL) {
@@ -336,11 +359,13 @@ static esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *c
     uint32_t default_poll = irq_requested ? s_default_irq_poll_ms : s_default_poll_ms;
     touch->poll_ms = cfg->poll_ms ? cfg->poll_ms : default_poll;
     touch->pressed = false;
+    touch->pressed_obj = NULL;
+    touch->pressed_obj_seq = 0;
     touch->last_x = 0;
     touch->last_y = 0;
     touch->last_strength = 0;
     touch->last_id = 0;
-    touch->pressed_obj = NULL;
+    touch->pressed_id = 0;
 
     if (irq_requested) {
         esp_err_t irq_ret = gfx_touch_enable_interrupt(touch);

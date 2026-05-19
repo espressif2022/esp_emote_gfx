@@ -47,6 +47,64 @@ static bool s_interp_is_valid(gfx_motion_interp_t interp)
            interp == GFX_MOTION_INTERP_DAMPED;
 }
 
+static esp_err_t s_validate_icon_segment(const gfx_motion_icon_t *icon,
+        const gfx_motion_asset_t *asset, uint8_t seg_index)
+{
+    const gfx_motion_segment_t *seg = &icon->segments[seg_index];
+
+    ESP_RETURN_ON_FALSE(seg->resource_idx == 0U ||
+                        (asset->resources != NULL &&
+                         seg->resource_idx <= asset->resource_count &&
+                         asset->resources[seg->resource_idx - 1U].image != NULL),
+                        ESP_ERR_INVALID_ARG, TAG,
+                        "icon segment[%u] resource index out of range", seg_index);
+    ESP_RETURN_ON_FALSE(seg->color_idx == 0U ||
+                        (asset->color_palette != NULL &&
+                         seg->color_idx <= asset->color_palette_count &&
+                         seg->color_idx <= GFX_MOTION_PALETTE_MAX),
+                        ESP_ERR_INVALID_ARG, TAG,
+                        "icon segment[%u] color index out of range", seg_index);
+
+    switch (seg->kind) {
+    case GFX_MOTION_SEG_CAPSULE:
+        ESP_RETURN_ON_FALSE(seg->joint_a < icon->joint_count &&
+                            seg->joint_b < icon->joint_count,
+                            ESP_ERR_INVALID_ARG, TAG,
+                            "icon segment[%u] capsule control point index out of range", seg_index);
+        return ESP_OK;
+
+    case GFX_MOTION_SEG_RING:
+        ESP_RETURN_ON_FALSE(seg->joint_a < icon->joint_count,
+                            ESP_ERR_INVALID_ARG, TAG,
+                            "icon segment[%u] ring control point index out of range", seg_index);
+        return ESP_OK;
+
+    case GFX_MOTION_SEG_BEZIER_STRIP:
+    case GFX_MOTION_SEG_BEZIER_LOOP:
+    case GFX_MOTION_SEG_BEZIER_FILL:
+        ESP_RETURN_ON_FALSE(seg->joint_count >= 4U,
+                            ESP_ERR_INVALID_ARG, TAG,
+                            "icon segment[%u] bezier control point count must be >= 4", seg_index);
+        ESP_RETURN_ON_FALSE(seg->joint_count <= GFX_MOTION_SCENE_MAX_SEG_CTRL_POINTS,
+                            ESP_ERR_INVALID_ARG, TAG,
+                            "icon segment[%u] bezier control point count exceeds max %u",
+                            seg_index, GFX_MOTION_SCENE_MAX_SEG_CTRL_POINTS);
+        ESP_RETURN_ON_FALSE(((seg->joint_count - 1U) % 3U) == 0U,
+                            ESP_ERR_INVALID_ARG, TAG,
+                            "icon segment[%u] bezier control point count must satisfy 3k+1", seg_index);
+        ESP_RETURN_ON_FALSE(seg->joint_a < icon->joint_count &&
+                            (uint32_t)seg->joint_a + (uint32_t)seg->joint_count <= icon->joint_count,
+                            ESP_ERR_INVALID_ARG, TAG,
+                            "icon segment[%u] bezier control range out of bounds", seg_index);
+        return ESP_OK;
+
+    default:
+        ESP_RETURN_ON_FALSE(false, ESP_ERR_INVALID_ARG, TAG,
+                            "icon segment[%u] has unknown kind %d", seg_index, (int)seg->kind);
+        return ESP_ERR_INVALID_ARG;
+    }
+}
+
 static void s_snap_current_to_target(gfx_motion_scene_t *scene)
 {
     if (scene == NULL || scene->asset == NULL) {
@@ -225,7 +283,7 @@ esp_err_t gfx_motion_scene_init(gfx_motion_scene_t *scene, const gfx_motion_asse
                         ESP_ERR_INVALID_ARG, TAG, "schema version mismatch");
     ESP_RETURN_ON_FALSE(asset->meta->viewbox_w > 0 && asset->meta->viewbox_h > 0,
                         ESP_ERR_INVALID_ARG, TAG, "viewbox size must be positive");
-    ESP_RETURN_ON_FALSE(asset->joint_names != NULL && asset->joint_count > 0U,
+    ESP_RETURN_ON_FALSE(asset->joint_count > 0U,
                         ESP_ERR_INVALID_ARG, TAG, "control points empty");
     ESP_RETURN_ON_FALSE(asset->joint_count <= GFX_MOTION_SCENE_MAX_POINTS,
                         ESP_ERR_INVALID_ARG, TAG, "too many control points");
@@ -247,6 +305,10 @@ esp_err_t gfx_motion_scene_init(gfx_motion_scene_t *scene, const gfx_motion_asse
         ESP_RETURN_ON_FALSE(asset->resources != NULL,
                             ESP_ERR_INVALID_ARG, TAG, "resources not NULL but pointer is NULL");
     }
+    if (asset->icon_count > 0U) {
+        ESP_RETURN_ON_FALSE(asset->icons != NULL,
+                            ESP_ERR_INVALID_ARG, TAG, "icons not NULL but pointer is NULL");
+    }
     if (asset->color_palette_count > 0U) {
         ESP_RETURN_ON_FALSE(asset->color_palette != NULL,
                             ESP_ERR_INVALID_ARG, TAG, "color palette not NULL but pointer is NULL");
@@ -258,6 +320,20 @@ esp_err_t gfx_motion_scene_init(gfx_motion_scene_t *scene, const gfx_motion_asse
     }
     for (uint8_t i = 0; i < asset->segment_count; i++) {
         ESP_RETURN_ON_ERROR(s_validate_segment(asset, i), TAG, "segment[%u] invalid", i);
+    }
+    for (uint16_t i = 0; i < asset->icon_count; i++) {
+        const gfx_motion_icon_t *icon = &asset->icons[i];
+
+        ESP_RETURN_ON_FALSE(icon->coords != NULL,
+                            ESP_ERR_INVALID_ARG, TAG, "icon[%u] coords is NULL", i);
+        if (icon->segment_count > 0U) {
+            ESP_RETURN_ON_FALSE(icon->segments != NULL,
+                                ESP_ERR_INVALID_ARG, TAG, "icon[%u] segments is NULL", i);
+        }
+        for (uint8_t s = 0; s < icon->segment_count; s++) {
+            ESP_RETURN_ON_ERROR(s_validate_icon_segment(icon, asset, s),
+                                TAG, "icon[%u] segment[%u] invalid", i, s);
+        }
     }
     for (uint16_t p = 0; p < asset->pose_count; p++) {
         ESP_RETURN_ON_FALSE(asset->poses[p].coords != NULL,
@@ -273,6 +349,11 @@ esp_err_t gfx_motion_scene_init(gfx_motion_scene_t *scene, const gfx_motion_asse
                                 ESP_ERR_INVALID_ARG, TAG, "action[%u] step[%u] pose out of range", c, s);
             ESP_RETURN_ON_FALSE(s_interp_is_valid(action->steps[s].interp),
                                 ESP_ERR_INVALID_ARG, TAG, "action[%u] step[%u] interp invalid", c, s);
+            if (action->steps[s].icon_enabled) {
+                ESP_RETURN_ON_FALSE(action->steps[s].icon_index < asset->icon_count,
+                                    ESP_ERR_INVALID_ARG, TAG,
+                                    "action[%u] step[%u] icon out of range", c, s);
+            }
         }
     }
     for (uint16_t i = 0; i < asset->sequence_count; i++) {
@@ -305,9 +386,11 @@ esp_err_t gfx_motion_scene_set_action(gfx_motion_scene_t *scene, uint16_t action
     scene->active_action = action_index;
     scene->active_step = 0;
     scene->step_ticks  = 0;
+    scene->action_ended = false;
 
     step = &scene->asset->actions[action_index].steps[0];
     s_load_target(scene, step->pose_index, step->facing);
+    scene->dirty = true;
 
     if (snap_now || step->interp == GFX_MOTION_INTERP_HOLD) {
         s_snap_current_to_target(scene);
@@ -364,14 +447,17 @@ bool gfx_motion_scene_tick(gfx_motion_scene_t *scene)
     return changed;
 }
 
-void gfx_motion_scene_advance(gfx_motion_scene_t *scene)
+bool gfx_motion_scene_advance(gfx_motion_scene_t *scene)
 {
     const gfx_motion_action_t      *action;
     const gfx_motion_action_step_t *step;
     uint8_t                         next_step;
 
     if (scene == NULL || scene->asset == NULL) {
-        return;
+        return false;
+    }
+    if (scene->action_ended) {
+        return false;
     }
 
     action = &scene->asset->actions[scene->active_action];
@@ -379,7 +465,7 @@ void gfx_motion_scene_advance(gfx_motion_scene_t *scene)
 
     scene->step_ticks++;
     if (scene->step_ticks < step->hold_ticks) {
-        return;
+        return false;
     }
 
     scene->step_ticks = 0;
@@ -387,7 +473,8 @@ void gfx_motion_scene_advance(gfx_motion_scene_t *scene)
 
     if (next_step >= action->step_count) {
         if (!s_action_loop_enabled(scene, action)) {
-            return;
+            scene->action_ended = true;
+            return true;
         }
         next_step = 0;
     }
@@ -395,7 +482,9 @@ void gfx_motion_scene_advance(gfx_motion_scene_t *scene)
     scene->active_step = next_step;
     step = &action->steps[next_step];
     s_load_target(scene, step->pose_index, step->facing);
+    scene->dirty = true;
     if (step->interp == GFX_MOTION_INTERP_HOLD) {
         s_snap_current_to_target(scene);
     }
+    return false;
 }

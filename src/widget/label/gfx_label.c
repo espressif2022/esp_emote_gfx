@@ -180,6 +180,7 @@ esp_err_t gfx_label_set_opa(gfx_obj_t *obj, gfx_opa_t opa)
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
     label->style.opa = opa;
+    gfx_obj_invalidate(obj);
     GFX_LOGD(TAG, "set font opa: %d", label->style.opa);
 
     return ESP_OK;

@@ -55,7 +55,7 @@
 extern "C" {
 #endif
 
-#define GFX_MOTION_SCENE_SCHEMA_VERSION 2U
+#define GFX_MOTION_SCENE_SCHEMA_VERSION 3U
 
 /* ------------------------------------------------------------------ */
 /*  0. Resource table (textures / image assets)                       */
@@ -160,6 +160,11 @@ typedef struct {
     uint16_t         hold_ticks;  /**< Timer ticks to hold before advancing      */
     gfx_motion_interp_t  interp;  /**< Transition style into this step           */
     int8_t           facing;      /**< 1=right  -1=left (mirrors X)              */
+    uint8_t          icon_enabled;   /**< 1 = render a step-local icon overlay       */
+    uint16_t         icon_index;     /**< Index into gfx_motion_asset_t.icons[]       */
+    int16_t          icon_x;         /**< Icon centre X in design-space coordinates   */
+    int16_t          icon_y;         /**< Icon centre Y in design-space coordinates   */
+    uint16_t         icon_scale_q8;  /**< Icon scale in Q8.8 (256 = 1.0x)             */
 } gfx_motion_action_step_t;
 
 /** Animation action: a sequence of steps with loop control. */
@@ -168,6 +173,22 @@ typedef struct {
     uint8_t                  step_count;
     bool                     loop;
 } gfx_motion_action_t;
+
+/**
+ * Static icon overlay geometry.
+ *
+ * Icon control points are local to the icon centre. At runtime, the active
+ * action step supplies icon_x / icon_y / icon_scale_q8 and the renderer places
+ * the icon directly on top of the base motion scene without consuming pose
+ * joint budget.
+ */
+typedef struct {
+    const char *name;
+    const gfx_motion_segment_t *segments;
+    uint8_t segment_count;
+    const int16_t *coords;   /**< Flat [x0,y0, x1,y1, ...] local control-point array */
+    uint16_t joint_count;
+} gfx_motion_icon_t;
 
 /* ------------------------------------------------------------------ */
 /*  4. Metadata and layout hints                                      */
@@ -223,6 +244,10 @@ typedef struct {
     /** Rendering hints. */
     const gfx_motion_layout_t  *layout;
 
+    /** Optional static icon overlays. */
+    const gfx_motion_icon_t *icons;
+    uint16_t icon_count;
+
     /**
      * Optional texture/image resource table.
      * Segments reference entries here via segment.resource_idx (1-based).
@@ -260,6 +285,20 @@ typedef struct {
  *   gfx_motion_player_delete(player);
  */
 typedef struct gfx_motion_player gfx_motion_player_t;
+
+/**
+ * @brief Motion action finished callback.
+ *
+ * Called once when a non-looping action reaches its final step. Looping actions
+ * do not emit this callback.
+ *
+ * @param player Motion player that finished an action.
+ * @param action_idx Finished action index.
+ * @param user_data User data passed to gfx_motion_player_set_action_end_cb().
+ */
+typedef void (*gfx_motion_player_action_end_cb_t)(gfx_motion_player_t *player,
+        uint16_t action_idx,
+        void *user_data);
 
 /**
  * @brief Create a motion player for a display.
@@ -326,6 +365,18 @@ esp_err_t gfx_motion_player_set_canvas(gfx_motion_player_t *player,
 esp_err_t gfx_motion_player_set_layer_mask(gfx_motion_player_t *player, uint32_t layer_mask);
 
 /**
+ * @brief Set whole motion player visibility.
+ *
+ * This hides or shows all segment and icon objects owned by the player.
+ * Segment layer visibility is still controlled separately by layer_mask.
+ *
+ * @param player Motion player handle.
+ * @param visible true to show the player, false to hide it.
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
+ */
+esp_err_t gfx_motion_player_set_visible(gfx_motion_player_t *player, bool visible);
+
+/**
  * @brief Apply the current player state immediately without advancing time.
  *
  * @param player Motion player handle.
@@ -350,6 +401,20 @@ esp_err_t gfx_motion_player_reset_timer(gfx_motion_player_t *player);
  * @return ESP_OK on success, or an ESP_ERR_* code on failure.
  */
 esp_err_t gfx_motion_player_set_action(gfx_motion_player_t *player, uint16_t action_idx, bool snap);
+
+/**
+ * @brief Set the callback invoked when a non-looping action finishes.
+ *
+ * Passing NULL disables the callback.
+ *
+ * @param player Motion player handle.
+ * @param cb Callback to invoke from the motion timer context.
+ * @param user_data User data passed to the callback.
+ * @return ESP_OK on success, or an ESP_ERR_* code on failure.
+ */
+esp_err_t gfx_motion_player_set_action_end_cb(gfx_motion_player_t *player,
+        gfx_motion_player_action_end_cb_t cb,
+        void *user_data);
 
 /**
  * @brief Override the loop setting of the active action.

@@ -554,6 +554,10 @@ static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t de
     int32_t clip_height = clip_area->y2 - clip_area->y1;
     int32_t src_stride_bytes = (src_stride + 1) / 2;
 
+    if (mirror_mode == GFX_MIRROR_AUTO) {
+        mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
+    }
+
     for (int32_t y = 0; y < clip_height; y++) {
         const uint8_t *src_row = src_pixels + (y * src_stride_bytes);
         gfx_color_t *dst_row = dest_pixels + y * dest_stride;
@@ -591,6 +595,10 @@ static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t de
     int32_t clip_width = clip_area->x2 - clip_area->x1;
     int32_t clip_height = clip_area->y2 - clip_area->y1;
     int32_t width = frame_desc->width;
+
+    if (mirror_mode == GFX_MIRROR_AUTO) {
+        mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
+    }
 
     uint16_t *dest_pixels_16 = (uint16_t *)dest_pixels;
 
@@ -665,6 +673,10 @@ static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t d
     int32_t clip_width = clip_area->x2 - clip_area->x1;
     int32_t clip_height = clip_area->y2 - clip_area->y1;
     int32_t width = src_stride;
+
+    if (mirror_mode == GFX_MIRROR_AUTO) {
+        mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
+    }
 
     uint16_t *src_pixels_16 = (uint16_t *)src_pixels;
     uint16_t *dest_pixels_16 = (uint16_t *)dest_pixels;

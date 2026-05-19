@@ -13,6 +13,7 @@ exclude: |
     | docs/.*
     | png_to_rgb565a8.py
     | qrcodegen.*
+    | .*\.inc
   )
 repos:
   - repo: https://github.com/igrr/astyle_py.git

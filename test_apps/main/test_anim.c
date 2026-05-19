@@ -1,10 +1,10 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: CC0-1.0
  */
 #include <stdbool.h>
-#include <string.h>
+#include <stdio.h>
 #include "unity.h"
 #include "common.h"
 
@@ -12,14 +12,18 @@ static const char *const TAG = "test_anim";
 
 typedef struct {
     int asset_id;
-    const char *name;
     bool auto_mirror;
     uint32_t observe_ms;
 } test_anim_case_t;
 
-static void test_anim_apply_layout(gfx_obj_t *anim_obj, const char *name, bool auto_mirror)
+static void test_anim_format_case_name(const test_anim_case_t *test_case, char *buf, size_t buf_size)
 {
-    if (strstr(name, "MI_1_EYE") != NULL) {
+    snprintf(buf, buf_size, "asset_id=%d", test_case->asset_id);
+}
+
+static void test_anim_apply_layout(gfx_obj_t *anim_obj, bool auto_mirror)
+{
+    if (auto_mirror) {
         gfx_obj_set_pos(anim_obj, 20, 10);
     } else {
         gfx_obj_align(anim_obj, GFX_ALIGN_CENTER, 0, 0);
@@ -34,8 +38,10 @@ static void test_anim_show_case(mmap_assets_handle_t assets_handle, gfx_obj_t *a
     const void *anim_data = NULL;
     size_t anim_size = 0;
     gfx_anim_src_t anim_src;
+    char case_name[64];
 
-    test_app_log_step(TAG, test_case->name);
+    test_anim_format_case_name(test_case, case_name, sizeof(case_name));
+    test_app_log_step(TAG, case_name);
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     gfx_anim_stop(anim_obj);
@@ -46,7 +52,7 @@ static void test_anim_show_case(mmap_assets_handle_t assets_handle, gfx_obj_t *a
     anim_src.data = anim_data;
     anim_src.data_len = anim_size;
     TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src_desc(anim_obj, &anim_src));
-    test_anim_apply_layout(anim_obj, test_case->name, test_case->auto_mirror);
+    test_anim_apply_layout(anim_obj, test_case->auto_mirror);
 
     TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_segment(anim_obj, 0, 0xFFFFFFFF, 50, true));
 
@@ -57,18 +63,19 @@ static void test_anim_show_case(mmap_assets_handle_t assets_handle, gfx_obj_t *a
 static void test_anim_run(mmap_assets_handle_t assets_handle)
 {
     static const test_anim_case_t s_cases[] = {
-        {MMAP_ASSETS_TEST_MI_1_EYE_24BIT_AAF, "AAF 24-bit / MI_1_EYE", true, 2800},
-        {MMAP_ASSETS_TEST_MI_1_EYE_4BIT_AAF, "AAF 4-bit / MI_1_EYE", true, 2800},
-        {MMAP_ASSETS_TEST_MI_1_EYE_8BIT_HUFF_AAF, "AAF 8-bit Huffman / MI_1_EYE", true, 2800},
-        {MMAP_ASSETS_TEST_MI_2_EYE_24BIT_AAF, "AAF 24-bit / MI_2_EYE", false, 2800},
-        {MMAP_ASSETS_TEST_MI_2_EYE_4BIT_AAF, "AAF 4-bit / MI_2_EYE", false, 2800},
-        {MMAP_ASSETS_TEST_MI_2_EYE_8BIT_AAF, "AAF 8-bit / MI_2_EYE", false, 2800},
-        {MMAP_ASSETS_TEST_MI_2_EYE_8BIT_HUFF_AAF, "AAF 8-bit Huffman / MI_2_EYE", false, 2800},
-        {MMAP_ASSETS_TEST_MI_1_EYE_8BIT_EAF, "EAF 8-bit / MI_1_EYE", true, 2800},
-        {MMAP_ASSETS_TEST_MI_1_EYE_8BIT_HUFF_EAF, "EAF 8-bit Huffman / MI_1_EYE", true, 2800},
-        {MMAP_ASSETS_TEST_MI_2_EYE_8BIT_HUFF_EAF, "EAF 8-bit Huffman / MI_2_EYE", false, 2800},
-        {MMAP_ASSETS_TEST_TRANSPARENT_EAF, "EAF transparent", false, 3200},
-        {MMAP_ASSETS_TEST_ONLY_HEATSHRINK_4BIT_EAF, "EAF heatshrink 4-bit", false, 3200},
+        {MMAP_ASSETS_TEST_MI_1_EYE_24BIT_AAF, true, 2800},
+        {MMAP_ASSETS_TEST_MI_1_EYE_4BIT_AAF, true, 2800},
+        {MMAP_ASSETS_TEST_MI_1_EYE_8BIT_HUFF_AAF, true, 2800},
+        {MMAP_ASSETS_TEST_MI_2_EYE_24BIT_AAF, false, 2800},
+        {MMAP_ASSETS_TEST_MI_2_EYE_4BIT_AAF, false, 2800},
+        {MMAP_ASSETS_TEST_MI_2_EYE_8BIT_AAF, false, 2800},
+
+        {MMAP_ASSETS_TEST_MI_2_EYE_8BIT_HUFF_AAF, false, 2800},
+        {MMAP_ASSETS_TEST_MI_1_EYE_8BIT_EAF, true, 2800},
+        {MMAP_ASSETS_TEST_MI_1_EYE_8BIT_HUFF_EAF, true, 2800},
+        {MMAP_ASSETS_TEST_MI_2_EYE_8BIT_HUFF_EAF, false, 2800},
+        {MMAP_ASSETS_TEST_TRANSPARENT_EAF, false, 3200},
+        {MMAP_ASSETS_TEST_ONLY_HEATSHRINK_4BIT_EAF, false, 3200},
     };
 
     test_app_log_case(TAG, "Animation decoder validation");
@@ -92,8 +99,7 @@ static void test_anim_run(mmap_assets_handle_t assets_handle)
     }
 }
 
-// TEST_CASE("widget animation decoder matrix", "[widget][anim][matrix]")
-void test_anim_run_case_matrix(void)
+TEST_CASE("widget animation decoder matrix", "[widget][anim][matrix]")
 {
     test_app_runtime_t runtime;
 

@@ -38,6 +38,7 @@ static const char *const s_module_names[GFX_LOG_MODULE_COUNT] = {
     [GFX_LOG_MODULE_MESH_IMG] = "mesh_img",
     [GFX_LOG_MODULE_QRCODE] = "qrcode",
     [GFX_LOG_MODULE_BUTTON] = "button",
+    [GFX_LOG_MODULE_LIST] = "list",
     [GFX_LOG_MODULE_ANIM] = "anim",
     [GFX_LOG_MODULE_ANIM_DEC] = "anim_dec",
     [GFX_LOG_MODULE_MOTION] = "motion",

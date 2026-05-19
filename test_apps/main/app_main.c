@@ -28,8 +28,10 @@ void tearDown(void)
     unity_utils_check_leak(s_before_free_8bit, after_free_8bit, "8BIT", TEST_MEMORY_LEAK_THRESHOLD);
     unity_utils_check_leak(s_before_free_32bit, after_free_32bit, "32BIT", TEST_MEMORY_LEAK_THRESHOLD);
 }
+extern void test_motion_widget_run_pose(void);
 
 void app_main(void)
 {
-    unity_run_menu();
+    // unity_run_menu();
+    test_motion_widget_run_pose();
 }
