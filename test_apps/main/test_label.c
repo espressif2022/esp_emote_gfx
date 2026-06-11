@@ -78,7 +78,7 @@ static esp_err_t test_label_create_scene(mmap_assets_handle_t assets_handle, boo
             .font_size = 20,
         };
 
-        TEST_ASSERT_EQUAL(ESP_OK, gfx_label_new_font(&font_cfg, &scene->ft_font));
+        TEST_ASSERT_EQUAL(ESP_OK, gfx_label_font_create(&font_cfg, &scene->ft_font));
         font = scene->ft_font;
     }
 #else
@@ -184,7 +184,7 @@ static void test_label_validation_run(mmap_assets_handle_t assets_handle, bool u
     test_label_delete_scene(&scene);
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
     if (use_freetype && scene.ft_font != NULL) {
-        gfx_label_delete_font(scene.ft_font);
+        gfx_label_font_delete(scene.ft_font);
         scene.ft_font = NULL;
     }
 #endif

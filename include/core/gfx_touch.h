@@ -56,7 +56,7 @@ typedef struct {
 /**
  * @brief Add a touch device (like gfx_disp_add; multiple touch devices supported)
  *
- * @param handle Graphics handle from gfx_emote_init
+ * @param handle Graphics handle from gfx_core_init
  * @param cfg Touch configuration (handle, poll_ms, event_cb, etc.); required
  * @return Touch pointer on success, or NULL on failure
  */
@@ -72,12 +72,11 @@ gfx_touch_t *gfx_touch_add(gfx_handle_t handle, const gfx_touch_config_t *cfg);
 esp_err_t gfx_touch_set_disp(gfx_touch_t *touch, gfx_disp_t *disp);
 
 /**
- * @brief Remove a touch device from the list and release resources (stops polling, disables IRQ).
- *        Does not free the gfx_touch_t; caller must free(touch) after.
+ * @brief Remove a touch device and release its resources.
  *
  * @param touch Touch pointer returned from gfx_touch_add; safe to pass NULL
  */
-void gfx_touch_del(gfx_touch_t *touch);
+void gfx_touch_delete(gfx_touch_t *touch);
 
 #ifdef __cplusplus
 }

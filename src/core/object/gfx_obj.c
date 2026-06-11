@@ -12,8 +12,8 @@
 #define GFX_LOG_MODULE GFX_LOG_MODULE_OBJ
 #include "common/gfx_log_priv.h"
 #include "common/gfx_comm.h"
-#include "core/gfx_obj.h"
-#include "core/display/gfx_refr_priv.h"
+#include "core/display/gfx_refresh_priv.h"
+#include "core/object/gfx_obj_priv.h"
 #include "core/runtime/gfx_core_priv.h"
 
 /**********************
@@ -99,8 +99,8 @@ static void gfx_obj_calc_pos_in_parent_internal(gfx_obj_t *obj, uint8_t depth)
         return;
     }
 
-    parent_w = gfx_disp_get_hor_res(obj->disp);
-    parent_h = gfx_disp_get_ver_res(obj->disp);
+    parent_w = gfx_disp_get_h_res(obj->disp);
+    parent_h = gfx_disp_get_v_res(obj->disp);
 
     if (obj->align.target != NULL && obj->align.target != obj) {
         gfx_obj_t *target = obj->align.target;

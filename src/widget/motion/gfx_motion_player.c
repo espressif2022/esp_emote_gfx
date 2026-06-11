@@ -189,7 +189,7 @@ static esp_err_t gfx_motion_player_configure_segment_mesh(gfx_motion_player_t *p
             GFX_MOTION_PLAYER_MAX_SEGMENTS, obj, seg_idx, seg);
 }
 
-static void gfx_motion_player_init_palette(gfx_motion_player_t *player, bool swap)
+static void gfx_motion_player_init_palette(gfx_motion_player_t *player)
 {
     const gfx_motion_asset_t *asset = player->scene.asset;
 
@@ -204,7 +204,7 @@ static void gfx_motion_player_init_palette(gfx_motion_player_t *player, bool swa
                     ? asset->color_palette_count : GFX_MOTION_PALETTE_MAX;
         for (uint8_t pi = 0U; pi < n; pi++) {
             gfx_color_t pc = GFX_COLOR_HEX(asset->color_palette[pi]);
-            player->palette_pixels[pi] = gfx_color_to_native_u16(pc, swap);
+            player->palette_pixels[pi] = pc.full;
         }
     }
 }
@@ -532,7 +532,6 @@ static esp_err_t gfx_motion_player_init(gfx_motion_player_t *player,
     esp_err_t ret = ESP_OK;
     gfx_img_src_t solid_src;
     gfx_motion_cfg_t motion_cfg;
-    bool swap;
 
     ESP_RETURN_ON_FALSE(player != NULL, ESP_ERR_INVALID_ARG, TAG, "player is NULL");
     ESP_RETURN_ON_FALSE(disp != NULL, ESP_ERR_INVALID_ARG, TAG, "disp is NULL");
@@ -558,24 +557,24 @@ static esp_err_t gfx_motion_player_init(gfx_motion_player_t *player,
 
     player->stroke_color = GFX_COLOR_HEX(GFX_MOTION_DEFAULT_STROKE_COLOR);
     player->layer_mask = UINT32_MAX;
-    swap = disp->flags.swap;
-    player->solid_pixel = gfx_color_to_native_u16(player->stroke_color, swap);
-    player->solid_img.header.magic = 0x19;
-    player->solid_img.header.cf = GFX_COLOR_FORMAT_RGB565;
+    player->solid_pixel = player->stroke_color.full;
+    player->solid_img.header.magic = GFX_IMAGE_HEADER_MAGIC;
+    player->solid_img.header.cf = GFX_COLOR_FORMAT_RGB565_SWAPPED;
+    player->solid_img.header.flags = 0;
     player->solid_img.header.w = 1;
     player->solid_img.header.h = 1;
     player->solid_img.header.stride = 2;
     player->solid_img.data_size = 2;
     player->solid_img.data = (const uint8_t *)&player->solid_pixel;
-    gfx_motion_player_init_palette(player, swap);
+    gfx_motion_player_init_palette(player);
 
     solid_src.type = GFX_IMG_SRC_TYPE_IMAGE_DSC;
     solid_src.data = &player->solid_img;
 
     player->canvas_x = 0;
     player->canvas_y = 0;
-    player->canvas_w = (uint16_t)gfx_disp_get_hor_res(disp);
-    player->canvas_h = (uint16_t)gfx_disp_get_ver_res(disp);
+    player->canvas_w = (uint16_t)gfx_disp_get_h_res(disp);
+    player->canvas_h = (uint16_t)gfx_disp_get_v_res(disp);
     player->mesh_dirty = true;
     player->visible = true;
 
@@ -694,7 +693,6 @@ void gfx_motion_player_delete(gfx_motion_player_t *player)
 esp_err_t gfx_motion_player_set_color(gfx_motion_player_t *player, gfx_color_t color)
 {
     gfx_img_src_t solid_src;
-    bool swap;
 
     ESP_RETURN_ON_FALSE(player != NULL, ESP_ERR_INVALID_ARG, TAG, "player is NULL");
     if (player->seg_obj_count == 0U) {
@@ -704,9 +702,8 @@ esp_err_t gfx_motion_player_set_color(gfx_motion_player_t *player, gfx_color_t c
     ESP_RETURN_ON_FALSE(player->seg_objs[0] != NULL && player->seg_objs[0]->disp != NULL,
                         ESP_ERR_INVALID_STATE, TAG, "display not ready");
 
-    swap = player->seg_objs[0]->disp->flags.swap;
     player->stroke_color = color;
-    player->solid_pixel = gfx_color_to_native_u16(color, swap);
+    player->solid_pixel = color.full;
 
     solid_src.type = GFX_IMG_SRC_TYPE_IMAGE_DSC;
     solid_src.data = &player->solid_img;

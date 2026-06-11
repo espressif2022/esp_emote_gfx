@@ -15,7 +15,7 @@
 #define GFX_LOG_MODULE GFX_LOG_MODULE_RENDER
 #include "common/gfx_log_priv.h"
 
-#include "core/display/gfx_refr_priv.h"
+#include "core/display/gfx_refresh_priv.h"
 #include "core/display/gfx_render_priv.h"
 #include "core/draw/gfx_blend_priv.h"
 #include "core/runtime/gfx_timer_priv.h"
@@ -173,12 +173,6 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
         return;
     }
 
-    gfx_disp_flush_cb_t flush_cb = disp->cb.flush_cb;
-    if (flush_cb != NULL && disp->sync.event_group == NULL) {
-        GFX_LOGE(TAG, "render area[%d]: flush callback is set but event group is NULL", area_idx);
-        return;
-    }
-
     disp->render.flushing_last = false;
     gfx_coord_t cur_y = area->y1;
 
@@ -221,21 +215,20 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
 
         render_start_us = esp_timer_get_time();
         if (disp->style.bg_enable) {
-            uint16_t bg = gfx_color_to_native_u16(disp->style.bg_color, disp->flags.swap);
             if (disp->flags.full_frame) {
                 gfx_area_t fill_area = { chunk_x1, chunk_y1, chunk_x2, chunk_y2 };  /* exclusive x2,y2 */
-                gfx_sw_blend_fill_area(buf, (gfx_coord_t)disp->res.h_res, &fill_area, bg);
+                gfx_sw_blend_fill_area_color((gfx_color_t *)buf, (gfx_coord_t)disp->res.h_res, &fill_area,
+                                             disp->style.bg_color, disp->flags.swap);
             } else {
                 gfx_area_t fill_area = { 0, 0, chunk_x2 - chunk_x1, chunk_y2 - chunk_y1 };
-                gfx_sw_blend_fill_area(buf, chunk_x2 - chunk_x1, &fill_area, bg);
+                gfx_sw_blend_fill_area_color((gfx_color_t *)buf, chunk_x2 - chunk_x1, &fill_area,
+                                             disp->style.bg_color, disp->flags.swap);
             }
         }
         gfx_render_draw_child_objects(disp, &draw_ctx);
         disp->render.render_time_us += (uint64_t)(esp_timer_get_time() - render_start_us);
 
-        if (flush_cb != NULL) {
-            xEventGroupClearBits(disp->sync.event_group, WAIT_FLUSH_DONE);
-
+        if (disp->backend != NULL) {
             // uint32_t chunk_px = area_w * (uint32_t)(chunk_y2 - chunk_y1);
 
             bool is_last_chunk = (chunk_y2 >= area->y2 + 1);
@@ -246,9 +239,14 @@ void gfx_render_part_area(gfx_disp_t *disp, gfx_area_t *area, uint8_t area_idx, 
             //          disp->render.flushing_last ? " (last)" : "");
 
             flush_start_us = esp_timer_get_time();
-            flush_cb(disp, chunk_x1, chunk_y1, chunk_x2, chunk_y2, buf);
-
-            xEventGroupWaitBits(disp->sync.event_group, WAIT_FLUSH_DONE, pdTRUE, pdFALSE, portMAX_DELAY);
+            if (gfx_disp_backend_flush(disp, chunk_x1, chunk_y1, chunk_x2, chunk_y2, buf) != ESP_OK) {
+                GFX_LOGE(TAG, "render area[%d]: backend flush failed", area_idx);
+                return;
+            }
+            if (gfx_disp_backend_wait_flush(disp) != ESP_OK) {
+                GFX_LOGE(TAG, "render area[%d]: backend wait failed", area_idx);
+                return;
+            }
             disp->render.flush_time_us += (uint64_t)(esp_timer_get_time() - flush_start_us);
             disp->render.flush_count++;
 
@@ -274,8 +272,8 @@ void gfx_render_dirty_areas(gfx_disp_t *disp)
     disp->render.render_time_us = 0;
     disp->render.flush_time_us = 0;
     disp->render.flush_count = 0;
-    gfx_sw_blend_perf_reset(&disp->render.blend);
-    gfx_sw_blend_perf_bind(&disp->render.blend);
+    gfx_sw_blend_perf_reset(&disp->render.draw);
+    gfx_sw_blend_perf_bind(&disp->render.draw);
 
     gfx_render_sync_dirty_areas(disp);
 
@@ -346,10 +344,10 @@ bool gfx_render_handler(gfx_core_context_t *ctx)
 
     for (gfx_disp_t *disp = ctx->disp; disp != NULL; disp = disp->next) {
         int64_t frame_start_us = esp_timer_get_time();
-        gfx_refr_update_layout_dirty(disp);
+        gfx_refresh_update_layout_dirty(disp);
 
         if (disp->dirty.count > 1) {
-            gfx_refr_merge_areas(disp);
+            gfx_refresh_merge_areas(disp);
         } else if (disp->dirty.count == 0) {
             continue;
         }

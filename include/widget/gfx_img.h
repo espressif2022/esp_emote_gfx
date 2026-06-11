@@ -20,23 +20,17 @@ extern "C" {
  *      DEFINES
  *********************/
 
-/* Magic numbers for image headers */
-#define C_ARRAY_HEADER_MAGIC    0x19
+/* Magic number for gfx_image_header_t. */
+#define GFX_IMAGE_HEADER_MAGIC  0x19
 
 /**********************
  *      TYPEDEFS
  **********************/
 
-/* Color format enumeration - simplified for public use */
-typedef enum {
-    GFX_COLOR_FORMAT_RGB565   = 0x04,  /**< RGB565 format without alpha channel */
-    GFX_COLOR_FORMAT_RGB565A8 = 0x0A,  /**< RGB565 format with separate alpha channel */
-} gfx_color_format_t;
-
 typedef struct {
     uint32_t magic: 8;          /**< Magic number. Must be GFX_IMAGE_HEADER_MAGIC */
     uint32_t cf : 8;            /**< Color format: See `gfx_color_format_t` */
-    uint32_t flags: 16;         /**< Image flags */
+    uint32_t flags: 16;         /**< Reserved image flags */
     uint32_t w: 16;             /**< Width of the image */
     uint32_t h: 16;             /**< Height of the image */
     uint32_t stride: 16;        /**< Number of bytes in a row */
@@ -109,7 +103,7 @@ esp_err_t gfx_img_set_src_desc(gfx_obj_t *obj, const gfx_img_src_t *src);
  * @param src Pointer to the image source data
  * @return ESP_OK on success, ESP_ERR_* otherwise
  */
-esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src);
+esp_err_t gfx_img_set_src(gfx_obj_t *obj, const void *src);
 
 #ifdef __cplusplus
 }

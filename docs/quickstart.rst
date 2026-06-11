@@ -25,9 +25,9 @@ Basic Setup
 
    gfx_core_config_t gfx_cfg = {
        .fps = 30,
-       .task = GFX_EMOTE_INIT_CONFIG()
+       .task = GFX_CORE_TASK_DEFAULT_CONFIG()
    };
-   gfx_handle_t handle = gfx_emote_init(&gfx_cfg);
+   gfx_handle_t handle = gfx_core_init(&gfx_cfg);
    if (handle == NULL) {
        ESP_LOGE(TAG, "Failed to initialize GFX");
        return;
@@ -55,7 +55,7 @@ Basic Setup
    gfx_disp_t *disp = gfx_disp_add(handle, &disp_cfg);
    if (disp == NULL) {
        ESP_LOGE(TAG, "Failed to add display");
-       gfx_emote_deinit(handle);
+       gfx_core_deinit(handle);
        return;
    }
 
@@ -114,7 +114,7 @@ Creating an Image
 
    gfx_obj_t *img = gfx_img_create(disp);
    extern const gfx_image_dsc_t my_image;
-   gfx_img_set_src(img, (void *)&my_image);
+   gfx_img_set_src(img, &my_image);
    gfx_obj_set_pos(img, 100, 100);
 
 Creating an Animation
@@ -147,10 +147,10 @@ When modifying objects from outside the graphics task, use the graphics lock:
 
 .. code-block:: c
 
-   gfx_emote_lock(handle);
+   gfx_core_lock(handle);
    gfx_label_set_text(label, "Updated text");
    gfx_obj_set_pos(img, new_x, new_y);
-   gfx_emote_unlock(handle);
+   gfx_core_unlock(handle);
 
 Complete Example
 ----------------
@@ -174,9 +174,9 @@ Complete Example
    {
        gfx_core_config_t gfx_cfg = {
            .fps = 30,
-           .task = GFX_EMOTE_INIT_CONFIG(),
+           .task = GFX_CORE_TASK_DEFAULT_CONFIG(),
        };
-       gfx_handle = gfx_emote_init(&gfx_cfg);
+       gfx_handle = gfx_core_init(&gfx_cfg);
        if (gfx_handle == NULL) {
            ESP_LOGE(TAG, "Failed to initialize GFX");
            return;
@@ -194,7 +194,7 @@ Complete Example
        gfx_disp = gfx_disp_add(gfx_handle, &disp_cfg);
        if (gfx_disp == NULL) {
            ESP_LOGE(TAG, "Failed to add display");
-           gfx_emote_deinit(gfx_handle);
+           gfx_core_deinit(gfx_handle);
            return;
        }
 

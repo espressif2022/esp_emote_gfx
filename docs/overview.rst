@@ -24,7 +24,7 @@ Widgets
 
 The public widget set currently includes:
 
-* Image: RGB565 and RGB565A8 image descriptors.
+* Image: RGB565, RGB565A8, RGB888, and RGB888A8 image descriptors.
 * Mesh Image: deformable image grids used directly or by Motion scenes.
 * Label: bitmap/LVGL fonts, FreeType fonts, wrapping, clipping, and scrolling.
 * Button: text button with pressed state and border styling.
@@ -37,12 +37,12 @@ Runtime Model
 
 Applications normally follow this flow:
 
-1. Initialize ``gfx_handle_t`` with ``gfx_emote_init()``.
+1. Initialize ``gfx_handle_t`` with ``gfx_core_init()``.
 2. Add one or more displays with ``gfx_disp_add()``.
 3. Create widgets on a display.
-4. Update widgets from the graphics task, or hold ``gfx_emote_lock()`` when
+4. Update widgets from the graphics task, or hold ``gfx_core_lock()`` when
    updating from another task.
-5. Deinitialize the graphics context with ``gfx_emote_deinit()`` when finished.
+5. Deinitialize the graphics context with ``gfx_core_deinit()`` when finished.
 
 Memory and Refresh
 ------------------

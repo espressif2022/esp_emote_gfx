@@ -8,7 +8,7 @@
 
 #include <stddef.h>
 
-#include "core/gfx_types.h"
+#include "core/gfx_types_priv.h"
 #include "core/gfx_disp.h"
 
 #ifdef __cplusplus
@@ -76,11 +76,22 @@ void gfx_sw_blend_fill_area(uint16_t *dest_buf, gfx_coord_t dest_stride,
                             const gfx_area_t *area, uint16_t color);
 
 /**
+ * @brief Fill a rectangle with a semantic color, converting to native framebuffer order once.
+ * @param dest_buf Destination buffer
+ * @param dest_stride Row stride in pixels
+ * @param area Area to fill (x1,y1,x2,y2 exclusive end)
+ * @param color Semantic RGB565 color
+ * @param swap Whether the destination buffer expects swapped byte order
+ */
+void gfx_sw_blend_fill_area_color(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
+                                  const gfx_area_t *area, gfx_color_t color, bool swap);
+
+/**
  * @brief Mix two colors with a given mix ratio (internal)
- * @param c1 First color
- * @param c2 Second color
+ * @param c1 First semantic RGB565 color
+ * @param c2 Second semantic RGB565 color
  * @param mix Mix ratio (0-255)
- * @param swap Whether to swap color format
+ * @param swap Deprecated, ignored. Inputs must already be semantic RGB565.
  * @return Mixed color
  */
 gfx_color_t gfx_blend_color_mix(gfx_color_t c1, gfx_color_t c2, uint8_t mix, bool swap);
@@ -113,16 +124,17 @@ void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
  * @param dest_buf Pointer to the destination buffer where the image will be drawn
  * @param dest_stride Stride (width) of the destination buffer
  * @param src_buf Pointer to the source image buffer
- * @param src_stride Stride (width) of the source image buffer
+ * @param src_stride Stride (width) of the source image buffer, in pixels
  * @param mask Pointer to the mask buffer, if any
  * @param mask_stride Stride (width) of the mask buffer
  * @param clip_area Pointer to the clipping area, which limits the area to draw
- * @param swap Whether to swap the color format
+ * @param src_format Source image color format
+ * @param swap Whether the target framebuffer expects swapped RGB565 byte order
  */
 void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
-                           const gfx_color_t *src_buf, gfx_coord_t src_stride,
+                           const void *src_buf, gfx_coord_t src_stride,
                            const gfx_opa_t *mask, gfx_coord_t mask_stride,
-                           gfx_area_t *clip_area, bool swap);
+                           gfx_area_t *clip_area, gfx_color_format_t src_format, bool swap);
 
 /**
  * @brief Draw a textured triangle with edge anti-aliasing
@@ -134,10 +146,12 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
  * @param extra_aa_edges  Optional array of extra directed edges for cross-triangle
  *        inward AA distance (NULL when not needed).
  * @param extra_aa_count  Number of entries in extra_aa_edges (0..MAX_EXTRA_AA_EDGES).
+ * @param src_format Source image color format.
+ * @param swap Whether the target framebuffer expects swapped RGB565 byte order.
  */
 void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                                     const gfx_area_t *buf_area, const gfx_area_t *clip_area,
-                                    const gfx_color_t *src_buf, gfx_coord_t src_stride, gfx_coord_t src_height,
+                                    const void *src_buf, gfx_coord_t src_stride, gfx_coord_t src_height,
                                     const gfx_opa_t *mask, gfx_coord_t mask_stride,
                                     gfx_opa_t opa,
                                     const gfx_sw_blend_img_vertex_t *v0,
@@ -146,7 +160,7 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                                     uint8_t internal_edges,
                                     const gfx_sw_blend_aa_edge_t *extra_aa_edges,
                                     uint8_t extra_aa_count,
-                                    bool swap);
+                                    gfx_color_format_t src_format, bool swap);
 
 /**
  * @brief Scanline polygon fill with edge anti-aliasing.
@@ -165,8 +179,8 @@ void gfx_sw_blend_polygon_fill(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                                int vertex_count,
                                bool swap);
 
-void gfx_sw_blend_perf_reset(gfx_blend_perf_stats_t *stats);
-void gfx_sw_blend_perf_bind(gfx_blend_perf_stats_t *stats);
+void gfx_sw_blend_perf_reset(gfx_draw_perf_stats_t *stats);
+void gfx_sw_blend_perf_bind(gfx_draw_perf_stats_t *stats);
 void gfx_sw_blend_perf_unbind(void);
 
 #ifdef __cplusplus

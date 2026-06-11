@@ -161,7 +161,7 @@ uint32_t gfx_timer_handler(gfx_timer_mgr_t *timer_mgr, bool *out_should_render)
     return task_delay_ms;
 }
 
-gfx_timer_handle_t gfx_timer_create(void *handle, gfx_timer_cb_t timer_cb, uint32_t period, void *user_data)
+gfx_timer_handle_t gfx_timer_create(gfx_handle_t handle, gfx_timer_cb_t timer_cb, uint32_t period, void *user_data)
 {
     if (handle == NULL || timer_cb == NULL) {
         return NULL;
@@ -197,7 +197,7 @@ gfx_timer_handle_t gfx_timer_create(void *handle, gfx_timer_cb_t timer_cb, uint3
     return (gfx_timer_handle_t)new_timer;
 }
 
-void gfx_timer_delete(void *handle, gfx_timer_handle_t timer_handle)
+void gfx_timer_delete(gfx_handle_t handle, gfx_timer_handle_t timer_handle)
 {
     if (handle == NULL || timer_handle == NULL) {
         return;
@@ -309,7 +309,7 @@ void gfx_timer_mgr_deinit(gfx_timer_mgr_t *timer_mgr)
     timer_mgr->timer_list = NULL;
 }
 
-uint32_t gfx_timer_get_actual_fps(void *handle)
+uint32_t gfx_timer_get_actual_fps(gfx_handle_t handle)
 {
     if (handle == NULL) {
         return 0;

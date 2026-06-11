@@ -37,11 +37,13 @@ typedef void (*test_app_disp_update_cb_t)(gfx_disp_t *disp, gfx_disp_event_t eve
 /* External declarations */
 extern const gfx_image_dsc_t icon_rgb565;
 extern const gfx_image_dsc_t icon_rgb565A8;
+extern const gfx_image_dsc_t icon_rgb888;
+extern const gfx_image_dsc_t icon_rgb888a8;
 extern const lv_font_t font_puhui_16_4;
 
 /* Shared global variables */
 extern gfx_handle_t emote_handle;
-extern gfx_disp_t *disp_default;  /* First display (from gfx_emote_add_disp in test_init) */
+extern gfx_disp_t *disp_default;  /* First display created by test_init */
 extern gfx_touch_t *touch_default;
 
 extern esp_lcd_panel_io_handle_t io_handle;

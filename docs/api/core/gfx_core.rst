@@ -22,44 +22,44 @@ gfx_core_config_t
 Macros
 ------
 
-GFX_EMOTE_INIT_CONFIG()
+GFX_CORE_TASK_DEFAULT_CONFIG()
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: c
 
-   #define GFX_EMOTE_INIT_CONFIG()                   \
+   #define GFX_CORE_TASK_DEFAULT_CONFIG()                   \
 
 Functions
 ---------
 
-gfx_emote_init()
+gfx_core_init()
 ~~~~~~~~~~~~~~~~
 
 .. code-block:: c
 
-   gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg);
+   gfx_handle_t gfx_core_init(const gfx_core_config_t *cfg);
 
-gfx_emote_deinit()
+gfx_core_deinit()
 ~~~~~~~~~~~~~~~~~~
 
 Deinitialize graphics context
 
 .. code-block:: c
 
-   void gfx_emote_deinit(gfx_handle_t handle);
+   void gfx_core_deinit(gfx_handle_t handle);
 
 **Parameters:**
 
 * ``handle`` - Graphics handle
 
-gfx_emote_lock()
+gfx_core_lock()
 ~~~~~~~~~~~~~~~~
 
 Lock the recursive render mutex to prevent rendering during external operations
 
 .. code-block:: c
 
-   esp_err_t gfx_emote_lock(gfx_handle_t handle);
+   esp_err_t gfx_core_lock(gfx_handle_t handle);
 
 **Parameters:**
 
@@ -69,14 +69,14 @@ Lock the recursive render mutex to prevent rendering during external operations
 
 * esp_err_t ESP_OK on success, otherwise an error code
 
-gfx_emote_unlock()
+gfx_core_unlock()
 ~~~~~~~~~~~~~~~~~~
 
 Unlock the recursive render mutex after external operations
 
 .. code-block:: c
 
-   esp_err_t gfx_emote_unlock(gfx_handle_t handle);
+   esp_err_t gfx_core_unlock(gfx_handle_t handle);
 
 **Parameters:**
 
@@ -86,14 +86,14 @@ Unlock the recursive render mutex after external operations
 
 * esp_err_t ESP_OK on success, otherwise an error code
 
-gfx_refr_now()
+gfx_core_refresh_now()
 ~~~~~~~~~~~~~~
 
 Perform one synchronous refresh (render and flush) immediately. Holds the render mutex for the duration; safe to call from any task.
 
 .. code-block:: c
 
-   esp_err_t gfx_refr_now(gfx_handle_t handle);
+   esp_err_t gfx_core_refresh_now(gfx_handle_t handle);
 
 **Parameters:**
 

@@ -443,8 +443,8 @@ static void test_motion_widget_run(void)
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     TEST_ASSERT_NOT_NULL(disp_default);
 
-    disp_w = (uint16_t)gfx_disp_get_hor_res(disp_default);
-    disp_h = (uint16_t)gfx_disp_get_ver_res(disp_default);
+    disp_w = (uint16_t)gfx_disp_get_h_res(disp_default);
+    disp_h = (uint16_t)gfx_disp_get_v_res(disp_default);
 
     gfx_disp_set_bg_color(disp_default, GFX_COLOR_HEX(0x181818));
     gfx_disp_refresh_all(disp_default);
@@ -503,8 +503,8 @@ static void test_motion_widget_run(void)
     test_app_unlock();
 }
 
-// TEST_CASE("motion: rig pose preview", "[widget][motion]")
-void test_motion_widget_run_pose(void)
+TEST_CASE("motion: rig pose preview", "[widget][motion]")
+// void test_motion_widget_run_pose(void)
 {
     test_app_runtime_t runtime;
 

@@ -15,7 +15,7 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
 {
     ESP_LOGI(TAG, "=== Testing Multiple Objects Interaction ===");
 
-    gfx_emote_lock(emote_handle);
+    gfx_core_lock(emote_handle);
 
     TEST_ASSERT_NOT_NULL(disp_default);
     gfx_obj_t *anim_obj = gfx_anim_create(disp_default);
@@ -45,7 +45,7 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
     };
 
     gfx_font_t font_DejaVuSans;
-    esp_err_t ret = gfx_label_new_font(&font_cfg, &font_DejaVuSans);
+    esp_err_t ret = gfx_label_font_create(&font_cfg, &font_DejaVuSans);
     TEST_ASSERT_EQUAL(ESP_OK, ret);
     gfx_label_set_font(label_obj, font_DejaVuSans);
 #else
@@ -61,22 +61,22 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
 
     gfx_image_dsc_t img_dsc;
     load_image(assets_handle, MMAP_ASSETS_TEST_ICON_RGB565_BIN, &img_dsc);
-    gfx_img_set_src(img_obj, (void *)&img_dsc); // Use BIN format image
+    gfx_img_set_src(img_obj, &img_dsc); // Use BIN format image
     gfx_obj_align(img_obj, GFX_ALIGN_TOP_MID, 0, 0);
 
-    gfx_emote_unlock(emote_handle);
+    gfx_core_unlock(emote_handle);
 
     vTaskDelay(pdMS_TO_TICKS(10 * 1000));
 
-    gfx_emote_lock(emote_handle);
+    gfx_core_lock(emote_handle);
     gfx_timer_delete(emote_handle, timer);
     gfx_obj_delete(anim_obj);
     gfx_obj_delete(label_obj);
     gfx_obj_delete(img_obj);
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
-    gfx_label_delete_font(font_DejaVuSans);
+    gfx_label_font_delete(font_DejaVuSans);
 #endif
-    gfx_emote_unlock(emote_handle);
+    gfx_core_unlock(emote_handle);
 }
 
 TEST_CASE("object: multi scene demo", "[widget][object]")

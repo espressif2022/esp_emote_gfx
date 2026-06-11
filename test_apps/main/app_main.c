@@ -32,6 +32,6 @@ extern void test_motion_widget_run_pose(void);
 
 void app_main(void)
 {
-    // unity_run_menu();
-    test_motion_widget_run_pose();
+    unity_run_menu();
+    // test_motion_widget_run_pose();
 }

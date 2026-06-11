@@ -15,7 +15,7 @@
 #include "common/gfx_log_priv.h"
 
 #include "common/gfx_comm.h"
-#include "core/display/gfx_refr_priv.h"
+#include "core/display/gfx_refresh_priv.h"
 #include "core/draw/gfx_blend_priv.h"
 #include "core/draw/gfx_sw_draw_priv.h"
 #include "core/object/gfx_obj_priv.h"
@@ -373,7 +373,7 @@ static esp_err_t gfx_list_draw_text(gfx_obj_t *obj, gfx_list_t *list, const gfx_
     obj->geometry.height = (uint16_t)MAX(0, text_area.y2 - text_area.y1);
     obj->align.enabled = false;
 
-    ret = gfx_draw_label(obj, ctx);
+    ret = gfx_label_draw(obj, ctx);
 
     obj->type = original_type;
     obj->src = original_src;
@@ -397,8 +397,6 @@ static esp_err_t gfx_list_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     gfx_area_t clip_area;
     gfx_area_t fill_area;
     gfx_color_t *dest_pixels;
-    uint16_t bg_raw;
-
     CHECK_OBJ_TYPE_LIST(obj);
     GFX_RETURN_IF_NULL(ctx, ESP_ERR_INVALID_ARG);
 
@@ -421,8 +419,7 @@ static esp_err_t gfx_list_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     fill_area.y1 = clip_area.y1 - ctx->buf_area.y1;
     fill_area.x2 = clip_area.x2 - ctx->buf_area.x1;
     fill_area.y2 = clip_area.y2 - ctx->buf_area.y1;
-    bg_raw = gfx_color_to_native_u16(list->style.bg_color, ctx->swap);
-    gfx_sw_blend_fill_area((uint16_t *)dest_pixels, ctx->stride, &fill_area, bg_raw);
+    gfx_sw_blend_fill_area_color(dest_pixels, ctx->stride, &fill_area, list->style.bg_color, ctx->swap);
 
     gfx_list_clamp_top_index(obj, list);
 
@@ -450,8 +447,7 @@ static esp_err_t gfx_list_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
             fill_area.y1 = row_clip.y1 - ctx->buf_area.y1;
             fill_area.x2 = row_clip.x2 - ctx->buf_area.x1;
             fill_area.y2 = row_clip.y2 - ctx->buf_area.y1;
-            gfx_sw_blend_fill_area((uint16_t *)dest_pixels, ctx->stride, &fill_area,
-                                   gfx_color_to_native_u16(row_bg, ctx->swap));
+            gfx_sw_blend_fill_area_color(dest_pixels, ctx->stride, &fill_area, row_bg, ctx->swap);
         }
 
         if (list->style.border_width > 0 && row_area.y2 > row_area.y1) {

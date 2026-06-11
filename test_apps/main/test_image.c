@@ -11,6 +11,8 @@ static const char *const TAG = "test_image";
 typedef struct {
     gfx_obj_t *img_primary;
     gfx_obj_t *img_secondary;
+    gfx_obj_t *img_rgb888;
+    gfx_obj_t *img_rgb888a8;
 } test_image_scene_t;
 
 static void test_image_scene_cleanup(test_image_scene_t *scene)
@@ -27,6 +29,14 @@ static void test_image_scene_cleanup(test_image_scene_t *scene)
         gfx_obj_delete(scene->img_secondary);
         scene->img_secondary = NULL;
     }
+    if (scene->img_rgb888 != NULL) {
+        gfx_obj_delete(scene->img_rgb888);
+        scene->img_rgb888 = NULL;
+    }
+    if (scene->img_rgb888a8 != NULL) {
+        gfx_obj_delete(scene->img_rgb888a8);
+        scene->img_rgb888a8 = NULL;
+    }
 }
 
 static void test_image_run(mmap_assets_handle_t assets_handle)
@@ -39,6 +49,14 @@ static void test_image_run(mmap_assets_handle_t assets_handle)
     const gfx_img_src_t c_array_a8_src = {
         .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
         .data = &icon_rgb565A8,
+    };
+    const gfx_img_src_t c_array_rgb888_src = {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = &icon_rgb888,
+    };
+    const gfx_img_src_t c_array_rgb888a8_src = {
+        .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
+        .data = &icon_rgb888a8,
     };
     test_image_scene_t scene = {0};
 
@@ -95,18 +113,26 @@ static void test_image_run(mmap_assets_handle_t assets_handle)
 
     test_app_wait_for_observe(1800);
 
-    test_app_log_step(TAG, "Compare RGB565 and RGB565A8");
+    test_app_log_step(TAG, "Compare RGB565, RGB565A8, RGB888, and RGB888A8");
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     scene.img_secondary = gfx_img_create(disp_default);
     TEST_ASSERT_NOT_NULL(scene.img_secondary);
+    scene.img_rgb888 = gfx_img_create(disp_default);
+    TEST_ASSERT_NOT_NULL(scene.img_rgb888);
+    scene.img_rgb888a8 = gfx_img_create(disp_default);
+    TEST_ASSERT_NOT_NULL(scene.img_rgb888a8);
     gfx_img_set_src_desc(scene.img_primary, &c_array_a8_src);
     TEST_ASSERT_EQUAL(ESP_OK, load_image(assets_handle, MMAP_ASSETS_TEST_ICON_RGB565_BIN, &img_dsc));
     gfx_img_set_src_desc(scene.img_secondary, &(gfx_img_src_t) {
         .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,
         .data = &img_dsc,
     });
+    gfx_img_set_src_desc(scene.img_rgb888, &c_array_rgb888_src);
+    gfx_img_set_src_desc(scene.img_rgb888a8, &c_array_rgb888a8_src);
     gfx_obj_set_pos(scene.img_primary, 90, 90);
     gfx_obj_set_pos(scene.img_secondary, 90, 180);
+    gfx_obj_set_pos(scene.img_rgb888, 180, 180);
+    gfx_obj_set_pos(scene.img_rgb888a8, 210, 180);
     test_app_unlock();
 
     test_app_wait_for_observe(2500);

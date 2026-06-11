@@ -16,7 +16,7 @@
 #include "common/gfx_log_priv.h"
 #include "lib/qrcode/qrcode_wrapper.h"
 #include "common/gfx_comm.h"
-#include "core/display/gfx_refr_priv.h"
+#include "core/display/gfx_refresh_priv.h"
 #include "core/draw/gfx_blend_priv.h"
 #include "core/object/gfx_obj_priv.h"
 #include "widget/gfx_qrcode.h"
@@ -45,7 +45,6 @@ typedef struct {
 
 typedef struct {
     gfx_obj_t *obj;
-    bool swap;
 } gfx_qrcode_draw_data_t;
 
 /**********************
@@ -60,7 +59,7 @@ static const char *const TAG = "qrcode";
 static esp_err_t gfx_qrcode_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx);
 static esp_err_t gfx_qrcode_delete_impl(gfx_obj_t *obj);
 static void gfx_qrcode_generate_callback(qrcode_wrapper_handle_t qrcode, void *user_data);
-static esp_err_t gfx_qrcode_generate(gfx_obj_t *obj, bool swap);
+static esp_err_t gfx_qrcode_generate(gfx_obj_t *obj);
 static void gfx_qrcode_blend(gfx_obj_t *obj, gfx_qrcode_t *qrcode, const gfx_draw_ctx_t *ctx);
 static void gfx_qrcode_init_default_state(gfx_qrcode_t *qrcode);
 
@@ -95,8 +94,6 @@ static void gfx_qrcode_generate_callback(qrcode_wrapper_handle_t qrcode, void *u
 {
     gfx_qrcode_draw_data_t *draw_data = (gfx_qrcode_draw_data_t *)user_data;
     gfx_obj_t *obj = draw_data->obj;
-    bool swap = draw_data->swap;
-
     gfx_qrcode_t *qrcode_obj = (gfx_qrcode_t *)obj->src;
 
     int qr_size = qrcode_wrapper_get_size(qrcode);
@@ -128,8 +125,8 @@ static void gfx_qrcode_generate_callback(qrcode_wrapper_handle_t qrcode, void *u
 
     uint16_t *pixel_buf = (uint16_t *)qrcode_obj->qr_modules;
 
-    uint16_t fg_color = gfx_color_to_native_u16(qrcode_obj->color, swap);
-    uint16_t bg_color = gfx_color_to_native_u16(qrcode_obj->bg_color, swap);
+    uint16_t fg_color = qrcode_obj->color.full;
+    uint16_t bg_color = qrcode_obj->bg_color.full;
 
     for (int y = 0; y < display_size; y++) {
         for (int x = 0; x < display_size; x++) {
@@ -168,7 +165,7 @@ static void gfx_qrcode_generate_callback(qrcode_wrapper_handle_t qrcode, void *u
     GFX_LOGD(TAG, "generate qrcode: buffer generated");
 }
 
-static esp_err_t gfx_qrcode_generate(gfx_obj_t *obj, bool swap)
+static esp_err_t gfx_qrcode_generate(gfx_obj_t *obj)
 {
     gfx_qrcode_t *qrcode = (gfx_qrcode_t *)obj->src;
 
@@ -194,7 +191,6 @@ static esp_err_t gfx_qrcode_generate(gfx_obj_t *obj, bool swap)
 
     gfx_qrcode_draw_data_t draw_data = {
         .obj = obj,
-        .swap = swap
     };
 
     qrcode_wrapper_config_t cfg = {
@@ -239,6 +235,7 @@ static void gfx_qrcode_blend(gfx_obj_t *obj, gfx_qrcode_t *qrcode, const gfx_dra
         NULL,
         0,
         &clip_area,
+        GFX_COLOR_FORMAT_RGB565_SWAPPED,
         ctx->swap
     );
 }
@@ -258,7 +255,7 @@ static esp_err_t gfx_qrcode_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     gfx_qrcode_t *qrcode = (gfx_qrcode_t *)obj->src;
 
     if (qrcode->needs_update) {
-        esp_err_t ret = gfx_qrcode_generate(obj, ctx->swap);
+        esp_err_t ret = gfx_qrcode_generate(obj);
         if (ret != ESP_OK) {
             return ret;
         }

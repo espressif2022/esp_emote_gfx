@@ -19,12 +19,12 @@
 #include "common/gfx_comm.h"
 #include "common/gfx_config_internal.h"
 #include "common/gfx_mesh_frac.h"
-#include "core/display/gfx_refr_priv.h"
+#include "core/display/gfx_refresh_priv.h"
 #include "core/draw/gfx_blend_priv.h"
 #include "core/draw/gfx_sw_draw_priv.h"
 #include "core/object/gfx_obj_priv.h"
 #include "widget/gfx_mesh_img.h"
-#include "widget/img/gfx_img_dec_priv.h"
+#include "widget/img/gfx_image_decoder_priv.h"
 
 /*********************
  *      DEFINES
@@ -422,7 +422,7 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     gfx_coord_t src_stride;
     gfx_coord_t src_height;
     gfx_color_format_t color_format;
-    const gfx_color_t *src_pixels;
+    const void *src_pixels;
     const gfx_opa_t *alpha_mask = NULL;
 
     if (obj == NULL || obj->src == NULL || ctx == NULL) {
@@ -445,7 +445,7 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     }
 
     color_format = (gfx_color_format_t)mesh->header.cf;
-    if (color_format != GFX_COLOR_FORMAT_RGB565 && color_format != GFX_COLOR_FORMAT_RGB565A8) {
+    if (!gfx_color_format_is_image_supported(color_format)) {
         GFX_LOGW("draw mesh image: unsupported color format %u", color_format);
         return ESP_ERR_NOT_SUPPORTED;
     }
@@ -470,13 +470,16 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
         return ESP_OK;
     }
 
-    src_stride = (mesh->header.stride > 0U) ? (gfx_coord_t)(mesh->header.stride / GFX_PIXEL_SIZE_16BPP) : (gfx_coord_t)mesh->header.w;
+    uint8_t src_pixel_size = gfx_color_format_get_size(color_format);
+    src_stride = (mesh->header.stride > 0U && src_pixel_size > 0U)
+                 ? (gfx_coord_t)(mesh->header.stride / src_pixel_size)
+                 : (gfx_coord_t)mesh->header.w;
     src_height = (gfx_coord_t)mesh->header.h;
-    src_pixels = (const gfx_color_t *)decoder_dsc.data;
+    src_pixels = decoder_dsc.data;
 
-    if (color_format == GFX_COLOR_FORMAT_RGB565A8) {
+    if (gfx_color_format_has_alpha(color_format)) {
         alpha_mask = (const gfx_opa_t *)((const uint8_t *)decoder_dsc.data +
-                                         (size_t)src_stride * src_height * GFX_PIXEL_SIZE_16BPP);
+                                         (size_t)src_stride * src_height * src_pixel_size);
     }
 
     if (mesh->scanline_fill && mesh->grid_rows == 1U && mesh->points != NULL) {
@@ -765,6 +768,7 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
                                            &tri1[0], &tri1[1], &tri1[2],
                                            ie1,
                                            xaa1_n ? xaa1 : NULL, xaa1_n,
+                                           color_format,
                                            ctx->swap);
             gfx_sw_blend_img_triangle_draw((gfx_color_t *)ctx->buf, ctx->stride,
                                            &ctx->buf_area, &clip_area,
@@ -774,6 +778,7 @@ static esp_err_t gfx_mesh_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
                                            &tri2[0], &tri2[1], &tri2[2],
                                            ie2,
                                            xaa2_n ? xaa2 : NULL, xaa2_n,
+                                           color_format,
                                            ctx->swap);
         }
     }
@@ -850,7 +855,7 @@ esp_err_t gfx_mesh_img_set_src_desc(gfx_obj_t *obj, const gfx_img_src_t *src)
     ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh image src: state is NULL");
 
     ESP_RETURN_ON_ERROR(gfx_mesh_img_load_header(src, &header), TAG, "set mesh image src: query header failed");
-    ESP_RETURN_ON_FALSE(header.cf == GFX_COLOR_FORMAT_RGB565 || header.cf == GFX_COLOR_FORMAT_RGB565A8,
+    ESP_RETURN_ON_FALSE(gfx_color_format_is_image_supported((gfx_color_format_t)header.cf),
                         ESP_ERR_NOT_SUPPORTED, TAG, "set mesh image src: unsupported color format");
 
     gfx_obj_invalidate(obj);
@@ -867,7 +872,7 @@ esp_err_t gfx_mesh_img_set_src_desc(gfx_obj_t *obj, const gfx_img_src_t *src)
     return ESP_OK;
 }
 
-esp_err_t gfx_mesh_img_set_src(gfx_obj_t *obj, void *src)
+esp_err_t gfx_mesh_img_set_src(gfx_obj_t *obj, const void *src)
 {
     const gfx_img_src_t compat_src = {
         .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,

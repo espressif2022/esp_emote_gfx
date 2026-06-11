@@ -14,7 +14,7 @@
 #include "common/gfx_log_priv.h"
 #include "common/gfx_comm.h"
 #include "core/display/gfx_disp_priv.h"
-#include "core/display/gfx_refr_priv.h"
+#include "core/display/gfx_refresh_priv.h"
 #include "core/object/gfx_obj_priv.h"
 #include "widget/label/gfx_label_draw_priv.h"
 #include "widget/label/gfx_label_priv.h"
@@ -40,7 +40,7 @@ static void gfx_label_init_default_state(gfx_label_t *label);
 static const gfx_widget_class_t s_gfx_label_widget_class = {
     .type = GFX_OBJ_TYPE_LABEL,
     .name = "label",
-    .draw = gfx_draw_label,
+    .draw = gfx_label_draw,
     .delete = gfx_label_delete_impl,
     .update = gfx_label_update_impl,
     .touch_event = NULL,
@@ -164,7 +164,7 @@ esp_err_t gfx_label_update_impl(gfx_obj_t *obj)
         break;
     }
 
-    esp_err_t ret = gfx_get_glphy_dsc(obj);
+    esp_err_t ret = gfx_label_prepare_glyphs(obj);
     if (ret != ESP_OK || !label->render.mask) {
         return ESP_FAIL;
     }

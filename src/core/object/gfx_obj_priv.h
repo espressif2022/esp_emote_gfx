@@ -7,6 +7,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "core/gfx_types_priv.h"
 #include "core/gfx_obj.h"
 
 #ifdef __cplusplus
@@ -16,6 +17,21 @@ extern "C" {
 /*********************
  *      DEFINES
  *********************/
+/* Object types */
+#define GFX_OBJ_TYPE_SCREEN       0x00  /**< Screen type (reserved) */
+#define GFX_OBJ_TYPE_IMAGE        0x01
+#define GFX_OBJ_TYPE_LABEL        0x02
+#define GFX_OBJ_TYPE_ANIMATION    0x03
+#define GFX_OBJ_TYPE_QRCODE       0x04
+#define GFX_OBJ_TYPE_BUTTON       0x05
+#define GFX_OBJ_TYPE_MESH_IMAGE   0x06
+#define GFX_OBJ_TYPE_LIST         0x07
+#define GFX_OBJ_TYPE_FACE_EMOTE   0x08
+/* 0x09 reserved for removed dragon emote */
+#define GFX_OBJ_TYPE_LOBSTER_EMOTE 0x0A
+/* 0x0B reserved for removed lobster face emote */
+#define GFX_OBJ_TYPE_STICKMAN_EMOTE 0x0C
+
 #define DEFAULT_SCREEN_WIDTH  320
 #define DEFAULT_SCREEN_HEIGHT 240
 
@@ -54,7 +70,7 @@ struct gfx_obj {
     void *src;                  /**< Source data (image, label, etc.) */
     uint8_t type;               /**< Object type */
     const gfx_widget_class_t *klass; /**< Registered class metadata */
-    gfx_disp_t *disp;           /**< Display this object belongs to (from gfx_emote_add_disp) */
+    gfx_disp_t *disp;           /**< Display this object belongs to */
 
     struct {
         gfx_coord_t x;          /**< X position */

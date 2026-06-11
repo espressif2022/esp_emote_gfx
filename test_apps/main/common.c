@@ -42,11 +42,11 @@ static void test_app_configure_gfx_log_levels(void)
 {
     gfx_log_set_level_all(GFX_LOG_LEVEL_INFO);
 
-    gfx_log_set_level(GFX_LOG_MODULE_DRAW_LABEL, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_LABEL_DRAW, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_LABEL, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_LABEL_OBJ, GFX_LOG_LEVEL_INFO);
-    gfx_log_set_level(GFX_LOG_MODULE_FONT_FT, GFX_LOG_LEVEL_INFO);
-    gfx_log_set_level(GFX_LOG_MODULE_FONT_LV, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_FONT_FREETYPE, GFX_LOG_LEVEL_INFO);
+    gfx_log_set_level(GFX_LOG_MODULE_FONT_LVGL, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_ANIM, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_IMG, GFX_LOG_LEVEL_INFO);
     gfx_log_set_level(GFX_LOG_MODULE_MESH_IMG, GFX_LOG_LEVEL_INFO);
@@ -235,12 +235,12 @@ void test_app_runtime_close(test_app_runtime_t *runtime)
 
 esp_err_t test_app_lock(void)
 {
-    return gfx_emote_lock(emote_handle);
+    return gfx_core_lock(emote_handle);
 }
 
 void test_app_unlock(void)
 {
-    gfx_emote_unlock(emote_handle);
+    gfx_core_unlock(emote_handle);
 }
 
 void test_app_wait_ms(uint32_t delay_ms)
@@ -339,13 +339,13 @@ esp_err_t display_and_graphics_init(const char *partition_label, uint32_t max_fi
     /* Initialize graphics system */
     gfx_core_config_t gfx_cfg = {
         .fps = 30,
-        .task = GFX_EMOTE_INIT_CONFIG()
+        .task = GFX_CORE_TASK_DEFAULT_CONFIG()
     };
     gfx_cfg.task.task_stack_caps = MALLOC_CAP_DEFAULT | MALLOC_CAP_INTERNAL;
     gfx_cfg.task.task_affinity = 0;
     gfx_cfg.task.task_priority = 7;
     gfx_cfg.task.task_stack = 20 * 1024;
-    emote_handle = gfx_emote_init(&gfx_cfg);
+    emote_handle = gfx_core_init(&gfx_cfg);
     ESP_GOTO_ON_FALSE(emote_handle != NULL, ESP_FAIL, err_assets, TAG, "Failed to initialize graphics system");
 
     /* Add default display */
@@ -390,7 +390,7 @@ esp_err_t display_and_graphics_init(const char *partition_label, uint32_t max_fi
 
 err_gfx:
     if (emote_handle != NULL) {
-        gfx_emote_deinit(emote_handle);
+        gfx_core_deinit(emote_handle);
         emote_handle = NULL;
         disp_default = NULL;
         touch_default = NULL;
@@ -403,7 +403,7 @@ err_assets:
 void display_and_graphics_clean(mmap_assets_handle_t assets_handle)
 {
     if (emote_handle != NULL) {
-        gfx_emote_deinit(emote_handle);
+        gfx_core_deinit(emote_handle);
         emote_handle = NULL;
         disp_default = NULL;
         touch_default = NULL;

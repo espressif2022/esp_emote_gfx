@@ -18,8 +18,8 @@ extern "C" {
 /*********************
  *      DEFINES
  *********************/
-/** Use as .task = GFX_EMOTE_INIT_CONFIG() when initializing gfx_core_config_t */
-#define GFX_EMOTE_INIT_CONFIG()                   \
+/** Use as .task = GFX_CORE_TASK_DEFAULT_CONFIG() when initializing gfx_core_config_t */
+#define GFX_CORE_TASK_DEFAULT_CONFIG()                   \
     {                                              \
         .task_priority = 4,                        \
         .task_stack = 7168,                        \
@@ -30,7 +30,7 @@ extern "C" {
 /*********************
  *      TYPEDEFS
  *********************/
-/** Passed to gfx_emote_init(); add displays with gfx_disp_add() after init */
+/** Passed to gfx_core_init(); add displays with gfx_disp_add() after init */
 typedef struct {
     uint32_t fps;                               /**< Target FPS (frames per second) */
     struct {
@@ -54,14 +54,14 @@ typedef struct {
  * @note gfx_core_config_t fields: fps, task (priority, stack, affinity, stack_caps).
  *       Resolution, buffers and flush callback are per-display; see gfx_disp_config_t and gfx_disp_add().
  */
-gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg);
+gfx_handle_t gfx_core_init(const gfx_core_config_t *cfg);
 
 /**
  * @brief Deinitialize graphics context
  *
  * @param handle Graphics handle
  */
-void gfx_emote_deinit(gfx_handle_t handle);
+void gfx_core_deinit(gfx_handle_t handle);
 
 /**
  * @brief Lock the recursive render mutex to prevent rendering during external operations
@@ -69,7 +69,7 @@ void gfx_emote_deinit(gfx_handle_t handle);
  * @param handle Graphics handle
  * @return ESP_OK on success, or an ESP_ERR_* code on failure.
  */
-esp_err_t gfx_emote_lock(gfx_handle_t handle);
+esp_err_t gfx_core_lock(gfx_handle_t handle);
 
 /**
  * @brief Unlock the recursive render mutex after external operations
@@ -77,7 +77,7 @@ esp_err_t gfx_emote_lock(gfx_handle_t handle);
  * @param handle Graphics handle
  * @return ESP_OK on success, or an ESP_ERR_* code on failure.
  */
-esp_err_t gfx_emote_unlock(gfx_handle_t handle);
+esp_err_t gfx_core_unlock(gfx_handle_t handle);
 
 /**
  * @brief Perform one synchronous refresh (render and flush) immediately.
@@ -86,7 +86,7 @@ esp_err_t gfx_emote_unlock(gfx_handle_t handle);
  * @param handle Graphics handle
  * @return ESP_OK on success, or an ESP_ERR_* code on failure.
  */
-esp_err_t gfx_refr_now(gfx_handle_t handle);
+esp_err_t gfx_core_refresh_now(gfx_handle_t handle);
 
 #ifdef __cplusplus
 }

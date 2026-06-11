@@ -63,14 +63,14 @@ Bind a display to a touch device
 
 * ESP_OK on success, ESP_ERR_INVALID_ARG if touch is NULL
 
-gfx_touch_del()
+gfx_touch_delete()
 ~~~~~~~~~~~~~~~
 
 Remove a touch device from the list and release resources (stops polling, disables IRQ). Does not free the gfx_touch_t; caller must free(touch) after.
 
 .. code-block:: c
 
-   void gfx_touch_del(gfx_touch_t *touch);
+   void gfx_touch_delete(gfx_touch_t *touch);
 
 **Parameters:**
 

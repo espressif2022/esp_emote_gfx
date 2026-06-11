@@ -20,7 +20,7 @@
 
 #include "common/gfx_subsystem_init_priv.h"
 #include "core/gfx_obj.h"
-#include "core/display/gfx_refr_priv.h"
+#include "core/display/gfx_refresh_priv.h"
 #include "core/display/gfx_render_priv.h"
 #include "core/object/gfx_obj_priv.h"
 #include "core/runtime/gfx_timer_priv.h"
@@ -145,7 +145,7 @@ static void gfx_do_refr_now_impl(gfx_core_context_t *ctx)
  *   PUBLIC FUNCTIONS
  **********************/
 
-gfx_handle_t gfx_emote_init(const gfx_core_config_t *cfg)
+gfx_handle_t gfx_core_init(const gfx_core_config_t *cfg)
 {
     esp_err_t ret = ESP_OK;
     gfx_core_context_t *disp_ctx = NULL;
@@ -216,7 +216,7 @@ err:
     return NULL;
 }
 
-void gfx_emote_deinit(gfx_handle_t handle)
+void gfx_core_deinit(gfx_handle_t handle)
 {
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
     if (ctx == NULL) {
@@ -228,10 +228,7 @@ void gfx_emote_deinit(gfx_handle_t handle)
     xEventGroupWaitBits(ctx->sync.lifecycle_events, DELETE_DONE, pdTRUE, pdFALSE, portMAX_DELAY);
 
     while (ctx->disp != NULL) {
-        gfx_disp_t *d = ctx->disp;
-        gfx_disp_delete_children(d);
-        gfx_disp_del(d);
-        free(d);
+        gfx_disp_delete(ctx->disp);
     }
 
     gfx_touch_delete_all(ctx);
@@ -259,7 +256,7 @@ void gfx_emote_deinit(gfx_handle_t handle)
     free(ctx);
 }
 
-esp_err_t gfx_refr_now(gfx_handle_t handle)
+esp_err_t gfx_core_refresh_now(gfx_handle_t handle)
 {
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
     SemaphoreHandle_t mutex = ctx ? ctx->sync.render_mutex : NULL;
@@ -283,7 +280,7 @@ esp_err_t gfx_refr_now(gfx_handle_t handle)
     return ESP_OK;
 }
 
-esp_err_t gfx_emote_lock(gfx_handle_t handle)
+esp_err_t gfx_core_lock(gfx_handle_t handle)
 {
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
     SemaphoreHandle_t mutex = ctx ? ctx->sync.render_mutex : NULL;
@@ -300,7 +297,7 @@ esp_err_t gfx_emote_lock(gfx_handle_t handle)
     return ESP_OK;
 }
 
-esp_err_t gfx_emote_unlock(gfx_handle_t handle)
+esp_err_t gfx_core_unlock(gfx_handle_t handle)
 {
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
     SemaphoreHandle_t mutex = ctx ? ctx->sync.render_mutex : NULL;

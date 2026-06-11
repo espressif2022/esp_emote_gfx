@@ -17,7 +17,7 @@
 #define GFX_LOG_MODULE GFX_LOG_MODULE_LABEL
 #include "common/gfx_log_priv.h"
 #include "common/gfx_comm.h"
-#include "core/display/gfx_refr_priv.h"
+#include "core/display/gfx_refresh_priv.h"
 
 #include "widget/gfx_label.h"
 #include "widget/label/gfx_label_draw_priv.h"

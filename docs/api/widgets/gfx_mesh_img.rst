@@ -63,7 +63,7 @@ Set the image source for the mesh.
 
 .. code-block:: c
 
-   esp_err_t gfx_mesh_img_set_src(gfx_obj_t *obj, void *src);
+   esp_err_t gfx_mesh_img_set_src(gfx_obj_t *obj, const void *src);
 
 **Parameters:**
 

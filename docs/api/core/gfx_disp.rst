@@ -41,19 +41,19 @@ gfx_perf_counter_t
        uint64_t time_us;         /**< Elapsed time in microseconds */
    } gfx_perf_counter_t;
 
-gfx_blend_perf_stats_t
-~~~~~~~~~~~~~~~~~~~~~~
+gfx_draw_perf_stats_t
+~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: c
 
    typedef struct {
-       gfx_perf_counter_t fill;          /**< gfx_sw_blend_fill_area */
-       gfx_perf_counter_t color_draw;    /**< gfx_sw_blend_draw */
-       gfx_perf_counter_t image_draw;    /**< gfx_sw_blend_img_draw */
-       gfx_perf_counter_t triangle_draw; /**< gfx_sw_blend_img_triangle_draw */
-       uint64_t triangle_covered_pixels; /**< Triangle pixels blended (inside + AA) */
-       uint64_t triangle_aa_pixels;      /**< Triangle edge-AA blended pixels */
-   } gfx_blend_perf_stats_t;
+       gfx_perf_counter_t fill;              /**< Solid area fills */
+       gfx_perf_counter_t solid;             /**< Solid-color draw operations */
+       gfx_perf_counter_t image;             /**< Image draw operations */
+       gfx_perf_counter_t shape;             /**< Shape/mesh draw operations */
+       uint64_t shape_covered_pixels;        /**< Shape pixels covered by rasterization */
+       uint64_t shape_aa_pixels;             /**< Shape edge-AA pixels */
+   } gfx_draw_perf_stats_t;
 
 gfx_disp_perf_stats_t
 ~~~~~~~~~~~~~~~~~~~~~
@@ -66,7 +66,7 @@ gfx_disp_perf_stats_t
        uint64_t render_time_us;          /**< Time spent in render phase */
        uint64_t flush_time_us;           /**< Time spent in flush callbacks */
        uint32_t flush_count;             /**< Number of flush calls */
-       gfx_blend_perf_stats_t blend;     /**< Blend-stage details */
+       gfx_draw_perf_stats_t draw;       /**< Draw-stage details */
    } gfx_disp_perf_stats_t;
 
 gfx_disp_config_t
@@ -104,14 +104,14 @@ gfx_disp_add()
 
    gfx_disp_t * gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg);
 
-gfx_disp_del()
+gfx_disp_delete()
 ~~~~~~~~~~~~~~
 
-Remove a display from the list and release its resources (child list nodes, event group, buffers). Does not free the gfx_disp_t; caller must free(disp) after.
+Remove a display and release its child objects and resources.
 
 .. code-block:: c
 
-   void gfx_disp_del(gfx_disp_t *disp);
+   void gfx_disp_delete(gfx_disp_t *disp);
 
 **Parameters:**
 
@@ -165,14 +165,14 @@ Get user data for a display
 
 * void* User data, or NULL
 
-gfx_disp_get_hor_res()
+gfx_disp_get_h_res()
 ~~~~~~~~~~~~~~~~~~~~~~
 
 Get display horizontal resolution in pixels
 
 .. code-block:: c
 
-   uint32_t gfx_disp_get_hor_res(gfx_disp_t *disp);
+   uint32_t gfx_disp_get_h_res(gfx_disp_t *disp);
 
 **Parameters:**
 
@@ -182,14 +182,14 @@ Get display horizontal resolution in pixels
 
 * uint32_t Width in pixels
 
-gfx_disp_get_ver_res()
+gfx_disp_get_v_res()
 ~~~~~~~~~~~~~~~~~~~~~~
 
 Get display vertical resolution in pixels
 
 .. code-block:: c
 
-   uint32_t gfx_disp_get_ver_res(gfx_disp_t *disp);
+   uint32_t gfx_disp_get_v_res(gfx_disp_t *disp);
 
 **Parameters:**
 

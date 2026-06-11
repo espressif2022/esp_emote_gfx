@@ -87,15 +87,13 @@ static void test_anim_run(mmap_assets_handle_t assets_handle)
     TEST_ASSERT_NOT_NULL(anim_obj);
     test_app_unlock();
 
-    size_t case_index = 0;
-    while (1) {
-        const test_anim_case_t *c = &s_cases[case_index];
+    for (size_t i = 0; i < TEST_APP_ARRAY_SIZE(s_cases); i++) {
+        const test_anim_case_t *c = &s_cases[i];
         test_anim_show_case(assets_handle, anim_obj, c);
         test_app_wait_for_observe(c->observe_ms);
         if (gfx_anim_play_left_to_tail(anim_obj) == ESP_OK) {
             test_app_log_step(TAG, "drain remaining segments done");
         }
-        case_index = (case_index + 1) % TEST_APP_ARRAY_SIZE(s_cases);
     }
 }
 

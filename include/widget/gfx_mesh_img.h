@@ -78,7 +78,7 @@ esp_err_t gfx_mesh_img_set_src_desc(gfx_obj_t *obj, const gfx_img_src_t *src);
  * @param src In-memory image source payload
  * @return ESP_OK on success, ESP_ERR_* otherwise
  */
-esp_err_t gfx_mesh_img_set_src(gfx_obj_t *obj, void *src);
+esp_err_t gfx_mesh_img_set_src(gfx_obj_t *obj, const void *src);
 
 /**
  * @brief Configure mesh grid density.

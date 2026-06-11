@@ -10,7 +10,7 @@ Test App Menu
 The test app currently exposes these cases:
 
 * ``anim: emote generator`` - animation source and segment playback validation.
-* ``image: source matrix`` - image source descriptors and RGB565/RGB565A8 input.
+* ``image: source matrix`` - image source descriptors and RGB565/RGB565A8/RGB888/RGB888A8 input.
 * ``label: bitmap font`` - bitmap/LVGL font label rendering.
 * ``label: freetype font`` - FreeType font loading and text rendering.
 * ``motion: rig preview`` - interactive Motion scene playback.
@@ -50,7 +50,7 @@ Create an image:
    extern const gfx_image_dsc_t icon;
 
    gfx_obj_t *img = gfx_img_create(disp);
-   gfx_img_set_src(img, (void *)&icon);
+   gfx_img_set_src(img, &icon);
    gfx_obj_align(img, GFX_ALIGN_CENTER, 0, 0);
 
 Create a QR code:

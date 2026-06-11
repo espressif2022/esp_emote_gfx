@@ -27,9 +27,9 @@
 #define OPA_TRANSP   0
 #define OPA_COVER    0xFF
 
-#define FILL_NORMAL_MASK_PX(color, swap)                              \
-    if(*mask == OPA_COVER) *dest_buf = color;                \
-    else *dest_buf = gfx_blend_color_mix(color, *dest_buf, *mask, swap);     \
+#define FILL_NORMAL_MASK_PX(color, native_color, swap)                              \
+    if(*mask == OPA_COVER) *dest_buf = native_color;                \
+    else *dest_buf = gfx_sw_blend_mix_to_native(color, *dest_buf, *mask, swap);     \
     mask++;                                                     \
     dest_buf++;
 
@@ -40,7 +40,7 @@
 /**********************
  *  STATIC VARIABLES
  **********************/
-static gfx_blend_perf_stats_t *s_active_perf_stats = NULL;
+static gfx_draw_perf_stats_t *s_active_perf_stats = NULL;
 
 /**********************
  *   STATIC FUNCTIONS
@@ -120,6 +120,45 @@ static inline uint64_t gfx_blend_perf_elapsed_us(int64_t start_us)
     return (uint64_t)(esp_timer_get_time() - start_us);
 }
 
+static inline bool gfx_sw_blend_src_matches_dest_native(gfx_color_format_t src_format, bool swap)
+{
+    if (swap) {
+        return src_format == GFX_COLOR_FORMAT_RGB565;
+    }
+    return src_format == GFX_COLOR_FORMAT_RGB565_SWAPPED;
+}
+
+static inline gfx_color_t gfx_sw_blend_img_src_to_semantic_at(const void *src_buf, size_t index,
+        gfx_color_format_t src_format)
+{
+    const uint8_t *src = (const uint8_t *)src_buf + index * gfx_color_format_get_size(src_format);
+    gfx_color_t src_color;
+
+    if (src_format == GFX_COLOR_FORMAT_RGB888 || src_format == GFX_COLOR_FORMAT_RGB888A8) {
+        src_color = gfx_color_from_rgb888(src[0], src[1], src[2]);
+    } else if (gfx_color_format_is_rgb565_swapped(src_format)) {
+        src_color.full = ((uint16_t)src[1] << 8) | src[0];
+    } else {
+        src_color.full = ((uint16_t)src[0] << 8) | src[1];
+    }
+    return src_color;
+}
+
+static inline gfx_color_t gfx_sw_blend_semantic_to_native(gfx_color_t color, bool swap)
+{
+    return (gfx_color_t) {
+        .full = gfx_color_to_native_u16(color, swap),
+    };
+}
+
+static inline gfx_color_t gfx_sw_blend_mix_to_native(gfx_color_t src_color, gfx_color_t dest_native,
+        gfx_opa_t opa, bool swap)
+{
+    gfx_color_t dest_color = gfx_color_from_native_u16(dest_native.full, swap);
+    gfx_color_t result = gfx_blend_color_mix(src_color, dest_color, opa, false);
+    return gfx_sw_blend_semantic_to_native(result, swap);
+}
+
 static void gfx_sw_blend_polygon_fill_scanline_fallback(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
         const gfx_area_t *buf_area, const gfx_area_t *clip_area,
         gfx_color_t color,
@@ -144,10 +183,7 @@ static void gfx_sw_blend_polygon_fill_scanline_fallback(gfx_color_t *dest_buf, g
         return;
     }
 
-    fill = color;
-    if (swap) {
-        fill.full = (uint16_t)(fill.full << 8 | fill.full >> 8);
-    }
+    fill = gfx_sw_blend_semantic_to_native(color, swap);
 
     min_yq = vy[0];
     max_yq = vy[0];
@@ -350,10 +386,10 @@ static void gfx_sw_blend_polygon_fill_scanline_fallback(gfx_color_t *dest_buf, g
                         if (opa >= OPA_COVER && center_inside) {
                             row[x - buf_area->x1] = fill;
                         } else {
-                            row[x - buf_area->x1] = gfx_blend_color_mix(color, row[x - buf_area->x1], px_opa, swap);
+                            row[x - buf_area->x1] = gfx_sw_blend_mix_to_native(color, row[x - buf_area->x1], px_opa, swap);
                         }
 #else
-                        row[x - buf_area->x1] = gfx_blend_color_mix(color, row[x - buf_area->x1], px_opa, swap);
+                        row[x - buf_area->x1] = gfx_sw_blend_mix_to_native(color, row[x - buf_area->x1], px_opa, swap);
 #endif
                     }
                 }
@@ -374,7 +410,7 @@ static void gfx_sw_blend_polygon_fill_scanline_fallback(gfx_color_t *dest_buf, g
  *   PUBLIC FUNCTIONS
  **********************/
 
-void gfx_sw_blend_perf_reset(gfx_blend_perf_stats_t *stats)
+void gfx_sw_blend_perf_reset(gfx_draw_perf_stats_t *stats)
 {
     if (stats == NULL) {
         return;
@@ -382,7 +418,7 @@ void gfx_sw_blend_perf_reset(gfx_blend_perf_stats_t *stats)
     memset(stats, 0, sizeof(*stats));
 }
 
-void gfx_sw_blend_perf_bind(gfx_blend_perf_stats_t *stats)
+void gfx_sw_blend_perf_bind(gfx_draw_perf_stats_t *stats)
 {
     s_active_perf_stats = stats;
 }
@@ -395,11 +431,8 @@ void gfx_sw_blend_perf_unbind(void)
 gfx_color_t gfx_blend_color_mix(gfx_color_t c1, gfx_color_t c2, uint8_t mix, bool swap)
 {
     gfx_color_t ret;
+    (void)swap;
 
-    if (swap) {
-        c1.full = c1.full << 8 | c1.full >> 8;
-        c2.full = c2.full << 8 | c2.full >> 8;
-    }
     /*Source: https://stackoverflow.com/a/50012418/1999969*/
     mix = (uint32_t)((uint32_t)mix + 4) >> 3;
     uint32_t bg = (uint32_t)((uint32_t)c2.full | ((uint32_t)c2.full << 16)) &
@@ -407,9 +440,6 @@ gfx_color_t gfx_blend_color_mix(gfx_color_t c1, gfx_color_t c2, uint8_t mix, boo
     uint32_t fg = (uint32_t)((uint32_t)c1.full | ((uint32_t)c1.full << 16)) & 0x7E0F81F;
     uint32_t result = ((((fg - bg) * mix) >> 5) + bg) & 0x7E0F81F;
     ret.full = (uint16_t)((result >> 16) | result);
-    if (swap) {
-        ret.full = ret.full << 8 | ret.full >> 8;
-    }
 
     return ret;
 }
@@ -466,6 +496,13 @@ void gfx_sw_blend_fill_area(uint16_t *dest_buf, gfx_coord_t dest_stride,
     }
 }
 
+void gfx_sw_blend_fill_area_color(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
+                                  const gfx_area_t *area, gfx_color_t color, bool swap)
+{
+    uint16_t native_color = gfx_color_to_native_u16(color, swap);
+    gfx_sw_blend_fill_area((uint16_t *)dest_buf, dest_stride, area, native_color);
+}
+
 void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                        const gfx_opa_t *mask, gfx_coord_t mask_stride,
                        gfx_area_t *clip_area, gfx_color_t color, gfx_opa_t opa, bool swap)
@@ -475,7 +512,8 @@ void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
     int64_t perf_start_us = 0;
 
     int32_t x, y;
-    uint32_t c32 = color.full + ((uint32_t)color.full << 16);
+    gfx_color_t native_color = gfx_sw_blend_semantic_to_native(color, swap);
+    uint32_t c32 = native_color.full + ((uint32_t)native_color.full << 16);
 
     if (w <= 0 || h <= 0) {
         return;
@@ -491,16 +529,16 @@ void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
 
         for (y = 0; y < h; y++) {
             for (x = 0; x < w && ((uintptr_t)mask & 0x3); x++) {
-                FILL_NORMAL_MASK_PX(color, swap)
+                FILL_NORMAL_MASK_PX(color, native_color, swap)
             }
 
             for (; x <= x_end4; x += 4) {
                 uint32_t mask32 = *((uint32_t *)mask);
                 if (mask32 == 0xFFFFFFFF) {
                     if ((uintptr_t)dest_buf & 0x3) {
-                        dest_buf[0] = color;
+                        dest_buf[0] = native_color;
                         ((uint32_t *)(dest_buf + 1))[0] = c32;
-                        dest_buf[3] = color;
+                        dest_buf[3] = native_color;
                     } else {
                         uint32_t *d32 = (uint32_t *)dest_buf;
                         d32[0] = c32;
@@ -509,10 +547,10 @@ void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                     dest_buf += 4;
                     mask += 4;
                 } else if (mask32) {
-                    FILL_NORMAL_MASK_PX(color, swap)
-                    FILL_NORMAL_MASK_PX(color, swap)
-                    FILL_NORMAL_MASK_PX(color, swap)
-                    FILL_NORMAL_MASK_PX(color, swap)
+                    FILL_NORMAL_MASK_PX(color, native_color, swap)
+                    FILL_NORMAL_MASK_PX(color, native_color, swap)
+                    FILL_NORMAL_MASK_PX(color, native_color, swap)
+                    FILL_NORMAL_MASK_PX(color, native_color, swap)
                 } else { //transparent
                     mask += 4;
                     dest_buf += 4;
@@ -520,7 +558,7 @@ void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
             }
 
             for (; x < w ; x++) {
-                FILL_NORMAL_MASK_PX(color, swap)
+                FILL_NORMAL_MASK_PX(color, native_color, swap)
             }
             dest_buf += (dest_stride - w);
             mask += (mask_stride - w);
@@ -542,9 +580,9 @@ void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                     }
                     if (*mask != last_mask || last_dest_color.full != dest_buf[x].full) {
                         if (opa_tmp == OPA_COVER) {
-                            last_res_color = color;
+                            last_res_color = native_color;
                         } else {
-                            last_res_color = gfx_blend_color_mix(color, dest_buf[x], opa_tmp, swap);
+                            last_res_color = gfx_sw_blend_mix_to_native(color, dest_buf[x], opa_tmp, swap);
                         }
                         last_mask = *mask;
                         last_dest_color.full = dest_buf[x].full;
@@ -558,24 +596,26 @@ void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
         }
     }
     if (s_active_perf_stats != NULL) {
-        s_active_perf_stats->color_draw.calls++;
-        s_active_perf_stats->color_draw.pixels += (uint64_t)w * (uint64_t)h;
-        s_active_perf_stats->color_draw.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
+        s_active_perf_stats->solid.calls++;
+        s_active_perf_stats->solid.pixels += (uint64_t)w * (uint64_t)h;
+        s_active_perf_stats->solid.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
     }
 }
 
 void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
-                           const gfx_color_t *src_buf, gfx_coord_t src_stride,
+                           const void *src_buf, gfx_coord_t src_stride,
                            const gfx_opa_t *mask, gfx_coord_t mask_stride,
-                           gfx_area_t *clip_area, bool swap)
+                           gfx_area_t *clip_area, gfx_color_format_t src_format, bool swap)
 {
     int32_t w = clip_area->x2 - clip_area->x1;
     int32_t h = clip_area->y2 - clip_area->y1;
     int64_t perf_start_us = 0;
+    size_t src_pixel_size = gfx_color_format_get_size(src_format);
+    const uint8_t *src_row = (const uint8_t *)src_buf;
 
     int32_t x, y;
 
-    if (w <= 0 || h <= 0) {
+    if (w <= 0 || h <= 0 || src_pixel_size == 0U) {
         return;
     }
 
@@ -583,18 +623,34 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
         perf_start_us = esp_timer_get_time();
     }
 
-    if (mask == NULL) {
-        /* src_buf is expected to already be in native framebuffer order */
+    if (mask == NULL && gfx_sw_blend_src_matches_dest_native(src_format, swap)) {
         size_t row_bytes = (size_t)w * sizeof(gfx_color_t);
         for (y = 0; y < h; y++) {
-            memcpy(dest_buf, src_buf, row_bytes);
+            memcpy(dest_buf, src_row, row_bytes);
             dest_buf += dest_stride;
-            src_buf += src_stride;
+            src_row += (size_t)src_stride * src_pixel_size;
         }
         if (s_active_perf_stats != NULL) {
-            s_active_perf_stats->image_draw.calls++;
-            s_active_perf_stats->image_draw.pixels += (uint64_t)w * (uint64_t)h;
-            s_active_perf_stats->image_draw.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
+            s_active_perf_stats->image.calls++;
+            s_active_perf_stats->image.pixels += (uint64_t)w * (uint64_t)h;
+            s_active_perf_stats->image.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
+        }
+        return;
+    }
+
+    if (mask == NULL) {
+        for (y = 0; y < h; y++) {
+            for (x = 0; x < w; x++) {
+                gfx_color_t src_color = gfx_sw_blend_img_src_to_semantic_at(src_row, (size_t)x, src_format);
+                dest_buf[x] = gfx_sw_blend_semantic_to_native(src_color, swap);
+            }
+            dest_buf += dest_stride;
+            src_row += (size_t)src_stride * src_pixel_size;
+        }
+        if (s_active_perf_stats != NULL) {
+            s_active_perf_stats->image.calls++;
+            s_active_perf_stats->image.pixels += (uint64_t)w * (uint64_t)h;
+            s_active_perf_stats->image.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
         }
         return;
     }
@@ -605,39 +661,40 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
     gfx_opa_t last_mask = OPA_TRANSP;
     last_dest_color.full = dest_buf[0].full;
     last_res_color.full = dest_buf[0].full;
-    last_src_color.full = src_buf[0].full;
+    last_src_color = gfx_sw_blend_img_src_to_semantic_at(src_row, 0, src_format);
 
     for (y = 0; y < h; y++) {
         for (x = 0; x < w; x++) {
             if (*mask) {
-                if (*mask != last_mask || last_dest_color.full != dest_buf[x].full || last_src_color.full != src_buf[x].full) {
+                gfx_color_t src_color = gfx_sw_blend_img_src_to_semantic_at(src_row, (size_t)x, src_format);
+                if (*mask != last_mask || last_dest_color.full != dest_buf[x].full || last_src_color.full != src_color.full) {
                     if (*mask == OPA_COVER) {
-                        last_res_color = src_buf[x];
+                        last_res_color = gfx_sw_blend_semantic_to_native(src_color, swap);
                     } else {
-                        last_res_color = gfx_blend_color_mix(src_buf[x], dest_buf[x], *mask, swap);
+                        last_res_color = gfx_sw_blend_mix_to_native(src_color, dest_buf[x], *mask, swap);
                     }
                     last_mask = *mask;
                     last_dest_color.full = dest_buf[x].full;
-                    last_src_color.full = src_buf[x].full;
+                    last_src_color.full = src_color.full;
                 }
                 dest_buf[x] = last_res_color;
             }
             mask++;
         }
         dest_buf += dest_stride;
-        src_buf += src_stride;
+        src_row += (size_t)src_stride * src_pixel_size;
         mask += (mask_stride - w);
     }
     if (s_active_perf_stats != NULL) {
-        s_active_perf_stats->image_draw.calls++;
-        s_active_perf_stats->image_draw.pixels += (uint64_t)w * (uint64_t)h;
-        s_active_perf_stats->image_draw.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
+        s_active_perf_stats->image.calls++;
+        s_active_perf_stats->image.pixels += (uint64_t)w * (uint64_t)h;
+        s_active_perf_stats->image.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
     }
 }
 
 void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                                     const gfx_area_t *buf_area, const gfx_area_t *clip_area,
-                                    const gfx_color_t *src_buf, gfx_coord_t src_stride, gfx_coord_t src_height,
+                                    const void *src_buf, gfx_coord_t src_stride, gfx_coord_t src_height,
                                     const gfx_opa_t *mask, gfx_coord_t mask_stride,
                                     gfx_opa_t opa,
                                     const gfx_sw_blend_img_vertex_t *v0,
@@ -646,7 +703,7 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                                     uint8_t internal_edges,
                                     const gfx_sw_blend_aa_edge_t *extra_aa_edges,
                                     uint8_t extra_aa_count,
-                                    bool swap)
+                                    gfx_color_format_t src_format, bool swap)
 {
     /*
      * Fixed-point incremental edge-walking rasterizer.
@@ -679,7 +736,8 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
 
     if (dest_buf == NULL || buf_area == NULL || clip_area == NULL ||
             src_buf == NULL || v0 == NULL || v1 == NULL || v2 == NULL ||
-            src_stride <= 0 || src_height <= 0 || opa == 0U) {
+            src_stride <= 0 || src_height <= 0 || opa == 0U ||
+            !gfx_color_format_is_image_supported(src_format)) {
         return;
     }
 
@@ -832,7 +890,9 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                     int32_t src_y = (v_cur + FRAC_HALF) >> FRAC_BITS;
                     src_x = gfx_sw_blend_clamp_coord(src_x, 0, src_stride - 1);
                     src_y = gfx_sw_blend_clamp_coord(src_y, 0, src_height - 1);
-                    gfx_color_t src_color = src_buf[(size_t)src_y * src_stride + (size_t)src_x];
+                    gfx_color_t src_color = gfx_sw_blend_img_src_to_semantic_at(src_buf,
+                                            (size_t)src_y * src_stride + (size_t)src_x,
+                                            src_format);
                     gfx_opa_t final_opa = opa;
 
                     /* Inward AA: fade pixels near non-internal outer edges */
@@ -906,9 +966,9 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                     if (final_opa == 0U) {
                         goto next_pixel;
                     } else if (final_opa >= OPA_COVER) {
-                        *dst_row = src_color;
+                        *dst_row = gfx_sw_blend_semantic_to_native(src_color, swap);
                     } else {
-                        *dst_row = gfx_blend_color_mix(src_color, *dst_row, final_opa, swap);
+                        *dst_row = gfx_sw_blend_mix_to_native(src_color, *dst_row, final_opa, swap);
                     }
                 } else {
                     /* Outside triangle */
@@ -967,7 +1027,9 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                         int32_t src_y = (v_cur + FRAC_HALF) >> FRAC_BITS;
                         src_x = gfx_sw_blend_clamp_coord(src_x, 0, src_stride - 1);
                         src_y = gfx_sw_blend_clamp_coord(src_y, 0, src_height - 1);
-                        gfx_color_t src_color = src_buf[(size_t)src_y * src_stride + (size_t)src_x];
+                        gfx_color_t src_color = gfx_sw_blend_img_src_to_semantic_at(src_buf,
+                                                (size_t)src_y * src_stride + (size_t)src_x,
+                                                src_format);
                         if (opa < OPA_COVER) {
                             aa_opa = (gfx_opa_t)(((uint32_t)aa_opa * opa + 128U) >> 8);
                         }
@@ -976,7 +1038,7 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                             aa_opa = (gfx_opa_t)(((uint32_t)aa_opa * src_opa + 128) >> 8);
                         }
                         if (aa_opa > 0) {
-                            *dst_row = gfx_blend_color_mix(src_color, *dst_row, aa_opa, swap);
+                            *dst_row = gfx_sw_blend_mix_to_native(src_color, *dst_row, aa_opa, swap);
                         }
                     }
                 }
@@ -1003,9 +1065,9 @@ next_pixel:
     }
 
     if (s_active_perf_stats != NULL) {
-        s_active_perf_stats->triangle_draw.calls++;
-        s_active_perf_stats->triangle_draw.pixels += perf_raster_pixels;
-        s_active_perf_stats->triangle_draw.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
+        s_active_perf_stats->shape.calls++;
+        s_active_perf_stats->shape.pixels += perf_raster_pixels;
+        s_active_perf_stats->shape.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
     }
 
 #undef FRAC_BITS
@@ -1039,7 +1101,7 @@ void gfx_sw_blend_polygon_fill(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
             color, opa, vx, vy, vertex_count, swap);
 
     if (s_active_perf_stats != NULL) {
-        s_active_perf_stats->triangle_draw.calls++;
-        s_active_perf_stats->triangle_draw.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
+        s_active_perf_stats->shape.calls++;
+        s_active_perf_stats->shape.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
     }
 }

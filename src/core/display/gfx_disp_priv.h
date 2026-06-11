@@ -10,6 +10,7 @@
 #include "freertos/event_groups.h"
 #include "core/gfx_disp.h"
 #include "core/object/gfx_obj_priv.h"
+#include "core/display/gfx_backend_priv.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,10 +52,11 @@ struct gfx_disp {
 
     /** Callbacks and user data */
     struct {
-        gfx_disp_flush_cb_t flush_cb;
         gfx_disp_update_cb_t update_cb;
         void *user_data;
     } cb;
+
+    gfx_disp_backend_t *backend;
 
     /** Sync (event group for flush done) */
     struct {
@@ -88,7 +90,7 @@ struct gfx_disp {
         uint64_t render_time_us;
         uint64_t flush_time_us;
         uint32_t flush_count;
-        gfx_blend_perf_stats_t blend;
+        gfx_draw_perf_stats_t draw;
     } render;
 
     /** Dirty / invalidation state */

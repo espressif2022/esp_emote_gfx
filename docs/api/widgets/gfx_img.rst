@@ -10,8 +10,12 @@ gfx_color_format_t
 .. code-block:: c
 
    typedef enum {
-       GFX_COLOR_FORMAT_RGB565   = 0x04,  /**< RGB565 format without alpha channel */
-       GFX_COLOR_FORMAT_RGB565A8 = 0x0A,  /**< RGB565 format with separate alpha channel */
+       GFX_COLOR_FORMAT_RGB565         = 0x04, /**< RGB565 high-byte, low-byte payload */
+       GFX_COLOR_FORMAT_RGB565_SWAPPED = 0x05, /**< RGB565 low-byte, high-byte payload */
+       GFX_COLOR_FORMAT_RGB565A8       = 0x0A, /**< RGB565 payload followed by alpha payload */
+       GFX_COLOR_FORMAT_RGB565A8_SWAPPED = 0x0B, /**< Swapped RGB565 payload followed by alpha payload */
+       GFX_COLOR_FORMAT_RGB888         = 0x0F, /**< RGB888 payload, 3 bytes per pixel */
+       GFX_COLOR_FORMAT_RGB888A8       = 0x10, /**< RGB888 payload followed by alpha payload */
    } gfx_color_format_t;
 
 gfx_img_src_type_t
@@ -100,7 +104,7 @@ Set the source data for an image object
 
 .. code-block:: c
 
-   esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src);
+   esp_err_t gfx_img_set_src(gfx_obj_t *obj, const void *src);
 
 **Parameters:**
 

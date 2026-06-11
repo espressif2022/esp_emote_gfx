@@ -19,6 +19,7 @@ extern "C" {
  *      TYPEDEFS
  *********************/
 typedef struct gfx_disp gfx_disp_t;
+typedef struct gfx_disp_backend gfx_disp_backend_t;
 
 typedef enum {
     GFX_DISP_EVENT_IDLE = 0,
@@ -34,13 +35,13 @@ typedef struct {
 } gfx_perf_counter_t;
 
 typedef struct {
-    gfx_perf_counter_t fill;          /**< gfx_sw_blend_fill_area */
-    gfx_perf_counter_t color_draw;    /**< gfx_sw_blend_draw */
-    gfx_perf_counter_t image_draw;    /**< gfx_sw_blend_img_draw */
-    gfx_perf_counter_t triangle_draw; /**< gfx_sw_blend_img_triangle_draw */
-    uint64_t triangle_covered_pixels; /**< Triangle pixels blended (inside + AA) */
-    uint64_t triangle_aa_pixels;      /**< Triangle edge-AA blended pixels */
-} gfx_blend_perf_stats_t;
+    gfx_perf_counter_t fill;              /**< Solid area fills */
+    gfx_perf_counter_t solid;             /**< Solid-color draw operations */
+    gfx_perf_counter_t image;             /**< Image draw operations */
+    gfx_perf_counter_t shape;             /**< Shape/mesh draw operations */
+    uint64_t shape_covered_pixels;        /**< Shape pixels covered by rasterization */
+    uint64_t shape_aa_pixels;             /**< Shape edge-AA pixels */
+} gfx_draw_perf_stats_t;
 
 typedef struct {
     uint32_t dirty_pixels;            /**< Dirty pixels in the latest rendered frame */
@@ -48,7 +49,7 @@ typedef struct {
     uint64_t render_time_us;          /**< Time spent in render phase */
     uint64_t flush_time_us;           /**< Time spent in flush callbacks */
     uint32_t flush_count;             /**< Number of flush calls */
-    gfx_blend_perf_stats_t blend;     /**< Blend-stage details */
+    gfx_draw_perf_stats_t draw;       /**< Draw-stage details */
 } gfx_disp_perf_stats_t;
 
 typedef void (*gfx_disp_flush_cb_t)(gfx_disp_t *disp, gfx_coord_t x1, gfx_coord_t y1,
@@ -62,6 +63,7 @@ typedef void (*gfx_disp_update_cb_t)(gfx_disp_t *disp, gfx_disp_event_t event, c
 typedef struct {
     uint32_t h_res;                          /**< Screen width in pixels */
     uint32_t v_res;                          /**< Screen height in pixels */
+    gfx_disp_backend_t *backend;             /**< Optional display backend. If NULL, flush_cb is used. */
     gfx_disp_flush_cb_t flush_cb;          /**< Flush callback for this display */
     gfx_disp_update_cb_t update_cb;       /**< Update callback (frame/playback events) */
     void *user_data;                         /**< User data for this display */
@@ -86,19 +88,18 @@ typedef struct {
 /**
  * @brief Add a display (multi-screen support)
  *
- * @param handle Graphics handle from gfx_emote_init
+ * @param handle Graphics handle from gfx_core_init
  * @param cfg Display configuration (resolution, flush callback, buffers)
  * @return New display pointer on success, or NULL on failure
  */
 gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg);
 
 /**
- * @brief Remove a display from the list and release its resources (child list nodes, event group, buffers).
- *        Does not free the gfx_disp_t; caller must free(disp) after.
+ * @brief Remove a display and release its child objects and resources.
  *
  * @param disp Display from gfx_disp_add; safe to pass NULL
  */
-void gfx_disp_del(gfx_disp_t *disp);
+void gfx_disp_delete(gfx_disp_t *disp);
 
 /**
  * @brief Invalidate full screen of a display to trigger refresh
@@ -130,7 +131,7 @@ void *gfx_disp_get_user_data(gfx_disp_t *disp);
  * @param disp Display from gfx_disp_add (NULL allowed; returns default width)
  * @return Width in pixels
  */
-uint32_t gfx_disp_get_hor_res(gfx_disp_t *disp);
+uint32_t gfx_disp_get_h_res(gfx_disp_t *disp);
 
 /**
  * @brief Get display vertical resolution in pixels
@@ -138,7 +139,7 @@ uint32_t gfx_disp_get_hor_res(gfx_disp_t *disp);
  * @param disp Display from gfx_disp_add (NULL allowed; returns default height)
  * @return Height in pixels
  */
-uint32_t gfx_disp_get_ver_res(gfx_disp_t *disp);
+uint32_t gfx_disp_get_v_res(gfx_disp_t *disp);
 
 /**
  * @brief Check if display is currently flushing the last block

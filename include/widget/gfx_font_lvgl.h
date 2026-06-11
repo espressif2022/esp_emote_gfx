@@ -5,9 +5,6 @@
  */
 #pragma once
 
-/*********************
- *      INCLUDES
- *********************/
 #include <stdint.h>
 
 #include "lvgl.h"
@@ -16,23 +13,11 @@
 extern "C" {
 #endif
 
-/*********************
- *      DEFINES
- *********************/
-
-/**********************
- *      TYPEDEFS
- **********************/
-
-/**********************
- *   PUBLIC API
- **********************/
-
 /*
-* The following code (gfx_font_lv_load_from_binary and gfx_font_lv_delete)
-* is derived from 78/xiaozhi-fonts project.
-* Original source: https://github.com/78/xiaozhi-fonts
-*/
+ * The following code (gfx_font_lv_load_from_binary and gfx_font_lv_delete)
+ * is derived from 78/xiaozhi-fonts project.
+ * Original source: https://github.com/78/xiaozhi-fonts
+ */
 
 /**
  * @brief Load an LVGL font from binary data

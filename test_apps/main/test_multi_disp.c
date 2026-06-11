@@ -87,11 +87,11 @@ static void test_multi_disp_scene_cleanup(test_multi_disp_scene_t *scene)
         scene->anim_right = NULL;
     }
     if (scene->disp_left != NULL) {
-        gfx_disp_del(scene->disp_left);
+        gfx_disp_delete(scene->disp_left);
         scene->disp_left = NULL;
     }
     if (scene->disp_right != NULL) {
-        gfx_disp_del(scene->disp_right);
+        gfx_disp_delete(scene->disp_right);
         scene->disp_right = NULL;
     }
 }

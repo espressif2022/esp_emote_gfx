@@ -15,11 +15,11 @@
 #define GFX_LOG_MODULE GFX_LOG_MODULE_IMG
 #include "common/gfx_log_priv.h"
 #include "common/gfx_comm.h"
-#include "core/display/gfx_refr_priv.h"
+#include "core/display/gfx_refresh_priv.h"
 #include "core/draw/gfx_blend_priv.h"
 #include "core/object/gfx_obj_priv.h"
 #include "widget/gfx_img.h"
-#include "widget/img/gfx_img_dec_priv.h"
+#include "widget/img/gfx_image_decoder_priv.h"
 
 /*********************
  *      DEFINES
@@ -94,9 +94,9 @@ static esp_err_t gfx_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 
     uint16_t image_width = header.w;
     uint16_t image_height = header.h;
-    uint8_t color_format = header.cf;
+    gfx_color_format_t color_format = (gfx_color_format_t)header.cf;
 
-    if (color_format != GFX_COLOR_FORMAT_RGB565 && color_format != GFX_COLOR_FORMAT_RGB565A8) {
+    if (!gfx_color_format_is_image_supported(color_format)) {
         GFX_LOGW(TAG, "draw image: unsupported color format %u", color_format);
         return ESP_ERR_NOT_SUPPORTED;
     }
@@ -133,17 +133,19 @@ static esp_err_t gfx_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
         return ESP_OK;
     }
 
-    gfx_coord_t src_stride = image_width;
+    uint8_t src_pixel_size = gfx_color_format_get_size(color_format);
+    gfx_coord_t src_stride = (header.stride > 0U && src_pixel_size > 0U)
+                             ? (gfx_coord_t)(header.stride / src_pixel_size)
+                             : (gfx_coord_t)image_width;
 
     gfx_color_t *dest_pixels = GFX_DRAW_CTX_DEST_PTR(ctx, clip_area.x1, clip_area.y1);
-    gfx_color_t *src_pixels = (gfx_color_t *)GFX_BUFFER_OFFSET_16BPP(image_data,
-                              clip_area.y1 - obj->geometry.y,
-                              src_stride,
-                              clip_area.x1 - obj->geometry.x);
+    const uint8_t *src_pixels = image_data +
+                                ((size_t)(clip_area.y1 - obj->geometry.y) * src_stride +
+                                 (size_t)(clip_area.x1 - obj->geometry.x)) * src_pixel_size;
 
     gfx_opa_t *alpha_mask = NULL;
-    if (color_format == GFX_COLOR_FORMAT_RGB565A8) {
-        const uint8_t *alpha_base = image_data + src_stride * image_height * GFX_PIXEL_SIZE_16BPP;
+    if (gfx_color_format_has_alpha(color_format)) {
+        const uint8_t *alpha_base = image_data + (size_t)src_stride * image_height * src_pixel_size;
         alpha_mask = (gfx_opa_t *)GFX_BUFFER_OFFSET_8BPP(alpha_base,
                      clip_area.y1 - obj->geometry.y,
                      src_stride,
@@ -158,6 +160,7 @@ static esp_err_t gfx_img_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
         alpha_mask,
         alpha_mask ? src_stride : 0,
         &clip_area,
+        color_format,
         ctx->swap
     );
 
@@ -258,7 +261,7 @@ esp_err_t gfx_img_set_src_desc(gfx_obj_t *obj, const gfx_img_src_t *src)
     return ESP_OK;
 }
 
-esp_err_t gfx_img_set_src(gfx_obj_t *obj, void *src)
+esp_err_t gfx_img_set_src(gfx_obj_t *obj, const void *src)
 {
     const gfx_img_src_t compat_src = {
         .type = GFX_IMG_SRC_TYPE_IMAGE_DSC,

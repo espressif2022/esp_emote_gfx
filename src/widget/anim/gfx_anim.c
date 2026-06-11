@@ -17,7 +17,7 @@
 #define GFX_LOG_MODULE GFX_LOG_MODULE_ANIM
 #include "common/gfx_log_priv.h"
 #include "common/gfx_comm.h"
-#include "core/display/gfx_refr_priv.h"
+#include "core/display/gfx_refresh_priv.h"
 #include "core/object/gfx_obj_priv.h"
 #include "widget/gfx_anim.h"
 #include "widget/anim/gfx_anim_decoder_priv.h"
@@ -411,7 +411,7 @@ static esp_err_t gfx_anim_init_palette_cache(gfx_obj_t *obj, gfx_anim_t *anim)
 static int32_t gfx_anim_get_effective_mirror_offset(const gfx_obj_t *obj, const gfx_anim_t *anim)
 {
     if (anim->mirror_mode == GFX_MIRROR_AUTO) {
-        int32_t parent_w = (int32_t)gfx_disp_get_hor_res(obj->disp);
+        int32_t parent_w = (int32_t)gfx_disp_get_h_res(obj->disp);
         return parent_w - (((int32_t)obj->geometry.width + obj->geometry.x) * 2);
     }
 
@@ -986,7 +986,7 @@ gfx_obj_t *gfx_anim_create(gfx_disp_t *disp)
         return NULL;
     }
 
-    anim->timer = gfx_timer_create((void *)disp->ctx, gfx_anim_timer_callback, period_ms, obj);
+    anim->timer = gfx_timer_create(disp->ctx, gfx_anim_timer_callback, period_ms, obj);
     if (anim->timer == NULL) {
         GFX_LOGE(TAG, "create animation: failed to create timer");
         gfx_obj_delete(obj);

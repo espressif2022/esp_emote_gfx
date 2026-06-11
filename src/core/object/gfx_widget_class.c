@@ -13,7 +13,7 @@
 #include "common/gfx_log_priv.h"
 
 #include "core/display/gfx_disp_priv.h"
-#include "core/display/gfx_refr_priv.h"
+#include "core/display/gfx_refresh_priv.h"
 #include "core/object/gfx_obj_priv.h"
 
 static const char *const TAG = "widget_class";

@@ -103,7 +103,7 @@ const uint8_t icon1_map[] = {
 
 const gfx_image_dsc_t icon_rgb565A8 = {
     .header.cf = GFX_COLOR_FORMAT_RGB565A8,
-    .header.magic = C_ARRAY_HEADER_MAGIC,
+    .header.magic = GFX_IMAGE_HEADER_MAGIC,
     .header.w = 65,
     .header.h = 65,
     .data_size = 12675,

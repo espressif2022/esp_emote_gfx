@@ -74,14 +74,14 @@ gfx_obj_t *gfx_label_create(gfx_disp_t *disp);
  * @param ret_font Pointer to store the font handle
  * @return ESP_OK on success, error code otherwise
  */
-esp_err_t gfx_label_new_font(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font);
+esp_err_t gfx_label_font_create(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font);
 
 /**
  * @brief Delete a font and free its resources
  * @param font Font handle to delete
  * @return ESP_OK on success, error code otherwise
  */
-esp_err_t gfx_label_delete_font(gfx_font_t font);
+esp_err_t gfx_label_font_delete(gfx_font_t font);
 
 /* Label setters */
 

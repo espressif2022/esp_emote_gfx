@@ -15,6 +15,7 @@
 #define GFX_LOG_MODULE GFX_LOG_MODULE_EAF_DEC
 #include "common/gfx_log_priv.h"
 
+#include "core/gfx_types_priv.h"
 #include "gfx_eaf_dec.h"
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 #include "esp_jpeg_dec.h"

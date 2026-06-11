@@ -10,10 +10,10 @@
 #include <stddef.h>
 #include "esp_log.h"
 #include "esp_check.h"
-#define GFX_LOG_MODULE GFX_LOG_MODULE_FONT_FT
+#define GFX_LOG_MODULE GFX_LOG_MODULE_FONT_FREETYPE
 #include "common/gfx_log_priv.h"
 #include "widget/gfx_label.h"
-#include "widget/gfx_font_lvgl.h"
+#include "widget/font/gfx_font_lvgl_priv.h"
 #include "widget/font/gfx_font_priv.h"
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
@@ -35,7 +35,7 @@
  *   STATIC VARIABLES
  **********************/
 
-static const char *const TAG = "font_ft";
+static const char *const TAG = "font_freetype";
 static FT_Library s_library = NULL;
 static gfx_ft_lib_handle_t s_font_lib = NULL;
 
@@ -207,6 +207,9 @@ static bool gfx_font_ft_get_glyph_dsc(gfx_font_handle_t font_adapter, void *glyp
     }
 
     FT_UInt glyph_index = FT_Get_Char_Index(face, unicode);
+    if (glyph_index == 0) {
+        return false;
+    }
 
     error = FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT);
     if (error) {
@@ -335,12 +338,12 @@ esp_err_t gfx_ft_lib_cleanup(void)
     return gfx_font_ft_lib_cleanup_internal();
 }
 
-esp_err_t gfx_label_new_font(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
+esp_err_t gfx_label_font_create(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
 {
     return gfx_font_ft_new_internal(cfg, ret_font);
 }
 
-esp_err_t gfx_label_delete_font(gfx_font_t font)
+esp_err_t gfx_label_font_delete(gfx_font_t font)
 {
     return gfx_font_ft_delete_internal(font);
 }
@@ -360,14 +363,14 @@ void gfx_font_ft_init_adapter(gfx_font_handle_t font_adapter, const void *font)
 
 #else
 
-esp_err_t gfx_label_new_font(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
+esp_err_t gfx_label_font_create(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
 {
     (void)cfg;
     (void)ret_font;
     return ESP_ERR_NOT_SUPPORTED;
 }
 
-esp_err_t gfx_label_delete_font(gfx_font_t font)
+esp_err_t gfx_label_font_delete(gfx_font_t font)
 {
     (void)font;
     return ESP_ERR_NOT_SUPPORTED;

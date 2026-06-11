@@ -10,12 +10,12 @@
 #include <string.h>
 #include <inttypes.h>
 
-#define GFX_LOG_MODULE GFX_LOG_MODULE_REFR
+#define GFX_LOG_MODULE GFX_LOG_MODULE_REFRESH
 #include "common/gfx_log_priv.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 
-#include "core/display/gfx_refr_priv.h"
+#include "core/display/gfx_refresh_priv.h"
 #include "core/runtime/gfx_core_priv.h"
 
 /*********************
@@ -30,7 +30,7 @@
  *  STATIC VARIABLES
  **********************/
 
-static const char *const TAG = "refr";
+static const char *const TAG = "refresh";
 
 /**********************
  *  STATIC PROTOTYPES
@@ -125,7 +125,7 @@ void gfx_area_join(gfx_area_t *result, const gfx_area_t *a1, const gfx_area_t *a
     result->y2 = (a1->y2 > a2->y2) ? a1->y2 : a2->y2;
 }
 
-void gfx_refr_merge_areas(gfx_disp_t *disp)
+void gfx_refresh_merge_areas(gfx_disp_t *disp)
 {
     uint32_t src_idx;
     uint32_t dst_idx;
@@ -264,7 +264,7 @@ void gfx_obj_invalidate(gfx_obj_t *obj)
     gfx_invalidate_area_disp(obj->disp, &obj_area);
 }
 
-void gfx_refr_update_layout_dirty(gfx_disp_t *disp)
+void gfx_refresh_update_layout_dirty(gfx_disp_t *disp)
 {
     if (disp == NULL || disp->child_list == NULL) {
         return;

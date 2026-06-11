@@ -18,7 +18,7 @@
 #include "common/gfx_log_priv.h"
 
 #include "common/gfx_comm.h"
-#include "core/display/gfx_refr_priv.h"
+#include "core/display/gfx_refresh_priv.h"
 #include "core/draw/gfx_blend_priv.h"
 #include "core/draw/gfx_sw_draw_priv.h"
 #include "core/object/gfx_obj_priv.h"
@@ -155,7 +155,7 @@ static esp_err_t gfx_button_call_label_draw(gfx_obj_t *obj, const gfx_draw_ctx_t
     esp_err_t ret;
 
     obj->type = GFX_OBJ_TYPE_LABEL;
-    ret = gfx_draw_label(obj, ctx);
+    ret = gfx_label_draw(obj, ctx);
     obj->type = original_type;
 
     return ret;
@@ -193,7 +193,6 @@ static esp_err_t gfx_button_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     gfx_area_t fill_area;
     gfx_area_t saved_geometry;
     gfx_color_t fill_color;
-    uint16_t fill_color_raw;
 
     CHECK_OBJ_TYPE_BUTTON(obj);
     GFX_RETURN_IF_NULL(ctx, ESP_ERR_INVALID_ARG);
@@ -213,14 +212,13 @@ static esp_err_t gfx_button_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     }
 
     fill_color = button->state.pressed ? button->style.bg_color_pressed : button->style.bg_color;
-    fill_color_raw = gfx_color_to_native_u16(fill_color, ctx->swap);
     gfx_color_t *dest_pixels = (gfx_color_t *)ctx->buf;
     fill_area.x1 = clip_area.x1 - ctx->buf_area.x1;
     fill_area.y1 = clip_area.y1 - ctx->buf_area.y1;
     fill_area.x2 = clip_area.x2 - ctx->buf_area.x1;
     fill_area.y2 = clip_area.y2 - ctx->buf_area.y1;
 
-    gfx_sw_blend_fill_area((uint16_t *)dest_pixels, ctx->stride, &fill_area, fill_color_raw);
+    gfx_sw_blend_fill_area_color(dest_pixels, ctx->stride, &fill_area, fill_color, ctx->swap);
     gfx_sw_draw_rect_stroke(dest_pixels,
                             ctx->stride,
                             &ctx->buf_area,

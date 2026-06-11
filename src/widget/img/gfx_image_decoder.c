@@ -12,10 +12,10 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_check.h"
-#define GFX_LOG_MODULE GFX_LOG_MODULE_IMG_DEC
+#define GFX_LOG_MODULE GFX_LOG_MODULE_IMAGE_DECODER
 #include "common/gfx_log_priv.h"
 
-#include "widget/img/gfx_img_dec_priv.h"
+#include "widget/img/gfx_image_decoder_priv.h"
 
 /*********************
  *      DEFINES
@@ -31,24 +31,24 @@
  *  STATIC PROTOTYPES
  **********************/
 
-static esp_err_t gfx_img_dec_c_array_info_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc, gfx_image_header_t *header);
-static esp_err_t gfx_img_dec_c_array_open_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc);
-static void gfx_img_dec_c_array_close_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc);
+static esp_err_t gfx_image_decoder_c_array_info_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc, gfx_image_header_t *header);
+static esp_err_t gfx_image_decoder_c_array_open_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc);
+static void gfx_image_decoder_c_array_close_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc);
 static const void *gfx_image_decoder_get_payload(const gfx_image_decoder_dsc_t *dsc);
 
 /**********************
  *  STATIC VARIABLES
  **********************/
 
-static const char *const TAG = "img_dec";
+static const char *const TAG = "image_decoder";
 static gfx_image_decoder_t *s_registered_decoders[GFX_IMAGE_DECODER_MAX_COUNT] = {NULL};
 static uint8_t s_decoder_count = 0;
 
-static gfx_image_decoder_t s_gfx_img_decoder_c_array = {
+static gfx_image_decoder_t s_gfx_image_decoder_c_array = {
     .name = "c_array",
-    .info_cb = gfx_img_dec_c_array_info_cb,
-    .open_cb = gfx_img_dec_c_array_open_cb,
-    .close_cb = gfx_img_dec_c_array_close_cb,
+    .info_cb = gfx_image_decoder_c_array_info_cb,
+    .open_cb = gfx_image_decoder_c_array_open_cb,
+    .close_cb = gfx_image_decoder_c_array_close_cb,
 };
 
 /**********************
@@ -81,7 +81,7 @@ gfx_image_format_t gfx_image_detect_format(const void *src)
 
     uint8_t *byte_ptr = (uint8_t *)src;
 
-    if (byte_ptr[0] == C_ARRAY_HEADER_MAGIC) {
+    if (byte_ptr[0] == GFX_IMAGE_HEADER_MAGIC) {
         return GFX_IMAGE_FORMAT_C_ARRAY;
     }
 
@@ -162,7 +162,7 @@ void gfx_image_decoder_close(gfx_image_decoder_dsc_t *dsc)
     }
 }
 
-static esp_err_t gfx_img_dec_c_array_info_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc, gfx_image_header_t *header)
+static esp_err_t gfx_image_decoder_c_array_info_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc, gfx_image_header_t *header)
 {
     (void)decoder;
 
@@ -183,7 +183,7 @@ static esp_err_t gfx_img_dec_c_array_info_cb(gfx_image_decoder_t *decoder, gfx_i
     return ESP_OK;
 }
 
-static esp_err_t gfx_img_dec_c_array_open_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc)
+static esp_err_t gfx_image_decoder_c_array_open_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc)
 {
     (void)decoder;
 
@@ -205,7 +205,7 @@ static esp_err_t gfx_img_dec_c_array_open_cb(gfx_image_decoder_t *decoder, gfx_i
     return ESP_OK;
 }
 
-static void gfx_img_dec_c_array_close_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc)
+static void gfx_image_decoder_c_array_close_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc)
 {
     (void)decoder;
     (void)dsc;
@@ -213,7 +213,7 @@ static void gfx_img_dec_c_array_close_cb(gfx_image_decoder_t *decoder, gfx_image
 
 esp_err_t gfx_image_decoder_init(void)
 {
-    esp_err_t ret = gfx_image_decoder_register(&s_gfx_img_decoder_c_array);
+    esp_err_t ret = gfx_image_decoder_register(&s_gfx_image_decoder_c_array);
     if (ret != ESP_OK) {
         return ret;
     }

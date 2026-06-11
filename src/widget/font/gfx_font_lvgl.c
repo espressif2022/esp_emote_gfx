@@ -16,16 +16,16 @@
 #include <stdint.h>
 #include "esp_log.h"
 #include "esp_check.h"
-#define GFX_LOG_MODULE GFX_LOG_MODULE_FONT_LV
+#define GFX_LOG_MODULE GFX_LOG_MODULE_FONT_LVGL
 #include "common/gfx_log_priv.h"
-#include "widget/gfx_font_lvgl.h"
+#include "widget/font/gfx_font_lvgl_priv.h"
 #include "widget/font/gfx_font_priv.h"
 
 /**********************
  *  STATIC VARIABLES
  **********************/
 
-static const char *const TAG = "font_lv";
+static const char *const TAG = "font_lvgl";
 
 /**********************
  *   STATIC PROTOTYPES
@@ -132,6 +132,9 @@ static uint32_t gfx_font_lv_get_glyph_index(const lv_font_t *font, uint32_t unic
             }
         } else if (cmap->type == LV_FONT_FMT_TXT_CMAP_FORMAT0_FULL) {
             const uint8_t *gid_ofs_8 = cmap->glyph_id_ofs_list;
+            if (gid_ofs_8[rcp] == 0 && unicode != cmap->range_start) {
+                continue;
+            }
             return cmap->glyph_id_start + gid_ofs_8[rcp];
         } else if (cmap->type == LV_FONT_FMT_TXT_CMAP_SPARSE_TINY) {
             if (cmap->unicode_list && cmap->list_length > 0) {

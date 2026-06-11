@@ -56,11 +56,13 @@ void gfx_sw_draw_point(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
         return;
     }
 
+    draw_color.full = gfx_color_to_native_u16(draw_color, swap);
     if (opa >= 0xFF) {
-        draw_color.full = gfx_color_to_native_u16(draw_color, swap);
         *pixel = draw_color;
     } else if (opa > 0) {
-        *pixel = gfx_blend_color_mix(color, *pixel, opa, swap);
+        gfx_color_t dest_color = gfx_color_from_native_u16(pixel->full, swap);
+        gfx_color_t result = gfx_blend_color_mix(color, dest_color, opa, false);
+        pixel->full = gfx_color_to_native_u16(result, swap);
     }
 }
 
@@ -96,12 +98,14 @@ void gfx_sw_draw_hline(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                          + (size_t)(draw_x1 - buf_area->x1);
     size_t count = (size_t)(draw_x2 - draw_x1);
 
+    draw_color.full = gfx_color_to_native_u16(draw_color, swap);
     if (opa >= 0xFF) {
-        draw_color.full = gfx_color_to_native_u16(draw_color, swap);
         gfx_sw_blend_fill((uint16_t *)pixel, draw_color.full, count);
     } else {
         for (size_t i = 0; i < count; ++i) {
-            pixel[i] = gfx_blend_color_mix(color, pixel[i], opa, swap);
+            gfx_color_t dest_color = gfx_color_from_native_u16(pixel[i].full, swap);
+            gfx_color_t result = gfx_blend_color_mix(color, dest_color, opa, false);
+            pixel[i].full = gfx_color_to_native_u16(result, swap);
         }
     }
 }
@@ -138,15 +142,17 @@ void gfx_sw_draw_vline(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
     gfx_color_t *pixel = dest_buf + (size_t)(draw_y1 - buf_area->y1) * dest_stride
                          + (size_t)(x - buf_area->x1);
 
+    draw_color.full = gfx_color_to_native_u16(draw_color, swap);
     if (opa >= 0xFF) {
-        draw_color.full = gfx_color_to_native_u16(draw_color, swap);
         for (gfx_coord_t row = draw_y1; row < draw_y2; ++row) {
             *pixel = draw_color;
             pixel += dest_stride;
         }
     } else {
         for (gfx_coord_t row = draw_y1; row < draw_y2; ++row) {
-            *pixel = gfx_blend_color_mix(color, *pixel, opa, swap);
+            gfx_color_t dest_color = gfx_color_from_native_u16(pixel->full, swap);
+            gfx_color_t result = gfx_blend_color_mix(color, dest_color, opa, false);
+            pixel->full = gfx_color_to_native_u16(result, swap);
             pixel += dest_stride;
         }
     }

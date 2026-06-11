@@ -7,7 +7,7 @@
 #include "sdkconfig.h"
 
 #include "common/gfx_subsystem_init_priv.h"
-#include "widget/img/gfx_img_dec_priv.h"
+#include "widget/img/gfx_image_decoder_priv.h"
 #include "widget/font/gfx_font_priv.h"
 
 esp_err_t gfx_subsystem_image_decoder_init(void)

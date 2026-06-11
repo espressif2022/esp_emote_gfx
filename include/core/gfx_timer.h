@@ -9,6 +9,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "core/gfx_types.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -35,20 +37,20 @@ typedef void (*gfx_timer_cb_t)(void *);
 
 /**
  * @brief Create a new timer
- * @param handle Player handle
+ * @param handle Graphics handle
  * @param timer_cb Timer callback function
  * @param period Timer period in milliseconds
  * @param user_data User data passed to callback
  * @return Timer handle, NULL on error
  */
-gfx_timer_handle_t gfx_timer_create(void *handle, gfx_timer_cb_t timer_cb, uint32_t period, void *user_data);
+gfx_timer_handle_t gfx_timer_create(gfx_handle_t handle, gfx_timer_cb_t timer_cb, uint32_t period, void *user_data);
 
 /**
  * @brief Delete a timer
- * @param handle Player handle
+ * @param handle Graphics handle
  * @param timer Timer handle to delete
  */
-void gfx_timer_delete(void *handle, gfx_timer_handle_t timer);
+void gfx_timer_delete(gfx_handle_t handle, gfx_timer_handle_t timer);
 
 /**
  * @brief Pause a timer
@@ -98,10 +100,10 @@ uint32_t gfx_timer_tick_get(void);
 
 /**
  * @brief Get actual FPS from timer manager
- * @param handle Player handle
+ * @param handle Graphics handle
  * @return Actual FPS value, 0 if handle is invalid
  */
-uint32_t gfx_timer_get_actual_fps(void *handle);
+uint32_t gfx_timer_get_actual_fps(gfx_handle_t handle);
 
 #ifdef __cplusplus
 }

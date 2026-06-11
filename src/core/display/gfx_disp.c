@@ -16,7 +16,7 @@
 #include "soc/soc_caps.h"
 
 #include "core/display/gfx_disp_priv.h"
-#include "core/display/gfx_refr_priv.h"
+#include "core/display/gfx_refresh_priv.h"
 #include "core/runtime/gfx_core_priv.h"
 
 /*********************
@@ -38,6 +38,7 @@ static const char *const TAG = "disp";
  **********************/
 
 static void gfx_disp_init_default_state(gfx_disp_t *disp);
+static void gfx_disp_cleanup(gfx_disp_t *disp);
 
 /**********************
  *   STATIC FUNCTIONS
@@ -134,7 +135,7 @@ esp_err_t gfx_disp_buf_init(gfx_disp_t *disp, const gfx_disp_config_t *cfg)
     return ESP_OK;
 }
 
-void gfx_disp_del(gfx_disp_t *disp)
+static void gfx_disp_cleanup(gfx_disp_t *disp)
 {
     if (!disp) {
         return;
@@ -168,9 +169,23 @@ void gfx_disp_del(gfx_disp_t *disp)
         disp->sync.event_group = NULL;
     }
 
+    gfx_disp_backend_destroy(disp->backend);
+    disp->backend = NULL;
+
     gfx_disp_buf_free(disp);
     disp->ctx = NULL;
     disp->next = NULL;
+}
+
+void gfx_disp_delete(gfx_disp_t *disp)
+{
+    if (!disp) {
+        return;
+    }
+
+    (void)gfx_disp_delete_children(disp);
+    gfx_disp_cleanup(disp);
+    free(disp);
 }
 
 gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg)
@@ -193,9 +208,17 @@ gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg)
     new_disp->res.v_res = cfg->v_res;
     new_disp->flags.swap = cfg->flags.swap;
     new_disp->flags.full_frame = cfg->flags.full_frame;
-    new_disp->cb.flush_cb = cfg->flush_cb;
     new_disp->cb.update_cb = cfg->update_cb;
     new_disp->cb.user_data = cfg->user_data;
+    if (cfg->backend != NULL) {
+        new_disp->backend = cfg->backend;
+    } else if (cfg->flush_cb != NULL) {
+        new_disp->backend = gfx_disp_callback_backend_create(cfg->flush_cb, cfg->user_data);
+        if (new_disp->backend == NULL) {
+            free(new_disp);
+            return NULL;
+        }
+    }
     gfx_disp_init_default_state(new_disp);
 
     if (cfg->flags.full_frame && cfg->buffers.buf_pixels > 0) {
@@ -203,6 +226,7 @@ gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg)
         if (cfg->buffers.buf_pixels != screen_px) {
             GFX_LOGE(TAG, "create display: full_frame requires buf_pixels (%u) == screen size (%u)",
                      (unsigned)cfg->buffers.buf_pixels, (unsigned)screen_px);
+            gfx_disp_backend_destroy(new_disp->backend);
             free(new_disp);
             return NULL;
         }
@@ -211,6 +235,7 @@ gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg)
     new_disp->sync.event_group = xEventGroupCreate();
     if (new_disp->sync.event_group == NULL) {
         GFX_LOGE(TAG, "create display: create event group failed");
+        gfx_disp_backend_destroy(new_disp->backend);
         free(new_disp);
         return NULL;
     }
@@ -225,6 +250,7 @@ gfx_disp_t *gfx_disp_add(gfx_handle_t handle, const gfx_disp_config_t *cfg)
         ret = gfx_disp_buf_init(new_disp, cfg);
         if (ret != ESP_OK) {
             vEventGroupDelete(new_disp->sync.event_group);
+            gfx_disp_backend_destroy(new_disp->backend);
             free(new_disp);
             return NULL;
         }
@@ -372,10 +398,10 @@ void *gfx_disp_get_user_data(gfx_disp_t *disp)
         GFX_LOGE(TAG, "get display user data: display is NULL");
         return NULL;
     }
-    return disp->cb.user_data;
+    return disp->backend != NULL ? disp->backend->user_data : disp->cb.user_data;
 }
 
-uint32_t gfx_disp_get_hor_res(gfx_disp_t *disp)
+uint32_t gfx_disp_get_h_res(gfx_disp_t *disp)
 {
     if (disp == NULL) {
         return DEFAULT_SCREEN_WIDTH;
@@ -383,7 +409,7 @@ uint32_t gfx_disp_get_hor_res(gfx_disp_t *disp)
     return disp->res.h_res;
 }
 
-uint32_t gfx_disp_get_ver_res(gfx_disp_t *disp)
+uint32_t gfx_disp_get_v_res(gfx_disp_t *disp)
 {
     if (disp == NULL) {
         return DEFAULT_SCREEN_HEIGHT;
@@ -431,6 +457,6 @@ esp_err_t gfx_disp_get_perf_stats(gfx_disp_t *disp, gfx_disp_perf_stats_t *out_s
     out_stats->render_time_us = disp->render.render_time_us;
     out_stats->flush_time_us = disp->render.flush_time_us;
     out_stats->flush_count = disp->render.flush_count;
-    out_stats->blend = disp->render.blend;
+    out_stats->draw = disp->render.draw;
     return ESP_OK;
 }

@@ -400,13 +400,11 @@ void gfx_touch_delete_all(gfx_core_context_t *ctx)
     }
 
     while (ctx->touch != NULL) {
-        gfx_touch_t *touch = ctx->touch;
-        gfx_touch_del(touch);
-        free(touch);
+        gfx_touch_delete(ctx->touch);
     }
 }
 
-void gfx_touch_del(gfx_touch_t *touch)
+void gfx_touch_delete(gfx_touch_t *touch)
 {
     if (!touch) {
         return;
@@ -444,6 +442,7 @@ void gfx_touch_del(gfx_touch_t *touch)
     touch->pressed = false;
     touch->pressed_obj = NULL;
     touch->int_gpio_num = GPIO_NUM_NC;
+    free(touch);
 }
 
 gfx_touch_t *gfx_touch_add(gfx_handle_t handle, const gfx_touch_config_t *cfg)

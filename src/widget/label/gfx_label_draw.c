@@ -14,11 +14,11 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_check.h"
-#define GFX_LOG_MODULE GFX_LOG_MODULE_DRAW_LABEL
+#define GFX_LOG_MODULE GFX_LOG_MODULE_LABEL_DRAW
 #include "common/gfx_config_internal.h"
 #include "common/gfx_log_priv.h"
 #include "common/gfx_comm.h"
-#include "core/display/gfx_refr_priv.h"
+#include "core/display/gfx_refresh_priv.h"
 #include "core/draw/gfx_blend_priv.h"
 #include "core/object/gfx_obj_priv.h"
 #include "core/runtime/gfx_core_priv.h"
@@ -31,9 +31,11 @@
  *      DEFINES
  *********************/
 
-static const char *const TAG = "draw_label";
+static const char *const TAG = "label_draw";
 
 #define CHECK_OBJ_TYPE_LABEL(obj) CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_LABEL, TAG)
+#define GFX_LABEL_PLACEHOLDER_MIN_SIZE 4
+#define GFX_LABEL_PLACEHOLDER_MAX_SIZE 64
 
 /**********************
  *      TYPEDEFS
@@ -58,6 +60,7 @@ typedef struct gfx_label_glyph_cache_entry {
     bool alpha_in_atlas;                        /* True when alpha_bitmap points into a shared atlas page. */
     gfx_glyph_atlas_page_t *atlas_page;         /* Owning atlas page when alpha_in_atlas is true. */
     bool available;                             /* False when the glyph lookup failed and only a miss is cached. */
+    bool placeholder;                           /* True when a missing glyph is rendered as a placeholder box. */
     struct gfx_label_glyph_cache_entry *next;   /* Next glyph entry in the per-font LRU-style list. */
 } gfx_label_glyph_cache_entry_t;
 
@@ -115,6 +118,8 @@ static size_t gfx_glyph_cache_get_page_capacity(size_t bitmap_size);
 static uint8_t *gfx_glyph_cache_alloc_atlas(gfx_font_glyph_cache_t *cache, size_t bitmap_size,
         gfx_glyph_atlas_page_t **out_page);
 static void gfx_glyph_cache_log_stats(const gfx_font_glyph_cache_t *cache, const char *reason);
+static esp_err_t gfx_glyph_cache_build_placeholder(gfx_font_handle_t font, gfx_font_glyph_cache_t *cache,
+        gfx_label_glyph_cache_entry_t *entry);
 static esp_err_t gfx_get_cached_glyph(gfx_font_handle_t font, uint32_t unicode,
                                       gfx_label_glyph_cache_entry_t **out_entry);
 static int gfx_calculate_text_width(gfx_font_handle_t font, const char *text, const char *text_end);
@@ -267,7 +272,7 @@ void gfx_label_scroll_timer_callback(void *arg)
         return;
     }
 
-    // means don't fetch glphy dsc
+    // means don't fetch glyph dsc
     if (label->scroll.offset != label->render.offset) {
         return;
     }
@@ -633,6 +638,84 @@ static uint8_t *gfx_glyph_cache_alloc_atlas(gfx_font_glyph_cache_t *cache, size_
     return page->buf;
 }
 
+static bool gfx_unicode_needs_placeholder(uint32_t unicode)
+{
+    return unicode >= 0x20U &&
+           unicode != ' ' &&
+           unicode != 0x00A0U &&
+           unicode != 0x200BU &&
+           unicode != 0x200CU &&
+           unicode != 0x200DU &&
+           unicode != 0x3000U &&
+           unicode != 0xFEFFU;
+}
+
+static esp_err_t gfx_glyph_cache_build_placeholder(gfx_font_handle_t font, gfx_font_glyph_cache_t *cache,
+        gfx_label_glyph_cache_entry_t *entry)
+{
+    if (font == NULL || cache == NULL || entry == NULL || !gfx_unicode_needs_placeholder(entry->unicode)) {
+        return ESP_OK;
+    }
+
+    int line_height = font->get_line_height(font);
+    if (line_height <= 0) {
+        line_height = GFX_LABEL_PLACEHOLDER_MIN_SIZE;
+    }
+
+    int box_h = line_height - 2;
+    if (box_h < GFX_LABEL_PLACEHOLDER_MIN_SIZE) {
+        box_h = GFX_LABEL_PLACEHOLDER_MIN_SIZE;
+    } else if (box_h > GFX_LABEL_PLACEHOLDER_MAX_SIZE) {
+        box_h = GFX_LABEL_PLACEHOLDER_MAX_SIZE;
+    }
+
+    int box_w = box_h / 2;
+    if (box_w < GFX_LABEL_PLACEHOLDER_MIN_SIZE) {
+        box_w = GFX_LABEL_PLACEHOLDER_MIN_SIZE;
+    }
+
+    size_t bitmap_size = (size_t)box_w * (size_t)box_h;
+    gfx_glyph_cache_trim(cache, bitmap_size);
+    if (cache->allocated_bytes + bitmap_size > GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    uint8_t *bitmap = malloc(bitmap_size);
+    if (bitmap == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    memset(bitmap, 0, bitmap_size);
+    for (int x = 0; x < box_w; x++) {
+        bitmap[x] = 0xFF;
+        bitmap[(box_h - 1) * box_w + x] = 0xFF;
+    }
+    for (int y = 0; y < box_h; y++) {
+        bitmap[y * box_w] = 0xFF;
+        bitmap[y * box_w + box_w - 1] = 0xFF;
+    }
+
+    entry->glyph_dsc.bitmap_index = 0;
+    entry->glyph_dsc.adv_w = 0;
+    entry->glyph_dsc.box_w = (uint16_t)box_w;
+    entry->glyph_dsc.box_h = (uint16_t)box_h;
+    entry->glyph_dsc.ofs_x = 0;
+    entry->glyph_dsc.ofs_y = (line_height > box_h) ? (line_height - box_h) / 2 : 0;
+    entry->advance_width = box_w + 2;
+    entry->alpha_bitmap = bitmap;
+    entry->alpha_bitmap_size = bitmap_size;
+    entry->alpha_in_atlas = false;
+    entry->atlas_page = NULL;
+    entry->available = true;
+    entry->placeholder = true;
+
+    cache->allocated_bytes += bitmap_size;
+    cache->glyph_bitmap_bytes += bitmap_size;
+    cache->fallback_alloc_count++;
+
+    return ESP_OK;
+}
+
 static esp_err_t gfx_get_cached_glyph(gfx_font_handle_t font, uint32_t unicode,
                                       gfx_label_glyph_cache_entry_t **out_entry)
 {
@@ -705,6 +788,21 @@ static esp_err_t gfx_get_cached_glyph(gfx_font_handle_t font, uint32_t unicode,
 
             entry->alpha_bitmap_size = bitmap_size;
             cache->glyph_bitmap_bytes += bitmap_size;
+        }
+    }
+
+    if (!entry->available ||
+            (gfx_unicode_needs_placeholder(entry->unicode) &&
+             ((entry->glyph_dsc.box_w == 0 && entry->glyph_dsc.box_h == 0) ||
+              (entry->glyph_dsc.box_w > 0 && entry->glyph_dsc.box_h > 0)) &&
+             entry->alpha_bitmap == NULL)) {
+        esp_err_t placeholder_ret = gfx_glyph_cache_build_placeholder(font, cache, entry);
+        if (placeholder_ret != ESP_OK) {
+            if (entry->alpha_bitmap != NULL && !entry->alpha_in_atlas) {
+                free(entry->alpha_bitmap);
+            }
+            free(entry);
+            return placeholder_ret;
         }
     }
 
@@ -852,10 +950,11 @@ static int gfx_cal_text_start_x(gfx_text_align_t align, int obj_width, int line_
 static void gfx_render_glyph_to_mask(gfx_opa_t *mask, int obj_width, int obj_height,
                                      gfx_font_handle_t font,
                                      const gfx_glyph_dsc_t *glyph_dsc,
-                                     const uint8_t *glyph_bitmap, int x, int y)
+                                     const uint8_t *glyph_bitmap, int x, int y,
+                                     bool placeholder)
 {
     int ofs_x = glyph_dsc->ofs_x;
-    int ofs_y = font->adjust_baseline_offset(font, (void *)glyph_dsc);
+    int ofs_y = placeholder ? glyph_dsc->ofs_y : font->adjust_baseline_offset(font, (void *)glyph_dsc);
 
     for (int32_t iy = 0; iy < glyph_dsc->box_h; iy++) {
         for (int32_t ix = 0; ix < glyph_dsc->box_w; ix++) {
@@ -958,7 +1057,8 @@ static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const 
         }
 
         gfx_render_glyph_to_mask(mask, obj->geometry.width, obj->geometry.height, font,
-                                 &glyph_entry->glyph_dsc, glyph_entry->alpha_bitmap, x, y_pos);
+                                 &glyph_entry->glyph_dsc, glyph_entry->alpha_bitmap, x, y_pos,
+                                 glyph_entry->placeholder);
 
         x += glyph_entry->advance_width;
 
@@ -990,7 +1090,7 @@ static esp_err_t gfx_render_text_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, int li
     label->text.text_width = gfx_calculate_text_width(font, label->text.text, NULL);
 
     for (int line_idx = 0; line_idx < max_lines && line_iter.cursor != NULL && *line_iter.cursor != '\0'; line_idx++) {
-        if (current_y + line_height > obj->geometry.height) {
+        if (current_y >= obj->geometry.height) {
             break;
         }
 
@@ -1040,7 +1140,7 @@ static esp_err_t gfx_render_parse(gfx_obj_t *obj, gfx_opa_t *mask)
     return gfx_render_text_to_mask(obj, mask, line_height, total_line_height);
 }
 
-esp_err_t gfx_get_glphy_dsc(gfx_obj_t *obj)
+esp_err_t gfx_label_prepare_glyphs(gfx_obj_t *obj)
 {
     GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
 
@@ -1083,7 +1183,7 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t *obj)
  * @param y2 Bottom boundary of destination area
  * @param dest_buf Destination buffer for blending
  */
-esp_err_t gfx_draw_label(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
+esp_err_t gfx_label_draw(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 {
     if (!obj || !ctx) {
         GFX_LOGE(TAG, "invalid handle");
@@ -1107,15 +1207,14 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
     }
 
     if (label->style.bg_enable) {
-        gfx_color_t bg_color = {
-            .full = gfx_color_to_native_u16(label->style.bg_color, ctx->swap),
+        gfx_area_t fill_area = {
+            .x1 = clip_area.x1 - ctx->buf_area.x1,
+            .y1 = clip_area.y1 - ctx->buf_area.y1,
+            .x2 = clip_area.x2 - ctx->buf_area.x1,
+            .y2 = clip_area.y2 - ctx->buf_area.y1,
         };
-        for (int y = clip_area.y1; y < clip_area.y2; y++) {
-            for (int x = clip_area.x1; x < clip_area.x2; x++) {
-                gfx_color_t *dest_pixels = GFX_DRAW_CTX_DEST_PTR(ctx, x, y);
-                *dest_pixels = bg_color;
-            }
-        }
+        gfx_sw_blend_fill_area_color((gfx_color_t *)ctx->buf, ctx->stride, &fill_area,
+                                     label->style.bg_color, ctx->swap);
     }
 
     if (!label->render.mask) {

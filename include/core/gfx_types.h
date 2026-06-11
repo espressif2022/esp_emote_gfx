@@ -13,53 +13,6 @@
 extern "C" {
 #endif
 
-/*********************
- *      DEFINES
- *********************/
-
-/* Pixel size constants */
-#define GFX_PIXEL_SIZE_16BPP   2  /**< 16-bit color format: 2 bytes per pixel */
-#define GFX_PIXEL_SIZE_8BPP    1  /**< 8-bit format: 1 byte per pixel */
-
-/**
- * @brief Calculate buffer pointer with offset for 16-bit format (RGB565)
- * @param buffer Base buffer pointer (any type)
- * @param y_offset Vertical offset in pixels
- * @param stride Width of buffer in pixels
- * @param x_offset Horizontal offset in pixels
- * @return Calculated gfx_color_t pointer with offset applied
- */
-#define GFX_BUFFER_OFFSET_16BPP(buffer, y_offset, stride, x_offset) \
-    ((uint8_t *)((uint8_t *)(buffer) + \
-                     (y_offset) * (stride) * GFX_PIXEL_SIZE_16BPP + \
-                     (x_offset) * GFX_PIXEL_SIZE_16BPP))
-
-/**
- * @brief Calculate buffer pointer with offset for 8-bit format
- * @param buffer Base buffer pointer (any type)
- * @param y_offset Vertical offset in pixels
- * @param stride Width of buffer in pixels
- * @param x_offset Horizontal offset in pixels
- * @return Calculated uint8_t pointer with offset applied
- */
-#define GFX_BUFFER_OFFSET_8BPP(buffer, y_offset, stride, x_offset) \
-    ((uint8_t *)((uint8_t *)(buffer) + \
-                 (y_offset) * (stride) * GFX_PIXEL_SIZE_8BPP + \
-                 (x_offset) * GFX_PIXEL_SIZE_8BPP))
-
-/**
- * @brief Calculate buffer pointer with offset for 4-bit format (2 pixels per byte)
- * @param buffer Base buffer pointer (any type)
- * @param y_offset Vertical offset in pixels
- * @param stride Width of buffer in pixels (will be divided by 2)
- * @param x_offset Horizontal offset in pixels (will be divided by 2)
- * @return Calculated uint8_t pointer with offset applied
- */
-#define GFX_BUFFER_OFFSET_4BPP(buffer, y_offset, stride, x_offset) \
-    ((uint8_t *)((uint8_t *)(buffer) + \
-                 (y_offset) * ((stride) / 2) + \
-                 (x_offset) / 2))
-
 #define GFX_COLOR_HEX(color) ((gfx_color_t)gfx_color_hex(color))
 
 /**********************
@@ -73,10 +26,24 @@ typedef int16_t     gfx_coord_t;    /**< Coordinate type */
 /** Graphics handle type */
 typedef void       *gfx_handle_t;      /**< Graphics handle type */
 
-/* Color type with full member for compatibility */
+/* Semantic RGB565 color used by draw APIs and RGB565 framebuffers. */
 typedef union {
-    uint16_t full;                  /**< Full 16-bit color value */
+    uint16_t full;                  /**< Semantic RGB565 color value */
 } gfx_color_t;
+
+/* Color format enumeration. Keep colors semantic; use formats for buffers/images. */
+typedef enum {
+    GFX_COLOR_FORMAT_UNKNOWN        = 0x00,
+    GFX_COLOR_FORMAT_RGB565         = 0x04,  /**< RGB565 high-byte, low-byte payload */
+    GFX_COLOR_FORMAT_RGB565_SWAPPED = 0x05,  /**< RGB565 low-byte, high-byte payload */
+    GFX_COLOR_FORMAT_RGB565A8       = 0x0A,  /**< RGB565 payload followed by alpha payload */
+    GFX_COLOR_FORMAT_RGB565A8_SWAPPED = 0x0B, /**< Swapped RGB565 payload followed by alpha payload */
+    GFX_COLOR_FORMAT_RGB888         = 0x0F,  /**< RGB888 payload, 3 bytes per pixel */
+    GFX_COLOR_FORMAT_RGB888A8       = 0x10,  /**< RGB888 payload followed by alpha payload */
+    GFX_COLOR_FORMAT_XRGB8888       = 0x11,  /**< XRGB8888 payload, reserved for future use */
+    GFX_COLOR_FORMAT_NATIVE         = GFX_COLOR_FORMAT_RGB565,
+    GFX_COLOR_FORMAT_NATIVE_WITH_ALPHA = GFX_COLOR_FORMAT_RGB565A8,
+} gfx_color_format_t;
 
 /* Area structure */
 typedef struct {
@@ -96,21 +63,6 @@ typedef struct {
  * @return Converted color in gfx_color_t type
  */
 gfx_color_t gfx_color_hex(uint32_t c);
-
-/**
- * @brief Convert a semantic gfx_color_t to native framebuffer order.
- *
- * Use this helper only when writing raw 16-bit pixels directly into a buffer
- * or calling raw fill helpers that do not accept a separate `swap` argument.
- *
- * @param color Semantic RGB565 color value.
- * @param swap Whether the target buffer expects swapped byte order.
- * @return Native-order 16-bit pixel value for the target buffer.
- */
-static inline uint16_t gfx_color_to_native_u16(gfx_color_t color, bool swap)
-{
-    return swap ? (uint16_t)__builtin_bswap16(color.full) : color.full;
-}
 
 #ifdef __cplusplus
 }
