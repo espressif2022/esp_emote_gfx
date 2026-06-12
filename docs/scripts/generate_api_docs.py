@@ -201,26 +201,32 @@ class HeaderParser:
     
     def _parse_functions(self):
         """解析函数声明"""
-        # 匹配函数声明：返回类型 函数名(参数); 返回类型与函数名之间允许无空格（如 gfx_touch_t *gfx_touch_add）
-        pattern = r'/\*\*[\s\S]*?\*/\s*\n\s*(\w+(?:\s*\*)?)\s*(\w+)\s*\(([^)]*)\)\s*;'
-        
+        # 匹配普通函数声明，可带或不带 Doxygen 注释。
+        # 返回类型支持 `const uint16_t *`、`gfx_obj_t *` 等多 token 形式。
+        pattern = (
+            r'(?m)^\s*'
+            r'(?P<comment>/\*\*[\s\S]*?\*/\s*)?'
+            r'(?P<ret>(?:const\s+)?[A-Za-z_]\w*(?:\s+[A-Za-z_]\w*)*)\s*'
+            r'(?:(?P<ptr>\*)\s*|\s+)'
+            r'(?P<name>[A-Za-z_]\w*)\s*\((?P<params>[^;{}]*)\)\s*;'
+        )
+
         for match in re.finditer(pattern, self.content):
-            full_match = match.group(0)
-            ret_type = match.group(1).strip()
-            name = match.group(2)
-            
-            # 提取注释部分
-            comment_end = full_match.find('*/')
-            if comment_end != -1:
-                comment = full_match[:comment_end+2]
-            else:
-                comment = None
-            
+            ret_type = ' '.join(match.group('ret').split())
+            if match.group('ptr'):
+                ret_type += ' *'
+            name = match.group('name')
+
+            if name.startswith('_'):
+                continue
+
+            comment = match.group('comment')
+
             parsed = self._parse_doxygen_block(comment)
-            
+
             # 构建函数签名
-            func_sig = f"{ret_type} {name}({match.group(3).strip()});"
-            
+            func_sig = f"{ret_type} {name}({match.group('params').strip()});"
+
             self.items.append(DocItem(
                 name=name,
                 kind='function',
@@ -375,19 +381,26 @@ class RstGenerator:
 
 
 TITLE_OVERRIDES = {
-    'gfx_core': 'Core System',
-    'gfx_types': 'Types',
-    'gfx_disp': 'Display',
-    'gfx_touch': 'Touch',
-    'gfx_obj': 'Object',
-    'gfx_timer': 'Timer',
-    'gfx_img': 'Image',
-    'gfx_label': 'Label',
-    'gfx_mesh_img': 'Mesh Image',
-    'gfx_anim': 'Animation',
-    'gfx_qrcode': 'QR Code',
-    'gfx_button': 'Button',
-    'gfx_font_lvgl': 'LVGL Font Compatibility',
+    'asset': 'Asset',
+    'core': 'Core System',
+    'display': 'Display',
+    'error': 'Error Codes',
+    'input': 'Input',
+    'log': 'Log',
+    'object': 'Object',
+    'timer': 'Timer',
+    'types': 'Types',
+    'memory': 'Memory Backend',
+    'sdl': 'SDL Backend',
+    'anim': 'Animation',
+    'button': 'Button',
+    'font_lvgl': 'LVGL Font Compatibility',
+    'image': 'Image',
+    'label': 'Label',
+    'list': 'List',
+    'mesh_image': 'Mesh Image',
+    'motion': 'Motion Scene',
+    'qrcode': 'QR Code',
 }
 
 SKIP_API_STEMS = {
@@ -431,8 +444,9 @@ def title_for_header(stem: str) -> str:
 def discover_header_mapping(repo_root: Path) -> List[Tuple[str, str, str]]:
     mapping: List[Tuple[str, str, str]] = []
     search_roots = [
-        ('include/core', 'api/core'),
-        ('include/widget', 'api/widgets'),
+        ('include/gfx', 'api/core'),
+        ('include/gfx/backends', 'api/core'),
+        ('include/gfx/widgets', 'api/widgets'),
     ]
 
     for header_dir, rst_dir in search_roots:
@@ -442,6 +456,8 @@ def discover_header_mapping(repo_root: Path) -> List[Tuple[str, str, str]]:
 
         for header_path in sorted(full_dir.glob('*.h')):
             stem = header_path.stem
+            if stem in {'base', 'gfx'}:
+                continue
             if stem in SKIP_API_STEMS:
                 continue
             rel_header = str(Path(header_dir) / header_path.name)

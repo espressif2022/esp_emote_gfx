@@ -7,12 +7,12 @@ Purpose
 This document explains how the motion scene stack is split today and where
 future optimization work should happen. It focuses on these files:
 
-* ``src/widget/motion/gfx_motion_scene.c``
-* ``src/widget/motion/gfx_motion_player.c``
-* ``src/widget/motion/gfx_motion_primitives.c``
-* ``src/widget/motion/gfx_motion_style.c``
-* ``src/widget/img/gfx_mesh_img.c``
-* ``src/core/draw/gfx_blend.c``
+* ``src/widgets/motion/gfx_motion_scene.c``
+* ``src/widgets/motion/gfx_motion_player.c``
+* ``src/widgets/motion/gfx_motion_primitives.c``
+* ``src/widgets/motion/gfx_motion_style.c``
+* ``src/widgets/img/gfx_mesh_img.c``
+* ``src/render/sw/gfx_blend.c``
 
 The key design rule is that scene playback, segment-to-mesh conversion, mesh
 image drawing, and low-level blending are separate layers. Each layer owns one
@@ -164,7 +164,7 @@ Scene Asset Model
 -----------------
 
 ``gfx_motion_asset_t`` is the ROM-side bundle consumed by the runtime. It is
-defined in ``include/widget/gfx_motion_scene.h`` and contains:
+defined in ``include/gfx/widgets/motion.h`` and contains:
 
 * ``meta``: schema version and design-space viewbox.
 * ``joint_names`` and ``joint_count``: named control points.
@@ -378,7 +378,7 @@ Use these rules when iterating:
 * Put palette/resource/layer/opacity handling in ``gfx_motion_style.c``.
 * Put generic mesh storage, UV, bounds, and draw dispatch in ``gfx_mesh_img.c``.
 * Put pixel coverage, sampling, AA, and blend math in ``gfx_blend.c``.
-* Keep public structs in ``include/widget/gfx_motion_scene.h`` stable where
+* Keep public structs in ``include/gfx/widgets/motion.h`` stable where
   possible because generated assets depend on them.
 * Validate asset mistakes in the scene layer rather than letting the player or
   renderer fail later.

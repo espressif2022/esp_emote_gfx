@@ -29,7 +29,7 @@ typedef struct {
 } test_timer_counter_t;
 
 typedef struct {
-    gfx_obj_t *status_label;
+    gfx_object_t *status_label;
     gfx_timer_handle_t gfx_timer;
     esp_timer_handle_t ref_timer;
     test_timer_counter_t gfx_counter;
@@ -142,7 +142,7 @@ static void test_timer_scene_cleanup(test_timer_scene_t *scene)
         scene->gfx_timer = NULL;
     }
     if (scene->status_label != NULL) {
-        gfx_obj_delete(scene->status_label);
+        gfx_object_delete(scene->status_label);
         scene->status_label = NULL;
     }
 }
@@ -166,8 +166,8 @@ static void test_timer_create_scene(test_timer_scene_t *scene)
 
     scene->status_label = gfx_label_create(disp_default);
     TEST_ASSERT_NOT_NULL(scene->status_label);
-    gfx_obj_set_size(scene->status_label, 260, 56);
-    gfx_obj_align(scene->status_label, GFX_ALIGN_CENTER, 0, 0);
+    gfx_object_set_size(scene->status_label, 260, 56);
+    gfx_object_align(scene->status_label, GFX_ALIGN_CENTER, 0, 0);
     gfx_label_set_font(scene->status_label, (gfx_font_t)&font_puhui_16_4);
     gfx_label_set_text_align(scene->status_label, GFX_TEXT_ALIGN_CENTER);
     gfx_label_set_long_mode(scene->status_label, GFX_LABEL_LONG_WRAP);

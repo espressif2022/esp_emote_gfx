@@ -20,7 +20,7 @@
 
  #pragma once
 
- #include "widget/gfx_motion_scene.h"
+ #include "gfx/widgets/motion.h"
  
  /* Public Motion Action IDs */
  typedef enum {
@@ -46,7 +46,7 @@
  
  /* Layout Hints */
  static const gfx_motion_layout_t claw_motion_layout = {
-     .stroke_width    = 5,
+     .stroke_width    = 10,
      .mirror_x        = 0,
      .ground_y        = 960,
      .timer_period_ms = 33,
@@ -475,9 +475,9 @@
  };
  static const gfx_motion_segment_t claw_motion_icon_00_segments[] = {
      /* icon_icon1_gr_0_sh_0 */
-     { .kind = GFX_MOTION_SEG_BEZIER_LOOP, .joint_a = 0, .joint_count = 28, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_LOOP, .joint_a = 0, .joint_count = 28, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon1_gr_0_sh_0_2 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 28, .joint_count = 7, .stroke_width = 7, .color_idx = 7 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 28, .joint_count = 7, .stroke_width = 12, .color_idx = 7 },
  };
  static const int16_t claw_motion_icon_01_coords[] = { /* icon_icon2_mp3tx6by */
      /* icon_icon2_gr_0_sh_0 (16 pts) */
@@ -489,11 +489,11 @@
  };
  static const gfx_motion_segment_t claw_motion_icon_01_segments[] = {
      /* icon_icon2_gr_0_sh_0 */
-     { .kind = GFX_MOTION_SEG_BEZIER_LOOP, .joint_a = 0, .joint_count = 16, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_LOOP, .joint_a = 0, .joint_count = 16, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon2_gr_0_sh_0_2 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 16, .joint_count = 4, .stroke_width = 7, .color_idx = 8 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 16, .joint_count = 4, .stroke_width = 12, .color_idx = 8 },
      /* icon_icon2_gr_0_sh_0_3 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 20, .joint_count = 4, .stroke_width = 7, .color_idx = 8 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 20, .joint_count = 4, .stroke_width = 12, .color_idx = 8 },
  };
  static const int16_t claw_motion_icon_02_coords[] = { /* icon_icon3_mp3tx6rp */
      /* icon_icon3_gr_0_sh_0_1 (64 pts) */
@@ -508,11 +508,11 @@
  };
  static const gfx_motion_segment_t claw_motion_icon_02_segments[] = {
      /* icon_icon3_gr_0_sh_0_1 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 0, .joint_count = 64, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 0, .joint_count = 64, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon3_gr_0_sh_0_2 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 64, .joint_count = 13, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 64, .joint_count = 13, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon3_gr_0_sh_0_2 */
-     { .kind = GFX_MOTION_SEG_BEZIER_LOOP, .joint_a = 77, .joint_count = 16, .stroke_width = 7, .color_idx = 9 },
+     { .kind = GFX_MOTION_SEG_BEZIER_LOOP, .joint_a = 77, .joint_count = 16, .stroke_width = 12, .color_idx = 9 },
  };
  static const int16_t claw_motion_icon_03_coords[] = { /* icon_icon4_mp3tx77z */
      /* icon_icon4_gr_0_sh_0 (13 pts) */
@@ -524,11 +524,11 @@
  };
  static const gfx_motion_segment_t claw_motion_icon_03_segments[] = {
      /* icon_icon4_gr_0_sh_0 */
-     { .kind = GFX_MOTION_SEG_BEZIER_LOOP, .joint_a = 0, .joint_count = 13, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_LOOP, .joint_a = 0, .joint_count = 13, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon4_gr_0_sh_0_2 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 13, .joint_count = 4, .stroke_width = 7, .color_idx = 10 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 13, .joint_count = 4, .stroke_width = 12, .color_idx = 10 },
      /* icon_icon4_gr_0_sh_0_3 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 17, .joint_count = 4, .stroke_width = 7, .color_idx = 10 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 17, .joint_count = 4, .stroke_width = 12, .color_idx = 10 },
  };
  static const int16_t claw_motion_icon_04_coords[] = { /* icon_icon5_mp3tx7on */
      /* icon_icon5_gr_0_sh_0 (7 pts) */
@@ -542,11 +542,11 @@
  };
  static const gfx_motion_segment_t claw_motion_icon_04_segments[] = {
      /* icon_icon5_gr_0_sh_0 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 0, .joint_count = 7, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 0, .joint_count = 7, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon5_gr_0_sh_0_2 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 7, .joint_count = 4, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 7, .joint_count = 4, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon5_gr_0_sh_0_3 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 11, .joint_count = 4, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 11, .joint_count = 4, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon5_gr_0_sh_0_4 */
      { .kind = GFX_MOTION_SEG_BEZIER_FILL, .joint_a = 15, .joint_count = 16, .color_idx = 6 },
  };
@@ -564,15 +564,15 @@
  };
  static const gfx_motion_segment_t claw_motion_icon_05_segments[] = {
      /* icon_icon6_gr_0_sh_0 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 0, .joint_count = 7, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 0, .joint_count = 7, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon6_gr_0_sh_0_2 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 7, .joint_count = 4, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 7, .joint_count = 4, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon6_gr_0_sh_0_3 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 11, .joint_count = 4, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 11, .joint_count = 4, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon6_gr_0_sh_0_4 */
      { .kind = GFX_MOTION_SEG_BEZIER_FILL, .joint_a = 15, .joint_count = 16, .color_idx = 6 },
      /* icon_icon6_gr_0_sh_0_5 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 31, .joint_count = 4, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 31, .joint_count = 4, .stroke_width = 12, .color_idx = 6 },
  };
  static const int16_t claw_motion_icon_06_coords[] = { /* icon_icon7_mp3tx8p0 */
      /* icon_icon7_gr_0_sh_0 (4 pts) */
@@ -602,29 +602,29 @@
  };
  static const gfx_motion_segment_t claw_motion_icon_06_segments[] = {
      /* icon_icon7_gr_0_sh_0 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 0, .joint_count = 4, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 0, .joint_count = 4, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon7_gr_0_sh_0_2 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 4, .joint_count = 4, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 4, .joint_count = 4, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon7_gr_0_sh_0_3 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 8, .joint_count = 4, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 8, .joint_count = 4, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon7_gr_0_sh_0_4 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 12, .joint_count = 4, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 12, .joint_count = 4, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon7_gr_0_sh_0_5 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 16, .joint_count = 4, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 16, .joint_count = 4, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon7_gr_0_sh_0_6 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 20, .joint_count = 4, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 20, .joint_count = 4, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon7_gr_0_sh_0_7 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 24, .joint_count = 4, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 24, .joint_count = 4, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon7_gr_0_sh_0_8 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 28, .joint_count = 4, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 28, .joint_count = 4, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon7_gr_0_sh_0_9 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 32, .joint_count = 4, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 32, .joint_count = 4, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon7_gr_0_sh_0_10 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 36, .joint_count = 4, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 36, .joint_count = 4, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon7_gr_0_sh_0_11 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 40, .joint_count = 4, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 40, .joint_count = 4, .stroke_width = 12, .color_idx = 6 },
      /* icon_icon7_gr_0_sh_0_12 */
-     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 44, .joint_count = 4, .stroke_width = 7, .color_idx = 6 },
+     { .kind = GFX_MOTION_SEG_BEZIER_STRIP, .joint_a = 44, .joint_count = 4, .stroke_width = 12, .color_idx = 6 },
  };
  static const int16_t claw_motion_icon_07_coords[] = { /* icon_icon8_mp3tx99t */
      /* icon_icon8_gr_0_el_0 (13 pts) */

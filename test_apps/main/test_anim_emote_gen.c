@@ -51,7 +51,7 @@ typedef struct {
 
 static const char *const TAG = "anim_emote_gen";
 static EventGroupHandle_t s_anim_events;
-static gfx_obj_t *s_anim_wait_obj;
+static gfx_object_t *s_anim_wait_obj;
 static test_anim_index_item_t s_index_items[TEST_ANIM_INDEX_MAX];
 static size_t s_index_count;
 
@@ -60,13 +60,13 @@ static size_t s_index_count;
  **********************/
 
 static const char *test_anim_segment_action_str(gfx_anim_segment_action_t action);
-static const char *test_anim_disp_event_str(gfx_disp_event_t event);
+static const char *test_anim_disp_event_str(gfx_display_event_t event);
 static void test_anim_touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t *event, void *user_data);
-static void test_anim_disp_update_cb(gfx_disp_t *disp, gfx_disp_event_t event, const void *obj, void *user_data);
+static void test_anim_disp_update_cb(gfx_display_t *disp, gfx_display_event_t event, const void *obj, void *user_data);
 static int test_anim_mmap_find_asset_id_by_name(mmap_assets_handle_t assets_handle, const char *filename);
 static int test_anim_mmap_find_index_json_id(mmap_assets_handle_t assets_handle);
 static void test_anim_index_load(mmap_assets_handle_t assets_handle);
-static bool test_anim_show_index_entry(mmap_assets_handle_t assets_handle, gfx_obj_t *anim_obj,
+static bool test_anim_show_index_entry(mmap_assets_handle_t assets_handle, gfx_object_t *anim_obj,
                                        const test_anim_index_item_t *item);
 static void test_anim_run_case_emote_gen(mmap_assets_handle_t assets_handle);
 
@@ -86,16 +86,16 @@ static const char *test_anim_segment_action_str(gfx_anim_segment_action_t action
     }
 }
 
-static const char *test_anim_disp_event_str(gfx_disp_event_t event)
+static const char *test_anim_disp_event_str(gfx_display_event_t event)
 {
     switch (event) {
-    case GFX_DISP_EVENT_IDLE:
+    case GFX_DISPLAY_EVENT_IDLE:
         return "IDLE";
-    case GFX_DISP_EVENT_ONE_FRAME_DONE:
+    case GFX_DISPLAY_EVENT_ONE_FRAME_DONE:
         return "ONE_FRAME_DONE";
-    case GFX_DISP_EVENT_PART_FRAME_DONE:
+    case GFX_DISPLAY_EVENT_PART_FRAME_DONE:
         return "PART_DONE";
-    case GFX_DISP_EVENT_ALL_FRAME_DONE:
+    case GFX_DISPLAY_EVENT_ALL_FRAME_DONE:
         return "ALL_DONE";
     default:
         return "UNKNOWN";
@@ -113,7 +113,7 @@ static void test_anim_touch_event_cb(gfx_touch_t *touch, const gfx_touch_event_t
     }
 }
 
-static void test_anim_disp_update_cb(gfx_disp_t *disp, gfx_disp_event_t event, const void *obj, void *user_data)
+static void test_anim_disp_update_cb(gfx_display_t *disp, gfx_display_event_t event, const void *obj, void *user_data)
 {
     (void)disp;
     (void)user_data;
@@ -122,12 +122,12 @@ static void test_anim_disp_update_cb(gfx_disp_t *disp, gfx_disp_event_t event, c
         return;
     }
 
-    if (event == GFX_DISP_EVENT_PART_FRAME_DONE) {
+    if (event == GFX_DISPLAY_EVENT_PART_FRAME_DONE) {
         ESP_LOGI("", "disp_update_cb(%p): event:%s", obj, test_anim_disp_event_str(event));
         return;
     }
 
-    if (event == GFX_DISP_EVENT_ALL_FRAME_DONE) {
+    if (event == GFX_DISPLAY_EVENT_ALL_FRAME_DONE) {
         ESP_LOGI("", "disp_update_cb(%p): event:%s", obj, test_anim_disp_event_str(event));
         xEventGroupSetBits(s_anim_events, TEST_ANIM_EVENT_END);
     }
@@ -241,7 +241,7 @@ static void test_anim_index_load(mmap_assets_handle_t assets_handle)
     ESP_LOGI(TAG, "index.json: loaded %zu entries", s_index_count);
 }
 
-static bool test_anim_show_index_entry(mmap_assets_handle_t assets_handle, gfx_obj_t *anim_obj, const test_anim_index_item_t *item)
+static bool test_anim_show_index_entry(mmap_assets_handle_t assets_handle, gfx_object_t *anim_obj, const test_anim_index_item_t *item)
 {
     const void *anim_data = NULL;
     size_t anim_size = 0;
@@ -269,13 +269,13 @@ static bool test_anim_show_index_entry(mmap_assets_handle_t assets_handle, gfx_o
     anim_src.data_len = anim_size;
     TEST_ASSERT_EQUAL(ESP_OK, gfx_anim_set_src_desc(anim_obj, &anim_src));
 
-    gfx_obj_set_size(anim_obj, 200, 150);
+    gfx_object_set_size(anim_obj, 200, 150);
     gfx_anim_set_auto_mirror(anim_obj, false);
 
     if (item->x == 0 && item->y == 0) {
-        gfx_obj_align(anim_obj, GFX_ALIGN_CENTER, 0, 0);
+        gfx_object_align(anim_obj, GFX_ALIGN_CENTER, 0, 0);
     } else {
-        gfx_obj_set_pos(anim_obj, item->x, item->y);
+        gfx_object_set_pos(anim_obj, item->x, item->y);
     }
 
     if (item->has_loop_range) {
@@ -355,21 +355,21 @@ static void test_anim_run_case_emote_gen(mmap_assets_handle_t assets_handle)
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     TEST_ASSERT_NOT_NULL(disp_default);
-    gfx_disp_set_bg_color(disp_default, GFX_COLOR_HEX(0x101820));
-    gfx_obj_t *anim_obj = gfx_anim_create(disp_default);
-    gfx_obj_t *next_btn = gfx_button_create(disp_default);
+    gfx_display_set_bg_color(disp_default, GFX_COLOR_HEX(0x101820));
+    gfx_object_t *anim_obj = gfx_anim_create(disp_default);
+    gfx_object_t *next_btn = gfx_button_create(disp_default);
     TEST_ASSERT_NOT_NULL(anim_obj);
     TEST_ASSERT_NOT_NULL(next_btn);
 
-    gfx_obj_set_size(next_btn, 100, 40);
+    gfx_object_set_size(next_btn, 100, 40);
     TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_text(next_btn, "Next"));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_font(next_btn, (gfx_font_t)&font_puhui_16_4));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_bg_color(next_btn, GFX_COLOR_HEX(0x2A6DF4)));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_bg_color_pressed(next_btn, GFX_COLOR_HEX(0x163D87)));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_border_color(next_btn, GFX_COLOR_HEX(0xDCE8FF)));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_border_width(next_btn, 2));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align(next_btn, GFX_ALIGN_TOP_MID, 0, 0));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_visible(next_btn, false));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_object_align(next_btn, GFX_ALIGN_TOP_MID, 0, 0));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_object_set_visible(next_btn, false));
     test_app_unlock();
 
     while (case_index < s_index_count) {

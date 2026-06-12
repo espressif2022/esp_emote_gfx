@@ -6,23 +6,25 @@ The widget API provides specialized functionality for different types of graphic
 .. toctree::
    :maxdepth: 2
 
-   gfx_anim
-   gfx_button
-   gfx_font_lvgl
-   gfx_img
-   gfx_label
-   gfx_mesh_img
-   gfx_motion_scene
-   gfx_qrcode
+   anim
+   button
+   font_lvgl
+   image
+   label
+   list
+   mesh_image
+   motion
+   qrcode
 
 Widget Modules
 --------------
 
-* :doc:`gfx_anim` - Animation (gfx_anim)
-* :doc:`gfx_button` - Button (gfx_button)
-* :doc:`gfx_font_lvgl` - LVGL Font Compatibility (gfx_font_lvgl)
-* :doc:`gfx_img` - Image (gfx_img)
-* :doc:`gfx_label` - Label (gfx_label)
-* :doc:`gfx_mesh_img` - Mesh Image (gfx_mesh_img)
-* :doc:`gfx_motion_scene` - Motion Scene (gfx_motion_scene)
-* :doc:`gfx_qrcode` - QR Code (gfx_qrcode)
+* :doc:`anim` - Animation (anim)
+* :doc:`button` - Button (button)
+* :doc:`font_lvgl` - LVGL Font Compatibility (font_lvgl)
+* :doc:`image` - Image (image)
+* :doc:`label` - Label (label)
+* :doc:`list` - List (list)
+* :doc:`mesh_image` - Mesh Image (mesh_image)
+* :doc:`motion` - Motion Scene (motion)
+* :doc:`qrcode` - QR Code (qrcode)

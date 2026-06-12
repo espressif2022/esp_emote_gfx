@@ -7,11 +7,14 @@
 /*********************
  *      INCLUDES
  *********************/
-#include "esp_timer.h"
+#include <inttypes.h>
+#include <stdlib.h>
+
 #include "esp_err.h"
 #include "esp_log.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_TIMER
 #include "common/gfx_log_priv.h"
+#include "platform/gfx_platform.h"
 
 #include "core/runtime/gfx_core_priv.h"
 
@@ -45,7 +48,7 @@ static const char *const TAG = "timer";
 
 uint32_t gfx_timer_tick_get(void)
 {
-    return (uint32_t)(esp_timer_get_time() / 1000); // Convert microseconds to milliseconds
+    return (uint32_t)(gfx_platform_time_us() / 1000); // Convert microseconds to milliseconds
 }
 
 uint32_t gfx_timer_tick_elaps(uint32_t prev_tick)

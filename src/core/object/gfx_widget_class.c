@@ -12,16 +12,16 @@
 #define GFX_LOG_MODULE GFX_LOG_MODULE_OBJ
 #include "common/gfx_log_priv.h"
 
-#include "core/display/gfx_disp_priv.h"
+#include "core/display/gfx_display_priv.h"
 #include "core/display/gfx_refresh_priv.h"
-#include "core/object/gfx_obj_priv.h"
+#include "core/object/gfx_object_priv.h"
 
 static const char *const TAG = "widget_class";
 
 static const gfx_widget_class_t *s_widget_classes[UINT8_MAX + 1U];
 static uint32_t s_obj_create_seq = 0U;
 
-esp_err_t gfx_widget_class_register(const gfx_widget_class_t *klass)
+gfx_err_t gfx_widget_class_register(const gfx_widget_class_t *klass)
 {
     const gfx_widget_class_t *existing;
 
@@ -45,7 +45,7 @@ const gfx_widget_class_t *gfx_widget_class_get(uint8_t type)
     return s_widget_classes[type];
 }
 
-esp_err_t gfx_obj_init_class_instance(gfx_obj_t *obj, gfx_disp_t *disp, const gfx_widget_class_t *klass, void *src)
+gfx_err_t gfx_object_init_class_instance(gfx_object_t *obj, gfx_display_t *disp, const gfx_widget_class_t *klass, void *src)
 {
     ESP_RETURN_ON_FALSE(obj != NULL, ESP_ERR_INVALID_ARG, TAG, "object is NULL");
     ESP_RETURN_ON_FALSE(disp != NULL, ESP_ERR_INVALID_ARG, TAG, "display is NULL");
@@ -67,15 +67,15 @@ esp_err_t gfx_obj_init_class_instance(gfx_obj_t *obj, gfx_disp_t *disp, const gf
     obj->trace.class_name = (obj->klass->name != NULL) ? obj->klass->name : "unknown";
     obj->trace.create_tag = obj->trace.class_name;
 
-    gfx_obj_invalidate(obj);
+    gfx_object_invalidate(obj);
     return ESP_OK;
 }
 
-esp_err_t gfx_obj_create_class_instance(gfx_disp_t *disp, const gfx_widget_class_t *klass,
-                                        void *src, uint16_t width, uint16_t height,
-                                        const char *create_tag, gfx_obj_t **out_obj)
+gfx_err_t gfx_object_create_class_instance(gfx_display_t *disp, const gfx_widget_class_t *klass,
+        void *src, uint16_t width, uint16_t height,
+        const char *create_tag, gfx_object_t **out_obj)
 {
-    gfx_obj_t *obj;
+    gfx_object_t *obj;
     esp_err_t ret;
 
     ESP_RETURN_ON_FALSE(disp != NULL, ESP_ERR_INVALID_ARG, TAG, "display is NULL");
@@ -86,7 +86,7 @@ esp_err_t gfx_obj_create_class_instance(gfx_disp_t *disp, const gfx_widget_class
     obj = calloc(1, sizeof(*obj));
     ESP_RETURN_ON_FALSE(obj != NULL, ESP_ERR_NO_MEM, TAG, "no memory for object");
 
-    ret = gfx_obj_init_class_instance(obj, disp, klass, src);
+    ret = gfx_object_init_class_instance(obj, disp, klass, src);
     if (ret != ESP_OK) {
         free(obj);
         return ret;
@@ -98,7 +98,7 @@ esp_err_t gfx_obj_create_class_instance(gfx_disp_t *disp, const gfx_widget_class
         obj->trace.create_tag = create_tag;
     }
 
-    ret = gfx_disp_add_child(disp, obj);
+    ret = gfx_display_add_child(disp, obj);
     if (ret != ESP_OK) {
         free(obj);
         return ret;

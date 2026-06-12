@@ -6,15 +6,12 @@
 
 #pragma once
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/semphr.h"
-#include "freertos/event_groups.h"
-
 #include "core/gfx_core.h"
 #include "core/gfx_touch.h"
-#include "core/display/gfx_disp_priv.h"
-#include "core/object/gfx_obj_priv.h"
+#include "core/display/gfx_display_priv.h"
+#include "core/object/gfx_object_priv.h"
 #include "core/runtime/gfx_timer_priv.h"
+#include "platform/gfx_platform.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,11 +20,11 @@ extern "C" {
 /*********************
  *   DEFINES
  *********************/
-#define NEED_DELETE         BIT0
-#define DELETE_DONE         BIT1
-#define WAIT_FLUSH_DONE     BIT2
+#define NEED_DELETE         (1U << 0)
+#define DELETE_DONE         (1U << 1)
+#define WAIT_FLUSH_DONE     (1U << 2)
 
-#define GFX_EVENT_INVALIDATE    BIT0
+#define GFX_EVENT_INVALIDATE    (1U << 0)
 #define GFX_EVENT_ALL           0xFF
 
 #define ANIM_NO_TIMER_READY 0xFFFFFFFF
@@ -39,14 +36,15 @@ extern "C" {
  *********************/
 typedef struct gfx_core_context {
     struct {
-        SemaphoreHandle_t render_mutex;      /**< Recursive mutex for render/touch */
-        EventGroupHandle_t lifecycle_events; /**< NEED_DELETE / DELETE_DONE / WAIT_FLUSH_DONE */
-        EventGroupHandle_t render_events;    /**< GFX_EVENT_INVALIDATE etc. - wake render task */
+        gfx_platform_mutex_t render_mutex;   /**< Recursive mutex for render/touch */
+        gfx_platform_event_t lifecycle_events; /**< NEED_DELETE / DELETE_DONE / WAIT_FLUSH_DONE */
+        gfx_platform_event_t render_events;  /**< GFX_EVENT_INVALIDATE etc. - wake render task */
     } sync;
 
     gfx_timer_mgr_t timer_mgr;             /**< Timer manager (see gfx_timer_priv.h) */
-    gfx_disp_t *disp;                      /**< Display list (one per screen, malloc'd) */
+    gfx_display_t *disp;                      /**< Display list (one per screen, malloc'd) */
     gfx_touch_t *touch;                    /**< Touch list (multiple touch devices, malloc'd) */
+    bool manual_tick;                      /**< Caller drives timers/render via gfx_core_tick() */
 } gfx_core_context_t;
 
 /*********************

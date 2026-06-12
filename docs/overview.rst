@@ -38,7 +38,7 @@ Runtime Model
 Applications normally follow this flow:
 
 1. Initialize ``gfx_handle_t`` with ``gfx_core_init()``.
-2. Add one or more displays with ``gfx_disp_add()``.
+2. Add one or more displays with ``gfx_display_add()``.
 3. Create widgets on a display.
 4. Update widgets from the graphics task, or hold ``gfx_core_lock()`` when
    updating from another task.

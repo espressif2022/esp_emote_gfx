@@ -9,13 +9,13 @@
 static const char *const TAG = "test_button";
 
 typedef struct {
-    gfx_obj_t *button_obj;
-    gfx_obj_t *status_label;
+    gfx_object_t *button_obj;
+    gfx_object_t *status_label;
 } test_button_scene_t;
 
-static void test_button_touch_cb(gfx_obj_t *obj, const gfx_touch_event_t *event, void *user_data)
+static void test_button_touch_cb(gfx_object_t *obj, const gfx_touch_event_t *event, void *user_data)
 {
-    gfx_obj_t *status_label = (gfx_obj_t *)user_data;
+    gfx_object_t *status_label = (gfx_object_t *)user_data;
 
     (void)obj;
 
@@ -43,11 +43,11 @@ static void test_button_scene_cleanup(test_button_scene_t *scene)
     }
 
     if (scene->button_obj != NULL) {
-        gfx_obj_delete(scene->button_obj);
+        gfx_object_delete(scene->button_obj);
         scene->button_obj = NULL;
     }
     if (scene->status_label != NULL) {
-        gfx_obj_delete(scene->status_label);
+        gfx_object_delete(scene->status_label);
         scene->status_label = NULL;
     }
 }
@@ -66,18 +66,18 @@ static void test_button_run(void)
     TEST_ASSERT_NOT_NULL(scene.button_obj);
     TEST_ASSERT_NOT_NULL(scene.status_label);
 
-    gfx_obj_set_size(scene.button_obj, 180, 52);
-    gfx_obj_align(scene.button_obj, GFX_ALIGN_CENTER, 0, -18);
+    gfx_object_set_size(scene.button_obj, 180, 52);
+    gfx_object_align(scene.button_obj, GFX_ALIGN_CENTER, 0, -18);
     TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_text(scene.button_obj, "Tap Button"));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_font(scene.button_obj, (gfx_font_t)&font_puhui_16_4));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_bg_color(scene.button_obj, GFX_COLOR_HEX(0x2A6DF4)));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_bg_color_pressed(scene.button_obj, GFX_COLOR_HEX(0x163D87)));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_border_color(scene.button_obj, GFX_COLOR_HEX(0xDCE8FF)));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_button_set_border_width(scene.button_obj, 2));
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_set_touch_cb(scene.button_obj, test_button_touch_cb, scene.status_label));
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_object_set_touch_cb(scene.button_obj, test_button_touch_cb, scene.status_label));
 
-    gfx_obj_set_size(scene.status_label, 220, 32);
-    TEST_ASSERT_EQUAL(ESP_OK, gfx_obj_align_to(scene.status_label, scene.button_obj, GFX_ALIGN_OUT_BOTTOM_MID, 0, 12));
+    gfx_object_set_size(scene.status_label, 220, 32);
+    TEST_ASSERT_EQUAL(ESP_OK, gfx_object_align_to(scene.status_label, scene.button_obj, GFX_ALIGN_OUT_BOTTOM_MID, 0, 12));
     gfx_label_set_font(scene.status_label, (gfx_font_t)&font_puhui_16_4);
     gfx_label_set_text_align(scene.status_label, GFX_TEXT_ALIGN_CENTER);
     gfx_label_set_color(scene.status_label, GFX_COLOR_HEX(0xFFFFFF));
@@ -98,7 +98,7 @@ static void test_button_run(void)
 
     test_app_log_step(TAG, "Move button and verify align_to follower");
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
-    gfx_obj_align(scene.button_obj, GFX_ALIGN_TOP_MID, 0, 36);
+    gfx_object_align(scene.button_obj, GFX_ALIGN_TOP_MID, 0, 36);
     gfx_label_set_text(scene.status_label, "automatically follows");
     test_app_unlock();
 

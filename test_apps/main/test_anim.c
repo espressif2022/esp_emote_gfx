@@ -21,19 +21,19 @@ static void test_anim_format_case_name(const test_anim_case_t *test_case, char *
     snprintf(buf, buf_size, "asset_id=%d", test_case->asset_id);
 }
 
-static void test_anim_apply_layout(gfx_obj_t *anim_obj, bool auto_mirror)
+static void test_anim_apply_layout(gfx_object_t *anim_obj, bool auto_mirror)
 {
     if (auto_mirror) {
-        gfx_obj_set_pos(anim_obj, 20, 10);
+        gfx_object_set_pos(anim_obj, 20, 10);
     } else {
-        gfx_obj_align(anim_obj, GFX_ALIGN_CENTER, 0, 0);
+        gfx_object_align(anim_obj, GFX_ALIGN_CENTER, 0, 0);
     }
 
-    gfx_obj_set_size(anim_obj, 200, 150);
+    gfx_object_set_size(anim_obj, 200, 150);
     gfx_anim_set_auto_mirror(anim_obj, auto_mirror);
 }
 
-static void test_anim_show_case(mmap_assets_handle_t assets_handle, gfx_obj_t *anim_obj, const test_anim_case_t *test_case)
+static void test_anim_show_case(mmap_assets_handle_t assets_handle, gfx_object_t *anim_obj, const test_anim_case_t *test_case)
 {
     const void *anim_data = NULL;
     size_t anim_size = 0;
@@ -82,8 +82,8 @@ static void test_anim_run(mmap_assets_handle_t assets_handle)
 
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     TEST_ASSERT_NOT_NULL(disp_default);
-    gfx_disp_set_bg_color(disp_default, GFX_COLOR_HEX(0x101820));
-    gfx_obj_t *anim_obj = gfx_anim_create(disp_default);
+    gfx_display_set_bg_color(disp_default, GFX_COLOR_HEX(0x101820));
+    gfx_object_t *anim_obj = gfx_anim_create(disp_default);
     TEST_ASSERT_NOT_NULL(anim_obj);
     test_app_unlock();
 

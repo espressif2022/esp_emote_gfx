@@ -12,16 +12,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "driver/gpio.h"
-#include "esp_attr.h"
-#include "esp_timer.h"
 #include "esp_log.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_TOUCH
 #include "common/gfx_log_priv.h"
 
-#include "core/object/gfx_obj_priv.h"
+#include "core/display/gfx_display_priv.h"
+#include "core/object/gfx_object_priv.h"
 #include "core/runtime/gfx_core_priv.h"
 #include "core/runtime/gfx_touch_priv.h"
+#include "platform/gfx_platform.h"
+#include "platform/gfx_touch_port.h"
 
 /*********************
  *      DEFINES
@@ -43,8 +43,8 @@ static const uint32_t s_default_irq_poll_ms = 5;
 struct gfx_touch {
     struct gfx_touch *next;
     struct gfx_core_context *ctx;
-    esp_lcd_touch_handle_t handle;
-    gfx_disp_t *disp;
+    void *driver_handle;
+    gfx_display_t *disp;
     gfx_timer_handle_t poll_timer;
     gfx_touch_event_cb_t event_cb;
     void *user_data;
@@ -57,21 +57,15 @@ struct gfx_touch {
     uint8_t last_id;
 
     /** Object that received PRESS; gets MOVE/RELEASE for same track until RELEASE (for drag) */
-    struct gfx_obj *pressed_obj;
+    struct gfx_object *pressed_obj;
     uint32_t pressed_obj_seq;
     uint8_t pressed_id;
 
-    gpio_num_t int_gpio_num;
+    int int_gpio_num;
     bool irq_enabled;
     volatile bool irq_pending;
-    void *isr_ctx;
+    void *irq_cookie;
 };
-
-typedef struct {
-    gfx_touch_t *touch;
-    void *original_user_data;
-    volatile bool unregistering;
-} gfx_touch_isr_ctx_t;
 
 /**********************
  *  STATIC PROTOTYPES
@@ -84,40 +78,14 @@ static esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *c
  *   STATIC FUNCTIONS
  **********************/
 
-/** Return topmost visible object on disp that contains (x, y), or NULL (same order as render = last in list = front) */
-static gfx_obj_t *gfx_touch_hit_test(gfx_disp_t *disp, uint16_t x, uint16_t y)
-{
-    gfx_obj_t *hit = NULL;
-    for (gfx_obj_child_t *n = disp->child_list; n != NULL; n = n->next) {
-        gfx_obj_t *obj = (gfx_obj_t *)n->src;
-        if (!obj->state.is_visible) {
-            continue;
-        }
-        if (obj->align.enabled || obj->state.layout_dirty) {
-            gfx_obj_calc_pos_in_parent(obj);
-        }
-        int32_t ox = obj->geometry.x;
-        int32_t oy = obj->geometry.y;
-        uint32_t w = obj->geometry.width;
-        uint32_t h = obj->geometry.height;
-        if (w == 0 || h == 0) {
-            continue;
-        }
-        if ((int32_t)x >= ox && (int32_t)x < ox + (int32_t)w && (int32_t)y >= oy && (int32_t)y < oy + (int32_t)h) {
-            hit = obj;
-        }
-    }
-    return hit;
-}
-
-static bool gfx_touch_obj_is_active(gfx_disp_t *disp, gfx_obj_t *target, uint32_t create_seq)
+static bool gfx_touch_obj_is_active(gfx_display_t *disp, gfx_object_t *target, uint32_t create_seq)
 {
     if (!disp || !target) {
         return false;
     }
 
-    for (gfx_obj_child_t *n = disp->child_list; n != NULL; n = n->next) {
-        gfx_obj_t *obj = (gfx_obj_t *)n->src;
+    for (gfx_object_child_t *n = disp->child_list; n != NULL; n = n->next) {
+        gfx_object_t *obj = (gfx_object_t *)n->src;
         if (obj == target) {
             return obj->state.is_visible && obj->trace.create_seq == create_seq;
         }
@@ -128,13 +96,116 @@ static bool gfx_touch_obj_is_active(gfx_disp_t *disp, gfx_obj_t *target, uint32_
 
 static uint32_t gfx_touch_now_ms(void)
 {
-    return (uint32_t)(esp_timer_get_time() / 1000);
+    return (uint32_t)(gfx_platform_time_us() / 1000);
 }
 
-static void gfx_touch_dispatch(gfx_touch_t *touch, gfx_touch_event_type_t type, const esp_lcd_touch_point_data_t *pt)
+static void gfx_touch_update_capture(gfx_touch_t *touch, gfx_display_t *disp, const gfx_touch_event_t *evt, gfx_object_t **out_hit_obj)
 {
-    void *hit_obj = NULL;
+    gfx_object_t *hit_obj = NULL;
 
+    if (disp == NULL || evt == NULL) {
+        if (out_hit_obj != NULL) {
+            *out_hit_obj = NULL;
+        }
+        return;
+    }
+
+    if (evt->type == GFX_TOUCH_EVENT_PRESS) {
+        hit_obj = gfx_display_hit_test(disp, evt->x, evt->y);
+        if (touch != NULL) {
+            touch->pressed_obj = hit_obj;
+            touch->pressed_obj_seq = hit_obj != NULL ? hit_obj->trace.create_seq : 0;
+            touch->pressed_id = evt->track_id;
+        }
+    } else if (touch != NULL) {
+        if (touch->pressed_obj != NULL && evt->track_id == touch->pressed_id &&
+                gfx_touch_obj_is_active(disp, touch->pressed_obj, touch->pressed_obj_seq)) {
+            hit_obj = touch->pressed_obj;
+        } else {
+            touch->pressed_obj = NULL;
+            touch->pressed_obj_seq = 0;
+        }
+
+        if (evt->type == GFX_TOUCH_EVENT_RELEASE) {
+            touch->pressed_obj = NULL;
+            touch->pressed_obj_seq = 0;
+        }
+    } else {
+        hit_obj = gfx_display_hit_test(disp, evt->x, evt->y);
+    }
+
+    if (out_hit_obj != NULL) {
+        *out_hit_obj = hit_obj;
+    }
+}
+
+static void gfx_touch_dispatch_event(gfx_touch_t *touch, gfx_display_t *disp, const gfx_touch_event_t *evt)
+{
+    gfx_object_t *hit_obj = NULL;
+
+    if (evt == NULL) {
+        return;
+    }
+
+    if (disp != NULL) {
+        gfx_touch_update_capture(touch, disp, evt, &hit_obj);
+        if (hit_obj != NULL) {
+            if (hit_obj->vfunc.touch_event) {
+                hit_obj->vfunc.touch_event(hit_obj, evt);
+            }
+            if (hit_obj->user_touch_cb) {
+                hit_obj->user_touch_cb(hit_obj, evt, hit_obj->user_touch_data);
+            }
+        }
+    }
+
+    if (touch != NULL && touch->event_cb) {
+        touch->event_cb((gfx_touch_t *)touch, evt, touch->user_data);
+    }
+}
+
+static void gfx_touch_dispatch_injected_event(gfx_display_t *disp, const gfx_touch_event_t *evt)
+{
+    gfx_object_t *hit_obj = NULL;
+
+    if (disp == NULL || evt == NULL) {
+        return;
+    }
+
+    if (evt->type == GFX_TOUCH_EVENT_PRESS) {
+        hit_obj = gfx_display_hit_test(disp, evt->x, evt->y);
+        disp->injected_touch.pressed_obj = hit_obj;
+        disp->injected_touch.pressed_obj_seq = hit_obj != NULL ? hit_obj->trace.create_seq : 0;
+        disp->injected_touch.pressed_id = evt->track_id;
+    } else {
+        if (disp->injected_touch.pressed_obj != NULL &&
+                evt->track_id == disp->injected_touch.pressed_id &&
+                gfx_touch_obj_is_active(disp, disp->injected_touch.pressed_obj,
+                                        disp->injected_touch.pressed_obj_seq)) {
+            hit_obj = disp->injected_touch.pressed_obj;
+        } else {
+            disp->injected_touch.pressed_obj = NULL;
+            disp->injected_touch.pressed_obj_seq = 0;
+        }
+
+        if (evt->type == GFX_TOUCH_EVENT_RELEASE) {
+            disp->injected_touch.pressed_obj = NULL;
+            disp->injected_touch.pressed_obj_seq = 0;
+        }
+    }
+
+    if (hit_obj != NULL) {
+        if (hit_obj->vfunc.touch_event) {
+            hit_obj->vfunc.touch_event(hit_obj, evt);
+        }
+        if (hit_obj->user_touch_cb) {
+            hit_obj->user_touch_cb(hit_obj, evt, hit_obj->user_touch_data);
+        }
+    }
+}
+
+static void gfx_touch_dispatch(gfx_touch_t *touch, gfx_touch_event_type_t type, const gfx_touch_port_point_t *pt)
+{
     gfx_touch_event_t evt = {
         .type = type,
         .x = touch->last_x,
@@ -151,82 +222,30 @@ static void gfx_touch_dispatch(gfx_touch_t *touch, gfx_touch_event_type_t type, 
         evt.track_id = pt->track_id;
     }
 
-    if (touch->disp) {
-        if (type == GFX_TOUCH_EVENT_PRESS) {
-            hit_obj = gfx_touch_hit_test(touch->disp, evt.x, evt.y);
-            if (hit_obj != NULL) {
-                touch->pressed_obj = (gfx_obj_t *)hit_obj;
-                touch->pressed_obj_seq = touch->pressed_obj->trace.create_seq;
-                touch->pressed_id = evt.track_id;
-            } else {
-                touch->pressed_obj = NULL;
-                touch->pressed_obj_seq = 0;
-            }
-        } else {
-            /* MOVE / RELEASE: keep delivering to the object that got PRESS (drag support) */
-            if (touch->pressed_obj != NULL && evt.track_id == touch->pressed_id &&
-                    gfx_touch_obj_is_active(touch->disp, touch->pressed_obj, touch->pressed_obj_seq)) {
-                hit_obj = (gfx_obj_t *)touch->pressed_obj;
-            } else {
-                hit_obj = NULL;
-                touch->pressed_obj = NULL;
-                touch->pressed_obj_seq = 0;
-            }
-            if (type == GFX_TOUCH_EVENT_RELEASE) {
-                touch->pressed_obj = NULL;
-                touch->pressed_obj_seq = 0;
-            }
-        }
-        if (hit_obj != NULL) {
-            gfx_obj_t *obj = (gfx_obj_t *)hit_obj;
-            if (obj->vfunc.touch_event) {
-                obj->vfunc.touch_event(obj, &evt);
-            }
-            if (obj->user_touch_cb) {
-                obj->user_touch_cb(obj, &evt, obj->user_touch_data);
-            }
-        }
-    }
-
-    if (touch->event_cb) {
-        touch->event_cb((gfx_touch_t *)touch, &evt, touch->user_data);
-    }
+    gfx_touch_dispatch_event(touch, touch->disp, &evt);
 }
 
-static void IRAM_ATTR gfx_touch_isr(esp_lcd_touch_handle_t tp)
+static void gfx_touch_irq_cb(void *driver_handle, void *user_data)
 {
-
-    if (!tp || !tp->config.user_data) {
+    (void)driver_handle;
+    gfx_touch_t *touch = (gfx_touch_t *)user_data;
+    if (touch == NULL) {
         return;
     }
 
-    gfx_touch_isr_ctx_t *isr_ctx = (gfx_touch_isr_ctx_t *)tp->config.user_data;
-    if (!isr_ctx || isr_ctx->unregistering || !isr_ctx->touch) {
-        return;
-    }
-
-    isr_ctx->touch->irq_pending = true;
+    touch->irq_pending = true;
 }
 
 static esp_err_t gfx_touch_enable_interrupt(gfx_touch_t *touch)
 {
-    if (!touch || !touch->handle || touch->int_gpio_num == GPIO_NUM_NC) {
+    if (!touch || !touch->driver_handle || touch->int_gpio_num == GFX_TOUCH_PORT_GPIO_NONE) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    gfx_touch_isr_ctx_t *isr_ctx = calloc(1, sizeof(gfx_touch_isr_ctx_t));
-    if (!isr_ctx) {
-        return ESP_ERR_NO_MEM;
-    }
-
-    isr_ctx->touch = touch;
-    isr_ctx->original_user_data = touch->handle->config.user_data;
-    touch->isr_ctx = isr_ctx;
-
-    esp_err_t ret = esp_lcd_touch_register_interrupt_callback_with_data(touch->handle, gfx_touch_isr, isr_ctx);
+    esp_err_t ret = gfx_touch_port_register_interrupt(touch->driver_handle, gfx_touch_irq_cb,
+                    touch, &touch->irq_cookie);
     if (ret != ESP_OK) {
-        touch->isr_ctx = NULL;
-        free(isr_ctx);
+        touch->irq_cookie = NULL;
         return ret;
     }
 
@@ -242,22 +261,16 @@ static void gfx_touch_disable_interrupt(gfx_touch_t *touch)
         return;
     }
 
-    if (touch->irq_enabled && touch->int_gpio_num != GPIO_NUM_NC && GPIO_IS_VALID_GPIO(touch->int_gpio_num)) {
-        esp_err_t gpio_ret = gpio_intr_disable(touch->int_gpio_num);
+    if (touch->irq_enabled && gfx_touch_port_is_valid_gpio(touch->int_gpio_num)) {
+        esp_err_t gpio_ret = gfx_touch_port_disable_gpio_intr(touch->int_gpio_num);
         if (gpio_ret != ESP_OK) {
             GFX_LOGW(TAG, "delete touch: disable gpio interrupt failed on pin %d (%d)", touch->int_gpio_num, gpio_ret);
         }
     }
 
-    if (touch->isr_ctx) {
-        gfx_touch_isr_ctx_t *isr_ctx = (gfx_touch_isr_ctx_t *)touch->isr_ctx;
-        isr_ctx->unregistering = true;
-        esp_lcd_touch_register_interrupt_callback(touch->handle, NULL);
-        if (touch->handle && touch->handle->config.user_data != isr_ctx->original_user_data) {
-            touch->handle->config.user_data = isr_ctx->original_user_data;
-        }
-        free(isr_ctx);
-        touch->isr_ctx = NULL;
+    if (touch->irq_cookie != NULL) {
+        gfx_touch_port_unregister_interrupt(touch->driver_handle, touch->irq_cookie);
+        touch->irq_cookie = NULL;
     }
 
     touch->irq_enabled = false;
@@ -267,7 +280,7 @@ static void gfx_touch_disable_interrupt(gfx_touch_t *touch)
 static void gfx_touch_poll_cb(void *user_data)
 {
     gfx_touch_t *touch = (gfx_touch_t *)user_data;
-    if (!touch || !touch->handle) {
+    if (!touch || !touch->driver_handle) {
         return;
     }
 
@@ -278,16 +291,16 @@ static void gfx_touch_poll_cb(void *user_data)
         touch->irq_pending = false;
     }
 
-    esp_err_t ret = esp_lcd_touch_read_data(touch->handle);
+    esp_err_t ret = gfx_touch_port_read(touch->driver_handle);
     if (ret != ESP_OK) {
         GFX_LOGW(TAG, "poll touch: read failed (%d)", ret);
         return;
     }
 
-    esp_lcd_touch_point_data_t points[1] = {0};
+    gfx_touch_port_point_t points[1] = {0};
     uint8_t count = 0;
 
-    ret = esp_lcd_touch_get_data(touch->handle, points, &count, 1);
+    ret = gfx_touch_port_get_points(touch->driver_handle, points, &count, 1);
     if (ret != ESP_OK) {
         GFX_LOGW(TAG, "poll touch: get data failed (%d)", ret);
         return;
@@ -328,32 +341,33 @@ static esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *c
         return ESP_ERR_INVALID_ARG;
     }
 
-    if (!cfg->handle) {
+    if (!cfg->driver_handle) {
         return ESP_OK;
     }
 
-    touch->handle = cfg->handle;
+    touch->driver_handle = cfg->driver_handle;
     touch->disp = cfg->disp;
     touch->event_cb = cfg->event_cb;
     touch->user_data = cfg->user_data;
-    touch->int_gpio_num = GPIO_NUM_NC;
+    touch->int_gpio_num = GFX_TOUCH_PORT_GPIO_NONE;
     touch->irq_enabled = false;
     touch->irq_pending = false;
-    touch->isr_ctx = NULL;
+    touch->irq_cookie = NULL;
 
     bool irq_requested = false;
-    gpio_num_t selected_gpio = GPIO_NUM_NC;
+    int selected_gpio = GFX_TOUCH_PORT_GPIO_NONE;
 
-    if (touch->handle->config.int_gpio_num != GPIO_NUM_NC &&
-            GPIO_IS_VALID_GPIO(touch->handle->config.int_gpio_num)) {
-        selected_gpio = touch->handle->config.int_gpio_num;
+    int int_gpio = GFX_TOUCH_PORT_GPIO_NONE;
+    if (gfx_touch_port_get_int_gpio(touch->driver_handle, &int_gpio) == ESP_OK &&
+            gfx_touch_port_is_valid_gpio(int_gpio)) {
+        selected_gpio = int_gpio;
     }
 
-    if (selected_gpio != GPIO_NUM_NC) {
+    if (selected_gpio != GFX_TOUCH_PORT_GPIO_NONE) {
         touch->int_gpio_num = selected_gpio;
         irq_requested = true;
     } else {
-        touch->int_gpio_num = GPIO_NUM_NC;
+        touch->int_gpio_num = GFX_TOUCH_PORT_GPIO_NONE;
     }
 
     uint32_t default_poll = irq_requested ? s_default_irq_poll_ms : s_default_poll_ms;
@@ -371,7 +385,7 @@ static esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *c
         esp_err_t irq_ret = gfx_touch_enable_interrupt(touch);
         if (irq_ret != ESP_OK) {
             GFX_LOGW(TAG, "init touch: enable gpio interrupt failed on %d (%d), using polling mode", touch->int_gpio_num, irq_ret);
-            touch->int_gpio_num = GPIO_NUM_NC;
+            touch->int_gpio_num = GFX_TOUCH_PORT_GPIO_NONE;
             touch->irq_enabled = false;
             touch->irq_pending = false;
             if (!cfg->poll_ms) {
@@ -383,7 +397,7 @@ static esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *c
     touch->poll_timer = gfx_timer_create(touch->ctx, gfx_touch_poll_cb, touch->poll_ms, touch);
     if (!touch->poll_timer) {
         GFX_LOGE(TAG, "init touch: create polling timer failed");
-        if (touch->irq_enabled || touch->isr_ctx) {
+        if (touch->irq_enabled || touch->irq_cookie != NULL) {
             gfx_touch_disable_interrupt(touch);
         }
         return ESP_ERR_NO_MEM;
@@ -425,7 +439,7 @@ void gfx_touch_delete(gfx_touch_t *touch)
         }
     }
 
-    if (touch->irq_enabled || touch->isr_ctx) {
+    if (touch->irq_enabled || touch->irq_cookie != NULL) {
         gfx_touch_disable_interrupt(touch);
     }
 
@@ -436,18 +450,18 @@ void gfx_touch_delete(gfx_touch_t *touch)
 
     touch->ctx = NULL;
     touch->next = NULL;
-    touch->handle = NULL;
+    touch->driver_handle = NULL;
     touch->event_cb = NULL;
     touch->user_data = NULL;
     touch->pressed = false;
     touch->pressed_obj = NULL;
-    touch->int_gpio_num = GPIO_NUM_NC;
+    touch->int_gpio_num = GFX_TOUCH_PORT_GPIO_NONE;
     free(touch);
 }
 
 gfx_touch_t *gfx_touch_add(gfx_handle_t handle, const gfx_touch_config_t *cfg)
 {
-    if (!handle || !cfg || !cfg->handle) {
+    if (!handle || !cfg || !cfg->driver_handle) {
         return NULL;
     }
 
@@ -478,12 +492,36 @@ gfx_touch_t *gfx_touch_add(gfx_handle_t handle, const gfx_touch_config_t *cfg)
     return new_touch;
 }
 
-esp_err_t gfx_touch_set_disp(gfx_touch_t *touch, gfx_disp_t *disp)
+gfx_err_t gfx_touch_set_disp(gfx_touch_t *touch, gfx_display_t *disp)
 {
     if (!touch || !disp) {
         return ESP_ERR_INVALID_ARG;
     }
 
     touch->disp = disp;
+    return ESP_OK;
+}
+
+gfx_err_t gfx_touch_inject(gfx_display_t *disp, const gfx_touch_event_t *event)
+{
+    if (disp == NULL || event == NULL || disp->ctx == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    gfx_core_context_t *ctx = (gfx_core_context_t *)disp->ctx;
+    if (ctx->sync.render_mutex == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (!gfx_platform_mutex_lock(ctx->sync.render_mutex, GFX_PLATFORM_WAIT_FOREVER)) {
+        return ESP_ERR_TIMEOUT;
+    }
+
+    gfx_touch_dispatch_injected_event(disp, event);
+
+    if (!gfx_platform_mutex_unlock(ctx->sync.render_mutex)) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
     return ESP_OK;
 }

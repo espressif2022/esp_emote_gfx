@@ -125,8 +125,11 @@ python3 image_converter.py logo.png --format rgb565
 ```c
 #include "logo.c"
 
-gfx_obj_t *img = gfx_img_create(handle);
-gfx_img_set_src(img, (void *)&logo);
+gfx_obj_t *img = gfx_image_create(handle);
+gfx_image_set_source_desc(img, &(gfx_image_src_t) {
+    .type = GFX_IMAGE_SRC_TYPE_IMAGE_DSC,
+    .data = &logo,
+});
 gfx_obj_align(img, GFX_ALIGN_CENTER, 0, 0);
 ```
 
@@ -220,23 +223,35 @@ Color data: 8192 bytes
 RGB565 swapped payload: no
 ```
 
-## 与现有代码兼容
+## GFX 使用方式
 
-该工具生成的文件与现有的 `gfx_img` API 完全兼容：
+该工具生成的文件通过显式 source descriptor 传给 `gfx_image`：
 
 ```c
 // 两种格式使用方式完全相同
-gfx_obj_t *img1 = gfx_img_create(handle);
-gfx_img_set_src(img1, &rgb565_image);    // RGB565 图片
+gfx_obj_t *img1 = gfx_image_create(handle);
+gfx_image_set_source_desc(img1, &(gfx_image_src_t) {
+    .type = GFX_IMAGE_SRC_TYPE_IMAGE_DSC,
+    .data = &rgb565_image,
+});    // RGB565 图片
 
-gfx_obj_t *img2 = gfx_img_create(handle);
-gfx_img_set_src(img2, &rgb565a8_image);  // RGB565A8 图片
+gfx_obj_t *img2 = gfx_image_create(handle);
+gfx_image_set_source_desc(img2, &(gfx_image_src_t) {
+    .type = GFX_IMAGE_SRC_TYPE_IMAGE_DSC,
+    .data = &rgb565a8_image,
+});  // RGB565A8 图片
 
-gfx_obj_t *img3 = gfx_img_create(handle);
-gfx_img_set_src(img3, &rgb888_image);    // RGB888 图片
+gfx_obj_t *img3 = gfx_image_create(handle);
+gfx_image_set_source_desc(img3, &(gfx_image_src_t) {
+    .type = GFX_IMAGE_SRC_TYPE_IMAGE_DSC,
+    .data = &rgb888_image,
+});    // RGB888 图片
 
-gfx_obj_t *img4 = gfx_img_create(handle);
-gfx_img_set_src(img4, &rgb888a8_image);  // RGB888A8 图片
+gfx_obj_t *img4 = gfx_image_create(handle);
+gfx_image_set_source_desc(img4, &(gfx_image_src_t) {
+    .type = GFX_IMAGE_SRC_TYPE_IMAGE_DSC,
+    .data = &rgb888a8_image,
+});  // RGB888A8 图片
 
 // 库会自动检测格式并正确渲染
 ```

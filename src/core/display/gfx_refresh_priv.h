@@ -15,7 +15,7 @@ extern "C" {
 /**
  * @brief Invalidate an area for a specific display (internal)
  */
-void gfx_invalidate_area_disp(gfx_disp_t *disp, const gfx_area_t *area_p);
+void gfx_invalidate_area_disp(gfx_display_t *disp, const gfx_area_t *area_p);
 
 /**
  * @brief Invalidate an area globally (mark it for redraw) - applies to first display
@@ -36,19 +36,19 @@ void gfx_invalidate_area(gfx_handle_t handle, const gfx_area_t *area);
  *
  * Marks the entire object bounds as dirty in the global invalidation list.
  */
-void gfx_obj_invalidate(gfx_obj_t *obj);
+void gfx_object_invalidate(gfx_object_t *obj);
 
 /**
  * @brief Update layout for all objects marked as layout dirty on a display
  * @param disp Display to update
  */
-void gfx_refresh_update_layout_dirty(gfx_disp_t *disp);
+void gfx_refresh_update_layout_dirty(gfx_display_t *disp);
 
 /**
  * @brief Merge overlapping/adjacent dirty areas to minimize redraw regions
  * @param disp Display containing dirty areas
  */
-void gfx_refresh_merge_areas(gfx_disp_t *disp);
+void gfx_refresh_merge_areas(gfx_display_t *disp);
 
 /* Area utility functions (merged from gfx_area.h) */
 /**

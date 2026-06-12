@@ -12,9 +12,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "esp_timer.h"
-
 #include "common/gfx_log_priv.h"
+#include "platform/gfx_platform.h"
 
 /**********************
  *  STATIC VARIABLES
@@ -182,7 +181,7 @@ static void gfx_log_writev(gfx_log_module_t module, gfx_log_level_t level, const
 
     module_name = gfx_log_module_name(module);
     color = gfx_log_level_to_color(level);
-    ts_us = esp_timer_get_time();
+    ts_us = gfx_platform_time_us();
 
     if (tag != NULL && tag[0] != '\0' && strcmp(tag, module_name) != 0) {
         printf("%s%c (%" PRIi64 ") %s/%s: ", color, gfx_log_level_to_char(level), ts_us / 1000, module_name, tag);

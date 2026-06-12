@@ -5,7 +5,7 @@
  */
 #include "unity.h"
 #include "common.h"
-#include "widget/gfx_qrcode.h"
+#include "gfx/widgets/qrcode.h"
 
 static const char *const TAG = "test_qrcode";
 
@@ -23,8 +23,8 @@ typedef struct {
 } test_qrcode_case_t;
 
 typedef struct {
-    gfx_obj_t *code_obj;
-    gfx_obj_t *status_label;
+    gfx_object_t *code_obj;
+    gfx_object_t *status_label;
 } test_qrcode_scene_t;
 
 static void test_qrcode_scene_cleanup(test_qrcode_scene_t *scene)
@@ -34,11 +34,11 @@ static void test_qrcode_scene_cleanup(test_qrcode_scene_t *scene)
     }
 
     if (scene->status_label != NULL) {
-        gfx_obj_delete(scene->status_label);
+        gfx_object_delete(scene->status_label);
         scene->status_label = NULL;
     }
     if (scene->code_obj != NULL) {
-        gfx_obj_delete(scene->code_obj);
+        gfx_object_delete(scene->code_obj);
         scene->code_obj = NULL;
     }
 }
@@ -50,7 +50,7 @@ static void test_qrcode_apply_case(test_qrcode_scene_t *scene, const test_qrcode
     TEST_ASSERT_EQUAL(ESP_OK, gfx_qrcode_set_ecc(scene->code_obj, test_case->ecc));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_qrcode_set_color(scene->code_obj, GFX_COLOR_HEX(test_case->fg_rgb)));
     TEST_ASSERT_EQUAL(ESP_OK, gfx_qrcode_set_bg_color(scene->code_obj, GFX_COLOR_HEX(test_case->bg_rgb)));
-    gfx_obj_align(scene->code_obj, test_case->align, test_case->x_ofs, test_case->y_ofs);
+    gfx_object_align(scene->code_obj, test_case->align, test_case->x_ofs, test_case->y_ofs);
     gfx_label_set_text(scene->status_label, test_case->step_name);
 }
 
@@ -131,8 +131,8 @@ static void test_qrcode_run(void)
     TEST_ASSERT_NOT_NULL(scene.code_obj);
     TEST_ASSERT_NOT_NULL(scene.status_label);
 
-    gfx_obj_set_size(scene.status_label, 260, 28);
-    gfx_obj_align(scene.status_label, GFX_ALIGN_BOTTOM_MID, 0, -10);
+    gfx_object_set_size(scene.status_label, 260, 28);
+    gfx_object_align(scene.status_label, GFX_ALIGN_BOTTOM_MID, 0, -10);
     gfx_label_set_font(scene.status_label, (gfx_font_t)&font_puhui_16_4);
     gfx_label_set_text_align(scene.status_label, GFX_TEXT_ALIGN_CENTER);
     gfx_label_set_long_mode(scene.status_label, GFX_LABEL_LONG_WRAP);

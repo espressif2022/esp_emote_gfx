@@ -12,6 +12,9 @@ Start Here
 * :doc:`quickstart` - minimal setup flow from graphics core to first widget
 * :doc:`examples` - curated test app scenarios and where to find them
 * :doc:`motion_widget` - Motion scene asset model and playback API
+* :doc:`backend_architecture` - display backend model, memory backend, and SDL simulation plan
+* :doc:`platform_port` - RTOS/time/heap platform abstraction for ESP-IDF and host ports
+* :doc:`asset_spec` - image payload and font asset specifications
 
 Reference
 ---------
@@ -30,6 +33,9 @@ Reference
    quickstart
    examples
    motion_widget
+   backend_architecture
+   platform_port
+   asset_spec
    api/core/index
    api/widgets/index
    motion_mesh_rendering_architecture

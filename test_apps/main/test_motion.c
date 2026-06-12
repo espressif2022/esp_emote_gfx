@@ -19,7 +19,7 @@
 #include "esp_random.h"
 #include "unity.h"
 #include "core/gfx_disp.h"
-#include "widget/gfx_motion_scene.h"
+#include "gfx/widgets/motion.h"
 #include "common.h"
 
 static const char *const TAG = "test_motion";
@@ -443,11 +443,11 @@ static void test_motion_widget_run(void)
     TEST_ASSERT_EQUAL(ESP_OK, test_app_lock());
     TEST_ASSERT_NOT_NULL(disp_default);
 
-    disp_w = (uint16_t)gfx_disp_get_h_res(disp_default);
-    disp_h = (uint16_t)gfx_disp_get_v_res(disp_default);
+    disp_w = (uint16_t)gfx_display_get_h_res(disp_default);
+    disp_h = (uint16_t)gfx_display_get_v_res(disp_default);
 
-    gfx_disp_set_bg_color(disp_default, GFX_COLOR_HEX(0x181818));
-    gfx_disp_refresh_all(disp_default);
+    gfx_display_set_bg_color(disp_default, GFX_COLOR_HEX(0x181818));
+    gfx_display_refresh_all(disp_default);
 
     memset(&s_motion_slot, 0, sizeof(s_motion_slot));
     s_motion_slot.asset     = &claw_motion_scene_asset;

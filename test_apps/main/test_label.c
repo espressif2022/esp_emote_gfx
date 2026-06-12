@@ -10,11 +10,11 @@
 static const char *const TAG = "test_label";
 
 typedef struct {
-    gfx_obj_t *title;
-    gfx_obj_t *wrap_label;
-    gfx_obj_t *scroll_label;
-    gfx_obj_t *snap_label;
-    gfx_obj_t *status_label;
+    gfx_object_t *title;
+    gfx_object_t *wrap_label;
+    gfx_object_t *scroll_label;
+    gfx_object_t *snap_label;
+    gfx_object_t *status_label;
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
     gfx_font_t ft_font;
 #endif
@@ -27,23 +27,23 @@ static void test_label_delete_scene(test_label_scene_t *scene)
     }
 
     if (scene->title != NULL) {
-        gfx_obj_delete(scene->title);
+        gfx_object_delete(scene->title);
         scene->title = NULL;
     }
     if (scene->wrap_label != NULL) {
-        gfx_obj_delete(scene->wrap_label);
+        gfx_object_delete(scene->wrap_label);
         scene->wrap_label = NULL;
     }
     if (scene->scroll_label != NULL) {
-        gfx_obj_delete(scene->scroll_label);
+        gfx_object_delete(scene->scroll_label);
         scene->scroll_label = NULL;
     }
     if (scene->snap_label != NULL) {
-        gfx_obj_delete(scene->snap_label);
+        gfx_object_delete(scene->snap_label);
         scene->snap_label = NULL;
     }
     if (scene->status_label != NULL) {
-        gfx_obj_delete(scene->status_label);
+        gfx_object_delete(scene->status_label);
         scene->status_label = NULL;
     }
 }
@@ -92,11 +92,11 @@ static esp_err_t test_label_create_scene(mmap_assets_handle_t assets_handle, boo
     gfx_label_set_font(scene->snap_label, font);
     gfx_label_set_font(scene->status_label, font);
 
-    gfx_obj_set_size(scene->title, 300, 28);
-    gfx_obj_set_size(scene->wrap_label, 280, 78);
-    gfx_obj_set_size(scene->scroll_label, 190, 36);
-    gfx_obj_set_size(scene->snap_label, 190, 36);
-    gfx_obj_set_size(scene->status_label, 280, 40);
+    gfx_object_set_size(scene->title, 300, 28);
+    gfx_object_set_size(scene->wrap_label, 280, 78);
+    gfx_object_set_size(scene->scroll_label, 190, 36);
+    gfx_object_set_size(scene->snap_label, 190, 36);
+    gfx_object_set_size(scene->status_label, 280, 40);
 
     gfx_label_set_bg_enable(scene->title, true);
     gfx_label_set_bg_enable(scene->wrap_label, true);
@@ -135,11 +135,11 @@ static esp_err_t test_label_create_scene(mmap_assets_handle_t assets_handle, boo
                        "Observe wrap / scroll / snap smoothness.\nThen watch text update.");
     gfx_label_set_long_mode(scene->status_label, GFX_LABEL_LONG_WRAP);
 
-    gfx_obj_align(scene->title, GFX_ALIGN_TOP_MID, 0, 8);
-    gfx_obj_align(scene->wrap_label, GFX_ALIGN_TOP_MID, 0, 48);
-    gfx_obj_align(scene->scroll_label, GFX_ALIGN_TOP_MID, 0, 136);
-    gfx_obj_align(scene->snap_label, GFX_ALIGN_TOP_MID, 0, 184);
-    gfx_obj_align(scene->status_label, GFX_ALIGN_TOP_MID, 0, 232);
+    gfx_object_align(scene->title, GFX_ALIGN_TOP_MID, 0, 8);
+    gfx_object_align(scene->wrap_label, GFX_ALIGN_TOP_MID, 0, 48);
+    gfx_object_align(scene->scroll_label, GFX_ALIGN_TOP_MID, 0, 136);
+    gfx_object_align(scene->snap_label, GFX_ALIGN_TOP_MID, 0, 184);
+    gfx_object_align(scene->status_label, GFX_ALIGN_TOP_MID, 0, 232);
 
     return ESP_OK;
 }

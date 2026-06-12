@@ -30,7 +30,7 @@ static TaskHandle_t s_mem_mon_task = NULL;
 
 /* Shared globals (declared in common.h) */
 gfx_handle_t emote_handle = NULL;
-gfx_disp_t *disp_default = NULL;
+gfx_display_t *disp_default = NULL;
 gfx_touch_t *touch_default = NULL;
 
 esp_lcd_panel_io_handle_t io_handle = NULL;
@@ -58,9 +58,9 @@ static void test_app_configure_gfx_log_levels(void)
 #if CONFIG_IDF_TARGET_ESP32S3
 static bool flush_io_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {
-    gfx_disp_t *disp = (gfx_disp_t *)user_ctx;
+    gfx_display_t *disp = (gfx_display_t *)user_ctx;
     if (disp) {
-        gfx_disp_flush_ready(disp, true);
+        gfx_display_flush_ready(disp, true);
     }
     return true;
 }
@@ -68,22 +68,22 @@ static bool flush_io_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_
 static bool flush_dpi_panel_ready_callback(esp_lcd_panel_handle_t panel_io,
         esp_lcd_dpi_panel_event_data_t *edata, void *user_ctx)
 {
-    gfx_disp_t *disp = (gfx_disp_t *)user_ctx;
+    gfx_display_t *disp = (gfx_display_t *)user_ctx;
     if (disp) {
-        gfx_disp_flush_ready(disp, true);
+        gfx_display_flush_ready(disp, true);
     }
     return true;
 }
 #endif
 
-static void disp_flush_callback(gfx_disp_t *disp, gfx_coord_t x1, gfx_coord_t y1,
+static void disp_flush_callback(gfx_display_t *disp, gfx_coord_t x1, gfx_coord_t y1,
                                 gfx_coord_t x2, gfx_coord_t y2, const void *data)
 {
-    esp_lcd_panel_handle_t panel = (esp_lcd_panel_handle_t)gfx_disp_get_user_data(disp);
+    esp_lcd_panel_handle_t panel = (esp_lcd_panel_handle_t)gfx_display_get_user_data(disp);
     esp_lcd_panel_draw_bitmap(panel, x1, y1, x2, y2, data);
 }
 
-static void disp_update_callback(gfx_disp_t *disp, gfx_disp_event_t event, const void *obj)
+static void disp_update_callback(gfx_display_t *disp, gfx_display_event_t event, const void *obj)
 {
     if (s_test_app_disp_update_cb != NULL) {
         s_test_app_disp_update_cb(disp, event, obj, s_test_app_disp_update_user_data);
@@ -267,7 +267,7 @@ void test_app_log_step(const char *tag, const char *step_name)
 
 void clock_tm_callback(void *user_data)
 {
-    gfx_obj_t *label_obj = (gfx_obj_t *)user_data;
+    gfx_object_t *label_obj = (gfx_object_t *)user_data;
     ESP_LOGI(TAG, "FPS: %d*%d: %" PRIu32, BSP_LCD_H_RES, BSP_LCD_V_RES, gfx_timer_get_actual_fps(emote_handle));
     if (label_obj) {
         gfx_label_set_text_fmt(label_obj, "%d*%d: %d", BSP_LCD_H_RES, BSP_LCD_V_RES, gfx_timer_get_actual_fps(emote_handle));
@@ -349,7 +349,7 @@ esp_err_t display_and_graphics_init(const char *partition_label, uint32_t max_fi
     ESP_GOTO_ON_FALSE(emote_handle != NULL, ESP_FAIL, err_assets, TAG, "Failed to initialize graphics system");
 
     /* Add default display */
-    gfx_disp_config_t disp_cfg = {
+    gfx_display_config_t disp_cfg = {
         .h_res = BSP_LCD_H_RES,
         .v_res = BSP_LCD_V_RES,
         .flush_cb = disp_flush_callback,
@@ -362,7 +362,7 @@ esp_err_t display_and_graphics_init(const char *partition_label, uint32_t max_fi
 #endif
         .buffers = { .buf1 = NULL, .buf2 = NULL, .buf_pixels = BSP_LCD_H_RES * 16 },
     };
-    disp_default = gfx_disp_add(emote_handle, &disp_cfg);
+    disp_default = gfx_display_add(emote_handle, &disp_cfg);
     ESP_GOTO_ON_FALSE(disp_default != NULL, ESP_FAIL, err_gfx, TAG, "Failed to add display");
 
 #if CONFIG_IDF_TARGET_ESP32S3
@@ -377,7 +377,7 @@ esp_err_t display_and_graphics_init(const char *partition_label, uint32_t max_fi
 #endif
     /* Add touch */
     gfx_touch_config_t touch_cfg = {
-        .handle = s_touch_handle,
+        .driver_handle = s_touch_handle,
         .event_cb = touch_event_cb,
         .disp = disp_default,
         .poll_ms = 50,

@@ -70,7 +70,7 @@ Minimal Example
 
    static gfx_motion_player_t motion_player;
 
-   void motion_scene_start(gfx_disp_t *disp)
+   void motion_scene_start(gfx_display_t *disp)
    {
        gfx_motion_player_init(&motion_player, disp, &s_motion_scene_asset);
        gfx_motion_player_set_canvas(&motion_player, 0, 0, 360, 360);

@@ -21,7 +21,7 @@ typedef struct {
 } test_app_runtime_t;
 
 typedef void (*test_app_touch_event_cb_t)(gfx_touch_t *touch, const gfx_touch_event_t *event, void *user_data);
-typedef void (*test_app_disp_update_cb_t)(gfx_disp_t *disp, gfx_disp_event_t event, const void *obj, void *user_data);
+typedef void (*test_app_disp_update_cb_t)(gfx_display_t *disp, gfx_display_event_t event, const void *obj, void *user_data);
 
 #define TEST_APP_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
 #define TEST_APP_ASSETS_PARTITION_DEFAULT "assets_test"
@@ -43,7 +43,7 @@ extern const lv_font_t font_puhui_16_4;
 
 /* Shared global variables */
 extern gfx_handle_t emote_handle;
-extern gfx_disp_t *disp_default;  /* First display created by test_init */
+extern gfx_display_t *disp_default;  /* First display created by test_init */
 extern gfx_touch_t *touch_default;
 
 extern esp_lcd_panel_io_handle_t io_handle;

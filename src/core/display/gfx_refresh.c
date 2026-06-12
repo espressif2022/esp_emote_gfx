@@ -12,8 +12,6 @@
 
 #define GFX_LOG_MODULE GFX_LOG_MODULE_REFRESH
 #include "common/gfx_log_priv.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/event_groups.h"
 
 #include "core/display/gfx_refresh_priv.h"
 #include "core/runtime/gfx_core_priv.h"
@@ -43,6 +41,51 @@ static const char *const TAG = "refresh";
 /**********************
  *   PUBLIC FUNCTIONS
  **********************/
+
+static bool gfx_display_object_contains(gfx_object_t *obj, uint16_t x, uint16_t y)
+{
+    if (obj == NULL || !obj->state.is_visible) {
+        return false;
+    }
+    if (obj->align.enabled || obj->state.layout_dirty) {
+        gfx_object_calc_pos_in_parent(obj);
+    }
+
+    const int32_t ox = obj->geometry.x;
+    const int32_t oy = obj->geometry.y;
+    const uint32_t w = obj->geometry.width;
+    const uint32_t h = obj->geometry.height;
+    if (w == 0 || h == 0) {
+        return false;
+    }
+
+    return (int32_t)x >= ox && (int32_t)x < ox + (int32_t)w &&
+           (int32_t)y >= oy && (int32_t)y < oy + (int32_t)h;
+}
+
+static gfx_object_t *gfx_display_hit_test_top_down(gfx_object_child_t *node, uint16_t x, uint16_t y)
+{
+    if (node == NULL) {
+        return NULL;
+    }
+
+    gfx_object_t *hit = gfx_display_hit_test_top_down(node->next, x, y);
+    if (hit != NULL) {
+        return hit;
+    }
+
+    gfx_object_t *obj = (gfx_object_t *)node->src;
+    return gfx_display_object_contains(obj, x, y) ? obj : NULL;
+}
+
+gfx_object_t *gfx_display_hit_test(gfx_display_t *disp, uint16_t x, uint16_t y)
+{
+    if (disp == NULL) {
+        return NULL;
+    }
+
+    return gfx_display_hit_test_top_down(disp->child_list, x, y);
+}
 
 /* Area helpers */
 void gfx_area_copy(gfx_area_t *dest, const gfx_area_t *src)
@@ -125,7 +168,7 @@ void gfx_area_join(gfx_area_t *result, const gfx_area_t *a1, const gfx_area_t *a
     result->y2 = (a1->y2 > a2->y2) ? a1->y2 : a2->y2;
 }
 
-void gfx_refresh_merge_areas(gfx_disp_t *disp)
+void gfx_refresh_merge_areas(gfx_display_t *disp)
 {
     uint32_t src_idx;
     uint32_t dst_idx;
@@ -168,7 +211,7 @@ void gfx_refresh_merge_areas(gfx_disp_t *disp)
     }
 }
 
-void gfx_invalidate_area_disp(gfx_disp_t *disp, const gfx_area_t *area_p)
+void gfx_invalidate_area_disp(gfx_display_t *disp, const gfx_area_t *area_p)
 {
     if (disp == NULL) {
         return;
@@ -215,7 +258,7 @@ void gfx_invalidate_area_disp(gfx_disp_t *disp, const gfx_area_t *area_p)
     /* Wake render task so it refreshes without waiting for the next timer tick */
     gfx_core_context_t *ctx = (gfx_core_context_t *)disp->ctx;
     if (ctx != NULL && ctx->sync.render_events != NULL) {
-        xEventGroupSetBits(ctx->sync.render_events, GFX_EVENT_INVALIDATE);
+        gfx_platform_event_set(ctx->sync.render_events, GFX_EVENT_INVALIDATE);
     }
 }
 
@@ -229,7 +272,7 @@ void gfx_invalidate_area(gfx_handle_t handle, const gfx_area_t *area_p)
     gfx_core_context_t *ctx = (gfx_core_context_t *)handle;
 
     if (area_p == NULL) {
-        for (gfx_disp_t *d = ctx->disp; d != NULL; d = d->next) {
+        for (gfx_display_t *d = ctx->disp; d != NULL; d = d->next) {
             gfx_invalidate_area_disp(d, NULL);
         }
         return;
@@ -241,7 +284,7 @@ void gfx_invalidate_area(gfx_handle_t handle, const gfx_area_t *area_p)
     }
 }
 
-void gfx_obj_invalidate(gfx_obj_t *obj)
+void gfx_object_invalidate(gfx_object_t *obj)
 {
     if (obj == NULL) {
         GFX_LOGE(TAG, "invalidate object: object is NULL");
@@ -264,25 +307,25 @@ void gfx_obj_invalidate(gfx_obj_t *obj)
     gfx_invalidate_area_disp(obj->disp, &obj_area);
 }
 
-void gfx_refresh_update_layout_dirty(gfx_disp_t *disp)
+void gfx_refresh_update_layout_dirty(gfx_display_t *disp)
 {
     if (disp == NULL || disp->child_list == NULL) {
         return;
     }
 
-    gfx_obj_child_t *child_node = disp->child_list;
+    gfx_object_child_t *child_node = disp->child_list;
 
     while (child_node != NULL) {
-        gfx_obj_t *obj = (gfx_obj_t *)child_node->src;
+        gfx_object_t *obj = (gfx_object_t *)child_node->src;
 
         if (obj != NULL && obj->state.layout_dirty && obj->align.enabled) {
             gfx_coord_t old_x = obj->geometry.x;
             gfx_coord_t old_y = obj->geometry.y;
 
-            gfx_obj_invalidate(obj);
-            gfx_obj_calc_pos_in_parent(obj);
+            gfx_object_invalidate(obj);
+            gfx_object_calc_pos_in_parent(obj);
 
-            gfx_obj_invalidate(obj);
+            gfx_object_invalidate(obj);
 
             GFX_LOGD(TAG,
                      "layout update: obj=%p (%d,%d) -> (%d,%d)",

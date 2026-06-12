@@ -18,9 +18,9 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
     gfx_core_lock(emote_handle);
 
     TEST_ASSERT_NOT_NULL(disp_default);
-    gfx_obj_t *anim_obj = gfx_anim_create(disp_default);
-    gfx_obj_t *img_obj = gfx_img_create(disp_default);
-    gfx_obj_t *label_obj = gfx_label_create(disp_default);
+    gfx_object_t *anim_obj = gfx_anim_create(disp_default);
+    gfx_object_t *img_obj = gfx_image_create(disp_default);
+    gfx_object_t *label_obj = gfx_label_create(disp_default);
     gfx_timer_handle_t timer = gfx_timer_create(emote_handle, clock_tm_callback, 5000, label_obj);
 
     TEST_ASSERT_NOT_NULL(anim_obj);
@@ -31,8 +31,13 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
     const void *anim_data = mmap_assets_get_mem(assets_handle, MMAP_ASSETS_TEST_MI_2_EYE_8BIT_AAF);
     size_t anim_size = mmap_assets_get_size(assets_handle, MMAP_ASSETS_TEST_MI_2_EYE_8BIT_AAF);
 
-    gfx_anim_set_src(anim_obj, anim_data, anim_size);
-    gfx_obj_align(anim_obj, GFX_ALIGN_CENTER, 0, 0);
+    gfx_anim_src_t anim_src = {
+        .type = GFX_ANIM_SRC_TYPE_MEMORY,
+        .data = anim_data,
+        .data_len = anim_size,
+    };
+    gfx_anim_set_src_desc(anim_obj, &anim_src);
+    gfx_object_align(anim_obj, GFX_ALIGN_CENTER, 0, 0);
     gfx_anim_set_segment(anim_obj, 0, 30, 15, true);
     gfx_anim_start(anim_obj);
 
@@ -52,17 +57,21 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
     gfx_label_set_font(label_obj, (gfx_font_t)&font_puhui_16_4);
 #endif
 
-    gfx_obj_set_size(label_obj, 200, 49);
+    gfx_object_set_size(label_obj, 200, 49);
     gfx_label_set_text(label_obj, "Multi-Object Test");
     gfx_label_set_color(label_obj, GFX_COLOR_HEX(0xFF0000));
-    gfx_obj_align(label_obj, GFX_ALIGN_BOTTOM_MID, 0, 0);
+    gfx_object_align(label_obj, GFX_ALIGN_BOTTOM_MID, 0, 0);
     gfx_label_set_text_align(label_obj, GFX_TEXT_ALIGN_CENTER);
     gfx_label_set_long_mode(label_obj, GFX_LABEL_LONG_SCROLL);
 
     gfx_image_dsc_t img_dsc;
     load_image(assets_handle, MMAP_ASSETS_TEST_ICON_RGB565_BIN, &img_dsc);
-    gfx_img_set_src(img_obj, &img_dsc); // Use BIN format image
-    gfx_obj_align(img_obj, GFX_ALIGN_TOP_MID, 0, 0);
+    gfx_image_src_t img_src = {
+        .type = GFX_IMAGE_SRC_TYPE_IMAGE_DSC,
+        .data = &img_dsc,
+    };
+    gfx_image_set_source_desc(img_obj, &img_src);
+    gfx_object_align(img_obj, GFX_ALIGN_TOP_MID, 0, 0);
 
     gfx_core_unlock(emote_handle);
 
@@ -70,9 +79,9 @@ static void test_multiple_objects_function(mmap_assets_handle_t assets_handle)
 
     gfx_core_lock(emote_handle);
     gfx_timer_delete(emote_handle, timer);
-    gfx_obj_delete(anim_obj);
-    gfx_obj_delete(label_obj);
-    gfx_obj_delete(img_obj);
+    gfx_object_delete(anim_obj);
+    gfx_object_delete(label_obj);
+    gfx_object_delete(img_obj);
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
     gfx_label_font_delete(font_DejaVuSans);
 #endif

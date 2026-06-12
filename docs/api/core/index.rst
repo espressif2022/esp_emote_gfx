@@ -6,21 +6,29 @@ The core API provides the foundation for the graphics framework, including initi
 .. toctree::
    :maxdepth: 2
 
-   gfx_core
-   gfx_disp
-   gfx_log
-   gfx_obj
-   gfx_timer
-   gfx_touch
-   gfx_types
+   asset
+   core
+   display
+   error
+   input
+   log
+   memory
+   object
+   sdl
+   timer
+   types
 
 Core Modules
 ------------
 
-* :doc:`gfx_core` - Core System (gfx_core)
-* :doc:`gfx_disp` - Display (gfx_disp)
-* :doc:`gfx_log` - Log (gfx_log)
-* :doc:`gfx_obj` - Object (gfx_obj)
-* :doc:`gfx_timer` - Timer (gfx_timer)
-* :doc:`gfx_touch` - Touch (gfx_touch)
-* :doc:`gfx_types` - Types (gfx_types)
+* :doc:`asset` - Asset (asset)
+* :doc:`core` - Core System (core)
+* :doc:`display` - Display (display)
+* :doc:`error` - Error Codes (error)
+* :doc:`input` - Input (input)
+* :doc:`log` - Log (log)
+* :doc:`memory` - Memory Backend (memory)
+* :doc:`object` - Object (object)
+* :doc:`sdl` - SDL Backend (sdl)
+* :doc:`timer` - Timer (timer)
+* :doc:`types` - Types (types)
