@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -88,12 +88,15 @@ esp_err_t gfx_image_validate_dsc(const gfx_image_dsc_t *image_desc)
 
     uint8_t pixel_size = gfx_color_format_get_size(cf);
     ESP_RETURN_ON_FALSE(pixel_size > 0, ESP_ERR_NOT_SUPPORTED, TAG, "validate image: invalid pixel size");
-    ESP_RETURN_ON_FALSE(image_desc->header.stride >= (uint32_t)image_desc->header.w * pixel_size,
+
+    uint32_t min_stride = (uint32_t)image_desc->header.w * pixel_size;
+    uint32_t stride = image_desc->header.stride != 0U ? image_desc->header.stride : min_stride;
+    ESP_RETURN_ON_FALSE(stride >= min_stride,
                         ESP_ERR_INVALID_ARG, TAG, "validate image: stride is smaller than row payload");
-    ESP_RETURN_ON_FALSE((image_desc->header.stride % pixel_size) == 0,
+    ESP_RETURN_ON_FALSE((stride % pixel_size) == 0,
                         ESP_ERR_INVALID_ARG, TAG, "validate image: stride is not pixel aligned");
 
-    size_t color_bytes = (size_t)image_desc->header.stride * image_desc->header.h;
+    size_t color_bytes = (size_t)stride * image_desc->header.h;
     size_t alpha_bytes = gfx_color_format_has_alpha(cf)
                          ? (size_t)image_desc->header.w * image_desc->header.h
                          : 0U;
@@ -101,9 +104,9 @@ esp_err_t gfx_image_validate_dsc(const gfx_image_dsc_t *image_desc)
 
     ESP_RETURN_ON_FALSE(image_desc->data_size >= required_size,
                         ESP_ERR_INVALID_SIZE, TAG,
-                        "validate image: data_size too small (%" PRIu32 " < %u)",
+                        "validate image: data_size too small (%" PRIu32 " < %zu)",
                         image_desc->data_size,
-                        (unsigned)required_size);
+                        required_size);
 
     return ESP_OK;
 }

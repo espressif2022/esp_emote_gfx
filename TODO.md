@@ -9,7 +9,7 @@
 ## 架构和命名整理
 
 - [x] 新增 `docs/architecture.md`，固化目标分层、命名规则和迁移顺序。
-- [x] 新增 `docs/itu_reference_design.md`，记录 ITU 显示框架借鉴点和 GFX 落地方案。
+- [x] 新增 `docs/itu_reference_design.md`，记录 ITU 显示框架借鉴点和 GFX 落地方案。(done: 2026-06-12)
 - [x] 新增 `include/gfx/` public API 门面，新代码优先使用 `gfx/gfx.h`、`gfx/display.h`、`gfx/object.h`、`gfx/widgets/*`。
 - [x] 新 public API 统一放到 `include/gfx/`，旧路径入口不再扩展。
 - [x] 平台层已迁移到 `src/platform/`。
@@ -32,15 +32,26 @@
 
 ## ITU 借鉴落地
 
-- [x] 设计文档：将 ITU 的 backend ops、surface/cache、widget lifecycle、scene input dispatch、sprite/keyframe 分层写入 `docs/itu_reference_design.md`。
+- [x] 设计文档：将 ITU 的 backend ops、surface/cache、widget lifecycle、scene input dispatch、sprite/keyframe 分层写入 `docs/itu_reference_design.md`。(done: 2026-06-12)
+- [x] 补充 ITU 借鉴落地细节：renderer-owned backend ops 路由、fallback 规则、resource cache 落地顺序、input dispatch 当前状态。(done: 2026-06-12)
 - [ ] Backend capability table。
   - [x] 定义 `gfx_draw_ops_t` 和 capability bits，覆盖 fill/blit/blend/scale/transform/draw_glyph/present。(done: 2026-06-12)
+  - [x] 在 `docs/backend_architecture.rst` 中说明 capability、software fallback 和 backend alignment 边界。(done: 2026-06-12)
   - [ ] renderer 优先走 backend ops，缺失能力自动 fallback 到 software draw。
     - [x] 背景 fill 先尝试 backend `fill()`，未声明能力或返回失败时 fallback 到 software fill。(done: 2026-06-12)
     - [ ] image/blit/blend 路径接入 backend ops。
     - [ ] scale/transform/draw_glyph 路径接入 backend ops。
   - [x] memory backend 和 SDL backend 先声明最小能力，ESP PPA backend 后续接入 fill/blend/scale/rotate。(done: 2026-06-12)
   - [x] 文档记录格式限制和 fallback 规则，避免 widget 直接依赖硬件 backend。(done: 2026-06-12)
+- [ ] Render roundup / 对齐接口。
+  - [x] 设计文档：明确 roundup 属于 renderer/backend 协商，不属于 widget 或 image source descriptor。(done: 2026-06-12)
+  - [x] 定义 `gfx_render_alignment_t`，描述 width/height/stride/address 对齐需求，例如 4 字节、8 字节、cache line、DMA burst。(done: 2026-06-12)
+  - [x] backend 增加 alignment metadata/getter，SDL/memory/callback 默认 1，ESP PPA/LCD backend 后续按硬件要求填写。(done: 2026-06-12)
+  - [x] 新增 central helper：`gfx_render_roundup_area()` / `gfx_render_roundup_stride_bytes()`，统一向外扩展并 clip 到 display/surface limit。(done: 2026-06-12)
+  - [x] render chunk 切分使用 roundup helper，避免 PPA/DMA backend 在 flush 或 draw_ops 内部各自偷偷对齐。(done: 2026-06-12)
+  - [ ] render buffer 分配接入 stride/address 对齐，支持非 full-frame 临时 chunk pitch 对齐。
+  - [ ] image/blit/blend/scale/transform backend ops 在调用前检查 alignment，不满足时 fallback software。
+  - [ ] 增加测试：4-byte/8-byte 对齐面积、边缘 clip、超出 limit fallback、dirty area 不漏绘。
 - [ ] Surface / decoded resource cache。
   - [ ] 定义 decoded cache entry：source key、format、width/height/stride、decoded bytes、refcount、last_use。
   - [ ] 增加 cache budget 配置，默认保守，避免图片/动画解压后隐藏占用过多内存。
@@ -99,6 +110,7 @@
 
 - [x] 固化 image color format 边界：RGB565、RGB888、RGB565A8、RGB888A8。
 - [x] 明确 plane-style alpha 格式布局、stride、对齐和解码约定。
+- [x] 文档补充 `stride == 0` 表示 tight stride，和 decoder/render 行为保持一致。(done: 2026-06-12)
 - [x] 为 image asset/spec 文档补充最小示例和调试检查项。
 - [x] 固化字体缺字 placeholder 行为，避免缺字直接空白。
 - [x] 固化 font size fallback 行为，处理请求字号超过字体实际 size 的场景。

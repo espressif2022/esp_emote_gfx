@@ -27,6 +27,13 @@ typedef enum {
 } gfx_backend_cap_t;
 
 typedef struct {
+    uint16_t width_px;
+    uint16_t height_px;
+    uint16_t stride_bytes;
+    uint16_t addr_bytes;
+} gfx_render_alignment_t;
+
+typedef struct {
     void *buf;
     gfx_area_t area;
     gfx_coord_t stride;
@@ -82,6 +89,7 @@ typedef struct {
 struct gfx_backend {
     const gfx_backend_vtable_t *vtable;
     const gfx_draw_ops_t *draw_ops;
+    gfx_render_alignment_t alignment;
     uint32_t caps;
     void *user_data;
 };
@@ -100,6 +108,7 @@ void gfx_backend_destroy(gfx_backend_t *backend);
 uint32_t gfx_backend_get_caps(const gfx_backend_t *backend);
 bool gfx_backend_has_caps(const gfx_backend_t *backend, uint32_t caps);
 const gfx_draw_ops_t *gfx_backend_get_draw_ops(const gfx_backend_t *backend);
+gfx_render_alignment_t gfx_backend_get_alignment(const gfx_backend_t *backend);
 
 gfx_backend_t *gfx_callback_backend_create(gfx_display_flush_cb_t flush_cb,
         void *user_data);

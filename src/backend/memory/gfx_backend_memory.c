@@ -105,6 +105,7 @@ gfx_backend_t *gfx_memory_backend_create(const gfx_memory_backend_config_t *cfg)
 
     mem->base.vtable = &s_memory_backend_vtable;
     mem->base.caps = GFX_BACKEND_CAP_FLUSH;
+    mem->base.alignment = gfx_backend_get_alignment(NULL);
     mem->h_res = cfg->h_res;
     mem->v_res = cfg->v_res;
     mem->swap = cfg->swap;

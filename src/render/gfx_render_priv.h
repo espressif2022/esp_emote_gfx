@@ -7,6 +7,7 @@
 #pragma once
 
 #include "core/runtime/gfx_core_priv.h"
+#include "core/display/gfx_backend_priv.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -52,6 +53,26 @@ void gfx_render_draw_child_objects(gfx_display_t *disp, const gfx_draw_ctx_t *ct
  * @brief Update child objects for one display
  */
 void gfx_render_update_child_objects(gfx_display_t *disp);
+
+/**
+ * @brief Round a half-open area outward to backend/render alignment limits.
+ *
+ * The input and output use half-open bounds [x1, x2) x [y1, y2). The returned
+ * area is clipped to limit when limit is not NULL. Width/height alignment of 0
+ * or 1 means no alignment requirement.
+ */
+gfx_area_t gfx_render_roundup_area(const gfx_area_t *area,
+                                   const gfx_render_alignment_t *alignment,
+                                   const gfx_area_t *limit);
+
+/**
+ * @brief Round a byte count upward to the configured stride alignment.
+ * @param stride_bytes Original byte count.
+ * @param alignment Backend/render alignment metadata; NULL or <=1 means unchanged.
+ * @return Aligned byte count.
+ */
+uint32_t gfx_render_roundup_stride_bytes(uint32_t stride_bytes,
+        const gfx_render_alignment_t *alignment);
 
 #ifdef __cplusplus
 }

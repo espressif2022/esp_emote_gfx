@@ -44,6 +44,8 @@ static bool gfx_render_backend_fill(gfx_display_t *disp, const gfx_draw_ctx_t *c
                                     const gfx_area_t *area, gfx_color_t color, gfx_opa_t opa);
 static void gfx_render_fill_area(gfx_display_t *disp, const gfx_draw_ctx_t *ctx,
                                  const gfx_area_t *area, gfx_color_t color, gfx_opa_t opa);
+static gfx_coord_t gfx_render_align_floor(gfx_coord_t value, uint16_t alignment);
+static gfx_coord_t gfx_render_align_ceil(gfx_coord_t value, uint16_t alignment);
 
 /**********************
  *   STATIC FUNCTIONS
@@ -132,6 +134,34 @@ static void gfx_render_fill_area(gfx_display_t *disp, const gfx_draw_ctx_t *ctx,
     }
 }
 
+static gfx_coord_t gfx_render_align_floor(gfx_coord_t value, uint16_t alignment)
+{
+    if (alignment <= 1U) {
+        return value;
+    }
+
+    gfx_coord_t align = (gfx_coord_t)alignment;
+    if (value >= 0) {
+        return (gfx_coord_t)((value / align) * align);
+    }
+
+    return (gfx_coord_t)(-(((-value + align - 1) / align) * align));
+}
+
+static gfx_coord_t gfx_render_align_ceil(gfx_coord_t value, uint16_t alignment)
+{
+    if (alignment <= 1U) {
+        return value;
+    }
+
+    gfx_coord_t align = (gfx_coord_t)alignment;
+    if (value >= 0) {
+        return (gfx_coord_t)(((value + align - 1) / align) * align);
+    }
+
+    return (gfx_coord_t)(-((-value / align) * align));
+}
+
 /**********************
  *   PUBLIC FUNCTIONS
  **********************/
@@ -208,6 +238,54 @@ uint32_t gfx_render_area_summary(gfx_display_t *disp)
     return total_dirty_pixels;
 }
 
+gfx_area_t gfx_render_roundup_area(const gfx_area_t *area,
+                                   const gfx_render_alignment_t *alignment,
+                                   const gfx_area_t *limit)
+{
+    gfx_area_t result = {0};
+
+    if (area == NULL) {
+        return result;
+    }
+
+    uint16_t width_align = alignment != NULL && alignment->width_px > 0U ? alignment->width_px : 1U;
+    uint16_t height_align = alignment != NULL && alignment->height_px > 0U ? alignment->height_px : 1U;
+
+    result.x1 = gfx_render_align_floor(area->x1, width_align);
+    result.y1 = gfx_render_align_floor(area->y1, height_align);
+    result.x2 = gfx_render_align_ceil(area->x2, width_align);
+    result.y2 = gfx_render_align_ceil(area->y2, height_align);
+
+    if (limit != NULL) {
+        if (result.x1 < limit->x1) {
+            result.x1 = limit->x1;
+        }
+        if (result.y1 < limit->y1) {
+            result.y1 = limit->y1;
+        }
+        if (result.x2 > limit->x2) {
+            result.x2 = limit->x2;
+        }
+        if (result.y2 > limit->y2) {
+            result.y2 = limit->y2;
+        }
+    }
+
+    return result;
+}
+
+uint32_t gfx_render_roundup_stride_bytes(uint32_t stride_bytes,
+        const gfx_render_alignment_t *alignment)
+{
+    uint16_t stride_align = alignment != NULL && alignment->stride_bytes > 0U ? alignment->stride_bytes : 1U;
+
+    if (stride_align <= 1U || stride_bytes == 0U) {
+        return stride_bytes;
+    }
+
+    return ((stride_bytes + stride_align - 1U) / stride_align) * stride_align;
+}
+
 void gfx_render_part_area(gfx_display_t *disp, gfx_area_t *area, uint8_t area_idx, bool is_last_area)
 {
     if (disp == NULL || area == NULL) {
@@ -220,32 +298,51 @@ void gfx_render_part_area(gfx_display_t *disp, gfx_area_t *area, uint8_t area_id
         return;
     }
 
-    uint32_t area_w = (uint32_t)(area->x2 - area->x1 + 1);
-    uint32_t area_h = (uint32_t)(area->y2 - area->y1 + 1);
-    uint32_t row_h = disp->buf.buf_pixels / area_w;
-    if (row_h == 0) {
-        GFX_LOGE(TAG, "render area[%d]: width %" PRIu32 " exceeds buffer, skipping", area_idx, area_w);
+    gfx_render_alignment_t alignment = gfx_backend_get_alignment(disp->backend);
+    gfx_area_t display_limit = {
+        .x1 = 0,
+        .y1 = 0,
+        .x2 = (gfx_coord_t)disp->res.h_res,
+        .y2 = (gfx_coord_t)disp->res.v_res,
+    };
+    gfx_area_t requested_area = {
+        .x1 = area->x1,
+        .y1 = area->y1,
+        .x2 = (gfx_coord_t)(area->x2 + 1),
+        .y2 = (gfx_coord_t)(area->y2 + 1),
+    };
+    gfx_area_t render_area = gfx_render_roundup_area(&requested_area, &alignment, &display_limit);
+    if (render_area.x2 <= render_area.x1 || render_area.y2 <= render_area.y1) {
+        GFX_LOGE(TAG, "render area[%d]: aligned area is empty", area_idx);
         return;
     }
-    if (row_h > area_h) {
-        row_h = area_h;
+
+    uint32_t render_w = (uint32_t)(render_area.x2 - render_area.x1);
+    uint32_t render_h = (uint32_t)(render_area.y2 - render_area.y1);
+    uint32_t row_h = disp->buf.buf_pixels / render_w;
+    if (row_h == 0) {
+        GFX_LOGE(TAG, "render area[%d]: width %" PRIu32 " exceeds buffer, skipping", area_idx, render_w);
+        return;
+    }
+    if (row_h > render_h) {
+        row_h = render_h;
     }
 
     disp->render.flushing_last = false;
-    gfx_coord_t cur_y = area->y1;
+    gfx_coord_t cur_y = render_area.y1;
 
-    while (cur_y <= area->y2) {
+    while (cur_y < render_area.y2) {
         int64_t render_start_us;
         int64_t flush_start_us;
 
-        gfx_coord_t chunk_x1 = area->x1;
+        gfx_coord_t chunk_x1 = render_area.x1;
         gfx_coord_t chunk_y1 = cur_y;
-        gfx_coord_t chunk_x2 = area->x2 + 1;
-        uint32_t remaining_h = (uint32_t)(area->y2 - cur_y + 1);
+        gfx_coord_t chunk_x2 = render_area.x2;
+        uint32_t remaining_h = (uint32_t)(render_area.y2 - cur_y);
         uint32_t chunk_h = row_h < remaining_h ? row_h : remaining_h;
         gfx_coord_t chunk_y2 = (gfx_coord_t)(cur_y + (gfx_coord_t)chunk_h);
-        if (chunk_y2 > (gfx_coord_t)(area->y2 + 1)) {
-            chunk_y2 = (gfx_coord_t)(area->y2 + 1);
+        if (chunk_y2 > render_area.y2) {
+            chunk_y2 = render_area.y2;
         }
 
         uint16_t *buf = disp->buf.buf_act;
@@ -282,9 +379,9 @@ void gfx_render_part_area(gfx_display_t *disp, gfx_area_t *area, uint8_t area_id
         disp->render.render_time_us += (uint64_t)(gfx_platform_time_us() - render_start_us);
 
         if (disp->backend != NULL) {
-            // uint32_t chunk_px = area_w * (uint32_t)(chunk_y2 - chunk_y1);
+            // uint32_t chunk_px = render_w * (uint32_t)(chunk_y2 - chunk_y1);
 
-            bool is_last_chunk = (chunk_y2 >= area->y2 + 1);
+            bool is_last_chunk = (chunk_y2 >= render_area.y2);
             disp->render.flushing_last = is_last_chunk && is_last_area;
 
             // GFX_LOGD(TAG, "Flush: (%d,%d)-(%d,%d) %" PRIu32 " px%s",

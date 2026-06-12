@@ -352,6 +352,7 @@ gfx_backend_t *gfx_backend_sdl_create(const gfx_backend_sdl_config_t *cfg)
 
     sdl->base.vtable = &s_sdl_backend_vtable;
     sdl->base.caps = GFX_BACKEND_CAP_FLUSH | GFX_BACKEND_CAP_PRESENT;
+    sdl->base.alignment = gfx_backend_get_alignment(NULL);
     return &sdl->base;
 }
 

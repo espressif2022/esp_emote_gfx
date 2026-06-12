@@ -116,6 +116,35 @@ const gfx_draw_ops_t *gfx_backend_get_draw_ops(const gfx_backend_t *backend)
     return backend != NULL ? backend->draw_ops : NULL;
 }
 
+gfx_render_alignment_t gfx_backend_get_alignment(const gfx_backend_t *backend)
+{
+    gfx_render_alignment_t alignment = {
+        .width_px = 1,
+        .height_px = 1,
+        .stride_bytes = 1,
+        .addr_bytes = 1,
+    };
+
+    if (backend == NULL) {
+        return alignment;
+    }
+
+    if (backend->alignment.width_px > 0U) {
+        alignment.width_px = backend->alignment.width_px;
+    }
+    if (backend->alignment.height_px > 0U) {
+        alignment.height_px = backend->alignment.height_px;
+    }
+    if (backend->alignment.stride_bytes > 0U) {
+        alignment.stride_bytes = backend->alignment.stride_bytes;
+    }
+    if (backend->alignment.addr_bytes > 0U) {
+        alignment.addr_bytes = backend->alignment.addr_bytes;
+    }
+
+    return alignment;
+}
+
 gfx_backend_t *gfx_callback_backend_create(gfx_display_flush_cb_t flush_cb,
         void *user_data)
 {
@@ -127,6 +156,7 @@ gfx_backend_t *gfx_callback_backend_create(gfx_display_flush_cb_t flush_cb,
 
     backend->base.vtable = &s_callback_backend_vtable;
     backend->base.caps = GFX_BACKEND_CAP_FLUSH;
+    backend->base.alignment = gfx_backend_get_alignment(NULL);
     backend->base.user_data = user_data;
     backend->flush_cb = flush_cb;
     return &backend->base;
