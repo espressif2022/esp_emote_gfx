@@ -564,6 +564,67 @@ void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
     }
 }
 
+void gfx_sw_blend_draw_color_mask(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
+                                  const gfx_opa_t *mask, gfx_coord_t mask_stride,
+                                  const gfx_color_t *color_mask, gfx_coord_t color_mask_stride,
+                                  gfx_area_t *clip_area, gfx_opa_t opa, bool swap)
+{
+    int32_t w = clip_area->x2 - clip_area->x1;
+    int32_t h = clip_area->y2 - clip_area->y1;
+    int64_t perf_start_us = 0;
+
+    int32_t x, y;
+
+    if (w <= 0 || h <= 0 || mask == NULL || color_mask == NULL) {
+        return;
+    }
+
+    if (s_active_perf_stats != NULL) {
+        perf_start_us = esp_timer_get_time();
+    }
+
+    if (opa >= OPA_MAX) {
+        for (y = 0; y < h; y++) {
+            for (x = 0; x < w; x++) {
+                if (*mask) {
+                    if (*mask == OPA_COVER) {
+                        dest_buf[x] = color_mask[x];
+                    } else {
+                        dest_buf[x] = gfx_blend_color_mix(color_mask[x], dest_buf[x], *mask, swap);
+                    }
+                }
+                mask++;
+            }
+            dest_buf += dest_stride;
+            mask += (mask_stride - w);
+            color_mask += color_mask_stride;
+        }
+    } else {
+        for (y = 0; y < h; y++) {
+            for (x = 0; x < w; x++) {
+                if (*mask) {
+                    gfx_opa_t opa_tmp = (*mask == OPA_COVER) ? opa : ((uint32_t)((uint32_t)(*mask) * opa) >> 8);
+                    if (opa_tmp >= OPA_MAX) {
+                        dest_buf[x] = color_mask[x];
+                    } else if (opa_tmp > 0) {
+                        dest_buf[x] = gfx_blend_color_mix(color_mask[x], dest_buf[x], opa_tmp, swap);
+                    }
+                }
+                mask++;
+            }
+            dest_buf += dest_stride;
+            mask += (mask_stride - w);
+            color_mask += color_mask_stride;
+        }
+    }
+
+    if (s_active_perf_stats != NULL) {
+        s_active_perf_stats->color_draw.calls++;
+        s_active_perf_stats->color_draw.pixels += (uint64_t)w * (uint64_t)h;
+        s_active_perf_stats->color_draw.time_us += gfx_blend_perf_elapsed_us(perf_start_us);
+    }
+}
+
 void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                            const gfx_color_t *src_buf, gfx_coord_t src_stride,
                            const gfx_opa_t *mask, gfx_coord_t mask_stride,

@@ -55,6 +55,9 @@ static void gfx_label_init_default_state(gfx_label_t *label)
     label->style.opa = 0xFF;
     label->render.mask = NULL;
     label->render.mask_capacity = 0;
+    label->render.color_mask = NULL;
+    label->render.color_mask_capacity = 0;
+    label->render.inline_color = false;
     label->style.bg_color = (gfx_color_t) {
         .full = 0x0000
     };
@@ -136,6 +139,9 @@ esp_err_t gfx_label_delete_impl(gfx_obj_t *obj)
     free(label->font.handle);
     free(label->render.mask);
     label->render.mask_capacity = 0;
+    free(label->render.color_mask);
+    label->render.color_mask_capacity = 0;
+    label->render.inline_color = false;
     free(label);
 
     return ESP_OK;

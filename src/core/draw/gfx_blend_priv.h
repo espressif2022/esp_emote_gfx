@@ -109,6 +109,16 @@ void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
                        gfx_area_t *clip_area, gfx_color_t color, gfx_opa_t opa, bool swap);
 
 /**
+ * @brief Draw masked text using per-pixel colors
+ * @param color_mask Per-pixel semantic colors, same layout as mask
+ * @param color_mask_stride Stride (width) of the color mask buffer in pixels
+ */
+void gfx_sw_blend_draw_color_mask(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
+                                  const gfx_opa_t *mask, gfx_coord_t mask_stride,
+                                  const gfx_color_t *color_mask, gfx_coord_t color_mask_stride,
+                                  gfx_area_t *clip_area, gfx_opa_t opa, bool swap);
+
+/**
  * @brief Draw a blended image onto a destination buffer
  * @param dest_buf Pointer to the destination buffer where the image will be drawn
  * @param dest_stride Stride (width) of the destination buffer

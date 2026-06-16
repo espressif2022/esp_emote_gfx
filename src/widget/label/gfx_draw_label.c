@@ -100,6 +100,8 @@ static gfx_font_glyph_cache_t *s_font_glyph_caches;
  **********************/
 
 static int gfx_utf8_to_unicode(const char **p, uint32_t *unicode);
+static bool gfx_label_try_consume_inline_color(const char **p, gfx_color_t *color);
+static bool gfx_label_text_has_inline_colors(const char *text);
 static int32_t gfx_calculate_snap_offset(gfx_label_t *label, gfx_font_handle_t font,
         int32_t current_offset, int32_t target_width);
 static void gfx_update_scroll_state(gfx_obj_t *obj);
@@ -124,7 +126,8 @@ static inline gfx_font_handle_t gfx_label_get_font_handle(const gfx_label_t *lab
 {
     return (label != NULL) ? label->font.handle : NULL;
 }
-static esp_err_t gfx_render_text_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, int line_height, int total_line_height);
+static esp_err_t gfx_render_text_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, gfx_color_t *color_mask,
+        int line_height, int total_line_height);
 
 void gfx_label_clear_glyph_cache(gfx_label_t *label)
 {
@@ -179,6 +182,70 @@ static int gfx_utf8_to_unicode(const char **p, uint32_t *unicode)
 }
 
 /**
+ * @brief Try to consume an inline color marker: ##0xRRGGBB
+ * @return true when a valid marker was consumed and @p color was updated
+ */
+static bool gfx_label_try_consume_inline_color(const char **p, gfx_color_t *color)
+{
+    const char *s = *p;
+
+    if (s[0] != '#' || s[1] != '#' || s[2] != '0' || (s[3] != 'x' && s[3] != 'X')) {
+        return false;
+    }
+
+    uint32_t rgb = 0;
+    for (int i = 0; i < 6; i++) {
+        char c = s[4 + i];
+        uint8_t nibble;
+
+        if (c >= '0' && c <= '9') {
+            nibble = (uint8_t)(c - '0');
+        } else if (c >= 'a' && c <= 'f') {
+            nibble = (uint8_t)(c - 'a' + 10);
+        } else if (c >= 'A' && c <= 'F') {
+            nibble = (uint8_t)(c - 'A' + 10);
+        } else {
+            return false;
+        }
+
+        rgb = (rgb << 4) | nibble;
+    }
+
+    *color = GFX_COLOR_HEX(rgb);
+    *p = s + 10;
+    return true;
+}
+
+static gfx_color_t gfx_label_color_mask_pixel(gfx_obj_t *obj, gfx_color_t color, bool from_marker)
+{
+    if (from_marker && obj != NULL && obj->disp != NULL && obj->disp->flags.swap) {
+        color.full = (uint16_t)((color.full << 8) | (color.full >> 8));
+    }
+
+    return color;
+}
+
+static bool gfx_label_text_has_inline_colors(const char *text)
+{
+    if (text == NULL) {
+        return false;
+    }
+
+    for (const char *p = text; *p != '\0'; p++) {
+        if (p[0] == '#' && p[1] == '#' && p[2] == '0' && (p[3] == 'x' || p[3] == 'X')) {
+            const char *probe = p;
+            gfx_color_t dummy;
+
+            if (gfx_label_try_consume_inline_color(&probe, &dummy)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
  * @brief Calculate snap offset aligned to character/word boundary
  * @param label Label context
  * @param font Font context
@@ -199,6 +266,10 @@ static int32_t gfx_calculate_snap_offset(gfx_label_t *label, gfx_font_handle_t f
 
     /* Skip characters until we reach current_offset */
     while (*p && accumulated_width < current_offset) {
+        gfx_color_t dummy;
+        while (gfx_label_try_consume_inline_color(&p, &dummy)) {
+        }
+
         uint32_t unicode = 0;
         int bytes_in_char = gfx_utf8_to_unicode(&p, &unicode);
         if (bytes_in_char == 0) {
@@ -217,6 +288,10 @@ static int32_t gfx_calculate_snap_offset(gfx_label_t *label, gfx_font_handle_t f
 
     /* Calculate how many complete characters fit in target_width */
     while (*p) {
+        gfx_color_t dummy;
+        while (gfx_label_try_consume_inline_color(&p, &dummy)) {
+        }
+
         uint32_t unicode = 0;
         const char *p_before = p;
         int bytes_in_char = gfx_utf8_to_unicode(&p, &unicode);
@@ -733,8 +808,12 @@ static int gfx_calculate_text_width(gfx_font_handle_t font, const char *text, co
 {
     int text_width = 0;
     const char *p = text;
+    gfx_color_t dummy;
 
     while (*p && (text_end == NULL || p < text_end)) {
+        while (gfx_label_try_consume_inline_color(&p, &dummy)) {
+        }
+
         uint32_t unicode = 0;
         const char *char_start = p;
         int bytes_consumed = gfx_utf8_to_unicode(&p, &unicode);
@@ -767,8 +846,12 @@ static bool gfx_label_line_iter_next(gfx_obj_t *obj, gfx_font_handle_t font, gfx
         const char *wrap_end = start;
         const char *last_space = NULL;
         int accumulated_width = 0;
+        gfx_color_t dummy;
 
         while (*cursor) {
+            while (gfx_label_try_consume_inline_color(&cursor, &dummy)) {
+            }
+
             uint32_t unicode = 0;
             const char *char_start = cursor;
             int bytes_consumed = gfx_utf8_to_unicode(&cursor, &unicode);
@@ -798,8 +881,11 @@ static bool gfx_label_line_iter_next(gfx_obj_t *obj, gfx_font_handle_t font, gfx
         }
 
         if (wrap_end == start && *cursor != '\0' && *cursor != '\n') {
+            while (gfx_label_try_consume_inline_color(&cursor, &dummy)) {
+            }
+
             uint32_t unicode = 0;
-            const char *forced_end = start;
+            const char *forced_end = cursor;
             if (gfx_utf8_to_unicode(&forced_end, &unicode) > 0) {
                 wrap_end = forced_end;
             }
@@ -849,10 +935,10 @@ static int gfx_cal_text_start_x(gfx_text_align_t align, int obj_width, int line_
     return start_x < 0 ? 0 : start_x;
 }
 
-static void gfx_render_glyph_to_mask(gfx_opa_t *mask, int obj_width, int obj_height,
+static void gfx_render_glyph_to_mask(gfx_opa_t *mask, gfx_color_t *color_mask, int obj_width, int obj_height,
                                      gfx_font_handle_t font,
                                      const gfx_glyph_dsc_t *glyph_dsc,
-                                     const uint8_t *glyph_bitmap, int x, int y)
+                                     const uint8_t *glyph_bitmap, int x, int y, gfx_color_t color)
 {
     int ofs_x = glyph_dsc->ofs_x;
     int ofs_y = font->adjust_baseline_offset(font, (void *)glyph_dsc);
@@ -864,16 +950,25 @@ static void gfx_render_glyph_to_mask(gfx_opa_t *mask, int obj_width, int obj_hei
 
             if (pixel_x >= 0 && pixel_x < obj_width && pixel_y >= 0 && pixel_y < obj_height) {
                 uint8_t pixel_value = glyph_bitmap[iy * glyph_dsc->box_w + ix];
-                *(mask + pixel_y * obj_width + pixel_x) = pixel_value;
+                size_t pixel_index = (size_t)pixel_y * (size_t)obj_width + (size_t)pixel_x;
+
+                *(mask + pixel_index) = pixel_value;
+                if (pixel_value > 0 && color_mask != NULL) {
+                    color_mask[pixel_index] = color;
+                }
             }
         }
     }
 }
 
-static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const gfx_label_line_iter_t *line, int y_pos)
+static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, gfx_color_t *color_mask,
+        const gfx_label_line_iter_t *line, int y_pos)
 {
     gfx_label_t *label = (gfx_label_t *)obj->src;
     gfx_font_handle_t font = gfx_label_get_font_handle(label);
+    gfx_color_t current_color = label->style.color;
+    bool current_color_from_marker = false;
+    gfx_color_t dummy;
 
     int start_x = gfx_cal_text_start_x(label->style.text_align, obj->geometry.width, line->width);
 
@@ -893,6 +988,9 @@ static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const 
         const char *last_valid_ptr = NULL;
 
         while (p_scan < line->end && *p_scan) {
+            while (gfx_label_try_consume_inline_color(&p_scan, &dummy)) {
+            }
+
             uint32_t unicode = 0;
             const char *p_before = p_scan;
             int bytes_consumed = gfx_utf8_to_unicode(&p_scan, &unicode);
@@ -939,6 +1037,10 @@ static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const 
             break;
         }
 
+        while (gfx_label_try_consume_inline_color(&p, &current_color)) {
+            current_color_from_marker = true;
+        }
+
         uint32_t unicode = 0;
         int bytes_consumed = gfx_utf8_to_unicode(&p, &unicode);
         if (bytes_consumed == 0) {
@@ -957,8 +1059,9 @@ static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const 
             continue;
         }
 
-        gfx_render_glyph_to_mask(mask, obj->geometry.width, obj->geometry.height, font,
-                                 &glyph_entry->glyph_dsc, glyph_entry->alpha_bitmap, x, y_pos);
+        gfx_render_glyph_to_mask(mask, color_mask, obj->geometry.width, obj->geometry.height, font,
+                                 &glyph_entry->glyph_dsc, glyph_entry->alpha_bitmap, x, y_pos,
+                                 gfx_label_color_mask_pixel(obj, current_color, current_color_from_marker));
 
         x += glyph_entry->advance_width;
 
@@ -970,7 +1073,8 @@ static esp_err_t gfx_render_line_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, const 
     return ESP_OK;
 }
 
-static esp_err_t gfx_render_text_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, int line_height, int total_line_height)
+static esp_err_t gfx_render_text_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, gfx_color_t *color_mask,
+        int line_height, int total_line_height)
 {
     gfx_label_t *label = (gfx_label_t *)obj->src;
     gfx_font_handle_t font = gfx_label_get_font_handle(label);
@@ -998,7 +1102,7 @@ static esp_err_t gfx_render_text_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, int li
             break;
         }
 
-        gfx_render_line_to_mask(obj, mask, &line_iter, current_y);
+        gfx_render_line_to_mask(obj, mask, color_mask, &line_iter, current_y);
 
         current_y += total_line_height;
     }
@@ -1006,12 +1110,18 @@ static esp_err_t gfx_render_text_to_mask(gfx_obj_t *obj, gfx_opa_t *mask, int li
     return ESP_OK;
 }
 
-static gfx_opa_t *gfx_allocate_mask_buffer(gfx_obj_t *obj)
+static gfx_opa_t *gfx_allocate_mask_buffer(gfx_obj_t *obj, gfx_color_t **out_color_mask)
 {
     gfx_label_t *label = (gfx_label_t *)obj->src;
     size_t required_size = gfx_get_mask_buffer_size(obj);
+    bool use_inline_colors = gfx_label_text_has_inline_colors(label->text.text);
+
+    if (out_color_mask != NULL) {
+        *out_color_mask = NULL;
+    }
 
     if (required_size == 0) {
+        label->render.inline_color = false;
         return NULL;
     }
 
@@ -1027,17 +1137,40 @@ static gfx_opa_t *gfx_allocate_mask_buffer(gfx_obj_t *obj)
     }
 
     memset(label->render.mask, 0x00, required_size);
+    label->render.inline_color = use_inline_colors;
+
+    if (use_inline_colors) {
+        size_t color_bytes = required_size * sizeof(gfx_color_t);
+
+        if (label->render.color_mask == NULL || label->render.color_mask_capacity < color_bytes) {
+            gfx_color_t *new_color_mask = (gfx_color_t *)realloc(label->render.color_mask, color_bytes);
+            if (new_color_mask == NULL) {
+                GFX_LOGE(TAG, "Failed to allocate color mask buffer");
+                label->render.inline_color = false;
+                return label->render.mask;
+            }
+
+            label->render.color_mask = new_color_mask;
+            label->render.color_mask_capacity = color_bytes;
+        }
+
+        memset(label->render.color_mask, 0x00, color_bytes);
+        if (out_color_mask != NULL) {
+            *out_color_mask = label->render.color_mask;
+        }
+    }
+
     return label->render.mask;
 }
 
-static esp_err_t gfx_render_parse(gfx_obj_t *obj, gfx_opa_t *mask)
+static esp_err_t gfx_render_parse(gfx_obj_t *obj, gfx_opa_t *mask, gfx_color_t *color_mask)
 {
     gfx_label_t *label = (gfx_label_t *)obj->src;
     gfx_font_handle_t font = gfx_label_get_font_handle(label);
     int line_height = font->get_line_height(font);
     int total_line_height = line_height + label->text.line_spacing;
 
-    return gfx_render_text_to_mask(obj, mask, line_height, total_line_height);
+    return gfx_render_text_to_mask(obj, mask, color_mask, line_height, total_line_height);
 }
 
 esp_err_t gfx_get_glphy_dsc(gfx_obj_t *obj)
@@ -1055,11 +1188,14 @@ esp_err_t gfx_get_glphy_dsc(gfx_obj_t *obj)
         return ESP_OK;
     }
 
-    gfx_opa_t *mask_buf = gfx_allocate_mask_buffer(obj);
+    gfx_opa_t *mask_buf = NULL;
+    gfx_color_t *color_mask = NULL;
+
+    mask_buf = gfx_allocate_mask_buffer(obj, &color_mask);
     ESP_RETURN_ON_FALSE(mask_buf, ESP_ERR_NO_MEM, TAG, "no mem for mask_buf");
 
     esp_err_t render_ret;
-    render_ret = gfx_render_parse(obj, mask_buf);
+    render_ret = gfx_render_parse(obj, mask_buf, color_mask);
 
     if (render_ret != ESP_OK) {
         return render_ret;
@@ -1131,6 +1267,14 @@ esp_err_t gfx_draw_label(gfx_obj_t *obj, const gfx_draw_ctx_t *ctx)
 
     gfx_color_t color = label->style.color;
 
-    gfx_sw_blend_draw(dest_pixels, ctx->stride, mask, mask_stride, &clip_area, color, label->style.opa, ctx->swap);
+    if (label->render.inline_color && label->render.color_mask != NULL) {
+        gfx_coord_t color_x = (gfx_coord_t)(clip_area.x1 - obj->geometry.x);
+        gfx_coord_t color_y = (gfx_coord_t)(clip_area.y1 - obj->geometry.y);
+        gfx_color_t *color_mask = label->render.color_mask + (size_t)color_y * (size_t)mask_stride + (size_t)color_x;
+        gfx_sw_blend_draw_color_mask(dest_pixels, ctx->stride, mask, mask_stride, color_mask, mask_stride,
+                                     &clip_area, label->style.opa, ctx->swap);
+    } else {
+        gfx_sw_blend_draw(dest_pixels, ctx->stride, mask, mask_stride, &clip_area, color, label->style.opa, ctx->swap);
+    }
     return ESP_OK;
 }
