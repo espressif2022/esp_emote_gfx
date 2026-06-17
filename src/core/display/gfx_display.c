@@ -9,6 +9,7 @@
  *********************/
 #include <stdlib.h>
 #include <string.h>
+#include "esp_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_DISP
 #include "common/gfx_log_priv.h"
 #include "soc/soc_caps.h"
@@ -38,6 +39,10 @@ static const char *const TAG = "disp";
 
 static void gfx_display_init_default_state(gfx_display_t *disp);
 static void gfx_display_cleanup(gfx_display_t *disp);
+static size_t gfx_display_normalize_alloc_alignment(size_t alignment);
+static void *gfx_display_alloc_buffer(size_t size, size_t alignment, uint32_t caps);
+static gfx_color_format_t gfx_display_resolve_output_format(const gfx_display_config_t *cfg);
+static gfx_color_format_t gfx_display_resolve_render_format(const gfx_display_config_t *cfg);
 
 /**********************
  *   STATIC FUNCTIONS
@@ -48,8 +53,65 @@ static void gfx_display_init_default_state(gfx_display_t *disp)
     disp->child_list = NULL;
     disp->next = NULL;
     disp->buf.buf_act = disp->buf.buf1;
+    disp->format.render_format = GFX_COLOR_FORMAT_RGB565;
+    disp->format.output_format = GFX_COLOR_FORMAT_RGB565;
+    disp->format.render_pixel_size = GFX_PIXEL_SIZE_16BPP;
+    disp->format.output_pixel_size = GFX_PIXEL_SIZE_16BPP;
     disp->style.bg_color.full = 0x0000;
     disp->style.bg_enable = true;
+}
+
+static gfx_color_format_t gfx_display_resolve_output_format(const gfx_display_config_t *cfg)
+{
+    if (cfg == NULL || cfg->color_format == GFX_COLOR_FORMAT_UNKNOWN) {
+        return GFX_COLOR_FORMAT_RGB565;
+    }
+
+    return cfg->color_format;
+}
+
+static gfx_color_format_t gfx_display_resolve_render_format(const gfx_display_config_t *cfg)
+{
+    gfx_color_format_t output_format = gfx_display_resolve_output_format(cfg);
+
+    if (output_format == GFX_COLOR_FORMAT_RGB565 ||
+            output_format == GFX_COLOR_FORMAT_RGB565_SWAPPED ||
+            output_format == GFX_COLOR_FORMAT_RGB888 ||
+            output_format == GFX_COLOR_FORMAT_BGR888 ||
+            output_format == GFX_COLOR_FORMAT_XRGB8888) {
+        return output_format;
+    }
+
+    return GFX_COLOR_FORMAT_RGB565;
+}
+
+static size_t gfx_display_normalize_alloc_alignment(size_t alignment)
+{
+    size_t min_alignment = sizeof(void *);
+
+    if (alignment < min_alignment) {
+        alignment = min_alignment;
+    }
+
+    if ((alignment & (alignment - 1U)) != 0U) {
+        size_t rounded = min_alignment;
+        while (rounded < alignment) {
+            rounded <<= 1;
+        }
+        alignment = rounded;
+    }
+
+    return alignment;
+}
+
+static void *gfx_display_alloc_buffer(size_t size, size_t alignment, uint32_t caps)
+{
+    if (size == 0U) {
+        return NULL;
+    }
+
+    alignment = gfx_display_normalize_alloc_alignment(alignment);
+    return gfx_platform_aligned_alloc(alignment, size, caps);
 }
 
 /**********************
@@ -71,16 +133,44 @@ esp_err_t gfx_display_buf_free(gfx_display_t *disp)
             disp->buf.buf2 = NULL;
         }
     }
+    if (disp->buf.flush_buf) {
+        gfx_platform_free(disp->buf.flush_buf);
+        disp->buf.flush_buf = NULL;
+    }
     disp->buf.buf_pixels = 0;
+    disp->buf.flush_buf_bytes = 0;
     disp->buf.ext_bufs = false;
     return ESP_OK;
 }
 
 esp_err_t gfx_display_buf_init(gfx_display_t *disp, const gfx_display_config_t *cfg)
 {
+    uint8_t render_pixel_size;
+    uint8_t output_pixel_size;
+
+    ESP_RETURN_ON_FALSE(disp != NULL && cfg != NULL, ESP_ERR_INVALID_ARG, TAG,
+                        "init display buffers: invalid args");
+
+    disp->format.render_format = gfx_display_resolve_render_format(cfg);
+    disp->format.output_format = gfx_display_resolve_output_format(cfg);
+    render_pixel_size = gfx_color_format_get_size(disp->format.render_format);
+    output_pixel_size = gfx_color_format_get_size(disp->format.output_format);
+    ESP_RETURN_ON_FALSE(render_pixel_size > 0U && output_pixel_size > 0U,
+                        ESP_ERR_NOT_SUPPORTED, TAG, "init display buffers: unsupported color format");
+    ESP_RETURN_ON_FALSE(disp->format.output_format == GFX_COLOR_FORMAT_RGB565 ||
+                        disp->format.output_format == GFX_COLOR_FORMAT_RGB565_SWAPPED ||
+                        disp->format.output_format == GFX_COLOR_FORMAT_RGB888 ||
+                        disp->format.output_format == GFX_COLOR_FORMAT_BGR888 ||
+                        disp->format.output_format == GFX_COLOR_FORMAT_XRGB8888,
+                        ESP_ERR_NOT_SUPPORTED, TAG,
+                        "init display buffers: output format %u is not supported",
+                        (unsigned)disp->format.output_format);
+    disp->format.render_pixel_size = render_pixel_size;
+    disp->format.output_pixel_size = output_pixel_size;
+
     if (cfg->buffers.buf1 != NULL) {
-        disp->buf.buf1 = (uint16_t *)cfg->buffers.buf1;
-        disp->buf.buf2 = (uint16_t *)cfg->buffers.buf2;
+        disp->buf.buf1 = cfg->buffers.buf1;
+        disp->buf.buf2 = cfg->buffers.buf2;
         if (cfg->buffers.buf_pixels > 0) {
             disp->buf.buf_pixels = cfg->buffers.buf_pixels;
         } else {
@@ -107,15 +197,17 @@ esp_err_t gfx_display_buf_init(gfx_display_t *disp, const gfx_display_config_t *
         }
 
         size_t buf_pixels = cfg->buffers.buf_pixels > 0 ? cfg->buffers.buf_pixels : disp->res.h_res * disp->res.v_res;
+        gfx_render_alignment_t alignment = gfx_backend_get_alignment(disp->backend);
+        size_t addr_alignment = alignment.addr_bytes;
 
-        disp->buf.buf1 = (uint16_t *)gfx_platform_malloc(buf_pixels * sizeof(uint16_t), buff_caps);
+        disp->buf.buf1 = gfx_display_alloc_buffer(buf_pixels * render_pixel_size, addr_alignment, buff_caps);
         if (!disp->buf.buf1) {
             GFX_LOGE(TAG, "init display buffers: allocate frame buffer 1 failed");
             return ESP_ERR_NO_MEM;
         }
 
         if (cfg->flags.double_buffer) {
-            disp->buf.buf2 = (uint16_t *)gfx_platform_malloc(buf_pixels * sizeof(uint16_t), buff_caps);
+            disp->buf.buf2 = gfx_display_alloc_buffer(buf_pixels * render_pixel_size, addr_alignment, buff_caps);
             if (!disp->buf.buf2) {
                 GFX_LOGE(TAG, "init display buffers: allocate frame buffer 2 failed");
                 gfx_platform_free(disp->buf.buf1);
@@ -129,6 +221,19 @@ esp_err_t gfx_display_buf_init(gfx_display_t *disp, const gfx_display_config_t *
         disp->buf.buf_pixels = buf_pixels;
         disp->buf.ext_bufs = false;
     }
+
+    if (disp->format.output_format != disp->format.render_format) {
+        disp->buf.flush_buf_bytes = disp->buf.buf_pixels * disp->format.output_pixel_size;
+        disp->buf.flush_buf = gfx_display_alloc_buffer(disp->buf.flush_buf_bytes,
+                              gfx_backend_get_alignment(disp->backend).addr_bytes,
+                              GFX_PLATFORM_HEAP_DEFAULT);
+        if (disp->buf.flush_buf == NULL) {
+            GFX_LOGE(TAG, "init display buffers: allocate flush conversion buffer failed");
+            gfx_display_buf_free(disp);
+            return ESP_ERR_NO_MEM;
+        }
+    }
+
     disp->buf.buf_act = disp->buf.buf1;
     disp->style.bg_color.full = 0x0000;
     return ESP_OK;
@@ -155,13 +260,7 @@ static void gfx_display_cleanup(gfx_display_t *disp)
         }
     }
 
-    gfx_object_child_t *child_node = disp->child_list;
-    while (child_node != NULL) {
-        gfx_object_child_t *next_child = child_node->next;
-        free(child_node);
-        child_node = next_child;
-    }
-    disp->child_list = NULL;
+    gfx_object_child_list_free_nodes(&disp->child_list);
 
     if (disp->sync.event_group) {
         gfx_platform_event_delete(disp->sync.event_group);
@@ -206,7 +305,6 @@ gfx_display_t *gfx_display_add(gfx_handle_t handle, const gfx_display_config_t *
     new_disp->ctx = ctx;
     new_disp->res.h_res = cfg->h_res;
     new_disp->res.v_res = cfg->v_res;
-    new_disp->flags.swap = cfg->flags.swap;
     new_disp->flags.full_frame = cfg->flags.full_frame;
     new_disp->cb.update_cb = cfg->update_cb;
     new_disp->cb.user_data = cfg->user_data;
@@ -246,22 +344,14 @@ gfx_display_t *gfx_display_add(gfx_handle_t handle, const gfx_display_config_t *
         return NULL;
     }
 
-    if (cfg->buffers.buf1 != NULL) {
-        new_disp->buf.buf1 = (uint16_t *)cfg->buffers.buf1;
-        new_disp->buf.buf2 = (uint16_t *)cfg->buffers.buf2;
-        new_disp->buf.buf_pixels = cfg->buffers.buf_pixels > 0 ? cfg->buffers.buf_pixels : new_disp->res.h_res * new_disp->res.v_res;
-        new_disp->buf.ext_bufs = true;
-        new_disp->buf.buf_act = new_disp->buf.buf1;
-    } else {
-        ret = gfx_display_buf_init(new_disp, cfg);
-        if (ret != ESP_OK) {
-            gfx_platform_event_delete(new_disp->sync.event_group);
-            if (!backend_from_cfg) {
-                gfx_backend_destroy(new_disp->backend);
-            }
-            free(new_disp);
-            return NULL;
+    ret = gfx_display_buf_init(new_disp, cfg);
+    if (ret != ESP_OK) {
+        gfx_platform_event_delete(new_disp->sync.event_group);
+        if (!backend_from_cfg) {
+            gfx_backend_destroy(new_disp->backend);
         }
+        free(new_disp);
+        return NULL;
     }
 
     if (backend_from_cfg && new_disp->backend != NULL) {
@@ -284,6 +374,8 @@ gfx_display_t *gfx_display_add(gfx_handle_t handle, const gfx_display_config_t *
 
 esp_err_t gfx_display_add_child(gfx_display_t *disp, void *src)
 {
+    gfx_object_t *obj = (gfx_object_t *)src;
+
     if (disp == NULL || src == NULL) {
         GFX_LOGE(TAG, "add display child: display or source is NULL");
         return ESP_ERR_INVALID_ARG;
@@ -292,26 +384,14 @@ esp_err_t gfx_display_add_child(gfx_display_t *disp, void *src)
     if (ctx == NULL) {
         return ESP_ERR_INVALID_STATE;
     }
-    ((gfx_object_t *)src)->disp = disp;
+    obj->disp = disp;
+    obj->parent = NULL;
 
-    gfx_object_child_t *new_child = (gfx_object_child_t *)malloc(sizeof(gfx_object_child_t));
-    if (new_child == NULL) {
+    esp_err_t ret = gfx_object_child_list_add(&disp->child_list, obj);
+    if (ret != ESP_OK) {
         GFX_LOGE(TAG, "add display child: allocate child node failed");
-        return ESP_ERR_NO_MEM;
     }
-    new_child->src = src;
-    new_child->next = NULL;
-
-    if (disp->child_list == NULL) {
-        disp->child_list = new_child;
-    } else {
-        gfx_object_child_t *current = disp->child_list;
-        while (current->next != NULL) {
-            current = current->next;
-        }
-        current->next = new_child;
-    }
-    return ESP_OK;
+    return ret;
 }
 
 esp_err_t gfx_display_remove_child(gfx_display_t *disp, void *src)
@@ -321,24 +401,7 @@ esp_err_t gfx_display_remove_child(gfx_display_t *disp, void *src)
         return ESP_ERR_INVALID_ARG;
     }
 
-    gfx_object_child_t *current = disp->child_list;
-    gfx_object_child_t *prev = NULL;
-
-    while (current != NULL) {
-        if (current->src == src) {
-            if (prev == NULL) {
-                disp->child_list = current->next;
-            } else {
-                prev->next = current->next;
-            }
-            free(current);
-            return ESP_OK;
-        }
-        prev = current;
-        current = current->next;
-    }
-
-    return ESP_ERR_NOT_FOUND;
+    return gfx_object_child_list_remove(&disp->child_list, (gfx_object_t *)src);
 }
 
 esp_err_t gfx_display_delete_children(gfx_display_t *disp)
@@ -427,6 +490,14 @@ uint32_t gfx_display_get_v_res(gfx_display_t *disp)
         return DEFAULT_SCREEN_HEIGHT;
     }
     return disp->res.v_res;
+}
+
+gfx_color_format_t gfx_display_get_color_format(gfx_display_t *disp)
+{
+    if (disp == NULL) {
+        return GFX_COLOR_FORMAT_RGB565;
+    }
+    return disp->format.output_format;
 }
 
 gfx_err_t gfx_display_set_bg_color(gfx_display_t *disp, gfx_color_t color)

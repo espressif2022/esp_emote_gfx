@@ -331,6 +331,9 @@ static bool gfx_motion_player_tick_cb(gfx_motion_t *motion, void *user_data)
     if (player == NULL) {
         return false;
     }
+    if (!player->visible) {
+        return false;
+    }
     ended_action = player->scene.active_action;
     if (gfx_motion_scene_advance(&player->scene) && player->action_end_cb != NULL) {
         player->action_end_cb(player, ended_action, player->action_end_user_data);
@@ -750,11 +753,22 @@ esp_err_t gfx_motion_player_set_layer_mask(gfx_motion_player_t *player, uint32_t
 
 esp_err_t gfx_motion_player_set_visible(gfx_motion_player_t *player, bool visible)
 {
+    gfx_timer_handle_t timer;
+
     ESP_RETURN_ON_FALSE(player != NULL, ESP_ERR_INVALID_ARG, TAG, "player is NULL");
     if (player->visible == visible) {
         return ESP_OK;
     }
+
     player->visible = visible;
+    timer = gfx_motion_get_timer(&player->motion);
+    if (timer != NULL) {
+        if (visible) {
+            gfx_timer_resume(timer);
+        } else {
+            gfx_timer_pause(timer);
+        }
+    }
     player->mesh_dirty = true;
     return gfx_motion_player_sync(player);
 }

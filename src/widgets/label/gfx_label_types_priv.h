@@ -32,12 +32,16 @@ typedef struct {
     } style;
 
     struct {
+        gfx_font_t source;               /**< Font source configured by public setter */
         gfx_font_handle_t handle;        /**< Internal font adapter handle */
     } font;
 
     struct {
         gfx_opa_t *mask;                 /**< Text mask buffer */
         size_t mask_capacity;            /**< Allocated mask buffer size in bytes */
+        gfx_color_t *color_mask;         /**< Per-pixel text colors when inline markers are used */
+        size_t color_mask_capacity;      /**< Allocated color mask size in bytes */
+        bool inline_color;               /**< True when text contains ##0xRRGGBB markers */
         int32_t offset;                  /**< Offset of the text */
     } render;
 

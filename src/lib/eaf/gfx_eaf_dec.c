@@ -321,7 +321,7 @@ void eaf_dec_calculate_offsets(const eaf_dec_header_t *header, uint32_t *offsets
  *  PALETTE FUNCTIONS
  **********************/
 
-bool eaf_dec_get_palette_color(const eaf_dec_header_t *header, uint8_t color_index, bool swap_bytes, gfx_color_t *result)
+bool eaf_dec_get_palette_color(const eaf_dec_header_t *header, uint8_t color_index, gfx_color_t *result)
 {
     const uint8_t *color_data = &header->palette[color_index * 4];
 
@@ -335,7 +335,7 @@ bool eaf_dec_get_palette_color(const eaf_dec_header_t *header, uint8_t color_ind
                            ((color_data[0] & 0xF8) >> 3)),
     };
 
-    result->full = gfx_color_to_native_u16(color, swap_bytes);
+    result->full = color.full;
     return false;
 }
 
@@ -344,8 +344,7 @@ bool eaf_dec_get_palette_color(const eaf_dec_header_t *header, uint8_t color_ind
  **********************/
 
 static esp_err_t decode_huffman_rle(const uint8_t *in_data, size_t in_size,
-                                    uint8_t *out_data, size_t *out_size,
-                                    bool swap_color)
+                                    uint8_t *out_data, size_t *out_size)
 {
     if (out_size == NULL || *out_size == 0) {
         GFX_LOGE(TAG, "Output size is invalid");
@@ -360,9 +359,9 @@ static esp_err_t decode_huffman_rle(const uint8_t *in_data, size_t in_size,
     }
 
     size_t tmp_len = tmp_size;
-    esp_err_t ret = eaf_dec_decode_huffman(in_data, in_size, tmp_data, &tmp_len, swap_color);
+    esp_err_t ret = eaf_dec_decode_huffman(in_data, in_size, tmp_data, &tmp_len);
     if (ret == ESP_OK) {
-        ret = eaf_dec_decode_rle(tmp_data, tmp_len, out_data, out_size, swap_color);
+        ret = eaf_dec_decode_rle(tmp_data, tmp_len, out_data, out_size);
     }
 
     free(tmp_data);
@@ -403,7 +402,7 @@ static esp_err_t init_decoders(void)
 }
 
 esp_err_t eaf_dec_decode_block(const eaf_dec_header_t *header, const uint8_t *block_data,
-                               int block_len, uint8_t *out_data, bool swap_color)
+                               int block_len, uint8_t *out_data)
 {
     uint8_t encoding_type = block_data[0];
     int width = header->width;
@@ -433,7 +432,7 @@ esp_err_t eaf_dec_decode_block(const eaf_dec_header_t *header, const uint8_t *bl
     out_size = width * block_height;
 #endif
 
-    decode_result = decoder(block_data + 1, block_len - 1, out_data, &out_size, swap_color);
+    decode_result = decoder(block_data + 1, block_len - 1, out_data, &out_size);
 
     if (decode_result != ESP_OK) {
         return ESP_FAIL;
@@ -443,11 +442,8 @@ esp_err_t eaf_dec_decode_block(const eaf_dec_header_t *header, const uint8_t *bl
 }
 
 esp_err_t eaf_dec_decode_rle(const uint8_t *in_data, size_t in_size,
-                             uint8_t *out_data, size_t *out_size,
-                             bool swap_color)
+                             uint8_t *out_data, size_t *out_size)
 {
-    (void)swap_color;
-
     size_t in_pos = 0;
     size_t out_pos = 0;
 
@@ -478,11 +474,8 @@ esp_err_t eaf_dec_decode_rle(const uint8_t *in_data, size_t in_size,
 }
 
 esp_err_t eaf_dec_decode_raw(const uint8_t *in_data, size_t in_size,
-                             uint8_t *out_data, size_t *out_size,
-                             bool swap_color)
+                             uint8_t *out_data, size_t *out_size)
 {
-    (void)swap_color;
-
     if (!in_data || !out_data || !out_size) {
         GFX_LOGE(TAG, "Invalid parameters");
         return ESP_FAIL;
@@ -502,11 +495,8 @@ esp_err_t eaf_dec_decode_raw(const uint8_t *in_data, size_t in_size,
 
 #ifdef CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
 esp_err_t eaf_dec_decode_heatshrink(const uint8_t *in_data, size_t in_size,
-                                    uint8_t *out_data, size_t *out_size,
-                                    bool swap_color)
+                                    uint8_t *out_data, size_t *out_size)
 {
-    (void)swap_color;
-
     if (!in_data || !out_data || !out_size) {
         GFX_LOGE(TAG, "Invalid parameters");
         return ESP_FAIL;
@@ -607,7 +597,7 @@ hs_fail:
 
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 esp_err_t eaf_dec_decode_jpeg(const uint8_t *in_data, size_t in_size,
-                              uint8_t *out_data, size_t *out_size, bool swap_color)
+                              uint8_t *out_data, size_t *out_size)
 {
     esp_err_t ret = ESP_OK;
     uint32_t w, h;
@@ -616,7 +606,7 @@ esp_err_t eaf_dec_decode_jpeg(const uint8_t *in_data, size_t in_size,
     jpeg_dec_header_info_t *out_info = NULL;
 
     jpeg_dec_config_t config = {
-        .output_type = swap_color ? JPEG_PIXEL_FORMAT_RGB565_BE : JPEG_PIXEL_FORMAT_RGB565_LE,
+        .output_type = JPEG_PIXEL_FORMAT_RGB565_LE,
         .rotate = JPEG_ROTATE_0D,
     };
 
@@ -667,10 +657,8 @@ err:
 #endif // CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 
 esp_err_t eaf_dec_decode_huffman(const uint8_t *in_data, size_t in_size,
-                                 uint8_t *out_data, size_t *out_size,
-                                 bool swap_color)
+                                 uint8_t *out_data, size_t *out_size)
 {
-    (void)swap_color;
     size_t out_len = *out_size;
 
     if (!in_data || in_size < 3 || !out_data) {
@@ -861,8 +849,7 @@ int eaf_dec_get_frame_size(eaf_dec_handle_t handle, int index)
 }
 
 esp_err_t eaf_dec_decode_frame(eaf_dec_handle_t handle, int frame_index,
-                               uint8_t *out_data, size_t out_size,
-                               bool swap_bytes)
+                               uint8_t *out_data, size_t out_size)
 {
     if (!handle || !out_data) {
         return ESP_ERR_INVALID_STATE;
@@ -911,7 +898,7 @@ esp_err_t eaf_dec_decode_frame(eaf_dec_handle_t handle, int frame_index,
     for (int block = 0; block < header.blocks; block++) {
         const uint8_t *block_data = frame_data + offsets[block];
         int block_len = header.block_len[block];
-        esp_err_t ret = eaf_dec_decode_block(&header, block_data, block_len, tmp_data, swap_bytes);
+        esp_err_t ret = eaf_dec_decode_block(&header, block_data, block_len, tmp_data);
 
         if (ret != ESP_OK) {
             GFX_LOGD(TAG, "Block %d decode failed", block);
@@ -935,7 +922,7 @@ esp_err_t eaf_dec_decode_frame(eaf_dec_handle_t handle, int frame_index,
 
                 if (palette_cache[index] == 0xFFFFFFFF) {
                     gfx_color_t eaf_color;
-                    eaf_dec_get_palette_color(&header, index, swap_bytes, &eaf_color);
+                    eaf_dec_get_palette_color(&header, index, &eaf_color);
                     palette_cache[index] = eaf_color.full;
                     color = eaf_color.full;
                 } else {

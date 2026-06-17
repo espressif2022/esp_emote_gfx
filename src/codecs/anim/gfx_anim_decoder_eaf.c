@@ -215,7 +215,7 @@ static size_t gfx_anim_eaf_get_frame_payload_size(void *ctx, uint32_t frame_inde
 }
 
 static esp_err_t gfx_anim_eaf_decode_frame_block(const gfx_anim_frame_desc_t *frame_desc,
-        const uint8_t *block_payload, size_t block_payload_size, uint8_t *out_pixels, bool swap_color)
+        const uint8_t *block_payload, size_t block_payload_size, uint8_t *out_pixels)
 {
     eaf_dec_header_t header;
 
@@ -224,11 +224,11 @@ static esp_err_t gfx_anim_eaf_decode_frame_block(const gfx_anim_frame_desc_t *fr
     }
 
     gfx_anim_eaf_export_frame_desc(frame_desc, &header);
-    return eaf_dec_decode_block(&header, block_payload, (int)block_payload_size, out_pixels, swap_color);
+    return eaf_dec_decode_block(&header, block_payload, (int)block_payload_size, out_pixels);
 }
 
 static bool gfx_anim_eaf_read_palette_color(const gfx_anim_frame_desc_t *frame_desc, uint8_t color_index,
-        bool swap_bytes, gfx_color_t *result)
+        gfx_color_t *result)
 {
     eaf_dec_header_t header;
 
@@ -237,7 +237,7 @@ static bool gfx_anim_eaf_read_palette_color(const gfx_anim_frame_desc_t *frame_d
     }
 
     gfx_anim_eaf_export_frame_desc(frame_desc, &header);
-    return eaf_dec_get_palette_color(&header, color_index, swap_bytes, result);
+    return eaf_dec_get_palette_color(&header, color_index, result);
 }
 
 /**********************

@@ -97,7 +97,7 @@ esp_err_t gfx_image_validate_dsc(const gfx_image_dsc_t *image_desc)
                         ESP_ERR_INVALID_ARG, TAG, "validate image: stride is not pixel aligned");
 
     size_t color_bytes = (size_t)stride * image_desc->header.h;
-    size_t alpha_bytes = gfx_color_format_has_alpha(cf)
+    size_t alpha_bytes = gfx_color_format_has_plane_alpha(cf)
                          ? (size_t)image_desc->header.w * image_desc->header.h
                          : 0U;
     size_t required_size = color_bytes + alpha_bytes;

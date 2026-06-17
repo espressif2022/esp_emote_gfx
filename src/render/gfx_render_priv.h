@@ -13,6 +13,22 @@
 extern "C" {
 #endif
 
+typedef struct {
+    void *buf;
+    gfx_area_t buf_area;
+    gfx_area_t clip_area;
+    gfx_coord_t stride;
+    gfx_color_format_t format;
+} gfx_render_surface_t;
+
+typedef struct {
+    const void *pixels;
+    gfx_coord_t stride;
+    gfx_color_format_t format;
+    const gfx_opa_t *alpha;
+    gfx_coord_t alpha_stride;
+} gfx_render_image_t;
+
 /**
  * @brief Handle rendering of all objects in the scene (iterates over all displays)
  * @param ctx Player context
@@ -44,10 +60,18 @@ uint32_t gfx_render_area_summary(gfx_display_t *disp);
 
 /**
  * @brief Draw child objects for one display using draw context (buf_area + clip_area)
- * @param ctx Draw context: buf, buf_area, clip_area, stride, swap
+ * @param ctx Draw context: buf, buf_area, clip_area, stride, format
  *            buf_area and clip_area use half-open bounds [x1, x2) x [y1, y2)
  */
 void gfx_render_draw_child_objects(gfx_display_t *disp, const gfx_draw_ctx_t *ctx);
+
+/**
+ * @brief Draw one object and its descendants.
+ *
+ * This is used by composite widgets that own child objects but need custom
+ * ordering/transform decisions before drawing them.
+ */
+void gfx_render_draw_object_tree(gfx_display_t *disp, gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
 
 /**
  * @brief Update child objects for one display
@@ -73,6 +97,94 @@ gfx_area_t gfx_render_roundup_area(const gfx_area_t *area,
  */
 uint32_t gfx_render_roundup_stride_bytes(uint32_t stride_bytes,
         const gfx_render_alignment_t *alignment);
+
+/**
+ * @brief Check whether an address satisfies backend/render address alignment.
+ * @param ptr Address to check.
+ * @param alignment Backend/render alignment metadata; NULL or <=1 means aligned.
+ * @return true when the address can be used by an aligned backend operation.
+ */
+bool gfx_render_is_addr_aligned(const void *ptr,
+                                const gfx_render_alignment_t *alignment);
+
+/**
+ * @brief Check whether a backend op can use the destination surface/area.
+ *
+ * The check covers capability, destination address alignment, stride-byte
+ * alignment, and width/height alignment. Callers still need to check the
+ * operation function pointer and format-specific constraints.
+ */
+bool gfx_render_backend_op_can_use_dst(const gfx_backend_t *backend,
+                                       uint32_t cap,
+                                       const gfx_backend_surface_t *dst,
+                                       const gfx_area_t *area);
+
+/**
+ * @brief Try to draw an image through backend blit/blend acceleration.
+ *
+ * Returns true only when a backend operation was accepted and completed
+ * successfully. Callers must fall back to software drawing when false.
+ */
+bool gfx_render_backend_image(gfx_display_t *disp,
+                              const gfx_draw_ctx_t *ctx,
+                              const gfx_area_t *area,
+                              const gfx_backend_image_t *src,
+                              gfx_coord_t src_x,
+                              gfx_coord_t src_y,
+                              gfx_opa_t opa);
+
+void gfx_render_surface_fill(gfx_display_t *disp,
+                             const gfx_render_surface_t *dst,
+                             const gfx_area_t *area,
+                             gfx_color_t color,
+                             gfx_opa_t opa);
+
+bool gfx_render_surface_blit_image(gfx_display_t *disp,
+                                   const gfx_render_surface_t *dst,
+                                   const gfx_area_t *area,
+                                   const gfx_render_image_t *src,
+                                   gfx_coord_t src_x,
+                                   gfx_coord_t src_y,
+                                   gfx_opa_t opa);
+
+void gfx_render_surface_draw_mask(gfx_display_t *disp,
+                                  const gfx_render_surface_t *dst,
+                                  const gfx_area_t *area,
+                                  const gfx_opa_t *mask,
+                                  gfx_coord_t mask_stride,
+                                  gfx_color_t color,
+                                  gfx_opa_t opa);
+
+void gfx_render_surface_draw_color_mask(gfx_display_t *disp,
+                                        const gfx_render_surface_t *dst,
+                                        const gfx_area_t *area,
+                                        const gfx_opa_t *mask,
+                                        gfx_coord_t mask_stride,
+                                        const gfx_color_t *color_mask,
+                                        gfx_coord_t color_mask_stride,
+                                        gfx_opa_t opa);
+
+/**
+ * @brief Try to draw a scaled image through backend scale acceleration.
+ *
+ * Returns true only when a backend scale operation was accepted and completed
+ * successfully. `dst_area`, `clip_area`, and `src_area` use half-open bounds.
+ * Callers must fall back to software drawing when false.
+ */
+bool gfx_render_backend_scale(gfx_display_t *disp,
+                              const gfx_draw_ctx_t *ctx,
+                              const gfx_area_t *dst_area,
+                              const gfx_area_t *clip_area,
+                              const gfx_backend_image_t *src,
+                              const gfx_area_t *src_area,
+                              gfx_opa_t opa);
+
+bool gfx_render_surface_scale_image(gfx_display_t *disp,
+                                    const gfx_render_surface_t *dst,
+                                    const gfx_area_t *dst_area,
+                                    const gfx_render_image_t *src,
+                                    const gfx_area_t *src_area,
+                                    gfx_opa_t opa);
 
 #ifdef __cplusplus
 }

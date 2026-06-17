@@ -33,6 +33,7 @@ static const char *const TAG = "refresh";
 /**********************
  *  STATIC PROTOTYPES
  **********************/
+static gfx_object_t *gfx_display_hit_test_top_down(gfx_object_child_t *node, uint16_t x, uint16_t y);
 
 /**********************
  *   STATIC FUNCTIONS
@@ -44,23 +45,42 @@ static const char *const TAG = "refresh";
 
 static bool gfx_display_object_contains(gfx_object_t *obj, uint16_t x, uint16_t y)
 {
+    gfx_area_t area;
+
     if (obj == NULL || !obj->state.is_visible) {
         return false;
     }
-    if (obj->align.enabled || obj->state.layout_dirty) {
-        gfx_object_calc_pos_in_parent(obj);
-    }
 
-    const int32_t ox = obj->geometry.x;
-    const int32_t oy = obj->geometry.y;
-    const uint32_t w = obj->geometry.width;
-    const uint32_t h = obj->geometry.height;
-    if (w == 0 || h == 0) {
+    if (!gfx_object_get_abs_area(obj, &area)) {
         return false;
     }
 
-    return (int32_t)x >= ox && (int32_t)x < ox + (int32_t)w &&
-           (int32_t)y >= oy && (int32_t)y < oy + (int32_t)h;
+    return (int32_t)x >= area.x1 && (int32_t)x <= area.x2 &&
+           (int32_t)y >= area.y1 && (int32_t)y <= area.y2;
+}
+
+static gfx_object_t *gfx_display_hit_test_object_top_down(gfx_object_t *obj, uint16_t x, uint16_t y)
+{
+    gfx_object_t *hit;
+
+    if (obj == NULL || !obj->state.is_visible) {
+        return NULL;
+    }
+
+    if (obj->state.clip_children && !gfx_display_object_contains(obj, x, y)) {
+        return NULL;
+    }
+
+    hit = gfx_display_hit_test_top_down(obj->child_list, x, y);
+    if (hit != NULL) {
+        return hit;
+    }
+
+    if (obj->state.input_passthrough) {
+        return NULL;
+    }
+
+    return gfx_display_object_contains(obj, x, y) ? obj : NULL;
 }
 
 static gfx_object_t *gfx_display_hit_test_top_down(gfx_object_child_t *node, uint16_t x, uint16_t y)
@@ -75,7 +95,7 @@ static gfx_object_t *gfx_display_hit_test_top_down(gfx_object_child_t *node, uin
     }
 
     gfx_object_t *obj = (gfx_object_t *)node->src;
-    return gfx_display_object_contains(obj, x, y) ? obj : NULL;
+    return gfx_display_hit_test_object_top_down(obj, x, y);
 }
 
 gfx_object_t *gfx_display_hit_test(gfx_display_t *disp, uint16_t x, uint16_t y)
@@ -284,27 +304,125 @@ void gfx_invalidate_area(gfx_handle_t handle, const gfx_area_t *area_p)
     }
 }
 
+bool gfx_object_get_abs_area(gfx_object_t *obj, gfx_area_t *area)
+{
+    gfx_area_t result;
+
+    if (obj == NULL || area == NULL || obj->disp == NULL ||
+            obj->geometry.width == 0 || obj->geometry.height == 0) {
+        return false;
+    }
+
+    if (obj->align.enabled || obj->state.layout_dirty) {
+        gfx_object_calc_pos_in_parent(obj);
+    }
+
+    if (obj->state.abs_area_valid) {
+        *area = obj->resolved.abs_area;
+        return true;
+    }
+
+    result.x1 = obj->geometry.x;
+    result.y1 = obj->geometry.y;
+    result.x2 = obj->geometry.x + obj->geometry.width - 1;
+    result.y2 = obj->geometry.y + obj->geometry.height - 1;
+
+    for (gfx_object_t *parent = obj->parent; parent != NULL; parent = parent->parent) {
+        gfx_area_t parent_area;
+        if (!parent->state.clip_children) {
+            continue;
+        }
+        if (!gfx_object_get_abs_area(parent, &parent_area) ||
+                !gfx_area_intersect(&result, &result, &parent_area)) {
+            obj->state.abs_area_valid = false;
+            return false;
+        }
+    }
+
+    obj->resolved.abs_area = result;
+    obj->state.abs_area_valid = true;
+    *area = result;
+    return true;
+}
+
+bool gfx_object_get_abs_area_exclusive(gfx_object_t *obj, gfx_area_t *area)
+{
+    gfx_area_t inclusive;
+
+    if (!gfx_object_get_abs_area(obj, &inclusive)) {
+        return false;
+    }
+
+    area->x1 = inclusive.x1;
+    area->y1 = inclusive.y1;
+    area->x2 = (gfx_coord_t)(inclusive.x2 + 1);
+    area->y2 = (gfx_coord_t)(inclusive.y2 + 1);
+    return true;
+}
+
 void gfx_object_invalidate(gfx_object_t *obj)
 {
+    gfx_area_t obj_area;
+
     if (obj == NULL) {
         GFX_LOGE(TAG, "invalidate object: object is NULL");
         return;
     }
 
-    if (obj->disp == NULL) {
-        GFX_LOGE(TAG, "invalidate object: object has no display");
+    obj->state.dirty = true;
+
+    if (!gfx_object_get_abs_area(obj, &obj_area)) {
+        if (obj->disp == NULL) {
+            GFX_LOGE(TAG, "invalidate object: object has no display");
+        }
         return;
     }
 
-    gfx_area_t obj_area;
-    obj_area.x1 = obj->geometry.x;
-    obj_area.y1 = obj->geometry.y;
-    obj_area.x2 = obj->geometry.x + obj->geometry.width - 1;
-    obj_area.y2 = obj->geometry.y + obj->geometry.height - 1;
-
-    obj->state.dirty = true;
-
     gfx_invalidate_area_disp(obj->disp, &obj_area);
+}
+
+void gfx_object_invalidate_tree(gfx_object_t *obj)
+{
+    if (obj == NULL) {
+        return;
+    }
+
+    gfx_object_invalidate(obj);
+
+    for (gfx_object_child_t *child_node = obj->child_list; child_node != NULL; child_node = child_node->next) {
+        gfx_object_invalidate_tree((gfx_object_t *)child_node->src);
+    }
+}
+
+static void gfx_refresh_update_layout_dirty_object(gfx_object_t *obj)
+{
+    if (obj == NULL) {
+        return;
+    }
+
+    if (obj->state.layout_dirty && obj->align.enabled) {
+        gfx_coord_t old_x = obj->geometry.x;
+        gfx_coord_t old_y = obj->geometry.y;
+
+        gfx_object_invalidate_tree(obj);
+        gfx_object_calc_pos_in_parent(obj);
+
+        gfx_object_invalidate_tree(obj);
+
+        GFX_LOGD(TAG,
+                 "layout update: obj=%p (%d,%d) -> (%d,%d)",
+                 obj,
+                 old_x,
+                 old_y,
+                 obj->geometry.x,
+                 obj->geometry.y);
+
+        obj->state.layout_dirty = false;
+    }
+
+    for (gfx_object_child_t *child_node = obj->child_list; child_node != NULL; child_node = child_node->next) {
+        gfx_refresh_update_layout_dirty_object((gfx_object_t *)child_node->src);
+    }
 }
 
 void gfx_refresh_update_layout_dirty(gfx_display_t *disp)
@@ -313,31 +431,7 @@ void gfx_refresh_update_layout_dirty(gfx_display_t *disp)
         return;
     }
 
-    gfx_object_child_t *child_node = disp->child_list;
-
-    while (child_node != NULL) {
-        gfx_object_t *obj = (gfx_object_t *)child_node->src;
-
-        if (obj != NULL && obj->state.layout_dirty && obj->align.enabled) {
-            gfx_coord_t old_x = obj->geometry.x;
-            gfx_coord_t old_y = obj->geometry.y;
-
-            gfx_object_invalidate(obj);
-            gfx_object_calc_pos_in_parent(obj);
-
-            gfx_object_invalidate(obj);
-
-            GFX_LOGD(TAG,
-                     "layout update: obj=%p (%d,%d) -> (%d,%d)",
-                     obj,
-                     old_x,
-                     old_y,
-                     obj->geometry.x,
-                     obj->geometry.y);
-
-            obj->state.layout_dirty = false;
-        }
-
-        child_node = child_node->next;
+    for (gfx_object_child_t *child_node = disp->child_list; child_node != NULL; child_node = child_node->next) {
+        gfx_refresh_update_layout_dirty_object((gfx_object_t *)child_node->src);
     }
 }

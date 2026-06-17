@@ -59,8 +59,11 @@ gfx_err_t gfx_object_init_class_instance(gfx_object_t *obj, gfx_display_t *disp,
     obj->disp = disp;
     obj->src = src;
     obj->state.is_visible = true;
+    obj->state.resource_dirty = true;
     obj->vfunc.draw = obj->klass->draw;
     obj->vfunc.delete = obj->klass->delete;
+    obj->vfunc.load = obj->klass->load;
+    obj->vfunc.release = obj->klass->release;
     obj->vfunc.update = obj->klass->update;
     obj->vfunc.touch_event = obj->klass->touch_event;
     obj->trace.create_seq = ++s_obj_create_seq;
@@ -94,6 +97,9 @@ gfx_err_t gfx_object_create_class_instance(gfx_display_t *disp, const gfx_widget
 
     obj->geometry.width = width;
     obj->geometry.height = height;
+    obj->local_geometry.width = width;
+    obj->local_geometry.height = height;
+    gfx_object_invalidate_abs_area_cache_tree(obj);
     if (create_tag != NULL) {
         obj->trace.create_tag = create_tag;
     }

@@ -42,32 +42,7 @@ esp_err_t gfx_label_set_font(gfx_object_t *obj, gfx_font_t font)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
     gfx_label_t *label = (gfx_label_t *)obj->src;
-
-    if (label->font.handle != NULL) {
-        free(label->font.handle);
-        label->font.handle = NULL;
-    }
-
-    gfx_label_clear_glyph_cache(label);
-    label->text.text_width = 0;
-
-    if (font) {
-        gfx_font_handle_t font_handle = (gfx_font_handle_t)calloc(1, sizeof(gfx_font_adapter_t));
-        if (font_handle != NULL) {
-            esp_err_t ret = gfx_font_init_adapter(font_handle, font);
-            if (ret != ESP_OK) {
-                free(font_handle);
-                font_handle = NULL;
-            }
-
-            label->font.handle = font_handle;
-        } else {
-            GFX_LOGW(TAG, "set label font: allocate font adapter failed");
-        }
-    }
-
-    gfx_object_invalidate(obj);
-    return ESP_OK;
+    return gfx_label_set_font_source(obj, label, font);
 }
 
 esp_err_t gfx_label_set_text(gfx_object_t *obj, const char *text)

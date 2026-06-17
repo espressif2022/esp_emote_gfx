@@ -9,6 +9,7 @@
  *********************/
 #include <string.h>
 #include <inttypes.h>
+#include <stdint.h>
 
 #include "esp_log.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_RENDER
@@ -40,12 +41,20 @@ static const char *const TAG = "render";
  **********************/
 
 static void gfx_render_sync_dirty_areas(gfx_display_t *disp);
+static const void *gfx_render_prepare_flush_pixels(gfx_display_t *disp,
+        const void *render_buf,
+        gfx_coord_t x1, gfx_coord_t y1, gfx_coord_t x2, gfx_coord_t y2,
+        gfx_coord_t stride);
 static bool gfx_render_backend_fill(gfx_display_t *disp, const gfx_draw_ctx_t *ctx,
                                     const gfx_area_t *area, gfx_color_t color, gfx_opa_t opa);
+static bool gfx_render_backend_draw_glyph(gfx_display_t *disp, const gfx_draw_ctx_t *ctx,
+        const gfx_area_t *area, const gfx_opa_t *mask, gfx_coord_t mask_stride,
+        gfx_color_t color, gfx_opa_t opa);
 static void gfx_render_fill_area(gfx_display_t *disp, const gfx_draw_ctx_t *ctx,
                                  const gfx_area_t *area, gfx_color_t color, gfx_opa_t opa);
 static gfx_coord_t gfx_render_align_floor(gfx_coord_t value, uint16_t alignment);
 static gfx_coord_t gfx_render_align_ceil(gfx_coord_t value, uint16_t alignment);
+static void gfx_render_update_object_tree(gfx_object_t *obj);
 
 /**********************
  *   STATIC FUNCTIONS
@@ -57,10 +66,10 @@ static void gfx_render_sync_dirty_areas(gfx_display_t *disp)
         return;
     }
 
-    uint16_t *dst_screen_buf = disp->buf.buf_act;
-    uint16_t *src_screen_buf = (disp->buf.buf_act == disp->buf.buf1) ? disp->buf.buf2 : disp->buf.buf1;
+    uint8_t *dst_screen_buf = (uint8_t *)disp->buf.buf_act;
+    uint8_t *src_screen_buf = (uint8_t *)((disp->buf.buf_act == disp->buf.buf1) ? disp->buf.buf2 : disp->buf.buf1);
     gfx_coord_t stride = (gfx_coord_t)disp->res.h_res;
-    const size_t px_size = sizeof(uint16_t);
+    const size_t px_size = disp->format.render_pixel_size;
 
     for (uint8_t i = 0; i < disp->sync_pending.count; i++) {
         const gfx_area_t *a = &disp->sync_pending.areas[i];
@@ -80,16 +89,106 @@ static void gfx_render_sync_dirty_areas(gfx_display_t *disp)
         size_t h = (size_t)(a->y2 - a->y1 + 1);
         for (size_t y = 0; y < h; y++) {
             size_t offset = (size_t)(a->y1 + (gfx_coord_t)y) * stride + (size_t)a->x1;
-            memcpy(dst_screen_buf + offset, src_screen_buf + offset, w * px_size);
+            memcpy(dst_screen_buf + offset * px_size, src_screen_buf + offset * px_size, w * px_size);
         }
     }
+}
+
+static uint32_t gfx_render_rgb565_to_xrgb888(uint16_t rgb565)
+{
+    uint32_t r = (rgb565 >> 11) & 0x1fU;
+    uint32_t g = (rgb565 >> 5) & 0x3fU;
+    uint32_t b = rgb565 & 0x1fU;
+
+    r = (r << 3) | (r >> 2);
+    g = (g << 2) | (g >> 4);
+    b = (b << 3) | (b >> 2);
+
+    return (r << 16) | (g << 8) | b;
+}
+
+static void gfx_render_write_rgb888(uint8_t *dst, gfx_color_format_t format, uint32_t rgb888)
+{
+    gfx_color_write_rgb888_bytes(dst, format,
+                                 (uint8_t)((rgb888 >> 16) & 0xffU),
+                                 (uint8_t)((rgb888 >> 8) & 0xffU),
+                                 (uint8_t)(rgb888 & 0xffU));
+}
+
+static const void *gfx_render_prepare_flush_pixels(gfx_display_t *disp,
+        const void *render_buf,
+        gfx_coord_t x1, gfx_coord_t y1, gfx_coord_t x2, gfx_coord_t y2,
+        gfx_coord_t stride)
+{
+    if (disp == NULL || render_buf == NULL ||
+            disp->format.output_format == disp->format.render_format) {
+        return render_buf;
+    }
+
+    if (disp->buf.flush_buf == NULL) {
+        return NULL;
+    }
+
+    uint32_t w = (uint32_t)(x2 - x1);
+    uint32_t h = (uint32_t)(y2 - y1);
+    uint32_t src_stride = (uint32_t)(stride > 0 ? stride : (gfx_coord_t)w);
+    uint32_t dst_stride = src_stride;
+    const uint8_t *src_base = (const uint8_t *)render_buf;
+    uint8_t *dst_base = (uint8_t *)disp->buf.flush_buf;
+
+    if (disp->flags.full_frame) {
+        src_stride = disp->res.h_res;
+        dst_stride = disp->res.h_res;
+    }
+
+    for (uint32_t y = 0; y < h; y++) {
+        size_t src_px_offset = disp->flags.full_frame
+                               ? (size_t)(y1 + (gfx_coord_t)y) * src_stride + (size_t)x1
+                               : (size_t)y * src_stride;
+        size_t dst_px_offset = disp->flags.full_frame
+                               ? (size_t)(y1 + (gfx_coord_t)y) * dst_stride + (size_t)x1
+                               : (size_t)y * dst_stride;
+        const uint8_t *src_row = src_base + src_px_offset * disp->format.render_pixel_size;
+        uint8_t *dst_row = dst_base + dst_px_offset * disp->format.output_pixel_size;
+
+        if (disp->format.output_format == GFX_COLOR_FORMAT_RGB888 ||
+                disp->format.output_format == GFX_COLOR_FORMAT_BGR888) {
+            for (uint32_t x = 0; x < w; x++) {
+                uint16_t semantic = gfx_color_read_rgb565_bytes(src_row + (size_t)x * disp->format.render_pixel_size,
+                                    disp->format.render_format);
+                gfx_render_write_rgb888(dst_row + (size_t)x * GFX_PIXEL_SIZE_24BPP,
+                                        disp->format.output_format,
+                                        gfx_render_rgb565_to_xrgb888(semantic));
+            }
+        } else if (gfx_color_format_is_rgb565(disp->format.output_format)) {
+            for (uint32_t x = 0; x < w; x++) {
+                uint16_t semantic = gfx_color_read_rgb565_bytes(src_row + (size_t)x * disp->format.render_pixel_size,
+                                    disp->format.render_format);
+                gfx_color_write_rgb565_bytes(dst_row + (size_t)x * disp->format.output_pixel_size,
+                                             disp->format.output_format,
+                                             semantic);
+            }
+        }
+    }
+
+    return disp->buf.flush_buf;
 }
 
 static bool gfx_render_backend_fill(gfx_display_t *disp, const gfx_draw_ctx_t *ctx,
                                     const gfx_area_t *area, gfx_color_t color, gfx_opa_t opa)
 {
-    if (disp == NULL || ctx == NULL || area == NULL ||
-            !gfx_backend_has_caps(disp->backend, GFX_BACKEND_CAP_FILL)) {
+    if (disp == NULL || ctx == NULL || area == NULL) {
+        return false;
+    }
+
+    gfx_backend_surface_t dst = {
+        .buf = ctx->buf,
+        .area = ctx->buf_area,
+        .stride = ctx->stride,
+        .format = ctx->format,
+    };
+
+    if (!gfx_render_backend_op_can_use_dst(disp->backend, GFX_BACKEND_CAP_FILL, &dst, area)) {
         return false;
     }
 
@@ -98,15 +197,35 @@ static bool gfx_render_backend_fill(gfx_display_t *disp, const gfx_draw_ctx_t *c
         return false;
     }
 
+    return ops->fill(disp->backend, disp, &dst, area, color, opa) == ESP_OK;
+}
+
+static bool gfx_render_backend_draw_glyph(gfx_display_t *disp, const gfx_draw_ctx_t *ctx,
+        const gfx_area_t *area, const gfx_opa_t *mask, gfx_coord_t mask_stride,
+        gfx_color_t color, gfx_opa_t opa)
+{
+    if (disp == NULL || ctx == NULL || area == NULL || mask == NULL || mask_stride <= 0 || opa == 0U) {
+        return false;
+    }
+
+    gfx_backend_t *backend = disp->backend;
+    const gfx_draw_ops_t *ops = gfx_backend_get_draw_ops(backend);
+    if (ops == NULL || ops->draw_glyph == NULL) {
+        return false;
+    }
+
     gfx_backend_surface_t dst = {
         .buf = ctx->buf,
         .area = ctx->buf_area,
         .stride = ctx->stride,
-        .format = ctx->swap ? GFX_COLOR_FORMAT_RGB565_SWAPPED : GFX_COLOR_FORMAT_RGB565,
-        .swap = ctx->swap,
+        .format = ctx->format,
     };
 
-    return ops->fill(disp->backend, disp, &dst, area, color, opa) == ESP_OK;
+    if (!gfx_render_backend_op_can_use_dst(backend, GFX_BACKEND_CAP_DRAW_GLYPH, &dst, area)) {
+        return false;
+    }
+
+    return ops->draw_glyph(backend, disp, &dst, area, mask, mask_stride, color, opa) == ESP_OK;
 }
 
 static void gfx_render_fill_area(gfx_display_t *disp, const gfx_draw_ctx_t *ctx,
@@ -127,11 +246,30 @@ static void gfx_render_fill_area(gfx_display_t *disp, const gfx_draw_ctx_t *ctx,
         .y2 = (gfx_coord_t)(area->y2 - ctx->buf_area.y1),
     };
 
-    if (opa == GFX_RENDER_OPA_COVER) {
-        gfx_sw_blend_fill_area_color((gfx_color_t *)ctx->buf, ctx->stride, &local_area, color, ctx->swap);
-    } else {
-        gfx_sw_blend_draw((gfx_color_t *)ctx->buf, ctx->stride, NULL, 0, &local_area, color, opa, ctx->swap);
+    gfx_sw_blend_surface_fill(ctx->buf, ctx->stride, ctx->format, &local_area, color, opa);
+}
+
+void gfx_render_surface_fill(gfx_display_t *disp,
+                             const gfx_render_surface_t *dst,
+                             const gfx_area_t *area,
+                             gfx_color_t color,
+                             gfx_opa_t opa)
+{
+    gfx_draw_ctx_t ctx;
+
+    if (dst == NULL) {
+        return;
     }
+
+    ctx = (gfx_draw_ctx_t) {
+        .buf = dst->buf,
+        .buf_area = dst->buf_area,
+        .clip_area = dst->clip_area,
+        .stride = dst->stride,
+        .format = dst->format,
+        .pixel_size = gfx_color_format_get_size(dst->format),
+    };
+    gfx_render_fill_area(disp, &ctx, area, color, opa);
 }
 
 static gfx_coord_t gfx_render_align_floor(gfx_coord_t value, uint16_t alignment)
@@ -162,6 +300,60 @@ static gfx_coord_t gfx_render_align_ceil(gfx_coord_t value, uint16_t alignment)
     return (gfx_coord_t)(-((-value / align) * align));
 }
 
+void gfx_render_draw_object_tree(gfx_display_t *disp, gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
+{
+    gfx_area_t obj_area;
+    gfx_draw_ctx_t child_ctx;
+
+    if (obj == NULL || ctx == NULL || !obj->state.is_visible) {
+        return;
+    }
+
+    if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
+        return;
+    }
+
+    if (gfx_object_load_resource(obj) != ESP_OK) {
+        return;
+    }
+
+    if (obj->vfunc.draw) {
+        obj->vfunc.draw(obj, ctx);
+    }
+
+    if (!obj->state.manual_child_draw) {
+        child_ctx = *ctx;
+        if (obj->state.clip_children &&
+                !gfx_area_intersect_exclusive(&child_ctx.clip_area, &ctx->clip_area, &obj_area)) {
+            return;
+        }
+
+        for (gfx_object_child_t *child_node = obj->child_list; child_node != NULL; child_node = child_node->next) {
+            gfx_object_t *child = (gfx_object_t *)child_node->src;
+            gfx_render_draw_object_tree(disp, child, &child_ctx);
+        }
+    }
+}
+
+static void gfx_render_update_object_tree(gfx_object_t *obj)
+{
+    if (obj == NULL || !obj->state.is_visible) {
+        return;
+    }
+
+    if (gfx_object_load_resource(obj) != ESP_OK) {
+        return;
+    }
+
+    if (obj->vfunc.update) {
+        obj->vfunc.update(obj);
+    }
+
+    for (gfx_object_child_t *child_node = obj->child_list; child_node != NULL; child_node = child_node->next) {
+        gfx_render_update_object_tree((gfx_object_t *)child_node->src);
+    }
+}
+
 /**********************
  *   PUBLIC FUNCTIONS
  **********************/
@@ -172,21 +364,8 @@ void gfx_render_draw_child_objects(gfx_display_t *disp, const gfx_draw_ctx_t *ct
         return;
     }
 
-    gfx_object_child_t *child_node = disp->child_list;
-
-    while (child_node != NULL) {
-        gfx_object_t *obj = (gfx_object_t *)child_node->src;
-
-        if (!obj->state.is_visible) {
-            child_node = child_node->next;
-            continue;
-        }
-
-        if (obj->vfunc.draw) {
-            obj->vfunc.draw(obj, ctx);
-        }
-
-        child_node = child_node->next;
+    for (gfx_object_child_t *child_node = disp->child_list; child_node != NULL; child_node = child_node->next) {
+        gfx_render_draw_object_tree(disp, (gfx_object_t *)child_node->src, ctx);
     }
 }
 
@@ -197,21 +376,8 @@ void gfx_render_update_child_objects(gfx_display_t *disp)
         return;
     }
 
-    gfx_object_child_t *child_node = disp->child_list;
-
-    while (child_node != NULL) {
-        gfx_object_t *obj = (gfx_object_t *)child_node->src;
-
-        if (!obj->state.is_visible) {
-            child_node = child_node->next;
-            continue;
-        }
-
-        if (obj->vfunc.update) {
-            obj->vfunc.update(obj);
-        }
-
-        child_node = child_node->next;
+    for (gfx_object_child_t *child_node = disp->child_list; child_node != NULL; child_node = child_node->next) {
+        gfx_render_update_object_tree((gfx_object_t *)child_node->src);
     }
 }
 
@@ -286,6 +452,283 @@ uint32_t gfx_render_roundup_stride_bytes(uint32_t stride_bytes,
     return ((stride_bytes + stride_align - 1U) / stride_align) * stride_align;
 }
 
+bool gfx_render_is_addr_aligned(const void *ptr,
+                                const gfx_render_alignment_t *alignment)
+{
+    uint16_t addr_align = alignment != NULL && alignment->addr_bytes > 0U ? alignment->addr_bytes : 1U;
+
+    if (addr_align <= 1U || ptr == NULL) {
+        return true;
+    }
+
+    return (((uintptr_t)ptr % addr_align) == 0U);
+}
+
+bool gfx_render_backend_op_can_use_dst(const gfx_backend_t *backend,
+                                       uint32_t cap,
+                                       const gfx_backend_surface_t *dst,
+                                       const gfx_area_t *area)
+{
+    if (backend == NULL || dst == NULL || area == NULL || dst->buf == NULL) {
+        return false;
+    }
+    if (!gfx_backend_has_caps(backend, cap)) {
+        return false;
+    }
+    if (area->x2 <= area->x1 || area->y2 <= area->y1 || dst->stride <= 0) {
+        return false;
+    }
+    if (area->x1 < dst->area.x1 || area->y1 < dst->area.y1 ||
+            area->x2 > dst->area.x2 || area->y2 > dst->area.y2) {
+        return false;
+    }
+
+    gfx_render_alignment_t alignment = gfx_backend_get_alignment(backend);
+    uint32_t stride_bytes = (uint32_t)dst->stride * gfx_color_format_get_size(dst->format);
+    if (stride_bytes != gfx_render_roundup_stride_bytes(stride_bytes, &alignment)) {
+        return false;
+    }
+    if (!gfx_render_is_addr_aligned(dst->buf, &alignment)) {
+        return false;
+    }
+
+    gfx_area_t rounded = gfx_render_roundup_area(area, &alignment, &dst->area);
+    return rounded.x1 == area->x1 &&
+           rounded.y1 == area->y1 &&
+           rounded.x2 == area->x2 &&
+           rounded.y2 == area->y2;
+}
+
+bool gfx_render_backend_image(gfx_display_t *disp,
+                              const gfx_draw_ctx_t *ctx,
+                              const gfx_area_t *area,
+                              const gfx_backend_image_t *src,
+                              gfx_coord_t src_x,
+                              gfx_coord_t src_y,
+                              gfx_opa_t opa)
+{
+    if (disp == NULL || ctx == NULL || area == NULL || src == NULL || src->pixels == NULL || opa == 0U) {
+        return false;
+    }
+
+    gfx_backend_t *backend = disp->backend;
+    const gfx_draw_ops_t *ops = gfx_backend_get_draw_ops(backend);
+    if (ops == NULL) {
+        return false;
+    }
+
+    gfx_backend_surface_t dst = {
+        .buf = ctx->buf,
+        .area = ctx->buf_area,
+        .stride = ctx->stride,
+        .format = ctx->format,
+    };
+
+    bool use_blend = src->alpha != NULL || gfx_color_format_has_pixel_alpha(src->format) ||
+                     opa != GFX_RENDER_OPA_COVER;
+    uint32_t cap = use_blend ? GFX_BACKEND_CAP_BLEND : GFX_BACKEND_CAP_BLIT;
+    if (!gfx_render_backend_op_can_use_dst(backend, cap, &dst, area)) {
+        return false;
+    }
+
+    if (use_blend) {
+        if (ops->blend == NULL) {
+            return false;
+        }
+        return ops->blend(backend, disp, &dst, area, src, src_x, src_y, opa) == ESP_OK;
+    }
+
+    if (ops->blit == NULL) {
+        return false;
+    }
+    return ops->blit(backend, disp, &dst, area, src, src_x, src_y) == ESP_OK;
+}
+
+bool gfx_render_surface_blit_image(gfx_display_t *disp,
+                                   const gfx_render_surface_t *dst,
+                                   const gfx_area_t *area,
+                                   const gfx_render_image_t *src,
+                                   gfx_coord_t src_x,
+                                   gfx_coord_t src_y,
+                                   gfx_opa_t opa)
+{
+    gfx_draw_ctx_t ctx;
+    gfx_backend_image_t backend_src;
+
+    if (dst == NULL || src == NULL) {
+        return false;
+    }
+
+    ctx = (gfx_draw_ctx_t) {
+        .buf = dst->buf,
+        .buf_area = dst->buf_area,
+        .clip_area = dst->clip_area,
+        .stride = dst->stride,
+        .format = dst->format,
+        .pixel_size = gfx_color_format_get_size(dst->format),
+    };
+    backend_src = (gfx_backend_image_t) {
+        .pixels = src->pixels,
+        .stride = src->stride,
+        .format = src->format,
+        .alpha = src->alpha,
+        .alpha_stride = src->alpha_stride,
+    };
+
+    return gfx_render_backend_image(disp, &ctx, area, &backend_src, src_x, src_y, opa);
+}
+
+void gfx_render_surface_draw_mask(gfx_display_t *disp,
+                                  const gfx_render_surface_t *dst,
+                                  const gfx_area_t *area,
+                                  const gfx_opa_t *mask,
+                                  gfx_coord_t mask_stride,
+                                  gfx_color_t color,
+                                  gfx_opa_t opa)
+{
+    gfx_draw_ctx_t ctx;
+    gfx_area_t local_area;
+
+    if (dst == NULL || area == NULL || mask == NULL || mask_stride <= 0 || opa == 0U) {
+        return;
+    }
+
+    ctx = (gfx_draw_ctx_t) {
+        .buf = dst->buf,
+        .buf_area = dst->buf_area,
+        .clip_area = dst->clip_area,
+        .stride = dst->stride,
+        .format = dst->format,
+        .pixel_size = gfx_color_format_get_size(dst->format),
+    };
+
+    if (gfx_render_backend_draw_glyph(disp, &ctx, area, mask, mask_stride, color, opa)) {
+        return;
+    }
+
+    local_area = (gfx_area_t) {
+        .x1 = (gfx_coord_t)(area->x1 - dst->buf_area.x1),
+        .y1 = (gfx_coord_t)(area->y1 - dst->buf_area.y1),
+        .x2 = (gfx_coord_t)(area->x2 - dst->buf_area.x1),
+        .y2 = (gfx_coord_t)(area->y2 - dst->buf_area.y1),
+    };
+
+    gfx_sw_blend_mask_draw_fmt(dst->buf, dst->stride, dst->format,
+                               mask, mask_stride, &local_area, color, opa);
+}
+
+void gfx_render_surface_draw_color_mask(gfx_display_t *disp,
+                                        const gfx_render_surface_t *dst,
+                                        const gfx_area_t *area,
+                                        const gfx_opa_t *mask,
+                                        gfx_coord_t mask_stride,
+                                        const gfx_color_t *color_mask,
+                                        gfx_coord_t color_mask_stride,
+                                        gfx_opa_t opa)
+{
+    gfx_area_t local_area;
+
+    if (dst == NULL || area == NULL || mask == NULL || color_mask == NULL ||
+            mask_stride <= 0 || color_mask_stride <= 0 || opa == 0U) {
+        return;
+    }
+
+    local_area = (gfx_area_t) {
+        .x1 = (gfx_coord_t)(area->x1 - dst->buf_area.x1),
+        .y1 = (gfx_coord_t)(area->y1 - dst->buf_area.y1),
+        .x2 = (gfx_coord_t)(area->x2 - dst->buf_area.x1),
+        .y2 = (gfx_coord_t)(area->y2 - dst->buf_area.y1),
+    };
+
+    gfx_sw_blend_mask_color_draw_fmt(dst->buf, dst->stride, dst->format,
+                                     mask, mask_stride,
+                                     color_mask, color_mask_stride,
+                                     &local_area, opa);
+}
+
+bool gfx_render_backend_scale(gfx_display_t *disp,
+                              const gfx_draw_ctx_t *ctx,
+                              const gfx_area_t *dst_area,
+                              const gfx_area_t *clip_area,
+                              const gfx_backend_image_t *src,
+                              const gfx_area_t *src_area,
+                              gfx_opa_t opa)
+{
+    gfx_area_t draw_area;
+
+    if (disp == NULL || ctx == NULL || dst_area == NULL || clip_area == NULL ||
+            src == NULL || src->pixels == NULL || src_area == NULL || opa == 0U) {
+        return false;
+    }
+
+    if (!gfx_area_intersect_exclusive(&draw_area, dst_area, clip_area) ||
+            draw_area.x1 != dst_area->x1 || draw_area.y1 != dst_area->y1 ||
+            draw_area.x2 != dst_area->x2 || draw_area.y2 != dst_area->y2) {
+        return false;
+    }
+
+    gfx_backend_t *backend = disp->backend;
+    const gfx_draw_ops_t *ops = gfx_backend_get_draw_ops(backend);
+    if (ops == NULL || ops->scale == NULL) {
+        return false;
+    }
+
+    gfx_backend_surface_t dst = {
+        .buf = ctx->buf,
+        .area = ctx->buf_area,
+        .stride = ctx->stride,
+        .format = ctx->format,
+    };
+
+    if (!gfx_render_backend_op_can_use_dst(backend, GFX_BACKEND_CAP_SCALE, &dst, dst_area)) {
+        return false;
+    }
+
+    return ops->scale(backend, disp, &dst, dst_area, src, src_area, opa) == ESP_OK;
+}
+
+bool gfx_render_surface_scale_image(gfx_display_t *disp,
+                                    const gfx_render_surface_t *dst,
+                                    const gfx_area_t *dst_area,
+                                    const gfx_render_image_t *src,
+                                    const gfx_area_t *src_area,
+                                    gfx_opa_t opa)
+{
+    gfx_draw_ctx_t ctx;
+    gfx_backend_image_t backend_src;
+
+    if (dst == NULL || src == NULL) {
+        return false;
+    }
+
+    ctx = (gfx_draw_ctx_t) {
+        .buf = dst->buf,
+        .buf_area = dst->buf_area,
+        .clip_area = dst->clip_area,
+        .stride = dst->stride,
+        .format = dst->format,
+        .pixel_size = gfx_color_format_get_size(dst->format),
+    };
+    backend_src = (gfx_backend_image_t) {
+        .pixels = src->pixels,
+        .stride = src->stride,
+        .format = src->format,
+        .alpha = src->alpha,
+        .alpha_stride = src->alpha_stride,
+    };
+
+    return gfx_render_backend_scale(disp, &ctx, dst_area, &dst->clip_area, &backend_src, src_area, opa);
+}
+
+static uint32_t gfx_render_stride_pixels_for_width(uint32_t width_px,
+        const gfx_render_alignment_t *alignment,
+        uint8_t pixel_size)
+{
+    uint32_t stride_bytes = gfx_render_roundup_stride_bytes(width_px * pixel_size, alignment);
+
+    return stride_bytes / pixel_size;
+}
+
 void gfx_render_part_area(gfx_display_t *disp, gfx_area_t *area, uint8_t area_idx, bool is_last_area)
 {
     if (disp == NULL || area == NULL) {
@@ -319,9 +762,12 @@ void gfx_render_part_area(gfx_display_t *disp, gfx_area_t *area, uint8_t area_id
 
     uint32_t render_w = (uint32_t)(render_area.x2 - render_area.x1);
     uint32_t render_h = (uint32_t)(render_area.y2 - render_area.y1);
-    uint32_t row_h = disp->buf.buf_pixels / render_w;
+    uint32_t stride_pixels = disp->flags.full_frame ? disp->res.h_res :
+                             gfx_render_stride_pixels_for_width(render_w, &alignment,
+                                     disp->format.render_pixel_size);
+    uint32_t row_h = disp->buf.buf_pixels / stride_pixels;
     if (row_h == 0) {
-        GFX_LOGE(TAG, "render area[%d]: width %" PRIu32 " exceeds buffer, skipping", area_idx, render_w);
+        GFX_LOGE(TAG, "render area[%d]: stride %" PRIu32 " px exceeds buffer, skipping", area_idx, stride_pixels);
         return;
     }
     if (row_h > render_h) {
@@ -345,9 +791,9 @@ void gfx_render_part_area(gfx_display_t *disp, gfx_area_t *area, uint8_t area_id
             chunk_y2 = render_area.y2;
         }
 
-        uint16_t *buf = disp->buf.buf_act;
+        void *buf = disp->buf.buf_act;
 
-        gfx_coord_t dest_stride = disp->flags.full_frame ? (gfx_coord_t)disp->res.h_res : (chunk_x2 - chunk_x1);
+        gfx_coord_t dest_stride = (gfx_coord_t)stride_pixels;
 
         gfx_area_t buf_area;
         if (disp->flags.full_frame) {
@@ -358,7 +804,7 @@ void gfx_render_part_area(gfx_display_t *disp, gfx_area_t *area, uint8_t area_id
         } else {
             buf_area.x1 = chunk_x1;
             buf_area.y1 = chunk_y1;
-            buf_area.x2 = chunk_x2;
+            buf_area.x2 = (gfx_coord_t)(chunk_x1 + dest_stride);
             buf_area.y2 = chunk_y2;
         }
 
@@ -367,7 +813,8 @@ void gfx_render_part_area(gfx_display_t *disp, gfx_area_t *area, uint8_t area_id
             .buf_area = buf_area,
             .clip_area = { chunk_x1, chunk_y1, chunk_x2, chunk_y2 },
             .stride = dest_stride,
-            .swap = disp->flags.swap,
+            .format = disp->format.render_format,
+            .pixel_size = disp->format.render_pixel_size,
         };
 
         render_start_us = gfx_platform_time_us();
@@ -389,7 +836,11 @@ void gfx_render_part_area(gfx_display_t *disp, gfx_area_t *area, uint8_t area_id
             //          disp->render.flushing_last ? " (last)" : "");
 
             flush_start_us = gfx_platform_time_us();
-            if (gfx_backend_flush(disp, chunk_x1, chunk_y1, chunk_x2, chunk_y2, buf) != ESP_OK) {
+            const void *flush_pixels = gfx_render_prepare_flush_pixels(disp, buf, chunk_x1, chunk_y1,
+                                       chunk_x2, chunk_y2, dest_stride);
+            if (flush_pixels == NULL ||
+                    gfx_backend_flush(disp, chunk_x1, chunk_y1, chunk_x2, chunk_y2,
+                                      flush_pixels, dest_stride) != ESP_OK) {
                 GFX_LOGE(TAG, "render area[%d]: backend flush failed", area_idx);
                 return;
             }
@@ -442,8 +893,8 @@ void gfx_render_dirty_areas(gfx_display_t *disp)
         gfx_area_t *area = &disp->dirty.areas[i];
         bool is_last_area = (i == last_area_idx);
         gfx_render_part_area(disp, area, i, is_last_area);
-        sync_points++;
         gfx_area_copy(&disp->sync_pending.areas[sync_points], area);
+        sync_points++;
     }
     gfx_sw_blend_perf_unbind();
     disp->sync_pending.count = sync_points;

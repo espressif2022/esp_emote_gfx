@@ -45,9 +45,16 @@ struct gfx_display {
 
     /** Option flags */
     struct {
-        unsigned char swap : 1;
         unsigned char full_frame : 1;
     } flags;
+
+    /** Pixel formats */
+    struct {
+        gfx_color_format_t render_format;    /**< Internal software render buffer format */
+        gfx_color_format_t output_format;    /**< Flush/backend output format */
+        uint8_t render_pixel_size;
+        uint8_t output_pixel_size;
+    } format;
 
     /** Callbacks and user data */
     struct {
@@ -67,10 +74,12 @@ struct gfx_display {
 
     /** Frame buffers */
     struct {
-        uint16_t *buf1;
-        uint16_t *buf2;
-        uint16_t *buf_act;
+        void *buf1;
+        void *buf2;
+        void *buf_act;
+        void *flush_buf;
         size_t buf_pixels;
+        size_t flush_buf_bytes;
         bool ext_bufs;
     } buf;
 

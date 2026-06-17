@@ -64,16 +64,16 @@ typedef void (*gfx_display_update_cb_t)(gfx_display_t *disp, gfx_display_event_t
 typedef struct {
     uint32_t h_res;                          /**< Screen width in pixels */
     uint32_t v_res;                          /**< Screen height in pixels */
+    gfx_color_format_t color_format;         /**< Output/flush color format (0 = RGB565 legacy default) */
     gfx_backend_t *backend;             /**< Optional display backend. gfx_display_add() takes ownership on success. If NULL, flush_cb is used. */
     gfx_display_flush_cb_t flush_cb;            /**< Legacy flush callback for this display */
     gfx_display_update_cb_t update_cb;       /**< Update callback (frame/playback events) */
     void *user_data;                         /**< User data for this display */
     struct {
-        unsigned char swap : 1;              /**< Color swap flag */
         unsigned char buff_dma : 1;          /**< Prefer DMA-capable internal buffers when supported */
         unsigned char buff_spiram : 1;       /**< Alloc buffer in PSRAM (internal alloc only) */
         unsigned char double_buffer : 1;     /**< Alloc second buffer for double buffering (internal alloc only) */
-        unsigned char full_frame : 1;    /**< 1 = buf1/buf2 are full-screen framebuffers (e.g. RGB); draw at chunk region. 0 = partition buffer; draw from start. */
+        unsigned char full_frame : 1;        /**< 1 = buf1/buf2 are full-screen framebuffers (e.g. RGB); draw at chunk region. 0 = partition buffer; draw from start. */
     } flags;
     struct {
         void *buf1;                          /**< Frame buffer 1 (NULL = internal alloc) */
@@ -141,6 +141,14 @@ uint32_t gfx_display_get_h_res(gfx_display_t *disp);
  * @return Height in pixels
  */
 uint32_t gfx_display_get_v_res(gfx_display_t *disp);
+
+/**
+ * @brief Get display output color format used for flush data.
+ *
+ * @param disp Display from gfx_display_add
+ * @return Output color format, RGB565 when display is NULL.
+ */
+gfx_color_format_t gfx_display_get_color_format(gfx_display_t *disp);
 
 /**
  * @brief Check if display is currently flushing the last block

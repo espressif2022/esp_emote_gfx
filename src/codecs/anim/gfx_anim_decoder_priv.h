@@ -39,12 +39,12 @@ typedef struct gfx_anim_decoder {
     void (*free_frame_desc)(gfx_anim_frame_desc_t *frame_desc);
     const uint8_t *(*get_frame_payload)(void *ctx, uint32_t frame_index);
     size_t (*get_frame_payload_size)(void *ctx, uint32_t frame_index);
-    /* decode_frame_block writes RGB565 blocks in native framebuffer order when requested */
+    /* decode_frame_block writes RGB565 24-bit blocks as semantic RGB565 values */
     esp_err_t (*decode_frame_block)(const gfx_anim_frame_desc_t *frame_desc, const uint8_t *block_payload,
-                                    size_t block_payload_size, uint8_t *decode_buffer, bool swap_color);
-    /* read_palette_color returns a semantic/native RGB565 color for the target draw path */
+                                    size_t block_payload_size, uint8_t *decode_buffer);
+    /* read_palette_color returns a semantic RGB565 color independent from the target draw path */
     bool (*read_palette_color)(const gfx_anim_frame_desc_t *frame_desc, uint8_t color_index,
-                               bool swap_bytes, gfx_color_t *result);
+                               gfx_color_t *result);
 } gfx_anim_decoder_t;
 
 /**********************

@@ -2,6 +2,8 @@
 idf_component_register(
     SRC_DIRS "." "./assets"
     INCLUDE_DIRS "."
+    PRIV_INCLUDE_DIRS
+        "${CMAKE_CURRENT_LIST_DIR}/../../src"
     WHOLE_ARCHIVE)
 
 set(DIR_TEST "${PROJECT_DIR}/assets_test")

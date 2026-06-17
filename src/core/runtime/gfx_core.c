@@ -22,6 +22,7 @@
 #include "core/object/gfx_object_priv.h"
 #include "core/runtime/gfx_timer_priv.h"
 #include "core/runtime/gfx_touch_priv.h"
+#include "core/tween/gfx_tween_priv.h"
 
 /*********************
  *      DEFINES
@@ -127,13 +128,15 @@ static void gfx_do_refr_now_impl(gfx_core_context_t *ctx)
 static gfx_err_t gfx_core_tick_locked(gfx_core_context_t *ctx, bool force_refresh)
 {
     bool timer_refresh = false;
+    bool tween_refresh = false;
 
     if (ctx == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
     (void)gfx_timer_handler(&ctx->timer_mgr, &timer_refresh);
-    if (force_refresh || timer_refresh) {
+    tween_refresh = gfx_tween_core_tick();
+    if (force_refresh || timer_refresh || tween_refresh) {
         gfx_do_refr_now_impl(ctx);
     }
 
@@ -182,6 +185,11 @@ gfx_handle_t gfx_core_init(const gfx_core_config_t *cfg)
     ESP_GOTO_ON_ERROR(ret, err, TAG, "Failed to initialize image decoder");
     decoder_inited = true;
 
+    ret = gfx_subsystem_accel_init();
+    if (ret != ESP_OK) {
+        GFX_LOGW(TAG, "platform acceleration disabled (%d), falling back to software", ret);
+    }
+
     if (!disp_ctx->manual_tick) {
         ret = gfx_platform_task_create(&(gfx_platform_task_config_t) {
             .name = "gfx_render",
@@ -196,6 +204,7 @@ gfx_handle_t gfx_core_init(const gfx_core_config_t *cfg)
     return (gfx_handle_t)disp_ctx;
 
 err:
+    gfx_subsystem_accel_deinit();
     if (decoder_inited) {
         gfx_subsystem_image_decoder_deinit();
     }
@@ -233,6 +242,8 @@ void gfx_core_deinit(gfx_handle_t handle)
         gfx_display_delete(ctx->disp);
     }
 
+    gfx_tween_core_deinit();
+
     gfx_touch_delete_all(ctx);
 
     gfx_timer_mgr_deinit(&ctx->timer_mgr);
@@ -254,6 +265,7 @@ void gfx_core_deinit(gfx_handle_t handle)
         ctx->sync.render_events = NULL;
     }
 
+    gfx_subsystem_accel_deinit();
     gfx_subsystem_image_decoder_deinit();
     free(ctx);
 }

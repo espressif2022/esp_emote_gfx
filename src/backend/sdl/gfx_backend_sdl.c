@@ -54,6 +54,23 @@ static uint32_t s_rgb565_to_xrgb8888(uint16_t rgb565)
     return 0xff000000U | (r << 16) | (g << 8) | b;
 }
 
+static uint32_t s_rgb888_to_xrgb8888(const uint8_t *rgb888)
+{
+    return 0xff000000U | ((uint32_t)rgb888[0] << 16) | ((uint32_t)rgb888[1] << 8) | rgb888[2];
+}
+
+static uint32_t s_bgr888_to_xrgb8888(const uint8_t *bgr888)
+{
+    return 0xff000000U | ((uint32_t)bgr888[2] << 16) | ((uint32_t)bgr888[1] << 8) | bgr888[0];
+}
+
+static uint32_t s_xrgb8888_to_xrgb8888(const uint8_t *xrgb8888)
+{
+    uint32_t px;
+    memcpy(&px, xrgb8888, sizeof(px));
+    return 0xff000000U | (px & 0x00ffffffU);
+}
+
 static gfx_backend_sdl_t *s_backend_from_display(gfx_display_t *disp)
 {
     if (disp == NULL || disp->backend == NULL) {
@@ -166,10 +183,10 @@ static void s_handle_mouse_motion(gfx_display_t *disp, int32_t x, int32_t y)
 static esp_err_t s_flush(gfx_backend_t *backend, gfx_display_t *disp,
                          gfx_coord_t x1, gfx_coord_t y1,
                          gfx_coord_t x2, gfx_coord_t y2,
-                         const void *pixels)
+                         const void *pixels, gfx_coord_t stride)
 {
     gfx_backend_sdl_t *sdl = (gfx_backend_sdl_t *)backend;
-    const uint16_t *src = (const uint16_t *)pixels;
+    const uint8_t *src = (const uint8_t *)pixels;
     gfx_coord_t clip_x1;
     gfx_coord_t clip_y1;
     gfx_coord_t clip_x2;
@@ -183,7 +200,16 @@ static esp_err_t s_flush(gfx_backend_t *backend, gfx_display_t *disp,
     ESP_RETURN_ON_FALSE(sdl != NULL && src != NULL, ESP_ERR_INVALID_ARG, TAG, "flush: invalid args");
     ESP_RETURN_ON_FALSE(x2 >= x1 && y2 >= y1, ESP_ERR_INVALID_ARG, TAG, "flush: invalid area");
 
-    bool source_swap = disp != NULL ? disp->flags.swap : false;
+    gfx_color_format_t src_format = disp != NULL ? disp->format.output_format : GFX_COLOR_FORMAT_RGB565;
+    uint8_t src_pixel_size = gfx_color_format_get_size(src_format);
+    ESP_RETURN_ON_FALSE(src_format == GFX_COLOR_FORMAT_RGB565 ||
+                        src_format == GFX_COLOR_FORMAT_RGB565_SWAPPED ||
+                        src_format == GFX_COLOR_FORMAT_RGB888 ||
+                        src_format == GFX_COLOR_FORMAT_BGR888 ||
+                        src_format == GFX_COLOR_FORMAT_XRGB8888 ||
+                        src_format == GFX_COLOR_FORMAT_ARGB8888,
+                        ESP_ERR_NOT_SUPPORTED, TAG, "flush: unsupported source format %u", (unsigned)src_format);
+    ESP_RETURN_ON_FALSE(src_pixel_size > 0U, ESP_ERR_NOT_SUPPORTED, TAG, "flush: invalid source pixel size");
     original_w = (uint32_t)(x2 - x1);
 
     clip_x1 = x1 < 0 ? 0 : x1;
@@ -197,7 +223,7 @@ static esp_err_t s_flush(gfx_backend_t *backend, gfx_display_t *disp,
 
     w = (uint32_t)(clip_x2 - clip_x1);
     h = (uint32_t)(clip_y2 - clip_y1);
-    src_stride = original_w;
+    src_stride = stride > 0 ? (uint32_t)stride : original_w;
     src_offset = (size_t)(clip_y1 - y1) * src_stride + (size_t)(clip_x1 - x1);
 
     if (disp != NULL && disp->flags.full_frame) {
@@ -207,10 +233,19 @@ static esp_err_t s_flush(gfx_backend_t *backend, gfx_display_t *disp,
 
     for (uint32_t y = 0; y < h; y++) {
         uint32_t *dst_row = sdl->pixels + ((uint32_t)clip_y1 + y) * sdl->h_res + (uint32_t)clip_x1;
-        const uint16_t *src_row = src + src_offset + (size_t)y * src_stride;
+        const uint8_t *src_row = src + (src_offset + (size_t)y * src_stride) * src_pixel_size;
         for (uint32_t x = 0; x < w; x++) {
-            uint16_t rgb565 = gfx_color_maybe_swap_u16(src_row[x], source_swap);
-            dst_row[x] = s_rgb565_to_xrgb8888(rgb565);
+            const uint8_t *src_px = src_row + (size_t)x * src_pixel_size;
+            if (src_format == GFX_COLOR_FORMAT_RGB888) {
+                dst_row[x] = s_rgb888_to_xrgb8888(src_px);
+            } else if (src_format == GFX_COLOR_FORMAT_BGR888) {
+                dst_row[x] = s_bgr888_to_xrgb8888(src_px);
+            } else if (src_format == GFX_COLOR_FORMAT_XRGB8888 || src_format == GFX_COLOR_FORMAT_ARGB8888) {
+                dst_row[x] = s_xrgb8888_to_xrgb8888(src_px);
+            } else {
+                uint16_t rgb565 = gfx_color_read_rgb565_bytes(src_px, src_format);
+                dst_row[x] = s_rgb565_to_xrgb8888(rgb565);
+            }
         }
     }
 

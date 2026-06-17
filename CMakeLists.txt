@@ -32,6 +32,7 @@ endif()
 
 cmake_minimum_required(VERSION 3.16)
 project(esp_emote_gfx_host C)
+include(CTest)
 
 option(GFX_BUILD_HOST_SDL "Build the Linux host SDL simulator target" ON)
 
@@ -47,6 +48,8 @@ set(GFX_HOST_CORE_SRCS
     "src/core/runtime/gfx_core.c"
     "src/core/runtime/gfx_timer.c"
     "src/core/runtime/gfx_touch.c"
+    "src/core/tween/gfx_tween.c"
+    "src/backend/custom/gfx_backend_custom.c"
     "src/backend/memory/gfx_backend_memory.c"
     "src/codecs/anim/gfx_anim_decoder.c"
     "src/codecs/anim/gfx_anim_decoder_eaf.c"
@@ -58,7 +61,11 @@ set(GFX_HOST_CORE_SRCS
     "src/lib/eaf/gfx_eaf_dec.c"
     "src/widgets/anim/gfx_anim.c"
     "src/widgets/basic/gfx_button.c"
+    "src/widgets/basic/gfx_container.c"
+    "src/widgets/basic/gfx_coverflow.c"
     "src/widgets/basic/gfx_list.c"
+    "src/widgets/basic/gfx_pageflow.c"
+    "src/widgets/basic/gfx_wheel.c"
     "src/widgets/img/gfx_img.c"
     "src/widgets/img/gfx_mesh_img.c"
     "src/widgets/label/gfx_label.c"
@@ -145,4 +152,61 @@ if(GFX_BUILD_HOST_SDL)
     target_include_directories(gfx_host_asset_smoke PRIVATE "include" "sim/port/include")
     target_compile_features(gfx_host_asset_smoke PRIVATE c_std_11)
     target_link_libraries(gfx_host_asset_smoke PRIVATE gfx_host_core)
+
+    add_executable(gfx_host_alignment_smoke "sim/host/gfx_host_alignment_smoke.c")
+    target_include_directories(gfx_host_alignment_smoke PRIVATE "include" "src" "sim/port/include")
+    target_compile_features(gfx_host_alignment_smoke PRIVATE c_std_11)
+    target_link_libraries(gfx_host_alignment_smoke PRIVATE gfx_host_core)
+
+    add_executable(gfx_host_list_smoke "sim/host/gfx_host_list_smoke.c")
+    target_include_directories(gfx_host_list_smoke PRIVATE "include" "sim/port/include")
+    target_compile_features(gfx_host_list_smoke PRIVATE c_std_11)
+    target_link_libraries(gfx_host_list_smoke PRIVATE gfx_host_core)
+
+    add_executable(gfx_host_coverflow_smoke "sim/host/gfx_host_coverflow_smoke.c")
+    target_include_directories(gfx_host_coverflow_smoke PRIVATE "include" "sim/port/include")
+    target_compile_features(gfx_host_coverflow_smoke PRIVATE c_std_11)
+    target_link_libraries(gfx_host_coverflow_smoke PRIVATE gfx_host_core)
+
+    add_executable(gfx_host_wheel_smoke "sim/host/gfx_host_wheel_smoke.c")
+    target_include_directories(gfx_host_wheel_smoke PRIVATE "include" "sim/port/include")
+    target_compile_features(gfx_host_wheel_smoke PRIVATE c_std_11)
+    target_link_libraries(gfx_host_wheel_smoke PRIVATE gfx_host_core)
+
+    add_executable(gfx_host_container_smoke "sim/host/gfx_host_container_smoke.c")
+    target_include_directories(gfx_host_container_smoke PRIVATE "include" "src" "sim/port/include")
+    target_compile_features(gfx_host_container_smoke PRIVATE c_std_11)
+    target_link_libraries(gfx_host_container_smoke PRIVATE gfx_host_core)
+
+    add_executable(gfx_host_tween_smoke "sim/host/gfx_host_tween_smoke.c")
+    target_include_directories(gfx_host_tween_smoke PRIVATE "include" "sim/port/include")
+    target_compile_features(gfx_host_tween_smoke PRIVATE c_std_11)
+    target_link_libraries(gfx_host_tween_smoke PRIVATE gfx_host_core)
+
+    if(BUILD_TESTING)
+        add_test(NAME gfx_host_asset_smoke
+            COMMAND gfx_host_asset_smoke ${CMAKE_CURRENT_SOURCE_DIR} TODO.md)
+        add_test(NAME gfx_host_alignment_smoke
+            COMMAND gfx_host_alignment_smoke)
+        add_test(NAME gfx_host_list_smoke
+            COMMAND gfx_host_list_smoke)
+        add_test(NAME gfx_host_coverflow_smoke
+            COMMAND gfx_host_coverflow_smoke)
+        add_test(NAME gfx_host_wheel_smoke
+            COMMAND gfx_host_wheel_smoke)
+        add_test(NAME gfx_host_container_smoke
+            COMMAND gfx_host_container_smoke)
+        add_test(NAME gfx_host_tween_smoke
+            COMMAND gfx_host_tween_smoke)
+        add_test(NAME gfx_host_sdl_dummy_smoke
+            COMMAND ${CMAKE_COMMAND}
+                -D GFX_HOST_SDL_DEMO=$<TARGET_FILE:gfx_host_sdl_demo>
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/sim/host/run_sdl_dummy_smoke.cmake)
+    endif()
+
+    add_custom_target(gfx_host_smoke
+        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+        DEPENDS gfx_host_asset_smoke gfx_host_alignment_smoke gfx_host_list_smoke gfx_host_coverflow_smoke gfx_host_wheel_smoke gfx_host_container_smoke gfx_host_tween_smoke gfx_host_sdl_demo
+        USES_TERMINAL
+    )
 endif()

@@ -34,13 +34,15 @@ typedef union {
 /* Color format enumeration. Keep colors semantic; use formats for buffers/images. */
 typedef enum {
     GFX_COLOR_FORMAT_UNKNOWN        = 0x00,
-    GFX_COLOR_FORMAT_RGB565         = 0x04,  /**< RGB565 high-byte, low-byte payload */
-    GFX_COLOR_FORMAT_RGB565_SWAPPED = 0x05,  /**< RGB565 low-byte, high-byte payload */
+    GFX_COLOR_FORMAT_RGB565         = 0x04,  /**< RGB565 low-byte, high-byte payload */
+    GFX_COLOR_FORMAT_RGB565_SWAPPED = 0x05,  /**< RGB565 high-byte, low-byte payload */
     GFX_COLOR_FORMAT_RGB565A8       = 0x0A,  /**< RGB565 payload followed by alpha payload */
     GFX_COLOR_FORMAT_RGB565A8_SWAPPED = 0x0B, /**< Swapped RGB565 payload followed by alpha payload */
     GFX_COLOR_FORMAT_RGB888         = 0x0F,  /**< RGB888 payload, 3 bytes per pixel */
+    GFX_COLOR_FORMAT_BGR888         = 0x13,  /**< BGR888 payload, 3 bytes per pixel */
     GFX_COLOR_FORMAT_RGB888A8       = 0x10,  /**< RGB888 payload followed by alpha payload */
-    GFX_COLOR_FORMAT_XRGB8888       = 0x11,  /**< XRGB8888 payload, reserved for future use */
+    GFX_COLOR_FORMAT_XRGB8888       = 0x11,  /**< XRGB8888 payload, X ignored, 4 bytes per pixel */
+    GFX_COLOR_FORMAT_ARGB8888       = 0x12,  /**< ARGB8888 payload, alpha in high byte of 0xAARRGGBB */
     GFX_COLOR_FORMAT_NATIVE         = GFX_COLOR_FORMAT_RGB565,
     GFX_COLOR_FORMAT_NATIVE_WITH_ALPHA = GFX_COLOR_FORMAT_RGB565A8,
 } gfx_color_format_t;

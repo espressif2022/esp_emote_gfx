@@ -19,6 +19,7 @@
 
 #include "common/gfx_comm.h"
 #include "core/display/gfx_refresh_priv.h"
+#include "render/gfx_render_priv.h"
 #include "render/sw/gfx_blend_priv.h"
 #include "render/sw/gfx_sw_draw_priv.h"
 #include "core/object/gfx_object_priv.h"
@@ -72,6 +73,8 @@ static bool gfx_button_contains_point(gfx_object_t *obj, uint16_t x, uint16_t y)
 static esp_err_t gfx_button_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
 static esp_err_t gfx_button_update(gfx_object_t *obj);
 static esp_err_t gfx_button_delete_impl(gfx_object_t *obj);
+static esp_err_t gfx_button_load_impl(gfx_object_t *obj);
+static void gfx_button_release_impl(gfx_object_t *obj);
 static void gfx_button_touch_event(gfx_object_t *obj, const void *event_data);
 static esp_err_t gfx_button_call_label_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
 static esp_err_t gfx_button_call_label_update(gfx_object_t *obj);
@@ -82,6 +85,8 @@ static const gfx_widget_class_t s_gfx_button_widget_class = {
     .name = "button",
     .draw = gfx_button_draw,
     .delete = gfx_button_delete_impl,
+    .load = gfx_button_load_impl,
+    .release = gfx_button_release_impl,
     .update = gfx_button_update,
     .touch_event = gfx_button_touch_event,
 };
@@ -190,9 +195,15 @@ static esp_err_t gfx_button_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     gfx_button_t *button;
     gfx_area_t obj_area;
     gfx_area_t clip_area;
-    gfx_area_t fill_area;
     gfx_area_t saved_geometry;
     gfx_color_t fill_color;
+    gfx_render_surface_t dst_surface = {
+        .buf = ctx->buf,
+        .buf_area = ctx->buf_area,
+        .clip_area = ctx->clip_area,
+        .stride = ctx->stride,
+        .format = ctx->format,
+    };
 
     CHECK_OBJ_TYPE_BUTTON(obj);
     GFX_RETURN_IF_NULL(ctx, ESP_ERR_INVALID_ARG);
@@ -212,22 +223,16 @@ static esp_err_t gfx_button_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     }
 
     fill_color = button->state.pressed ? button->style.bg_color_pressed : button->style.bg_color;
-    gfx_color_t *dest_pixels = (gfx_color_t *)ctx->buf;
-    fill_area.x1 = clip_area.x1 - ctx->buf_area.x1;
-    fill_area.y1 = clip_area.y1 - ctx->buf_area.y1;
-    fill_area.x2 = clip_area.x2 - ctx->buf_area.x1;
-    fill_area.y2 = clip_area.y2 - ctx->buf_area.y1;
-
-    gfx_sw_blend_fill_area_color(dest_pixels, ctx->stride, &fill_area, fill_color, ctx->swap);
-    gfx_sw_draw_rect_stroke(dest_pixels,
-                            ctx->stride,
-                            &ctx->buf_area,
-                            &ctx->clip_area,
-                            &obj_area,
-                            button->style.border_width,
-                            button->style.border_color,
-                            0xFF,
-                            ctx->swap);
+    gfx_render_surface_fill(obj->disp, &dst_surface, &clip_area, fill_color, 0xFFU);
+    gfx_sw_draw_rect_stroke_fmt(ctx->buf,
+                                ctx->stride,
+                                ctx->format,
+                                &ctx->buf_area,
+                                &ctx->clip_area,
+                                &obj_area,
+                                button->style.border_width,
+                                button->style.border_color,
+                                0xFF);
 
     saved_geometry = (gfx_area_t) {
         .x1 = obj->geometry.x,
@@ -275,6 +280,32 @@ static esp_err_t gfx_button_delete_impl(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_BUTTON(obj);
     return gfx_button_call_label_delete(obj);
+}
+
+static esp_err_t gfx_button_load_impl(gfx_object_t *obj)
+{
+    uint8_t original_type = obj->type;
+    esp_err_t ret;
+
+    CHECK_OBJ_TYPE_BUTTON(obj);
+    obj->type = GFX_OBJ_TYPE_LABEL;
+    ret = gfx_label_load_impl(obj);
+    obj->type = original_type;
+    return ret;
+}
+
+static void gfx_button_release_impl(gfx_object_t *obj)
+{
+    uint8_t original_type;
+
+    if (obj == NULL || obj->src == NULL || obj->type != GFX_OBJ_TYPE_BUTTON) {
+        return;
+    }
+
+    original_type = obj->type;
+    obj->type = GFX_OBJ_TYPE_LABEL;
+    gfx_label_release_impl(obj);
+    obj->type = original_type;
 }
 
 static void gfx_button_touch_event(gfx_object_t *obj, const void *event_data)
@@ -418,32 +449,7 @@ esp_err_t gfx_button_set_font(gfx_object_t *obj, gfx_font_t font)
     GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
 
     button = (gfx_button_t *)obj->src;
-
-    if (button->label.font.handle != NULL) {
-        free(button->label.font.handle);
-        button->label.font.handle = NULL;
-    }
-
-    gfx_label_clear_glyph_cache(&button->label);
-    button->label.text.text_width = 0;
-
-    if (font != NULL) {
-        gfx_font_handle_t font_handle = calloc(1, sizeof(gfx_font_adapter_t));
-        if (font_handle == NULL) {
-            return ESP_ERR_NO_MEM;
-        }
-
-        esp_err_t ret = gfx_font_init_adapter(font_handle, font);
-        if (ret != ESP_OK) {
-            free(font_handle);
-            return ret;
-        }
-
-        button->label.font.handle = font_handle;
-    }
-
-    gfx_object_invalidate(obj);
-    return ESP_OK;
+    return gfx_label_set_font_source(obj, &button->label, font);
 }
 
 esp_err_t gfx_button_set_text_color(gfx_object_t *obj, gfx_color_t color)

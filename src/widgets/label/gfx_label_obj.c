@@ -42,6 +42,8 @@ static const gfx_widget_class_t s_gfx_label_widget_class = {
     .name = "label",
     .draw = gfx_label_draw,
     .delete = gfx_label_delete_impl,
+    .load = gfx_label_load_impl,
+    .release = gfx_label_release_impl,
     .update = gfx_label_update_impl,
     .touch_event = NULL,
 };
@@ -55,6 +57,9 @@ static void gfx_label_init_default_state(gfx_label_t *label)
     label->style.opa = 0xFF;
     label->render.mask = NULL;
     label->render.mask_capacity = 0;
+    label->render.color_mask = NULL;
+    label->render.color_mask_capacity = 0;
+    label->render.inline_color = false;
     label->style.bg_color = (gfx_color_t) {
         .full = 0x0000
     };
@@ -111,6 +116,60 @@ gfx_object_t *gfx_label_create(gfx_display_t *disp)
     return obj;
 }
 
+esp_err_t gfx_label_load_impl(gfx_object_t *obj)
+{
+    gfx_label_t *label;
+    gfx_font_handle_t font_handle;
+
+    CHECK_OBJ_TYPE_LABEL(obj);
+    label = (gfx_label_t *)obj->src;
+    ESP_RETURN_ON_FALSE(label != NULL, ESP_ERR_INVALID_STATE, TAG, "load label: state is NULL");
+
+    if (label->font.source == NULL) {
+        return ESP_OK;
+    }
+
+    font_handle = calloc(1, sizeof(gfx_font_adapter_t));
+    ESP_RETURN_ON_FALSE(font_handle != NULL, ESP_ERR_NO_MEM, TAG, "load label: no mem for font adapter");
+
+    esp_err_t ret = gfx_font_init_adapter(font_handle, label->font.source);
+    if (ret != ESP_OK) {
+        free(font_handle);
+        return ret;
+    }
+
+    label->font.handle = font_handle;
+    label->text.text_width = 0;
+    return ESP_OK;
+}
+
+void gfx_label_release_impl(gfx_object_t *obj)
+{
+    gfx_label_t *label;
+
+    if (obj == NULL || obj->src == NULL || obj->type != GFX_OBJ_TYPE_LABEL) {
+        return;
+    }
+
+    label = (gfx_label_t *)obj->src;
+    gfx_label_clear_glyph_cache(label);
+    free(label->font.handle);
+    label->font.handle = NULL;
+    label->text.text_width = 0;
+}
+
+esp_err_t gfx_label_set_font_source(gfx_object_t *obj, gfx_label_t *label, gfx_font_t font)
+{
+    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(label, ESP_ERR_INVALID_STATE);
+
+    label->font.source = font;
+    label->text.text_width = 0;
+    gfx_object_mark_resource_dirty(obj);
+    gfx_object_invalidate(obj);
+    return ESP_OK;
+}
+
 esp_err_t gfx_label_delete_impl(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
@@ -130,12 +189,12 @@ esp_err_t gfx_label_delete_impl(gfx_object_t *obj)
         label->snap.timer = NULL;
     }
 
-    gfx_label_clear_glyph_cache(label);
-
     free(label->text.text);
-    free(label->font.handle);
     free(label->render.mask);
     label->render.mask_capacity = 0;
+    free(label->render.color_mask);
+    label->render.color_mask_capacity = 0;
+    label->render.inline_color = false;
     free(label);
 
     return ESP_OK;

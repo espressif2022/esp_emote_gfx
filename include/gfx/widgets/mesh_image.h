@@ -57,6 +57,38 @@ typedef struct {
 gfx_object_t *gfx_mesh_img_create(gfx_display_t *disp);
 
 /**
+ * @brief Set image source and fit it to a rectangular 1x1 mesh.
+ *
+ * This is the simplest setup path when using mesh-image as a scalable image:
+ * it sets the source, resets the mesh to a 1x1 grid, and fits the mesh to the
+ * requested rectangle. Use the lower-level grid/point APIs only when custom
+ * deformation is needed.
+ *
+ * @param obj Mesh-image object
+ * @param src Typed image source descriptor
+ * @param width Target width in pixels
+ * @param height Target height in pixels
+ * @return GFX_OK on success, GFX_ERR_* otherwise
+ */
+gfx_err_t gfx_mesh_img_set_source_rect(gfx_object_t *obj, const gfx_image_src_t *src,
+                                       uint16_t width, uint16_t height);
+
+/**
+ * @brief Set an in-memory image descriptor and fit it to a rectangular 1x1 mesh.
+ *
+ * Convenience wrapper around `gfx_mesh_img_set_source_rect()` for the common
+ * C-array or already-decoded image descriptor case.
+ *
+ * @param obj Mesh-image object
+ * @param image In-memory image descriptor
+ * @param width Target width in pixels
+ * @param height Target height in pixels
+ * @return GFX_OK on success, GFX_ERR_* otherwise
+ */
+gfx_err_t gfx_mesh_img_set_image_rect(gfx_object_t *obj, const gfx_image_dsc_t *image,
+                                      uint16_t width, uint16_t height);
+
+/**
  * @brief Set a typed image source descriptor for the mesh.
  *
  * This is the preferred source setter for new code. It keeps the source type
@@ -168,6 +200,21 @@ gfx_err_t gfx_mesh_img_set_point(gfx_object_t *obj, size_t point_idx, gfx_coord_
  * @return GFX_OK on success, GFX_ERR_* otherwise
  */
 gfx_err_t gfx_mesh_img_set_points(gfx_object_t *obj, const gfx_mesh_img_point_t *points, size_t point_count);
+
+/**
+ * @brief Fit the mesh to a rectangular local area.
+ *
+ * This is a convenience for using mesh image as a scalable image object. It
+ * requires the default 1x1 grid or any existing grid with four corner points
+ * represented by the full grid. The helper updates all mesh points to a regular
+ * rectangle spanning [0, width) x [0, height).
+ *
+ * @param obj Mesh-image object
+ * @param width Target width in pixels
+ * @param height Target height in pixels
+ * @return GFX_OK on success, GFX_ERR_* otherwise
+ */
+gfx_err_t gfx_mesh_img_set_rect(gfx_object_t *obj, uint16_t width, uint16_t height);
 
 /**
  * @brief Set one mesh point in object-local Q8 coordinates.

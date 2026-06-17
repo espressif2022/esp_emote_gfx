@@ -39,7 +39,7 @@ extern "C" {
                      (x_offset) * GFX_PIXEL_SIZE_16BPP))
 
 /**
- * @brief Calculate buffer pointer with offset for 24-bit format (RGB888)
+ * @brief Calculate buffer pointer with offset for 24-bit format (RGB/BGR888)
  * @param buffer Base buffer pointer (any type)
  * @param y_offset Vertical offset in pixels
  * @param stride Width of buffer in pixels
@@ -132,6 +132,22 @@ static inline gfx_color_t gfx_color_from_rgb888(uint8_t r, uint8_t g, uint8_t b)
     };
 }
 
+static inline void gfx_color_to_rgb888(uint16_t rgb565, uint8_t *r, uint8_t *g, uint8_t *b)
+{
+    if (r != NULL) {
+        uint8_t r5 = (uint8_t)((rgb565 >> 11) & 0x1fU);
+        *r = (uint8_t)((r5 << 3) | (r5 >> 2));
+    }
+    if (g != NULL) {
+        uint8_t g6 = (uint8_t)((rgb565 >> 5) & 0x3fU);
+        *g = (uint8_t)((g6 << 2) | (g6 >> 4));
+    }
+    if (b != NULL) {
+        uint8_t b5 = (uint8_t)(rgb565 & 0x1fU);
+        *b = (uint8_t)((b5 << 3) | (b5 >> 2));
+    }
+}
+
 /**
  * @brief Get bits per pixel for a color format.
  * @param cf Color format.
@@ -146,9 +162,11 @@ static inline uint8_t gfx_color_format_get_bpp(gfx_color_format_t cf)
     case GFX_COLOR_FORMAT_RGB565A8_SWAPPED:
         return 16;
     case GFX_COLOR_FORMAT_RGB888:
+    case GFX_COLOR_FORMAT_BGR888:
     case GFX_COLOR_FORMAT_RGB888A8:
         return 24;
     case GFX_COLOR_FORMAT_XRGB8888:
+    case GFX_COLOR_FORMAT_ARGB8888:
         return 32;
     default:
         return 0;
@@ -187,15 +205,30 @@ static inline bool gfx_color_format_is_image_supported(gfx_color_format_t cf)
 {
     return gfx_color_format_is_rgb565(cf) ||
            cf == GFX_COLOR_FORMAT_RGB888 ||
+           cf == GFX_COLOR_FORMAT_BGR888 ||
+           cf == GFX_COLOR_FORMAT_RGB888A8 ||
+           cf == GFX_COLOR_FORMAT_XRGB8888 ||
+           cf == GFX_COLOR_FORMAT_ARGB8888;
+}
+
+static inline bool gfx_color_format_is_24bit(gfx_color_format_t cf)
+{
+    return cf == GFX_COLOR_FORMAT_RGB888 ||
+           cf == GFX_COLOR_FORMAT_BGR888 ||
            cf == GFX_COLOR_FORMAT_RGB888A8;
+}
+
+static inline bool gfx_color_format_is_bgr888(gfx_color_format_t cf)
+{
+    return cf == GFX_COLOR_FORMAT_BGR888;
 }
 
 /**
  * @brief Check whether a format carries a separate alpha payload.
  * @param cf Color format.
- * @return True when the format has alpha.
+ * @return True when the format has a trailing A8 plane after the color payload.
  */
-static inline bool gfx_color_format_has_alpha(gfx_color_format_t cf)
+static inline bool gfx_color_format_has_plane_alpha(gfx_color_format_t cf)
 {
     return cf == GFX_COLOR_FORMAT_RGB565A8 ||
            cf == GFX_COLOR_FORMAT_RGB565A8_SWAPPED ||
@@ -203,14 +236,108 @@ static inline bool gfx_color_format_has_alpha(gfx_color_format_t cf)
 }
 
 /**
- * @brief Check whether RGB565 bytes are stored low-byte first.
+ * @brief Check whether alpha is stored inside each pixel.
  * @param cf Color format.
- * @return True for swapped RGB565-family formats.
+ * @return True when the format has per-pixel alpha.
+ */
+static inline bool gfx_color_format_has_pixel_alpha(gfx_color_format_t cf)
+{
+    return cf == GFX_COLOR_FORMAT_ARGB8888;
+}
+
+/**
+ * @brief Check whether a format carries any alpha information.
+ * @param cf Color format.
+ * @return True when the format has pixel alpha or a trailing alpha plane.
+ */
+static inline bool gfx_color_format_has_alpha(gfx_color_format_t cf)
+{
+    return gfx_color_format_has_plane_alpha(cf) ||
+           gfx_color_format_has_pixel_alpha(cf);
+}
+
+/**
+ * @brief Check whether RGB565 bytes are stored high-byte first.
+ * @param cf Color format.
+ * @return True for high-byte-first RGB565-family formats.
  */
 static inline bool gfx_color_format_is_rgb565_swapped(gfx_color_format_t cf)
 {
     return cf == GFX_COLOR_FORMAT_RGB565_SWAPPED ||
            cf == GFX_COLOR_FORMAT_RGB565A8_SWAPPED;
+}
+
+/**
+ * @brief Read an RGB565-family byte stream as a semantic RGB565 value.
+ * @param src Pointer to two RGB565 payload bytes.
+ * @param cf RGB565-family format describing byte order.
+ * @return Semantic RGB565 value.
+ */
+static inline uint16_t gfx_color_read_rgb565_bytes(const uint8_t *src, gfx_color_format_t cf)
+{
+    if (gfx_color_format_is_rgb565_swapped(cf)) {
+        return (uint16_t)(((uint16_t)src[0] << 8) | src[1]);
+    }
+    return (uint16_t)(((uint16_t)src[1] << 8) | src[0]);
+}
+
+static inline void gfx_color_read_rgb888_bytes(const uint8_t *src, gfx_color_format_t cf,
+        uint8_t *r, uint8_t *g, uint8_t *b)
+{
+    if (gfx_color_format_is_bgr888(cf)) {
+        if (b != NULL) {
+            *b = src[0];
+        }
+        if (g != NULL) {
+            *g = src[1];
+        }
+        if (r != NULL) {
+            *r = src[2];
+        }
+        return;
+    }
+
+    if (r != NULL) {
+        *r = src[0];
+    }
+    if (g != NULL) {
+        *g = src[1];
+    }
+    if (b != NULL) {
+        *b = src[2];
+    }
+}
+
+static inline void gfx_color_write_rgb888_bytes(uint8_t *dst, gfx_color_format_t cf,
+        uint8_t r, uint8_t g, uint8_t b)
+{
+    if (gfx_color_format_is_bgr888(cf)) {
+        dst[0] = b;
+        dst[1] = g;
+        dst[2] = r;
+        return;
+    }
+
+    dst[0] = r;
+    dst[1] = g;
+    dst[2] = b;
+}
+
+/**
+ * @brief Write a semantic RGB565 value into an RGB565-family byte stream.
+ * @param dst Pointer to two writable bytes.
+ * @param cf RGB565-family format describing byte order.
+ * @param color Semantic RGB565 value.
+ */
+static inline void gfx_color_write_rgb565_bytes(uint8_t *dst, gfx_color_format_t cf, uint16_t color)
+{
+    if (gfx_color_format_is_rgb565_swapped(cf)) {
+        dst[0] = (uint8_t)((color >> 8) & 0xffU);
+        dst[1] = (uint8_t)(color & 0xffU);
+    } else {
+        dst[0] = (uint8_t)(color & 0xffU);
+        dst[1] = (uint8_t)((color >> 8) & 0xffU);
+    }
 }
 
 #ifdef __cplusplus

@@ -352,13 +352,14 @@ esp_err_t display_and_graphics_init(const char *partition_label, uint32_t max_fi
     gfx_display_config_t disp_cfg = {
         .h_res = BSP_LCD_H_RES,
         .v_res = BSP_LCD_V_RES,
+        .color_format = GFX_COLOR_FORMAT_RGB565_SWAPPED,
         .flush_cb = disp_flush_callback,
         .update_cb = disp_update_callback,
         .user_data = (void *)panel_handle,
 #if CONFIG_IDF_TARGET_ESP32S3
-        .flags = { .swap = true, .buff_dma = true, .buff_spiram = false, .double_buffer = true },
+        .flags = { .buff_dma = true, .buff_spiram = false, .double_buffer = true },
 #elif CONFIG_IDF_TARGET_ESP32P4
-        .flags = { .swap = false, .buff_dma = true, .buff_spiram = false, .double_buffer = true },
+        .flags = { .buff_dma = true, .buff_spiram = false, .double_buffer = true },
 #endif
         .buffers = { .buf1 = NULL, .buf2 = NULL, .buf_pixels = BSP_LCD_H_RES * 16 },
     };

@@ -62,7 +62,7 @@
     <td width="33%">
       <strong>渲染与图像</strong>
       <br>
-      覆盖软件绘制、图像资源、RGB565 / RGB565A8 数据，以及基于控制点的 mesh image 形变。
+      覆盖软件绘制、图像资源、RGB565 / RGB888 / XRGB8888 数据，以及基于控制点的 mesh image 形变。
     </td>
     <td width="33%">
       <strong>文本与字体</strong>
@@ -88,6 +88,13 @@
     </td>
   </tr>
 </table>
+
+## 当前渲染格式状态
+
+- display 已支持 `RGB565`、`RGB565_SWAPPED`、`RGB888`、`XRGB8888` 输出格式。
+- `RGB888` / `XRGB8888` display 当前默认直接用同格式 render buffer，不再经过 `RGB565` 中转。
+- 图片源已支持 `RGB565`、`RGB565A8`、`RGB888`、`RGB888A8`、`XRGB8888`、`ARGB8888`。
+- 说明和阶段计划见 [docs/render_format_design.md](docs/render_format_design.md)。
 
 ## 文档
 

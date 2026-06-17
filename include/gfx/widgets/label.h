@@ -88,7 +88,10 @@ gfx_err_t gfx_label_font_delete(gfx_font_t font);
 /**
  * @brief Set the text for a label object
  * @param obj Pointer to the label object
- * @param text Text string to display
+ * @param text Text string to display. Inline color markers are supported:
+ *             `##0xRRGGBB` sets the color for following text until the next marker.
+ *             Example: `"##0xFFFFFF GROUP A · ##0x787878 Guadalajara"`.
+ *             Markers are not rendered and do not affect layout width.
  * @return GFX_OK on success, error code otherwise
  */
 gfx_err_t gfx_label_set_text(gfx_object_t *obj, const char *text);

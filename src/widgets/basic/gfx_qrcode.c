@@ -17,6 +17,7 @@
 #include "lib/qrcode/qrcode_wrapper.h"
 #include "common/gfx_comm.h"
 #include "core/display/gfx_refresh_priv.h"
+#include "render/gfx_render_priv.h"
 #include "render/sw/gfx_blend_priv.h"
 #include "core/object/gfx_object_priv.h"
 #include "platform/gfx_platform.h"
@@ -208,6 +209,13 @@ static esp_err_t gfx_qrcode_generate(gfx_object_t *obj)
 
 static void gfx_qrcode_blend(gfx_object_t *obj, gfx_qrcode_t *qrcode, const gfx_draw_ctx_t *ctx)
 {
+    gfx_render_surface_t dst_surface = {
+        .buf = ctx->buf,
+        .buf_area = ctx->buf_area,
+        .clip_area = ctx->clip_area,
+        .stride = ctx->stride,
+        .format = ctx->format,
+    };
     gfx_object_calc_pos_in_parent(obj);
 
     gfx_area_t render_area = ctx->clip_area;
@@ -226,18 +234,38 @@ static void gfx_qrcode_blend(gfx_object_t *obj, gfx_qrcode_t *qrcode, const gfx_
                               clip_area.y1 - obj->geometry.y,
                               src_stride,
                               clip_area.x1 - obj->geometry.x);
-    gfx_color_t *dest_pixels = GFX_DRAW_CTX_DEST_PTR(ctx, clip_area.x1, clip_area.y1);
+    gfx_render_image_t render_src = {
+        .pixels = src_pixels,
+        .stride = src_stride,
+        .format = GFX_COLOR_FORMAT_RGB565_SWAPPED,
+        .alpha = NULL,
+        .alpha_stride = 0,
+    };
+    gfx_area_t draw_area = {
+        .x1 = clip_area.x1 - ctx->buf_area.x1,
+        .y1 = clip_area.y1 - ctx->buf_area.y1,
+        .x2 = clip_area.x2 - ctx->buf_area.x1,
+        .y2 = clip_area.y2 - ctx->buf_area.y1,
+    };
 
-    gfx_sw_blend_img_draw(
-        dest_pixels,
+    if (gfx_render_surface_blit_image(obj->disp, &dst_surface, &clip_area, &render_src,
+                                      clip_area.x1 - obj->geometry.x,
+                                      clip_area.y1 - obj->geometry.y,
+                                      0xFFU)) {
+        return;
+    }
+
+    gfx_sw_blend_img_draw_fmt(
+        ctx->buf,
         ctx->stride,
+        ctx->format,
         src_pixels,
         src_stride,
         NULL,
         0,
-        &clip_area,
+        &draw_area,
         GFX_COLOR_FORMAT_RGB565_SWAPPED,
-        ctx->swap
+        0xFFU
     );
 }
 

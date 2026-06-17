@@ -76,25 +76,24 @@ void gfx_sw_blend_fill_area(uint16_t *dest_buf, gfx_coord_t dest_stride,
                             const gfx_area_t *area, uint16_t color);
 
 /**
- * @brief Fill a rectangle with a semantic color, converting to native framebuffer order once.
- * @param dest_buf Destination buffer
- * @param dest_stride Row stride in pixels
- * @param area Area to fill (x1,y1,x2,y2 exclusive end)
- * @param color Semantic RGB565 color
- * @param swap Whether the destination buffer expects swapped byte order
+ * @brief Fill a rectangle in a destination surface.
+ *
+ * Supports RGB565/RGB565_SWAPPED/RGB888/XRGB8888 destinations. `area` uses
+ * destination-local half-open coordinates.
  */
-void gfx_sw_blend_fill_area_color(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
-                                  const gfx_area_t *area, gfx_color_t color, bool swap);
+void gfx_sw_blend_surface_fill(void *dest_buf, gfx_coord_t dest_stride,
+                               gfx_color_format_t dest_format,
+                               const gfx_area_t *area, gfx_color_t color, gfx_opa_t opa);
 
 /**
- * @brief Mix two colors with a given mix ratio (internal)
+ * @brief Mix two semantic RGB565 colors with a given mix ratio (internal)
  * @param c1 First semantic RGB565 color
  * @param c2 Second semantic RGB565 color
  * @param mix Mix ratio (0-255)
- * @param swap Deprecated, ignored. Inputs must already be semantic RGB565.
+ * @param swap Legacy compatibility parameter; ignored. Inputs must already be semantic RGB565.
  * @return Mixed color
  */
-gfx_color_t gfx_blend_color_mix(gfx_color_t c1, gfx_color_t c2, uint8_t mix, bool swap);
+gfx_color_t gfx_blend_color_mix(gfx_color_t c1, gfx_color_t c2, uint8_t mix);
 
 /**********************
  * GLOBAL PROTOTYPES
@@ -105,36 +104,51 @@ gfx_color_t gfx_blend_color_mix(gfx_color_t c1, gfx_color_t c2, uint8_t mix, boo
  *====================*/
 
 /**
- * @brief Draw a blended color onto a destination buffer
- * @param dest_buf Pointer to the destination buffer where the color will be drawn
- * @param dest_stride Stride (width) of the destination buffer
- * @param mask Pointer to the mask buffer, if any
- * @param mask_stride Stride (width) of the mask buffer
- * @param clip_area Pointer to the clipping area, which limits the area to draw
- * @param color The color to draw in gfx_color_t type
- * @param opa The opacity of the color to draw (0-255)
- * @param swap Whether to swap the color format
+ * @brief Draw a masked semantic color into a destination surface.
+ *
+ * Supports RGB565/RGB565_SWAPPED/RGB888/XRGB8888 destinations. `area` uses
+ * destination-local half-open coordinates and `mask` points to area origin.
  */
-void gfx_sw_blend_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
-                       const gfx_opa_t *mask, gfx_coord_t mask_stride,
-                       gfx_area_t *clip_area, gfx_color_t color, gfx_opa_t opa, bool swap);
+void gfx_sw_blend_mask_draw_fmt(void *dest_buf, gfx_coord_t dest_stride,
+                                gfx_color_format_t dest_format,
+                                const gfx_opa_t *mask, gfx_coord_t mask_stride,
+                                const gfx_area_t *area, gfx_color_t color, gfx_opa_t opa);
 
 /**
- * @brief Draw a blended image onto a destination buffer
- * @param dest_buf Pointer to the destination buffer where the image will be drawn
- * @param dest_stride Stride (width) of the destination buffer
- * @param src_buf Pointer to the source image buffer
- * @param src_stride Stride (width) of the source image buffer, in pixels
- * @param mask Pointer to the mask buffer, if any
- * @param mask_stride Stride (width) of the mask buffer
- * @param clip_area Pointer to the clipping area, which limits the area to draw
- * @param src_format Source image color format
- * @param swap Whether the target framebuffer expects swapped RGB565 byte order
+ * @brief Draw masked text using per-pixel semantic colors into a destination surface.
+ *
+ * Supports RGB565/RGB565_SWAPPED/RGB888/XRGB8888 destinations. `area` uses
+ * destination-local half-open coordinates and mask/color_mask point to area origin.
  */
-void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
-                           const void *src_buf, gfx_coord_t src_stride,
-                           const gfx_opa_t *mask, gfx_coord_t mask_stride,
-                           gfx_area_t *clip_area, gfx_color_format_t src_format, bool swap);
+void gfx_sw_blend_mask_color_draw_fmt(void *dest_buf, gfx_coord_t dest_stride,
+                                      gfx_color_format_t dest_format,
+                                      const gfx_opa_t *mask, gfx_coord_t mask_stride,
+                                      const gfx_color_t *color_mask, gfx_coord_t color_mask_stride,
+                                      const gfx_area_t *area, gfx_opa_t opa);
+
+/**
+ * @brief Draw an image into a destination surface.
+ *
+ * Supports RGB565/RGB565_SWAPPED/RGB888/XRGB8888 destinations and
+ * RGB565/RGB565_SWAPPED/RGB888/RGB888A8/XRGB8888/ARGB8888 sources.
+ */
+void gfx_sw_blend_img_draw_fmt(void *dest_buf, gfx_coord_t dest_stride,
+                               gfx_color_format_t dest_format,
+                               const void *src_buf, gfx_coord_t src_stride,
+                               const gfx_opa_t *mask, gfx_coord_t mask_stride,
+                               gfx_area_t *clip_area, gfx_color_format_t src_format,
+                               gfx_opa_t opa);
+
+/**
+ * @brief Draw a scaled image area into a destination surface.
+ */
+void gfx_sw_blend_img_scale_draw_fmt(void *dest_buf, gfx_coord_t dest_stride,
+                                     gfx_color_format_t dest_format,
+                                     const void *src_buf, gfx_coord_t src_stride,
+                                     const gfx_opa_t *mask, gfx_coord_t mask_stride,
+                                     const gfx_area_t *dst_area, const gfx_area_t *clip_area,
+                                     const gfx_area_t *src_area,
+                                     gfx_color_format_t src_format, gfx_opa_t opa);
 
 /**
  * @brief Draw a textured triangle with edge anti-aliasing
@@ -147,9 +161,9 @@ void gfx_sw_blend_img_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
  *        inward AA distance (NULL when not needed).
  * @param extra_aa_count  Number of entries in extra_aa_edges (0..MAX_EXTRA_AA_EDGES).
  * @param src_format Source image color format.
- * @param swap Whether the target framebuffer expects swapped RGB565 byte order.
  */
-void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
+void gfx_sw_blend_img_triangle_draw(void *dest_buf, gfx_coord_t dest_stride,
+                                    gfx_color_format_t dest_format,
                                     const gfx_area_t *buf_area, const gfx_area_t *clip_area,
                                     const void *src_buf, gfx_coord_t src_stride, gfx_coord_t src_height,
                                     const gfx_opa_t *mask, gfx_coord_t mask_stride,
@@ -160,7 +174,7 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
                                     uint8_t internal_edges,
                                     const gfx_sw_blend_aa_edge_t *extra_aa_edges,
                                     uint8_t extra_aa_count,
-                                    gfx_color_format_t src_format, bool swap);
+                                    gfx_color_format_t src_format);
 
 /**
  * @brief Scanline polygon fill with edge anti-aliasing.
@@ -171,13 +185,13 @@ void gfx_sw_blend_img_triangle_draw(gfx_color_t *dest_buf, gfx_coord_t dest_stri
  *
  * Designed for stroke outlines where no texture mapping is needed.
  */
-void gfx_sw_blend_polygon_fill(gfx_color_t *dest_buf, gfx_coord_t dest_stride,
+void gfx_sw_blend_polygon_fill(void *dest_buf, gfx_coord_t dest_stride,
+                               gfx_color_format_t dest_format,
                                const gfx_area_t *buf_area, const gfx_area_t *clip_area,
                                gfx_color_t color,
                                gfx_opa_t opa,
                                const int32_t *vx, const int32_t *vy,
-                               int vertex_count,
-                               bool swap);
+                               int vertex_count);
 
 void gfx_sw_blend_perf_reset(gfx_draw_perf_stats_t *stats);
 void gfx_sw_blend_perf_bind(gfx_draw_perf_stats_t *stats);

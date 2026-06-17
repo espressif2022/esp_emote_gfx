@@ -39,6 +39,38 @@ void gfx_invalidate_area(gfx_handle_t handle, const gfx_area_t *area);
 void gfx_object_invalidate(gfx_object_t *obj);
 
 /**
+ * @brief Get an object's current absolute draw bounds.
+ *
+ * This helper is the single place that translates object geometry into dirty
+ * area coordinates. Today child objects still store screen-space coordinates;
+ * when local child coordinates land, this helper should become the conversion
+ * point instead of changing widget draw code.
+ *
+ * @param obj Object to inspect.
+ * @param area Output inclusive area.
+ * @return true when the object has a non-empty area and display.
+ */
+bool gfx_object_get_abs_area(gfx_object_t *obj, gfx_area_t *area);
+
+/**
+ * @brief Get an object's current absolute draw bounds with half-open end.
+ *
+ * Same semantics as gfx_object_get_abs_area(), but returns [x1, x2) x [y1, y2)
+ * for render clipping.
+ */
+bool gfx_object_get_abs_area_exclusive(gfx_object_t *obj, gfx_area_t *area);
+
+/**
+ * @brief Invalidate an object and all descendants.
+ *
+ * Use this for parent move/resize/visibility/tree changes so small-buffer
+ * rendering redraws child pixels even when they extend outside parent bounds.
+ *
+ * @param obj Root object of the subtree to invalidate.
+ */
+void gfx_object_invalidate_tree(gfx_object_t *obj);
+
+/**
  * @brief Update layout for all objects marked as layout dirty on a display
  * @param disp Display to update
  */

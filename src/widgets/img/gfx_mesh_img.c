@@ -402,10 +402,10 @@ static void gfx_mesh_img_draw_ctrl_points(gfx_object_t *obj, const gfx_draw_ctx_
         for (gfx_coord_t dy = -GFX_MESH_IMG_CTRL_POINT_RADIUS; dy <= GFX_MESH_IMG_CTRL_POINT_RADIUS; dy++) {
             for (gfx_coord_t dx = -GFX_MESH_IMG_CTRL_POINT_RADIUS; dx <= GFX_MESH_IMG_CTRL_POINT_RADIUS; dx++) {
                 gfx_color_t color = (dx == 0 && dy == 0) ? inner_color : outer_color;
-                gfx_sw_draw_point((gfx_color_t *)ctx->buf, ctx->stride,
-                                  &ctx->buf_area, &ctx->clip_area,
-                                  screen_x + dx, screen_y + dy,
-                                  color, 0xFF, ctx->swap);
+                gfx_sw_draw_point_fmt(ctx->buf, ctx->stride, ctx->format,
+                                      &ctx->buf_area, &ctx->clip_area,
+                                      screen_x + dx, screen_y + dy,
+                                      color, 0xFF);
             }
         }
     }
@@ -478,7 +478,7 @@ static esp_err_t gfx_mesh_img_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     src_height = (gfx_coord_t)mesh->header.h;
     src_pixels = decoder_dsc.data;
 
-    if (gfx_color_format_has_alpha(color_format)) {
+    if (gfx_color_format_has_plane_alpha(color_format)) {
         alpha_mask = (const gfx_opa_t *)((const uint8_t *)decoder_dsc.data +
                                          (size_t)src_stride * src_height * src_pixel_size);
         alpha_stride = (gfx_coord_t)mesh->header.w;
@@ -509,11 +509,11 @@ static esp_err_t gfx_mesh_img_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
                     pvy[cols + 1 + c] = origin_y_q8 + mesh->points[src_idx].y_q8;
                 }
             }
-            gfx_sw_blend_polygon_fill((gfx_color_t *)ctx->buf, ctx->stride,
+            gfx_sw_blend_polygon_fill(ctx->buf, ctx->stride, ctx->format,
                                       &ctx->buf_area, &clip_area,
                                       mesh->scanline_color,
                                       mesh->opacity,
-                                      pvx, pvy, poly_n, ctx->swap);
+                                      pvx, pvy, poly_n);
             scanline_drawn = true;
         } else {
             GFX_LOGW("draw mesh image: scanline fill capacity too small (%d > %u)",
@@ -762,7 +762,7 @@ static esp_err_t gfx_mesh_img_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
                 }
             }
 
-            gfx_sw_blend_img_triangle_draw((gfx_color_t *)ctx->buf, ctx->stride,
+            gfx_sw_blend_img_triangle_draw(ctx->buf, ctx->stride, ctx->format,
                                            &ctx->buf_area, &clip_area,
                                            src_pixels, src_stride, src_height,
                                            alpha_mask, alpha_stride,
@@ -770,9 +770,8 @@ static esp_err_t gfx_mesh_img_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
                                            &tri1[0], &tri1[1], &tri1[2],
                                            ie1,
                                            xaa1_n ? xaa1 : NULL, xaa1_n,
-                                           color_format,
-                                           ctx->swap);
-            gfx_sw_blend_img_triangle_draw((gfx_color_t *)ctx->buf, ctx->stride,
+                                           color_format);
+            gfx_sw_blend_img_triangle_draw(ctx->buf, ctx->stride, ctx->format,
                                            &ctx->buf_area, &clip_area,
                                            src_pixels, src_stride, src_height,
                                            alpha_mask, alpha_stride,
@@ -780,8 +779,7 @@ static esp_err_t gfx_mesh_img_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
                                            &tri2[0], &tri2[1], &tri2[2],
                                            ie2,
                                            xaa2_n ? xaa2 : NULL, xaa2_n,
-                                           color_format,
-                                           ctx->swap);
+                                           color_format);
         }
     }
 
@@ -872,6 +870,27 @@ esp_err_t gfx_mesh_img_set_src_desc(gfx_object_t *obj, const gfx_image_src_t *sr
     GFX_LOGD("set mesh image src: %ux%u grid=%ux%u",
              header.w, header.h, mesh->grid_cols, mesh->grid_rows);
     return ESP_OK;
+}
+
+esp_err_t gfx_mesh_img_set_source_rect(gfx_object_t *obj, const gfx_image_src_t *src,
+                                       uint16_t width, uint16_t height)
+{
+    CHECK_OBJ_TYPE_MESH_IMAGE(obj);
+    ESP_RETURN_ON_ERROR(gfx_mesh_img_set_src_desc(obj, src), TAG, "set mesh source rect: set source failed");
+    ESP_RETURN_ON_ERROR(gfx_mesh_img_set_grid(obj, GFX_MESH_IMG_DEFAULT_COLS, GFX_MESH_IMG_DEFAULT_ROWS),
+                        TAG, "set mesh source rect: set default grid failed");
+    return gfx_mesh_img_set_rect(obj, width, height);
+}
+
+esp_err_t gfx_mesh_img_set_image_rect(gfx_object_t *obj, const gfx_image_dsc_t *image,
+                                      uint16_t width, uint16_t height)
+{
+    const gfx_image_src_t src = {
+        .type = GFX_IMAGE_SRC_TYPE_IMAGE_DSC,
+        .data = image,
+    };
+
+    return gfx_mesh_img_set_source_rect(obj, &src, width, height);
 }
 
 esp_err_t gfx_mesh_img_set_grid(gfx_object_t *obj, uint8_t cols, uint8_t rows)
@@ -1036,6 +1055,40 @@ esp_err_t gfx_mesh_img_set_points(gfx_object_t *obj, const gfx_mesh_img_point_t 
         mesh->points[i].y_q8 = (int32_t)points[i].y << GFX_MESH_IMG_Q8_SHIFT;
     }
     gfx_mesh_img_update_bounds(obj, mesh);
+    gfx_object_update_layout(obj);
+    gfx_object_invalidate(obj);
+    return ESP_OK;
+}
+
+esp_err_t gfx_mesh_img_set_rect(gfx_object_t *obj, uint16_t width, uint16_t height)
+{
+    gfx_mesh_img_t *mesh;
+    int32_t max_x;
+    int32_t max_y;
+    size_t index = 0;
+
+    CHECK_OBJ_TYPE_MESH_IMAGE(obj);
+    mesh = (gfx_mesh_img_t *)obj->src;
+    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh rect: state is NULL");
+    ESP_RETURN_ON_FALSE(mesh->points != NULL && mesh->point_count > 0U,
+                        ESP_ERR_INVALID_STATE, TAG, "set mesh rect: points are not allocated");
+
+    max_x = width > 0U ? (int32_t)width - 1 : 0;
+    max_y = height > 0U ? (int32_t)height - 1 : 0;
+
+    gfx_object_invalidate(obj);
+    for (uint8_t row = 0; row <= mesh->grid_rows; row++) {
+        int32_t y = mesh->grid_rows > 0U ? (max_y * row) / mesh->grid_rows : 0;
+        for (uint8_t col = 0; col <= mesh->grid_cols; col++) {
+            int32_t x = mesh->grid_cols > 0U ? (max_x * col) / mesh->grid_cols : 0;
+            mesh->points[index].x_q8 = x << GFX_MESH_IMG_Q8_SHIFT;
+            mesh->points[index].y_q8 = y << GFX_MESH_IMG_Q8_SHIFT;
+            index++;
+        }
+    }
+    gfx_mesh_img_update_bounds(obj, mesh);
+    obj->geometry.width = width;
+    obj->geometry.height = height;
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
     return ESP_OK;

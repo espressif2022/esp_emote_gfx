@@ -21,8 +21,8 @@ typedef struct gfx_memory_backend gfx_memory_backend_t;
 typedef struct {
     uint32_t h_res;          /**< Framebuffer width in pixels */
     uint32_t v_res;          /**< Framebuffer height in pixels */
-    bool swap;               /**< Fallback source swap flag when flushing without a display */
-    void *buffer;            /**< Optional external RGB565 framebuffer */
+    gfx_color_format_t color_format; /**< Backend framebuffer format (0 = RGB565) */
+    void *buffer;            /**< Optional external framebuffer */
     size_t buffer_pixels;    /**< External framebuffer size in pixels */
 } gfx_memory_backend_config_t;
 
@@ -52,11 +52,32 @@ void gfx_memory_backend_delete(gfx_backend_t *backend);
 const uint16_t *gfx_memory_backend_get_buffer(const gfx_backend_t *backend);
 
 /**
+ * @brief Get raw framebuffer bytes.
+ * @param backend Memory backend.
+ * @return Framebuffer pointer, or NULL if backend is invalid.
+ */
+const void *gfx_memory_backend_get_buffer_data(const gfx_backend_t *backend);
+
+/**
+ * @brief Get memory backend framebuffer color format.
+ * @param backend Memory backend.
+ * @return Framebuffer color format, or UNKNOWN if backend is invalid.
+ */
+gfx_color_format_t gfx_memory_backend_get_color_format(const gfx_backend_t *backend);
+
+/**
  * @brief Get framebuffer size in pixels.
  * @param backend Memory backend.
  * @return Number of pixels, or 0 if backend is invalid.
  */
 size_t gfx_memory_backend_get_buffer_pixels(const gfx_backend_t *backend);
+
+/**
+ * @brief Get framebuffer size in bytes.
+ * @param backend Memory backend.
+ * @return Number of bytes, or 0 if backend is invalid.
+ */
+size_t gfx_memory_backend_get_buffer_bytes(const gfx_backend_t *backend);
 
 /**
  * @brief Fill the memory backend framebuffer with a semantic RGB565 color.

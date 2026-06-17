@@ -84,14 +84,7 @@ static bool gfx_touch_obj_is_active(gfx_display_t *disp, gfx_object_t *target, u
         return false;
     }
 
-    for (gfx_object_child_t *n = disp->child_list; n != NULL; n = n->next) {
-        gfx_object_t *obj = (gfx_object_t *)n->src;
-        if (obj == target) {
-            return obj->state.is_visible && obj->trace.create_seq == create_seq;
-        }
-    }
-
-    return false;
+    return gfx_object_child_list_contains(disp->child_list, target, create_seq);
 }
 
 static uint32_t gfx_touch_now_ms(void)

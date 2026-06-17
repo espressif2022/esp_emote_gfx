@@ -59,10 +59,10 @@ static gfx_display_t *test_multi_disp_add(void)
     gfx_display_config_t disp_cfg = {
         .h_res = BSP_LCD_H_RES,
         .v_res = BSP_LCD_V_RES,
+        .color_format = GFX_COLOR_FORMAT_RGB565,
         .flush_cb = test_multi_disp_flush_cb,
         .update_cb = NULL,
         .user_data = (void *)panel_handle,
-        .flags = {.swap = true},
         .buffers = {.buf1 = NULL, .buf2 = NULL, .buf_pixels = BSP_LCD_H_RES * 16},
     };
 

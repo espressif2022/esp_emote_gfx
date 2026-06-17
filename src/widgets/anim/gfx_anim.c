@@ -109,7 +109,6 @@ static esp_err_t gfx_anim_apply_segment(gfx_object_t *obj, gfx_anim_t *anim, con
 static esp_err_t gfx_anim_advance_segment(gfx_object_t *obj, gfx_anim_t *anim);
 static void gfx_anim_signal_event(gfx_anim_t *anim, gfx_platform_event_bits_t bits);
 static void gfx_anim_finish_plan(gfx_object_t *obj, gfx_anim_t *anim);
-static gfx_anim_src_t gfx_anim_make_memory_src(const void *src_data, size_t src_len);
 static esp_err_t gfx_anim_validate_src(const gfx_anim_src_t *src);
 static esp_err_t gfx_anim_set_src_internal(gfx_object_t *obj, const gfx_anim_src_t *src);
 static esp_err_t gfx_anim_set_src_with_decoder_internal(gfx_object_t *obj, const gfx_anim_decoder_t *decoder,
@@ -123,29 +122,31 @@ static void gfx_anim_emit_update(gfx_object_t *obj, gfx_display_event_t event);
 static uint8_t gfx_anim_get_4bit_pixel(const uint8_t *row, int32_t pixel_idx);
 static uint8_t *gfx_anim_get_4bit_row(uint8_t *buffer, int32_t y, int32_t stride_pixels);
 static int32_t gfx_anim_get_mirror_dst_x(int32_t width, int32_t mirror_offset, int32_t src_x_offset, int32_t x);
+static uint8_t gfx_anim_surface_pixel_size(gfx_color_format_t format);
+static void gfx_anim_write_rgb565_to_surface(uint8_t *dst, gfx_color_format_t format, uint16_t color);
 static esp_err_t gfx_anim_render_pixels(uint8_t bit_depth,
-                                        gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+                                        const gfx_draw_ctx_t *ctx,
                                         const uint8_t *src_pixels, gfx_coord_t src_stride,
                                         const gfx_anim_frame_desc_t *frame_desc, uint32_t *palette_cache,
-                                        gfx_area_t *clip_area,
+                                        const gfx_area_t *draw_area,
                                         gfx_mirror_mode_t mirror_mode, int32_t mirror_offset,
                                         int32_t src_x_offset, int32_t dest_x_offset);
-static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+static void gfx_anim_render_4bit_pixels(const gfx_draw_ctx_t *ctx,
                                         const uint8_t *src_pixels, gfx_coord_t src_stride,
                                         const gfx_anim_frame_desc_t *frame_desc, uint32_t *palette_cache,
-                                        gfx_area_t *clip_area,
+                                        const gfx_area_t *draw_area,
                                         gfx_mirror_mode_t mirror_mode, int32_t mirror_offset,
                                         int32_t src_x_offset, int32_t dest_x_offset);
-static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+static void gfx_anim_render_8bit_pixels(const gfx_draw_ctx_t *ctx,
                                         const uint8_t *src_pixels, gfx_coord_t src_stride,
                                         const gfx_anim_frame_desc_t *frame_desc, uint32_t *palette_cache,
-                                        gfx_area_t *clip_area,
+                                        const gfx_area_t *draw_area,
                                         gfx_mirror_mode_t mirror_mode, int32_t mirror_offset,
                                         int32_t src_x_offset, int32_t dest_x_offset);
-static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+static void gfx_anim_render_24bit_pixels(const gfx_draw_ctx_t *ctx,
         const uint8_t *src_pixels, gfx_coord_t src_stride,
         const gfx_anim_frame_desc_t *frame_desc, uint32_t *palette_cache,
-        gfx_area_t *clip_area,
+        const gfx_area_t *draw_area,
         gfx_mirror_mode_t mirror_mode, int32_t mirror_offset,
         int32_t src_x_offset, int32_t dest_x_offset);
 static void gfx_anim_timer_callback(void *arg);
@@ -264,17 +265,6 @@ static uint32_t gfx_anim_get_frame_count(const gfx_anim_t *anim)
     return anim->decoder->get_frame_count(anim->decoder_ctx);
 }
 
-static gfx_anim_src_t gfx_anim_make_memory_src(const void *src_data, size_t src_len)
-{
-    gfx_anim_src_t src = {
-        .type = GFX_ANIM_SRC_TYPE_MEMORY,
-        .data = src_data,
-        .data_len = src_len,
-    };
-
-    return src;
-}
-
 static esp_err_t gfx_anim_validate_src(const gfx_anim_src_t *src)
 {
     ESP_RETURN_ON_FALSE(src != NULL, ESP_ERR_INVALID_ARG, TAG, "set animation source: source is NULL");
@@ -379,6 +369,7 @@ static size_t gfx_anim_get_decode_buffer_size(const gfx_anim_frame_desc_t *frame
 
 static esp_err_t gfx_anim_init_palette_cache(gfx_object_t *obj, gfx_anim_t *anim)
 {
+    (void)obj;
     const gfx_anim_frame_desc_t *frame_desc = &anim->frame.desc;
     const gfx_anim_decoder_t *decoder = anim->decoder;
     uint16_t palette_size = frame_desc->num_colors;
@@ -394,11 +385,9 @@ static esp_err_t gfx_anim_init_palette_cache(gfx_object_t *obj, gfx_anim_t *anim
                                 GFX_PLATFORM_HEAP_INTERNAL | GFX_PLATFORM_HEAP_8BIT);
     ESP_RETURN_ON_FALSE(anim->frame.palette_cache != NULL, ESP_ERR_NO_MEM, TAG, "init palette cache: failed to allocate palette cache");
 
-    bool swap = obj->disp ? obj->disp->flags.swap : false;
-
     for (uint16_t i = 0; i < palette_size; i++) {
         gfx_color_t color;
-        if (decoder->read_palette_color(frame_desc, i, swap, &color)) {
+        if (decoder->read_palette_color(frame_desc, i, &color)) {
             anim->frame.palette_cache[i] = GFX_PALETTE_SET_TRANSPARENT();
         } else {
             anim->frame.palette_cache[i] = GFX_PALETTE_SET_COLOR(color.full);
@@ -463,6 +452,40 @@ static int32_t gfx_anim_get_mirror_dst_x(int32_t width, int32_t mirror_offset, i
     return mirror_frame_x - src_x_offset;
 }
 
+static uint8_t gfx_anim_surface_pixel_size(gfx_color_format_t format)
+{
+    if (format == GFX_COLOR_FORMAT_XRGB8888 || format == GFX_COLOR_FORMAT_ARGB8888) {
+        return GFX_PIXEL_SIZE_32BPP;
+    }
+    return gfx_color_format_get_size(format);
+}
+
+static void gfx_anim_write_rgb565_to_surface(uint8_t *dst, gfx_color_format_t format, uint16_t color)
+{
+    if (dst == NULL) {
+        return;
+    }
+
+    if (gfx_color_format_is_rgb565(format)) {
+        gfx_color_write_rgb565_bytes(dst, format, color);
+        return;
+    }
+
+    uint8_t r5 = (uint8_t)((color >> 11) & 0x1fU);
+    uint8_t g6 = (uint8_t)((color >> 5) & 0x3fU);
+    uint8_t b5 = (uint8_t)(color & 0x1fU);
+    uint8_t r = (uint8_t)((r5 << 3) | (r5 >> 2));
+    uint8_t g = (uint8_t)((g6 << 2) | (g6 >> 4));
+    uint8_t b = (uint8_t)((b5 << 3) | (b5 >> 2));
+
+    if (format == GFX_COLOR_FORMAT_RGB888 || format == GFX_COLOR_FORMAT_BGR888) {
+        gfx_color_write_rgb888_bytes(dst, format, r, g, b);
+    } else if (format == GFX_COLOR_FORMAT_XRGB8888 || format == GFX_COLOR_FORMAT_ARGB8888) {
+        uint32_t px = 0xff000000U | ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
+        memcpy(dst, &px, sizeof(px));
+    }
+}
+
 static esp_err_t gfx_anim_prepare_frame(gfx_object_t *obj)
 {
     esp_err_t ret = ESP_OK;
@@ -514,27 +537,27 @@ err:
 }
 
 static esp_err_t gfx_anim_render_pixels(uint8_t bit_depth,
-                                        gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+                                        const gfx_draw_ctx_t *ctx,
                                         const uint8_t *src_pixels, gfx_coord_t src_stride,
                                         const gfx_anim_frame_desc_t *frame_desc, uint32_t *palette_cache,
-                                        gfx_area_t *clip_area,
+                                        const gfx_area_t *draw_area,
                                         gfx_mirror_mode_t mirror_mode, int32_t mirror_offset,
                                         int32_t src_x_offset, int32_t dest_x_offset)
 {
     switch (bit_depth) {
     case GFX_ANIM_DEPTH_4BIT:
-        gfx_anim_render_4bit_pixels(dest_pixels, dest_stride, src_pixels, src_stride,
-                                    frame_desc, palette_cache, clip_area,
+        gfx_anim_render_4bit_pixels(ctx, src_pixels, src_stride,
+                                    frame_desc, palette_cache, draw_area,
                                     mirror_mode, mirror_offset, src_x_offset, dest_x_offset);
         return ESP_OK;
     case GFX_ANIM_DEPTH_8BIT:
-        gfx_anim_render_8bit_pixels(dest_pixels, dest_stride, src_pixels, src_stride,
-                                    frame_desc, palette_cache, clip_area,
+        gfx_anim_render_8bit_pixels(ctx, src_pixels, src_stride,
+                                    frame_desc, palette_cache, draw_area,
                                     mirror_mode, mirror_offset, src_x_offset, dest_x_offset);
         return ESP_OK;
     case GFX_ANIM_DEPTH_24BIT:
-        gfx_anim_render_24bit_pixels(dest_pixels, dest_stride, src_pixels, src_stride,
-                                     frame_desc, palette_cache, clip_area,
+        gfx_anim_render_24bit_pixels(ctx, src_pixels, src_stride,
+                                     frame_desc, palette_cache, draw_area,
                                      mirror_mode, mirror_offset, src_x_offset, dest_x_offset);
         return ESP_OK;
     default:
@@ -542,25 +565,29 @@ static esp_err_t gfx_anim_render_pixels(uint8_t bit_depth,
     }
 }
 
-static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+static void gfx_anim_render_4bit_pixels(const gfx_draw_ctx_t *ctx,
                                         const uint8_t *src_pixels, gfx_coord_t src_stride,
                                         const gfx_anim_frame_desc_t *frame_desc, uint32_t *palette_cache,
-                                        gfx_area_t *clip_area,
+                                        const gfx_area_t *draw_area,
                                         gfx_mirror_mode_t mirror_mode, int32_t mirror_offset,
                                         int32_t src_x_offset, int32_t dest_x_offset)
 {
     int32_t width = frame_desc->width;
-    int32_t clip_width = clip_area->x2 - clip_area->x1;
-    int32_t clip_height = clip_area->y2 - clip_area->y1;
+    int32_t clip_width = draw_area->x2 - draw_area->x1;
+    int32_t clip_height = draw_area->y2 - draw_area->y1;
     int32_t src_stride_bytes = (src_stride + 1) / 2;
+    gfx_color_format_t dst_format = ctx->format;
+    uint8_t dst_px_size = gfx_anim_surface_pixel_size(dst_format);
+    uint8_t *dst_base = (uint8_t *)ctx->buf;
 
     if (mirror_mode == GFX_MIRROR_AUTO) {
-        mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
+        mirror_offset = (ctx->stride - (src_stride + dest_x_offset) * 2);
     }
 
     for (int32_t y = 0; y < clip_height; y++) {
         const uint8_t *src_row = src_pixels + (y * src_stride_bytes);
-        gfx_color_t *dst_row = dest_pixels + y * dest_stride;
+        uint8_t *dst_row = dst_base + ((size_t)(draw_area->y1 + y) * ctx->stride +
+                                       (size_t)draw_area->x1) * dst_px_size;
 
         for (int32_t x = 0; x < clip_width; x++) {
             uint8_t index = gfx_anim_get_4bit_pixel(src_row, src_x_offset + x);
@@ -573,38 +600,41 @@ static void gfx_anim_render_4bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t de
             gfx_color_t color = {
                 .full = (uint16_t)GFX_PALETTE_GET_COLOR(palette_value),
             };
-            dst_row[x] = color;
+            gfx_anim_write_rgb565_to_surface(dst_row + (size_t)x * dst_px_size, dst_format, color.full);
 
             if (mirror_mode != GFX_MIRROR_DISABLED) {
                 int32_t mirror_x = gfx_anim_get_mirror_dst_x(width, mirror_offset, src_x_offset, x);
-                if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
-                    dst_row[mirror_x] = color;
+                if (mirror_x >= 0 && (dest_x_offset + mirror_x) < ctx->stride) {
+                    gfx_anim_write_rgb565_to_surface(dst_row + (size_t)mirror_x * dst_px_size,
+                                                     dst_format, color.full);
                 }
             }
         }
     }
 }
 
-static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+static void gfx_anim_render_8bit_pixels(const gfx_draw_ctx_t *ctx,
                                         const uint8_t *src_pixels, gfx_coord_t src_stride,
                                         const gfx_anim_frame_desc_t *frame_desc, uint32_t *palette_cache,
-                                        gfx_area_t *clip_area,
+                                        const gfx_area_t *draw_area,
                                         gfx_mirror_mode_t mirror_mode, int32_t mirror_offset,
                                         int32_t src_x_offset, int32_t dest_x_offset)
 {
-    int32_t clip_width = clip_area->x2 - clip_area->x1;
-    int32_t clip_height = clip_area->y2 - clip_area->y1;
+    int32_t clip_width = draw_area->x2 - draw_area->x1;
+    int32_t clip_height = draw_area->y2 - draw_area->y1;
     int32_t width = frame_desc->width;
+    gfx_color_format_t dst_format = ctx->format;
+    uint8_t dst_px_size = gfx_anim_surface_pixel_size(dst_format);
+    uint8_t *dst_base = (uint8_t *)ctx->buf;
 
     if (mirror_mode == GFX_MIRROR_AUTO) {
-        mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
+        mirror_offset = (ctx->stride - (src_stride + dest_x_offset) * 2);
     }
-
-    uint16_t *dest_pixels_16 = (uint16_t *)dest_pixels;
 
     for (int32_t y = 0; y < clip_height; y++) {
         const uint8_t *src = src_pixels + y * src_stride;
-        uint16_t *dst = dest_pixels_16 + y * dest_stride;
+        uint8_t *dst = dst_base + ((size_t)(draw_area->y1 + y) * ctx->stride +
+                                   (size_t)draw_area->x1) * dst_px_size;
         int x = 0;
         int x_end4 = clip_width - 4;
 
@@ -617,32 +647,29 @@ static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t de
 
             if (transparent_mask) {
                 if (!(p0 & GFX_PALETTE_CACHE_TRANSPARENT)) {
-                    dst[x] = (uint16_t)GFX_PALETTE_GET_COLOR(p0);
+                    gfx_anim_write_rgb565_to_surface(dst + (size_t)x * dst_px_size, dst_format, (uint16_t)GFX_PALETTE_GET_COLOR(p0));
                 }
                 if (!(p1 & GFX_PALETTE_CACHE_TRANSPARENT)) {
-                    dst[x + 1] = (uint16_t)GFX_PALETTE_GET_COLOR(p1);
+                    gfx_anim_write_rgb565_to_surface(dst + (size_t)(x + 1) * dst_px_size, dst_format, (uint16_t)GFX_PALETTE_GET_COLOR(p1));
                 }
                 if (!(p2 & GFX_PALETTE_CACHE_TRANSPARENT)) {
-                    dst[x + 2] = (uint16_t)GFX_PALETTE_GET_COLOR(p2);
+                    gfx_anim_write_rgb565_to_surface(dst + (size_t)(x + 2) * dst_px_size, dst_format, (uint16_t)GFX_PALETTE_GET_COLOR(p2));
                 }
                 if (!(p3 & GFX_PALETTE_CACHE_TRANSPARENT)) {
-                    dst[x + 3] = (uint16_t)GFX_PALETTE_GET_COLOR(p3);
+                    gfx_anim_write_rgb565_to_surface(dst + (size_t)(x + 3) * dst_px_size, dst_format, (uint16_t)GFX_PALETTE_GET_COLOR(p3));
                 }
             } else {
-                uint16_t c0 = (uint16_t)GFX_PALETTE_GET_COLOR(p0);
-                uint16_t c1 = (uint16_t)GFX_PALETTE_GET_COLOR(p1);
-                uint16_t c2 = (uint16_t)GFX_PALETTE_GET_COLOR(p2);
-                uint16_t c3 = (uint16_t)GFX_PALETTE_GET_COLOR(p3);
-                uint32_t *d32 = (uint32_t *)(dst + x);
-                d32[0] = ((uint32_t)c1 << 16) | c0;
-                d32[1] = ((uint32_t)c3 << 16) | c2;
+                gfx_anim_write_rgb565_to_surface(dst + (size_t)x * dst_px_size, dst_format, (uint16_t)GFX_PALETTE_GET_COLOR(p0));
+                gfx_anim_write_rgb565_to_surface(dst + (size_t)(x + 1) * dst_px_size, dst_format, (uint16_t)GFX_PALETTE_GET_COLOR(p1));
+                gfx_anim_write_rgb565_to_surface(dst + (size_t)(x + 2) * dst_px_size, dst_format, (uint16_t)GFX_PALETTE_GET_COLOR(p2));
+                gfx_anim_write_rgb565_to_surface(dst + (size_t)(x + 3) * dst_px_size, dst_format, (uint16_t)GFX_PALETTE_GET_COLOR(p3));
             }
         }
 
         for (; x < clip_width; x++) {
             uint32_t p = palette_cache[src[x]];
             if (!(p & GFX_PALETTE_CACHE_TRANSPARENT)) {
-                dst[x] = (uint16_t)GFX_PALETTE_GET_COLOR(p);
+                gfx_anim_write_rgb565_to_surface(dst + (size_t)x * dst_px_size, dst_format, (uint16_t)GFX_PALETTE_GET_COLOR(p));
             }
         }
 
@@ -651,8 +678,8 @@ static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t de
                 uint32_t p = palette_cache[src[x_mirror]];
                 if (!GFX_PALETTE_IS_TRANSPARENT(p)) {
                     int32_t mirror_x = gfx_anim_get_mirror_dst_x(width, mirror_offset, src_x_offset, x_mirror);
-                    if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
-                        dst[mirror_x] = dst[x_mirror];
+                    if (mirror_x >= 0 && (dest_x_offset + mirror_x) < ctx->stride) {
+                        gfx_anim_write_rgb565_to_surface(dst + (size_t)mirror_x * dst_px_size, dst_format, (uint16_t)GFX_PALETTE_GET_COLOR(p));
                     }
                 }
             }
@@ -660,54 +687,58 @@ static void gfx_anim_render_8bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t de
     }
 }
 
-static void gfx_anim_render_24bit_pixels(gfx_color_t *dest_pixels, gfx_coord_t dest_stride,
+static void gfx_anim_render_24bit_pixels(const gfx_draw_ctx_t *ctx,
         const uint8_t *src_pixels, gfx_coord_t src_stride,
         const gfx_anim_frame_desc_t *frame_desc, uint32_t *palette_cache,
-        gfx_area_t *clip_area,
+        const gfx_area_t *draw_area,
         gfx_mirror_mode_t mirror_mode, int32_t mirror_offset,
         int32_t src_x_offset, int32_t dest_x_offset)
 {
     (void)frame_desc;
     (void)palette_cache;
 
-    int32_t clip_width = clip_area->x2 - clip_area->x1;
-    int32_t clip_height = clip_area->y2 - clip_area->y1;
+    int32_t clip_width = draw_area->x2 - draw_area->x1;
+    int32_t clip_height = draw_area->y2 - draw_area->y1;
     int32_t width = src_stride;
+    uint8_t dst_px_size = gfx_anim_surface_pixel_size(ctx->format);
+    uint8_t *dest_base = (uint8_t *)ctx->buf;
 
     if (mirror_mode == GFX_MIRROR_AUTO) {
-        mirror_offset = (dest_stride - (src_stride + dest_x_offset) * 2);
+        mirror_offset = (ctx->stride - (src_stride + dest_x_offset) * 2);
     }
 
-    uint16_t *src_pixels_16 = (uint16_t *)src_pixels;
-    uint16_t *dest_pixels_16 = (uint16_t *)dest_pixels;
-
     for (int32_t y = 0; y < clip_height; y++) {
-        uint16_t *dst_row = dest_pixels_16 + y * dest_stride;
-        const uint16_t *src_row = src_pixels_16 + y * src_stride;
+        uint8_t *dst_row = dest_base + ((size_t)(draw_area->y1 + y) * ctx->stride +
+                                        (size_t)draw_area->x1) * dst_px_size;
+        const uint8_t *src_row = src_pixels + (size_t)y * src_stride * sizeof(gfx_color_t);
         int32_t x = 0;
         int32_t x_end4 = clip_width - 4;
 
         for (; x <= x_end4; x += 4) {
-            uint32_t *d32 = (uint32_t *)(dst_row + x);
-            const uint32_t *s32 = (const uint32_t *)(src_row + x);
-            d32[0] = s32[0];
-            d32[1] = s32[1];
+            const gfx_color_t *src_px = (const gfx_color_t *)(src_row + (size_t)x * sizeof(gfx_color_t));
+            uint8_t *dst_px = dst_row + (size_t)x * dst_px_size;
+            for (int i = 0; i < 4; i++) {
+                gfx_anim_write_rgb565_to_surface(dst_px + (size_t)i * dst_px_size, ctx->format, src_px[i].full);
+            }
         }
 
         for (; x < clip_width; x++) {
-            dst_row[x] = src_row[x];
+            gfx_anim_write_rgb565_to_surface(dst_row + (size_t)x * dst_px_size, ctx->format,
+                                             ((const gfx_color_t *)(src_row))[x].full);
         }
     }
 
     if (mirror_mode != GFX_MIRROR_DISABLED) {
         for (int32_t y = 0; y < clip_height; y++) {
-            uint16_t *dst_row = dest_pixels_16 + y * dest_stride;
-            const uint16_t *src_row = src_pixels_16 + y * src_stride;
+            uint8_t *dst_row = dest_base + ((size_t)(draw_area->y1 + y) * ctx->stride +
+                                            (size_t)draw_area->x1) * dst_px_size;
+            const gfx_color_t *src_row = (const gfx_color_t *)(src_pixels + (size_t)y * src_stride * sizeof(gfx_color_t));
 
             for (int32_t x = 0; x < clip_width; x++) {
                 int32_t mirror_x = gfx_anim_get_mirror_dst_x(width, mirror_offset, src_x_offset, x);
-                if (mirror_x >= 0 && (dest_x_offset + mirror_x) < dest_stride) {
-                    dst_row[mirror_x] = src_row[x];
+                if (mirror_x >= 0 && (dest_x_offset + mirror_x) < ctx->stride) {
+                    gfx_anim_write_rgb565_to_surface(dst_row + (size_t)mirror_x * dst_px_size,
+                                                     ctx->format, src_row[x].full);
                 }
             }
         }
@@ -800,7 +831,7 @@ static esp_err_t gfx_draw_animation(gfx_object_t *obj, const gfx_draw_ctx_t *ctx
             const uint8_t *block_payload = (const uint8_t *)anim->frame.frame_payload + block_offsets[block_idx];
             size_t block_payload_size = frame_desc->block_len[block_idx];
             esp_err_t decode_result = anim->decoder->decode_frame_block(frame_desc, block_payload, block_payload_size,
-                                      decode_buffer, ctx->swap);
+                                      decode_buffer);
             if (decode_result != ESP_OK) {
                 continue;
             }
@@ -822,15 +853,20 @@ static esp_err_t gfx_draw_animation(gfx_object_t *obj, const gfx_draw_ctx_t *ctx
             return ESP_ERR_INVALID_ARG;
         }
 
-        gfx_color_t *dest_pixels = GFX_DRAW_CTX_DEST_PTR(ctx, clip_block.x1, clip_block.y1);
+        gfx_area_t draw_area = {
+            .x1 = clip_block.x1 - ctx->buf_area.x1,
+            .y1 = clip_block.y1 - ctx->buf_area.y1,
+            .x2 = clip_block.x2 - ctx->buf_area.x1,
+            .y2 = clip_block.y2 - ctx->buf_area.y1,
+        };
         int32_t dest_x_offset = clip_block.x1 - ctx->buf_area.x1;
         int32_t mirror_offset = gfx_anim_get_effective_mirror_offset(obj, anim);
 
         esp_err_t render_result = gfx_anim_render_pixels(frame_desc->bit_depth,
-                                  dest_pixels, ctx->stride,
+                                  ctx,
                                   src_pixels, src_stride,
                                   frame_desc, palette_cache,
-                                  &clip_block,
+                                  &draw_area,
                                   anim->mirror_mode, mirror_offset, src_offset_x, dest_x_offset);
         if (render_result != ESP_OK) {
             continue;

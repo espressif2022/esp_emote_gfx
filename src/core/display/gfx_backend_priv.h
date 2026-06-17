@@ -38,7 +38,6 @@ typedef struct {
     gfx_area_t area;
     gfx_coord_t stride;
     gfx_color_format_t format;
-    bool swap;
 } gfx_backend_surface_t;
 
 typedef struct {
@@ -47,7 +46,6 @@ typedef struct {
     gfx_color_format_t format;
     const gfx_opa_t *alpha;
     gfx_coord_t alpha_stride;
-    bool swap;
 } gfx_backend_image_t;
 
 /* Optional backend acceleration hooks. Widget draw callbacks stay separate. */
@@ -81,7 +79,7 @@ typedef struct {
     gfx_err_t (*flush)(gfx_backend_t *backend, gfx_display_t *disp,
                        gfx_coord_t x1, gfx_coord_t y1,
                        gfx_coord_t x2, gfx_coord_t y2,
-                       const void *pixels);
+                       const void *pixels, gfx_coord_t stride);
     gfx_err_t (*wait_flush)(gfx_backend_t *backend, gfx_display_t *disp);
     void (*destroy)(gfx_backend_t *backend);
 } gfx_backend_vtable_t;
@@ -102,13 +100,18 @@ typedef struct {
 gfx_err_t gfx_backend_flush(gfx_display_t *disp,
                             gfx_coord_t x1, gfx_coord_t y1,
                             gfx_coord_t x2, gfx_coord_t y2,
-                            const void *pixels);
+                            const void *pixels, gfx_coord_t stride);
 gfx_err_t gfx_backend_wait_flush(gfx_display_t *disp);
 void gfx_backend_destroy(gfx_backend_t *backend);
 uint32_t gfx_backend_get_caps(const gfx_backend_t *backend);
 bool gfx_backend_has_caps(const gfx_backend_t *backend, uint32_t caps);
 const gfx_draw_ops_t *gfx_backend_get_draw_ops(const gfx_backend_t *backend);
 gfx_render_alignment_t gfx_backend_get_alignment(const gfx_backend_t *backend);
+gfx_backend_t *gfx_backend_create_custom(const gfx_backend_vtable_t *vtable,
+        const gfx_draw_ops_t *draw_ops,
+        gfx_render_alignment_t alignment,
+        uint32_t caps,
+        void *user_data);
 
 gfx_backend_t *gfx_callback_backend_create(gfx_display_flush_cb_t flush_cb,
         void *user_data);
