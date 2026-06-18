@@ -93,6 +93,42 @@ typedef struct {
 } gfx_asset_view_t;
 
 /**
+ * @brief Loaded read-only asset blob produced by gfx_asset_load().
+ *
+ * Callers only read @ref data and @ref size; the remaining fields hold internal
+ * ownership state and must not be touched. Release with gfx_asset_unload().
+ */
+typedef struct {
+    const void *data;            /**< Read-only bytes, valid until gfx_asset_unload(). */
+    size_t size;                 /**< Size in bytes. */
+    gfx_asset_view_t view;       /**< Internal: default-store view (zeroed when unused). */
+    void *owned;                 /**< Internal: heap buffer for the filesystem fallback. */
+} gfx_asset_blob_t;
+
+/**
+ * @brief Load an asset by name/path into a resident read-only blob.
+ *
+ * This is the simple two-call entry for most consumers; it hides backend
+ * selection entirely. Resolution order:
+ * 1. The process-wide default asset store (mmap-assets direct address, dir/VFS
+ *    copy, or raw partition), configured via gfx_asset_set_default_store().
+ * 2. A plain filesystem fopen()/fread() fallback into an owned heap buffer,
+ *    covering SPIFFS/FATFS/SD or host paths when no default store is set.
+ *
+ * @param name     Resource name or filesystem path.
+ * @param out_blob Output blob; release with gfx_asset_unload().
+ * @return GFX_OK on success, or a GFX_ERR_* code.
+ */
+gfx_err_t gfx_asset_load(const char *name, gfx_asset_blob_t *out_blob);
+
+/**
+ * @brief Release a blob loaded by gfx_asset_load(). Idempotent; NULL allowed.
+ *
+ * @param blob Blob previously filled by gfx_asset_load().
+ */
+void gfx_asset_unload(gfx_asset_blob_t *blob);
+
+/**
  * @brief Open an asset store from a unified configuration.
  *
  * This is the preferred constructor for new code. Backend-specific helpers are

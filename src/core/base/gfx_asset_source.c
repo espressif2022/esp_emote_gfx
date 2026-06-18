@@ -59,6 +59,56 @@ static esp_err_t gfx_asset_source_read_file(const char *path, uint8_t **out_data
     return ESP_OK;
 }
 
+static gfx_err_t gfx_asset_err_from_esp(esp_err_t err)
+{
+    switch (err) {
+    case ESP_OK:                return GFX_OK;
+    case ESP_ERR_NO_MEM:        return GFX_ERR_NO_MEM;
+    case ESP_ERR_INVALID_ARG:   return GFX_ERR_INVALID_ARG;
+    case ESP_ERR_INVALID_STATE: return GFX_ERR_INVALID_STATE;
+    case ESP_ERR_INVALID_SIZE:  return GFX_ERR_INVALID_SIZE;
+    case ESP_ERR_NOT_FOUND:     return GFX_ERR_NOT_FOUND;
+    case ESP_ERR_NOT_SUPPORTED: return GFX_ERR_NOT_SUPPORTED;
+    default:                    return GFX_FAIL;
+    }
+}
+
+gfx_err_t gfx_asset_load(const char *name, gfx_asset_blob_t *out_blob)
+{
+    if (out_blob != NULL) {
+        memset(out_blob, 0, sizeof(*out_blob));
+    }
+    if (name == NULL || out_blob == NULL) {
+        return GFX_ERR_INVALID_ARG;
+    }
+
+    gfx_asset_source_t src;
+    esp_err_t err = gfx_asset_source_load(name, &src);
+    if (err != ESP_OK) {
+        return gfx_asset_err_from_esp(err);
+    }
+
+    /* Transfer ownership of the resolved view/buffer into the public blob; the
+     * data pointer stays valid because we do not release `src` here. */
+    out_blob->view  = src.view;
+    out_blob->owned = src.owned_data;
+    out_blob->data  = src.data;
+    out_blob->size  = src.size;
+    return GFX_OK;
+}
+
+void gfx_asset_unload(gfx_asset_blob_t *blob)
+{
+    if (blob == NULL) {
+        return;
+    }
+    gfx_asset_view_close(&blob->view);
+    if (blob->owned != NULL) {
+        gfx_platform_free(blob->owned);
+    }
+    memset(blob, 0, sizeof(*blob));
+}
+
 esp_err_t gfx_asset_source_load(const char *path, gfx_asset_source_t *out)
 {
     gfx_asset_store_t *store;
