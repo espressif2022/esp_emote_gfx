@@ -157,6 +157,7 @@ void gfx_object_child_list_free_nodes(gfx_object_child_t **list);
 
 void gfx_object_cal_aligned_pos(gfx_object_t *obj, uint32_t parent_width, uint32_t parent_height, gfx_coord_t *x, gfx_coord_t *y);
 void gfx_object_calc_pos_in_parent(gfx_object_t *obj);
+bool gfx_object_resolve_abs_area_unclipped(gfx_object_t *obj, gfx_area_t *area);
 gfx_err_t gfx_object_load_resource(gfx_object_t *obj);
 void gfx_object_release_resource(gfx_object_t *obj);
 void gfx_object_mark_resource_dirty(gfx_object_t *obj);

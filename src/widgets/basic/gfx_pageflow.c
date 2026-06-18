@@ -22,6 +22,7 @@
 #include "render/sw/gfx_sw_draw_priv.h"
 #include "widgets/label/gfx_label_draw_priv.h"
 #include "widgets/label/gfx_label_priv.h"
+#include "widgets/img/gfx_image_resource_priv.h"
 
 #define CHECK_OBJ_TYPE_PAGEFLOW(obj) CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_PAGEFLOW, TAG)
 #define GFX_PAGEFLOW_DEFAULT_WIDTH 300U
@@ -35,7 +36,8 @@
 typedef struct {
     gfx_label_t label;
     char **pages;
-    const gfx_image_dsc_t *const *images;
+    const gfx_image_dsc_t **images;
+    gfx_image_resource_t *image_resources;
     uint16_t page_count;
     int32_t page_index;
     bool use_images;
@@ -128,8 +130,16 @@ static void gfx_pageflow_free_pages(gfx_pageflow_t *flow)
         }
     }
     free(flow->pages);
+    free(flow->images);
+    if (flow->image_resources != NULL) {
+        for (uint16_t i = 0; i < flow->page_count; i++) {
+            gfx_image_resource_close(&flow->image_resources[i]);
+        }
+    }
+    free(flow->image_resources);
     flow->pages = NULL;
     flow->images = NULL;
+    flow->image_resources = NULL;
     flow->page_count = 0;
     flow->page_index = 0;
     flow->use_images = false;
@@ -221,20 +231,6 @@ static void gfx_pageflow_start_tween(gfx_object_t *obj, gfx_pageflow_t *flow, in
 static esp_err_t gfx_pageflow_call_label_draw(gfx_object_t *obj, gfx_pageflow_t *flow,
         const gfx_draw_ctx_t *ctx, const char *text, const gfx_area_t *area, const gfx_area_t *clip)
 {
-    uint8_t original_type = obj->type;
-    void *original_src = obj->src;
-    gfx_area_t original_geometry = {
-        .x1 = obj->geometry.x,
-        .y1 = obj->geometry.y,
-        .x2 = obj->geometry.width,
-        .y2 = obj->geometry.height,
-    };
-    uint8_t original_align_type = obj->align.type;
-    gfx_coord_t original_align_x_ofs = obj->align.x_ofs;
-    gfx_coord_t original_align_y_ofs = obj->align.y_ofs;
-    gfx_object_t *original_align_target = obj->align.target;
-    bool original_align_enabled = obj->align.enabled;
-    gfx_draw_ctx_t label_ctx = *ctx;
     gfx_area_t text_area = {
         .x1 = (gfx_coord_t)(area->x1 + GFX_PAGEFLOW_PAD_X),
         .y1 = (gfx_coord_t)(area->y1 + GFX_PAGEFLOW_PAD_Y),
@@ -257,37 +253,15 @@ static esp_err_t gfx_pageflow_call_label_draw(gfx_object_t *obj, gfx_pageflow_t 
     flow->label.style.color = flow->style.text_color;
     flow->label.style.bg_enable = false;
 
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    obj->src = &flow->label;
-    obj->geometry.x = text_area.x1;
-    obj->geometry.y = text_area.y1;
-    obj->geometry.width = (uint16_t)MAX(0, text_area.x2 - text_area.x1);
-    obj->geometry.height = (uint16_t)MAX(0, text_area.y2 - text_area.y1);
-    obj->align.enabled = false;
-    obj->state.dirty = true;
-
-    ret = gfx_label_update_impl(obj);
+    ret = gfx_label_text_box_update(obj, &flow->label, &text_area);
     if (ret == ESP_OK) {
-        label_ctx.clip_area = *clip;
-        ret = gfx_label_draw(obj, &label_ctx);
+        ret = gfx_label_text_box_draw(obj, &flow->label, ctx, &text_area, clip);
     }
-
-    obj->type = original_type;
-    obj->src = original_src;
-    obj->geometry.x = original_geometry.x1;
-    obj->geometry.y = original_geometry.y1;
-    obj->geometry.width = (uint16_t)original_geometry.x2;
-    obj->geometry.height = (uint16_t)original_geometry.y2;
-    obj->align.type = original_align_type;
-    obj->align.x_ofs = original_align_x_ofs;
-    obj->align.y_ofs = original_align_y_ofs;
-    obj->align.target = original_align_target;
-    obj->align.enabled = original_align_enabled;
     return ret;
 }
 
 static void gfx_pageflow_draw_image(gfx_object_t *obj, const gfx_draw_ctx_t *ctx,
-                                    const gfx_image_dsc_t *image, const gfx_area_t *page_area,
+                                    const gfx_image_resource_t *resource, const gfx_area_t *page_area,
                                     const gfx_area_t *clip)
 {
     gfx_color_format_t color_format;
@@ -307,30 +281,28 @@ static void gfx_pageflow_draw_image(gfx_object_t *obj, const gfx_draw_ctx_t *ctx
         .format = ctx->format,
     };
 
-    if (obj == NULL || ctx == NULL || image == NULL || image->data == NULL ||
-            image->header.magic != GFX_IMAGE_HEADER_MAGIC ||
-            image->header.w == 0U || image->header.h == 0U) {
+    if (obj == NULL || ctx == NULL || resource == NULL ||
+            resource->header.w == 0U || resource->header.h == 0U ||
+            !gfx_image_resource_is_open(resource)) {
         return;
     }
 
-    color_format = (gfx_color_format_t)image->header.cf;
+    color_format = gfx_image_resource_format(resource);
     if (!gfx_color_format_is_image_supported(color_format)) {
         return;
     }
 
-    src_pixel_size = gfx_color_format_get_size(color_format);
+    src_pixel_size = gfx_image_resource_pixel_size(resource);
     if (src_pixel_size == 0U) {
         return;
     }
 
-    src_stride = (image->header.stride > 0U)
-                 ? (gfx_coord_t)(image->header.stride / src_pixel_size)
-                 : (gfx_coord_t)image->header.w;
+    src_stride = gfx_image_resource_stride_px(resource);
 
     image_area.x1 = page_area->x1;
     image_area.y1 = page_area->y1;
-    image_area.x2 = (gfx_coord_t)(page_area->x1 + image->header.w);
-    image_area.y2 = (gfx_coord_t)(page_area->y1 + image->header.h);
+    image_area.x2 = (gfx_coord_t)(page_area->x1 + resource->header.w);
+    image_area.y2 = (gfx_coord_t)(page_area->y1 + resource->header.h);
     if (!gfx_area_intersect_exclusive(&draw_area, clip, &image_area)) {
         return;
     }
@@ -342,16 +314,19 @@ static void gfx_pageflow_draw_image(gfx_object_t *obj, const gfx_draw_ctx_t *ctx
 
     gfx_coord_t src_x = (gfx_coord_t)(draw_area.x1 - image_area.x1);
     gfx_coord_t src_y = (gfx_coord_t)(draw_area.y1 - image_area.y1);
-    src_pixels = image->data +
+    src_pixels = gfx_image_resource_pixels(resource) +
                  ((size_t)src_y * src_stride +
                   (size_t)src_x) * src_pixel_size;
     if (gfx_color_format_has_plane_alpha(color_format)) {
-        const uint8_t *alpha_base = image->data + (size_t)src_stride * image->header.h * src_pixel_size;
+        const gfx_opa_t *alpha_base = gfx_image_resource_alpha(resource);
+        if (alpha_base == NULL) {
+            return;
+        }
         alpha_mask = GFX_BUFFER_OFFSET_8BPP(alpha_base,
                                             draw_area.y1 - image_area.y1,
-                                            image->header.w,
+                                            resource->header.w,
                                             draw_area.x1 - image_area.x1);
-        alpha_stride = (gfx_coord_t)image->header.w;
+        alpha_stride = gfx_image_resource_alpha_stride(resource);
     }
 
     gfx_render_image_t render_src = {
@@ -362,9 +337,9 @@ static void gfx_pageflow_draw_image(gfx_object_t *obj, const gfx_draw_ctx_t *ctx
         .alpha_stride = alpha_stride,
     };
     gfx_render_image_t backend_src = render_src;
-    backend_src.pixels = image->data;
+    backend_src.pixels = gfx_image_resource_pixels(resource);
     if (gfx_color_format_has_plane_alpha(color_format)) {
-        backend_src.alpha = (gfx_opa_t *)(image->data + (size_t)src_stride * image->header.h * src_pixel_size);
+        backend_src.alpha = (gfx_opa_t *)gfx_image_resource_alpha(resource);
     }
     if (gfx_render_surface_blit_image(obj->disp, &dst_surface, &draw_area, &backend_src,
                                       src_x,
@@ -415,7 +390,9 @@ static void gfx_pageflow_draw_one(gfx_object_t *obj, gfx_pageflow_t *flow, const
                                     &page_area, flow->style.border_width, flow->style.border_color, 0xFF);
     }
     if (flow->use_images) {
-        gfx_pageflow_draw_image(obj, ctx, flow->images[page_index], &page_area, &clip);
+        if (flow->image_resources != NULL) {
+            gfx_pageflow_draw_image(obj, ctx, &flow->image_resources[page_index], &page_area, &clip);
+        }
     } else {
         (void)gfx_pageflow_call_label_draw(obj, flow, ctx, flow->pages[page_index], &page_area, &clip);
     }
@@ -439,11 +416,9 @@ static esp_err_t gfx_pageflow_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     flow = (gfx_pageflow_t *)obj->src;
     GFX_RETURN_IF_NULL(flow, ESP_ERR_INVALID_STATE);
 
-    gfx_object_calc_pos_in_parent(obj);
-    obj_area.x1 = obj->geometry.x;
-    obj_area.y1 = obj->geometry.y;
-    obj_area.x2 = obj->geometry.x + obj->geometry.width;
-    obj_area.y2 = obj->geometry.y + obj->geometry.height;
+    if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
+        return ESP_OK;
+    }
     if (!gfx_area_intersect_exclusive(&clip, &ctx->clip_area, &obj_area)) {
         return ESP_OK;
     }
@@ -462,7 +437,6 @@ static esp_err_t gfx_pageflow_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 static esp_err_t gfx_pageflow_update(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
-    gfx_object_calc_pos_in_parent(obj);
     return ESP_OK;
 }
 
@@ -484,25 +458,35 @@ static esp_err_t gfx_pageflow_delete_impl(gfx_object_t *obj)
 
 static esp_err_t gfx_pageflow_load_impl(gfx_object_t *obj)
 {
-    uint8_t original_type = obj->type;
-    esp_err_t ret;
+    gfx_pageflow_t *flow;
+
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    ret = gfx_label_load_impl(obj);
-    obj->type = original_type;
-    return ret;
+    flow = (gfx_pageflow_t *)obj->src;
+    ESP_RETURN_ON_FALSE(flow != NULL, ESP_ERR_INVALID_STATE, TAG, "load: state is NULL");
+
+    ESP_RETURN_ON_ERROR(gfx_label_load_state(obj, &flow->label), TAG, "load label failed");
+    if (flow->use_images && flow->image_resources != NULL) {
+        for (uint16_t i = 0; i < flow->page_count; i++) {
+            ESP_RETURN_ON_ERROR(gfx_image_resource_open(&flow->image_resources[i]),
+                                TAG, "load image resource failed");
+        }
+    }
+    return ESP_OK;
 }
 
 static void gfx_pageflow_release_impl(gfx_object_t *obj)
 {
-    uint8_t original_type;
     if (obj == NULL || obj->src == NULL || obj->type != GFX_OBJ_TYPE_PAGEFLOW) {
         return;
     }
-    original_type = obj->type;
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    gfx_label_release_impl(obj);
-    obj->type = original_type;
+
+    gfx_pageflow_t *flow = (gfx_pageflow_t *)obj->src;
+    gfx_label_release_state(&flow->label);
+    if (flow->image_resources != NULL) {
+        for (uint16_t i = 0; i < flow->page_count; i++) {
+            gfx_image_resource_close(&flow->image_resources[i]);
+        }
+    }
 }
 
 static void gfx_pageflow_touch_event(gfx_object_t *obj, const void *event_data)
@@ -646,17 +630,75 @@ gfx_err_t gfx_pageflow_set_pages(gfx_object_t *obj, const char *const *pages, ui
 gfx_err_t gfx_pageflow_set_image_pages(gfx_object_t *obj, const gfx_image_dsc_t *const *images,
                                        uint16_t page_count)
 {
+    gfx_image_src_t *sources = NULL;
+    gfx_err_t ret;
+
+    CHECK_OBJ_TYPE_PAGEFLOW(obj);
+    ESP_RETURN_ON_FALSE(page_count == 0U || images != NULL, ESP_ERR_INVALID_ARG, TAG, "images is NULL");
+
+    if (page_count > 0U) {
+        sources = calloc(page_count, sizeof(sources[0]));
+        if (sources == NULL) {
+            return ESP_ERR_NO_MEM;
+        }
+        for (uint16_t i = 0; i < page_count; i++) {
+            sources[i] = (gfx_image_src_t) {
+                .type = GFX_IMAGE_SRC_TYPE_IMAGE_DSC,
+                .data = images[i],
+            };
+        }
+    }
+
+    ret = gfx_pageflow_set_image_sources(obj, sources, page_count);
+    free(sources);
+    return ret;
+}
+
+gfx_err_t gfx_pageflow_set_image_sources(gfx_object_t *obj, const gfx_image_src_t *sources,
+        uint16_t page_count)
+{
     gfx_pageflow_t *flow;
+    const gfx_image_dsc_t **image_copy = NULL;
+    gfx_image_resource_t *resource_copy = NULL;
+
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
     GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
-    ESP_RETURN_ON_FALSE(page_count == 0U || images != NULL, ESP_ERR_INVALID_ARG, TAG, "images is NULL");
+    ESP_RETURN_ON_FALSE(page_count == 0U || sources != NULL, ESP_ERR_INVALID_ARG, TAG, "image sources is NULL");
+
+    if (page_count > 0U) {
+        image_copy = calloc(page_count, sizeof(image_copy[0]));
+        if (image_copy == NULL) {
+            return ESP_ERR_NO_MEM;
+        }
+        resource_copy = calloc(page_count, sizeof(resource_copy[0]));
+        if (resource_copy == NULL) {
+            free(image_copy);
+            return ESP_ERR_NO_MEM;
+        }
+        for (uint16_t i = 0; i < page_count; i++) {
+            esp_err_t ret = gfx_image_resource_set_source(&resource_copy[i], &sources[i]);
+            if (ret != ESP_OK) {
+                for (uint16_t j = 0; j < i; j++) {
+                    gfx_image_resource_close(&resource_copy[j]);
+                }
+                free(resource_copy);
+                free(image_copy);
+                return ret;
+            }
+            if (sources[i].type == GFX_IMAGE_SRC_TYPE_IMAGE_DSC) {
+                image_copy[i] = (const gfx_image_dsc_t *)sources[i].data;
+            }
+        }
+    }
 
     flow = (gfx_pageflow_t *)obj->src;
     gfx_pageflow_free_pages(flow);
-    flow->images = images;
+    flow->images = image_copy;
+    flow->image_resources = resource_copy;
     flow->page_count = page_count;
     flow->page_index = page_count > 0U ? 0 : -1;
     flow->use_images = true;
+    gfx_object_mark_resource_dirty(obj);
     gfx_object_invalidate(obj);
     return ESP_OK;
 }

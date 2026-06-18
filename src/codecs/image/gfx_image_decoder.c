@@ -8,6 +8,7 @@
  *      INCLUDES
  *********************/
 #include <inttypes.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "esp_err.h"
@@ -15,7 +16,11 @@
 #include "esp_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_IMAGE_DECODER
 #include "common/gfx_log_priv.h"
+#include "core/gfx_asset.h"
+#include "core/base/gfx_asset_source.h"
 #include "core/gfx_types_priv.h"
+#include "platform/gfx_platform.h"
+#include "platform/gfx_platform_jpeg_priv.h"
 
 #include "codecs/image/gfx_image_decoder_priv.h"
 
@@ -36,7 +41,11 @@
 static esp_err_t gfx_image_decoder_c_array_info_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc, gfx_image_header_t *header);
 static esp_err_t gfx_image_decoder_c_array_open_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc);
 static void gfx_image_decoder_c_array_close_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc);
+static esp_err_t gfx_image_decoder_jpeg_info_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc, gfx_image_header_t *header);
+static esp_err_t gfx_image_decoder_jpeg_open_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc);
+static void gfx_image_decoder_jpeg_close_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc);
 static const void *gfx_image_decoder_get_payload(const gfx_image_decoder_dsc_t *dsc);
+static size_t gfx_image_decoder_get_payload_size(const gfx_image_decoder_dsc_t *dsc);
 
 /**********************
  *  STATIC VARIABLES
@@ -53,6 +62,13 @@ static gfx_image_decoder_t s_gfx_image_decoder_c_array = {
     .close_cb = gfx_image_decoder_c_array_close_cb,
 };
 
+static gfx_image_decoder_t s_gfx_image_decoder_jpeg = {
+    .name = "jpeg",
+    .info_cb = gfx_image_decoder_jpeg_info_cb,
+    .open_cb = gfx_image_decoder_jpeg_open_cb,
+    .close_cb = gfx_image_decoder_jpeg_close_cb,
+};
+
 /**********************
  *   STATIC FUNCTIONS
  **********************/
@@ -65,9 +81,40 @@ static const void *gfx_image_decoder_get_payload(const gfx_image_decoder_dsc_t *
 
     switch (dsc->src.type) {
     case GFX_IMAGE_SRC_TYPE_IMAGE_DSC:
+    case GFX_IMAGE_SRC_TYPE_MEMORY:
+        return dsc->src.data;
+    case GFX_IMAGE_SRC_TYPE_FILE:
         return dsc->src.data;
     default:
         return NULL;
+    }
+}
+
+static const char *gfx_image_decoder_src_type_name(gfx_image_src_type_t type)
+{
+    switch (type) {
+    case GFX_IMAGE_SRC_TYPE_IMAGE_DSC:
+        return "dsc";
+    case GFX_IMAGE_SRC_TYPE_MEMORY:
+        return "mem";
+    case GFX_IMAGE_SRC_TYPE_FILE:
+        return "file";
+    default:
+        return "unknown";
+    }
+}
+
+static size_t gfx_image_decoder_get_payload_size(const gfx_image_decoder_dsc_t *dsc)
+{
+    if (dsc == NULL) {
+        return 0U;
+    }
+
+    switch (dsc->src.type) {
+    case GFX_IMAGE_SRC_TYPE_MEMORY:
+        return dsc->src.data_len;
+    default:
+        return 0U;
     }
 }
 
@@ -125,6 +172,9 @@ gfx_image_format_t gfx_image_detect_format(const void *src)
 
     if (byte_ptr[0] == GFX_IMAGE_HEADER_MAGIC) {
         return GFX_IMAGE_FORMAT_C_ARRAY;
+    }
+    if (byte_ptr[0] == 0xFFU && byte_ptr[1] == 0xD8U) {
+        return GFX_IMAGE_FORMAT_JPEG;
     }
 
     return GFX_IMAGE_FORMAT_UNKNOWN;
@@ -208,6 +258,10 @@ static esp_err_t gfx_image_decoder_c_array_info_cb(gfx_image_decoder_t *decoder,
 {
     (void)decoder;
 
+    if (dsc == NULL || dsc->src.type != GFX_IMAGE_SRC_TYPE_IMAGE_DSC) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
     const void *payload = gfx_image_decoder_get_payload(dsc);
 
     if (payload == NULL) {
@@ -229,6 +283,10 @@ static esp_err_t gfx_image_decoder_c_array_info_cb(gfx_image_decoder_t *decoder,
 static esp_err_t gfx_image_decoder_c_array_open_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc)
 {
     (void)decoder;
+
+    if (dsc == NULL || dsc->src.type != GFX_IMAGE_SRC_TYPE_IMAGE_DSC) {
+        return ESP_ERR_INVALID_ARG;
+    }
 
     const void *payload = gfx_image_decoder_get_payload(dsc);
 
@@ -255,9 +313,125 @@ static void gfx_image_decoder_c_array_close_cb(gfx_image_decoder_t *decoder, gfx
     (void)dsc;
 }
 
+static esp_err_t gfx_image_decoder_jpeg_info_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc,
+        gfx_image_header_t *header)
+{
+    uint32_t w = 0;
+    uint32_t h = 0;
+    const uint8_t *payload = NULL;
+    gfx_asset_source_t file_src = {0};
+    size_t payload_size = 0;
+    (void)decoder;
+
+    ESP_RETURN_ON_FALSE(dsc != NULL && (dsc->src.type == GFX_IMAGE_SRC_TYPE_MEMORY ||
+                                        dsc->src.type == GFX_IMAGE_SRC_TYPE_FILE),
+                        ESP_ERR_INVALID_ARG, TAG, "jpeg info: unsupported source type");
+    if (dsc->src.type == GFX_IMAGE_SRC_TYPE_FILE) {
+        ESP_RETURN_ON_ERROR(gfx_asset_source_load((const char *)dsc->src.data, &file_src),
+                            TAG, "jpeg info: open file source failed");
+        payload = file_src.data;
+        payload_size = file_src.size;
+    } else {
+        payload = (const uint8_t *)gfx_image_decoder_get_payload(dsc);
+        payload_size = gfx_image_decoder_get_payload_size(dsc);
+    }
+
+    esp_err_t ret = ESP_OK;
+    ESP_GOTO_ON_FALSE(payload != NULL && payload_size >= 2U,
+                      ESP_ERR_INVALID_ARG, cleanup, TAG, "jpeg info: payload is invalid");
+    ESP_GOTO_ON_FALSE(gfx_image_detect_format(payload) == GFX_IMAGE_FORMAT_JPEG,
+                      ESP_ERR_INVALID_ARG, cleanup, TAG, "jpeg info: not jpeg");
+    ESP_GOTO_ON_FALSE(gfx_platform_jpeg_is_available(),
+                      ESP_ERR_NOT_SUPPORTED, cleanup, TAG, "jpeg info: platform jpeg unavailable");
+    ESP_GOTO_ON_ERROR(gfx_platform_jpeg_get_info(payload, payload_size, &w, &h),
+                      cleanup, TAG, "jpeg info: get info failed");
+    ESP_GOTO_ON_FALSE(w > 0U && h > 0U && w <= UINT16_MAX && h <= UINT16_MAX &&
+                      w * 3U <= UINT16_MAX,
+                      ESP_ERR_INVALID_SIZE, cleanup,
+                      TAG, "jpeg info: unsupported size %" PRIu32 "x%" PRIu32, w, h);
+
+    memset(header, 0, sizeof(*header));
+    header->magic = GFX_IMAGE_HEADER_MAGIC;
+    header->cf = GFX_COLOR_FORMAT_RGB888;
+    header->w = (uint16_t)w;
+    header->h = (uint16_t)h;
+    header->stride = (uint16_t)(w * 3U);
+
+cleanup:
+    gfx_asset_source_release(&file_src);
+    return ret;
+}
+
+static esp_err_t gfx_image_decoder_jpeg_open_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc)
+{
+    gfx_image_header_t header;
+    const uint8_t *payload = NULL;
+    gfx_asset_source_t file_src = {0};
+    size_t payload_size = 0;
+    uint8_t *out_data;
+    size_t out_size;
+    esp_err_t ret;
+
+    ESP_RETURN_ON_ERROR(gfx_image_decoder_jpeg_info_cb(decoder, dsc, &header),
+                        TAG, "jpeg open: info failed");
+
+    if (dsc->src.type == GFX_IMAGE_SRC_TYPE_FILE) {
+        ESP_RETURN_ON_ERROR(gfx_asset_source_load((const char *)dsc->src.data, &file_src),
+                            TAG, "jpeg open: open file source failed");
+        payload = file_src.data;
+        payload_size = file_src.size;
+    } else {
+        payload = (const uint8_t *)gfx_image_decoder_get_payload(dsc);
+        payload_size = gfx_image_decoder_get_payload_size(dsc);
+    }
+
+    out_size = (size_t)header.stride * (size_t)header.h;
+    out_data = gfx_platform_aligned_alloc(16, out_size, GFX_PLATFORM_HEAP_DEFAULT);
+    if (out_data == NULL) {
+        gfx_asset_source_release(&file_src);
+        return ESP_ERR_NO_MEM;
+    }
+
+    GFX_LOGI(TAG, "jpeg open: src=%s payload=%p encoded=%zu out=%ux%u bytes=%zu",
+             gfx_image_decoder_src_type_name(dsc->src.type), dsc->src.data, payload_size,
+             (unsigned)header.w, (unsigned)header.h, out_size);
+    ret = gfx_platform_jpeg_decode_rgb888(payload, payload_size, out_data, &out_size);
+    gfx_asset_source_release(&file_src);
+    if (ret != ESP_OK) {
+        gfx_platform_free(out_data);
+        return ret;
+    }
+
+    dsc->header = header;
+    dsc->data = out_data;
+    dsc->data_size = out_size;
+    dsc->user_data = out_data;
+    GFX_LOGI(TAG, "jpeg opened: pixels=%p bytes=%zu", out_data, out_size);
+    return ESP_OK;
+}
+
+static void gfx_image_decoder_jpeg_close_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc)
+{
+    (void)decoder;
+
+    if (dsc == NULL || dsc->user_data == NULL) {
+        return;
+    }
+    GFX_LOGI(TAG, "jpeg close: pixels=%p bytes=%zu", dsc->user_data, dsc->data_size);
+    gfx_platform_free(dsc->user_data);
+    dsc->user_data = NULL;
+    dsc->data = NULL;
+    dsc->data_size = 0;
+}
+
 esp_err_t gfx_image_decoder_init(void)
 {
     esp_err_t ret = gfx_image_decoder_register(&s_gfx_image_decoder_c_array);
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
+    ret = gfx_image_decoder_register(&s_gfx_image_decoder_jpeg);
     if (ret != ESP_OK) {
         return ret;
     }

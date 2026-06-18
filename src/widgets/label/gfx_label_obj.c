@@ -116,13 +116,10 @@ gfx_object_t *gfx_label_create(gfx_display_t *disp)
     return obj;
 }
 
-esp_err_t gfx_label_load_impl(gfx_object_t *obj)
+esp_err_t gfx_label_load_state(gfx_object_t *owner, gfx_label_t *label)
 {
-    gfx_label_t *label;
     gfx_font_handle_t font_handle;
 
-    CHECK_OBJ_TYPE_LABEL(obj);
-    label = (gfx_label_t *)obj->src;
     ESP_RETURN_ON_FALSE(label != NULL, ESP_ERR_INVALID_STATE, TAG, "load label: state is NULL");
 
     if (label->font.source == NULL) {
@@ -140,22 +137,35 @@ esp_err_t gfx_label_load_impl(gfx_object_t *obj)
 
     label->font.handle = font_handle;
     label->text.text_width = 0;
+    (void)owner;
     return ESP_OK;
 }
 
-void gfx_label_release_impl(gfx_object_t *obj)
+esp_err_t gfx_label_load_impl(gfx_object_t *obj)
 {
-    gfx_label_t *label;
+    CHECK_OBJ_TYPE_LABEL(obj);
+    return gfx_label_load_state(obj, (gfx_label_t *)obj->src);
+}
 
-    if (obj == NULL || obj->src == NULL || obj->type != GFX_OBJ_TYPE_LABEL) {
+void gfx_label_release_state(gfx_label_t *label)
+{
+    if (label == NULL) {
         return;
     }
 
-    label = (gfx_label_t *)obj->src;
     gfx_label_clear_glyph_cache(label);
     free(label->font.handle);
     label->font.handle = NULL;
     label->text.text_width = 0;
+}
+
+void gfx_label_release_impl(gfx_object_t *obj)
+{
+    if (obj == NULL || obj->src == NULL || obj->type != GFX_OBJ_TYPE_LABEL) {
+        return;
+    }
+
+    gfx_label_release_state((gfx_label_t *)obj->src);
 }
 
 esp_err_t gfx_label_set_font_source(gfx_object_t *obj, gfx_label_t *label, gfx_font_t font)
@@ -170,22 +180,19 @@ esp_err_t gfx_label_set_font_source(gfx_object_t *obj, gfx_label_t *label, gfx_f
     return ESP_OK;
 }
 
-esp_err_t gfx_label_delete_impl(gfx_object_t *obj)
+void gfx_label_delete_state(gfx_object_t *owner, gfx_label_t *label)
 {
-    CHECK_OBJ_TYPE_LABEL(obj);
-
-    gfx_label_t *label = (gfx_label_t *)obj->src;
     if (label == NULL) {
-        return ESP_OK;
+        return;
     }
 
     if (label->scroll.timer) {
-        gfx_timer_delete(obj->disp->ctx, label->scroll.timer);
+        gfx_timer_delete(owner->disp->ctx, label->scroll.timer);
         label->scroll.timer = NULL;
     }
 
     if (label->snap.timer) {
-        gfx_timer_delete(obj->disp->ctx, label->snap.timer);
+        gfx_timer_delete(owner->disp->ctx, label->snap.timer);
         label->snap.timer = NULL;
     }
 
@@ -195,6 +202,14 @@ esp_err_t gfx_label_delete_impl(gfx_object_t *obj)
     free(label->render.color_mask);
     label->render.color_mask_capacity = 0;
     label->render.inline_color = false;
+}
+
+esp_err_t gfx_label_delete_impl(gfx_object_t *obj)
+{
+    CHECK_OBJ_TYPE_LABEL(obj);
+
+    gfx_label_t *label = (gfx_label_t *)obj->src;
+    gfx_label_delete_state(obj, label);
     free(label);
 
     return ESP_OK;

@@ -131,7 +131,7 @@ static uint16_t gfx_list_page_count(const gfx_object_t *obj, const gfx_list_t *l
 static void gfx_list_sync_page_index(gfx_object_t *obj, gfx_list_t *list, bool emit);
 static void gfx_list_set_selected_internal(gfx_object_t *obj, gfx_list_t *list, int32_t index, bool confirmed);
 static void gfx_list_snap_scroll(gfx_object_t *obj, gfx_list_t *list);
-static int32_t gfx_list_index_from_point(gfx_object_t *obj, const gfx_list_t *list, uint16_t y);
+static int32_t gfx_list_index_from_point(const gfx_area_t *obj_area, const gfx_list_t *list, uint16_t y);
 static bool gfx_list_anim_step(gfx_object_t *obj, gfx_list_t *list);
 
 static const gfx_widget_class_t s_gfx_list_widget_class = {
@@ -503,14 +503,18 @@ static bool gfx_list_anim_step(gfx_object_t *obj, gfx_list_t *list)
 
 static void gfx_list_set_selected_internal(gfx_object_t *obj, gfx_list_t *list, int32_t index, bool confirmed)
 {
+    bool changed;
+
     if (obj == NULL || list == NULL) {
         return;
     }
-    if (list->selected_index != index) {
+
+    changed = list->selected_index != index;
+    if (changed) {
         list->selected_index = index;
         gfx_object_invalidate(obj);
     }
-    if (list->select_cb != NULL) {
+    if (list->select_cb != NULL && (changed || confirmed)) {
         list->select_cb(obj, index, confirmed, list->select_user_data);
     }
 }
@@ -528,16 +532,16 @@ static void gfx_list_snap_scroll(gfx_object_t *obj, gfx_list_t *list)
     gfx_list_set_scroll_y(obj, list, snapped);
 }
 
-static int32_t gfx_list_index_from_point(gfx_object_t *obj, const gfx_list_t *list, uint16_t y)
+static int32_t gfx_list_index_from_point(const gfx_area_t *obj_area, const gfx_list_t *list, uint16_t y)
 {
     int32_t local_y;
     int32_t index;
 
-    if (obj == NULL || list == NULL || list->item_height == 0U || list->item_count == 0U) {
+    if (obj_area == NULL || list == NULL || list->item_height == 0U || list->item_count == 0U) {
         return -1;
     }
 
-    local_y = (int32_t)y - (int32_t)obj->geometry.y + list->scroll_y;
+    local_y = (int32_t)y - (int32_t)obj_area->y1 + list->scroll_y;
     if (local_y < 0) {
         return -1;
     }
@@ -549,30 +553,6 @@ static int32_t gfx_list_index_from_point(gfx_object_t *obj, const gfx_list_t *li
 static esp_err_t gfx_list_call_label_update(gfx_object_t *obj, gfx_list_t *list,
         const char *text, const gfx_area_t *text_area)
 {
-    uint8_t original_type;
-    void *original_src;
-    gfx_area_t original_geometry;
-    uint8_t original_align_type;
-    gfx_coord_t original_align_x_ofs;
-    gfx_coord_t original_align_y_ofs;
-    gfx_object_t *original_align_target;
-    bool original_align_enabled;
-    esp_err_t ret;
-
-    original_type = obj->type;
-    original_src = obj->src;
-    original_geometry = (gfx_area_t) {
-        .x1 = obj->geometry.x,
-        .y1 = obj->geometry.y,
-        .x2 = obj->geometry.width,
-        .y2 = obj->geometry.height,
-    };
-    original_align_type = obj->align.type;
-    original_align_x_ofs = obj->align.x_ofs;
-    original_align_y_ofs = obj->align.y_ofs;
-    original_align_target = obj->align.target;
-    original_align_enabled = obj->align.enabled;
-
     list->label.text.text = (char *)(text ? text : "");
     list->label.text.text_width = 0;
     list->label.scroll.offset = 0;
@@ -581,46 +561,14 @@ static esp_err_t gfx_list_call_label_update(gfx_object_t *obj, gfx_list_t *list,
     list->label.render.mask = NULL;
     list->label.render.mask_capacity = 0;
 
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    obj->src = &list->label;
-    obj->geometry.x = text_area->x1;
-    obj->geometry.y = text_area->y1;
-    obj->geometry.width = (uint16_t)MAX(0, text_area->x2 - text_area->x1);
-    obj->geometry.height = (uint16_t)MAX(0, text_area->y2 - text_area->y1);
-    obj->align.enabled = false;
-    obj->state.dirty = true;
-
-    ret = gfx_label_update_impl(obj);
-
-    obj->type = original_type;
-    obj->src = original_src;
-    obj->geometry.x = original_geometry.x1;
-    obj->geometry.y = original_geometry.y1;
-    obj->geometry.width = (uint16_t)original_geometry.x2;
-    obj->geometry.height = (uint16_t)original_geometry.y2;
-    obj->align.type = original_align_type;
-    obj->align.x_ofs = original_align_x_ofs;
-    obj->align.y_ofs = original_align_y_ofs;
-    obj->align.target = original_align_target;
-    obj->align.enabled = original_align_enabled;
-
-    return ret;
+    return gfx_label_text_box_update(obj, &list->label, text_area);
 }
 
 static esp_err_t gfx_list_draw_text(gfx_object_t *obj, gfx_list_t *list, const gfx_draw_ctx_t *ctx,
                                     const char *text, const gfx_area_t *row_area,
                                     const gfx_area_t *clip_area, gfx_color_t color)
 {
-    uint8_t original_type;
-    void *original_src;
-    gfx_area_t original_geometry;
-    uint8_t original_align_type;
-    gfx_coord_t original_align_x_ofs;
-    gfx_coord_t original_align_y_ofs;
-    gfx_object_t *original_align_target;
-    bool original_align_enabled;
     gfx_area_t text_area;
-    gfx_draw_ctx_t text_ctx;
     esp_err_t ret;
 
     if (row_area->x2 <= row_area->x1 || row_area->y2 <= row_area->y1 ||
@@ -641,48 +589,10 @@ static esp_err_t gfx_list_draw_text(gfx_object_t *obj, gfx_list_t *list, const g
         return ret;
     }
 
-    original_type = obj->type;
-    original_src = obj->src;
-    original_geometry = (gfx_area_t) {
-        .x1 = obj->geometry.x,
-        .y1 = obj->geometry.y,
-        .x2 = obj->geometry.width,
-        .y2 = obj->geometry.height,
-    };
-    original_align_type = obj->align.type;
-    original_align_x_ofs = obj->align.x_ofs;
-    original_align_y_ofs = obj->align.y_ofs;
-    original_align_target = obj->align.target;
-    original_align_enabled = obj->align.enabled;
-
     list->label.style.color = color;
     list->label.style.bg_enable = false;
 
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    obj->src = &list->label;
-    obj->geometry.x = text_area.x1;
-    obj->geometry.y = text_area.y1;
-    obj->geometry.width = (uint16_t)MAX(0, text_area.x2 - text_area.x1);
-    obj->geometry.height = (uint16_t)MAX(0, text_area.y2 - text_area.y1);
-    obj->align.enabled = false;
-
-    text_ctx = *ctx;
-    text_ctx.clip_area = *clip_area;
-    ret = gfx_label_draw(obj, &text_ctx);
-
-    obj->type = original_type;
-    obj->src = original_src;
-    obj->geometry.x = original_geometry.x1;
-    obj->geometry.y = original_geometry.y1;
-    obj->geometry.width = (uint16_t)original_geometry.x2;
-    obj->geometry.height = (uint16_t)original_geometry.y2;
-    obj->align.type = original_align_type;
-    obj->align.x_ofs = original_align_x_ofs;
-    obj->align.y_ofs = original_align_y_ofs;
-    obj->align.target = original_align_target;
-    obj->align.enabled = original_align_enabled;
-
-    return ret;
+    return gfx_label_text_box_draw(obj, &list->label, ctx, &text_area, clip_area);
 }
 
 static esp_err_t gfx_list_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
@@ -703,12 +613,9 @@ static esp_err_t gfx_list_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     list = (gfx_list_t *)obj->src;
     GFX_RETURN_IF_NULL(list, ESP_ERR_INVALID_STATE);
 
-    gfx_object_calc_pos_in_parent(obj);
-
-    obj_area.x1 = obj->geometry.x;
-    obj_area.y1 = obj->geometry.y;
-    obj_area.x2 = obj->geometry.x + obj->geometry.width;
-    obj_area.y2 = obj->geometry.y + obj->geometry.height;
+    if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
+        return ESP_OK;
+    }
 
     if (!gfx_area_intersect_exclusive(&clip_area, &ctx->clip_area, &obj_area)) {
         return ESP_OK;
@@ -788,7 +695,6 @@ static esp_err_t gfx_list_update(gfx_object_t *obj)
     gfx_list_t *list;
 
     CHECK_OBJ_TYPE_LIST(obj);
-    gfx_object_calc_pos_in_parent(obj);
     list = (gfx_list_t *)obj->src;
     if (list != NULL) {
         (void)gfx_list_anim_step(obj, list);
@@ -816,34 +722,24 @@ static esp_err_t gfx_list_delete_impl(gfx_object_t *obj)
 
 static esp_err_t gfx_list_load_impl(gfx_object_t *obj)
 {
-    uint8_t original_type = obj->type;
-    esp_err_t ret;
-
     CHECK_OBJ_TYPE_LIST(obj);
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    ret = gfx_label_load_impl(obj);
-    obj->type = original_type;
-    return ret;
+    return gfx_label_load_state(obj, &((gfx_list_t *)obj->src)->label);
 }
 
 static void gfx_list_release_impl(gfx_object_t *obj)
 {
-    uint8_t original_type;
-
     if (obj == NULL || obj->src == NULL || obj->type != GFX_OBJ_TYPE_LIST) {
         return;
     }
 
-    original_type = obj->type;
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    gfx_label_release_impl(obj);
-    obj->type = original_type;
+    gfx_label_release_state(&((gfx_list_t *)obj->src)->label);
 }
 
 static void gfx_list_touch_event(gfx_object_t *obj, const void *event_data)
 {
     const gfx_touch_event_t *event = (const gfx_touch_event_t *)event_data;
     gfx_list_t *list;
+    gfx_area_t obj_area;
     int32_t index;
     int32_t delta_y;
     int32_t abs_dx;
@@ -860,17 +756,19 @@ static void gfx_list_touch_event(gfx_object_t *obj, const void *event_data)
         return;
     }
 
-    gfx_object_calc_pos_in_parent(obj);
+    if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
+        return;
+    }
     was_pressed = list->touch.pressed;
     was_dragging = list->touch.dragging;
     if (event->type == GFX_TOUCH_EVENT_RELEASE) {
         list->touch.pressed = false;
         list->touch.dragging = false;
     }
-    if ((gfx_coord_t)event->x < obj->geometry.x ||
-            (gfx_coord_t)event->x >= obj->geometry.x + (gfx_coord_t)obj->geometry.width ||
-            (gfx_coord_t)event->y < obj->geometry.y ||
-            (gfx_coord_t)event->y >= obj->geometry.y + (gfx_coord_t)obj->geometry.height) {
+    if ((gfx_coord_t)event->x < obj_area.x1 ||
+            (gfx_coord_t)event->x >= obj_area.x2 ||
+            (gfx_coord_t)event->y < obj_area.y1 ||
+            (gfx_coord_t)event->y >= obj_area.y2) {
         if (event->type == GFX_TOUCH_EVENT_RELEASE && was_pressed) {
             list->pressed_index = -1;
             gfx_list_snap_scroll(obj, list);
@@ -889,7 +787,7 @@ static void gfx_list_touch_event(gfx_object_t *obj, const void *event_data)
         list->touch.start_scroll_y = list->scroll_y;
         list->touch.last_timestamp_ms = event->timestamp_ms;
         list->touch.velocity_y = 0;
-        list->pressed_index = gfx_list_index_from_point(obj, list, event->y);
+        list->pressed_index = gfx_list_index_from_point(&obj_area, list, event->y);
         gfx_object_invalidate(obj);
         return;
     }
@@ -941,7 +839,7 @@ static void gfx_list_touch_event(gfx_object_t *obj, const void *event_data)
         return;
     }
 
-    index = gfx_list_index_from_point(obj, list, event->y);
+    index = gfx_list_index_from_point(&obj_area, list, event->y);
     if (index < 0 || index >= list->item_count) {
         return;
     }

@@ -68,7 +68,7 @@ static const char *const TAG = "button";
  **********************/
 
 static void gfx_button_init_default_state(gfx_button_t *button);
-static void gfx_button_apply_label_geometry(gfx_object_t *obj);
+static void gfx_button_get_label_area(const gfx_object_t *obj, const gfx_area_t *obj_area, gfx_area_t *area);
 static bool gfx_button_contains_point(gfx_object_t *obj, uint16_t x, uint16_t y);
 static esp_err_t gfx_button_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
 static esp_err_t gfx_button_update(gfx_object_t *obj);
@@ -76,9 +76,6 @@ static esp_err_t gfx_button_delete_impl(gfx_object_t *obj);
 static esp_err_t gfx_button_load_impl(gfx_object_t *obj);
 static void gfx_button_release_impl(gfx_object_t *obj);
 static void gfx_button_touch_event(gfx_object_t *obj, const void *event_data);
-static esp_err_t gfx_button_call_label_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
-static esp_err_t gfx_button_call_label_update(gfx_object_t *obj);
-static esp_err_t gfx_button_call_label_delete(gfx_object_t *obj);
 
 static const gfx_widget_class_t s_gfx_button_widget_class = {
     .type = GFX_OBJ_TYPE_BUTTON,
@@ -114,7 +111,7 @@ static void gfx_button_init_default_state(gfx_button_t *button)
     button->state.pressed = false;
 }
 
-static void gfx_button_apply_label_geometry(gfx_object_t *obj)
+static void gfx_button_get_label_area(const gfx_object_t *obj, const gfx_area_t *obj_area, gfx_area_t *area)
 {
     gfx_button_t *button = (gfx_button_t *)obj->src;
     gfx_coord_t inner_x;
@@ -122,8 +119,8 @@ static void gfx_button_apply_label_geometry(gfx_object_t *obj)
     uint16_t inner_w;
     uint16_t inner_h;
 
-    inner_x = obj->geometry.x + GFX_BUTTON_TEXT_PAD_X;
-    inner_y = obj->geometry.y + GFX_BUTTON_TEXT_PAD_Y;
+    inner_x = obj_area->x1 + GFX_BUTTON_TEXT_PAD_X;
+    inner_y = obj_area->y1 + GFX_BUTTON_TEXT_PAD_Y;
     inner_w = (obj->geometry.width > (GFX_BUTTON_TEXT_PAD_X * 2)) ? (obj->geometry.width - (GFX_BUTTON_TEXT_PAD_X * 2)) : obj->geometry.width;
     inner_h = (obj->geometry.height > (GFX_BUTTON_TEXT_PAD_Y * 2)) ? (obj->geometry.height - (GFX_BUTTON_TEXT_PAD_Y * 2)) : obj->geometry.height;
 
@@ -134,60 +131,29 @@ static void gfx_button_apply_label_geometry(gfx_object_t *obj)
         inner_h = obj->geometry.height;
     }
 
-    obj->geometry.x = inner_x;
-    obj->geometry.y = inner_y;
-    obj->geometry.width = inner_w;
-    obj->geometry.height = inner_h;
+    area->x1 = inner_x;
+    area->y1 = inner_y;
+    area->x2 = (gfx_coord_t)(inner_x + (gfx_coord_t)inner_w);
+    area->y2 = (gfx_coord_t)(inner_y + (gfx_coord_t)inner_h);
     button->label.style.bg_enable = false;
 }
 
 static bool gfx_button_contains_point(gfx_object_t *obj, uint16_t x, uint16_t y)
 {
+    gfx_area_t obj_area;
+
     if (obj == NULL) {
         return false;
     }
 
-    gfx_object_calc_pos_in_parent(obj);
-    return ((gfx_coord_t)x >= obj->geometry.x) &&
-           ((gfx_coord_t)y >= obj->geometry.y) &&
-           ((gfx_coord_t)x < (obj->geometry.x + (gfx_coord_t)obj->geometry.width)) &&
-           ((gfx_coord_t)y < (obj->geometry.y + (gfx_coord_t)obj->geometry.height));
-}
+    if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
+        return false;
+    }
 
-static esp_err_t gfx_button_call_label_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
-{
-    uint8_t original_type = obj->type;
-    esp_err_t ret;
-
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    ret = gfx_label_draw(obj, ctx);
-    obj->type = original_type;
-
-    return ret;
-}
-
-static esp_err_t gfx_button_call_label_update(gfx_object_t *obj)
-{
-    uint8_t original_type = obj->type;
-    esp_err_t ret;
-
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    ret = gfx_label_update_impl(obj);
-    obj->type = original_type;
-
-    return ret;
-}
-
-static esp_err_t gfx_button_call_label_delete(gfx_object_t *obj)
-{
-    uint8_t original_type = obj->type;
-    esp_err_t ret;
-
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    ret = gfx_label_delete_impl(obj);
-    obj->type = original_type;
-
-    return ret;
+    return ((gfx_coord_t)x >= obj_area.x1) &&
+           ((gfx_coord_t)y >= obj_area.y1) &&
+           ((gfx_coord_t)x < obj_area.x2) &&
+           ((gfx_coord_t)y < obj_area.y2);
 }
 
 static esp_err_t gfx_button_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
@@ -195,7 +161,7 @@ static esp_err_t gfx_button_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     gfx_button_t *button;
     gfx_area_t obj_area;
     gfx_area_t clip_area;
-    gfx_area_t saved_geometry;
+    gfx_area_t label_area;
     gfx_color_t fill_color;
     gfx_render_surface_t dst_surface = {
         .buf = ctx->buf,
@@ -211,12 +177,9 @@ static esp_err_t gfx_button_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     button = (gfx_button_t *)obj->src;
     GFX_RETURN_IF_NULL(button, ESP_ERR_INVALID_STATE);
 
-    gfx_object_calc_pos_in_parent(obj);
-
-    obj_area.x1 = obj->geometry.x;
-    obj_area.y1 = obj->geometry.y;
-    obj_area.x2 = obj->geometry.x + obj->geometry.width;
-    obj_area.y2 = obj->geometry.y + obj->geometry.height;
+    if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
+        return ESP_OK;
+    }
 
     if (!gfx_area_intersect_exclusive(&clip_area, &ctx->clip_area, &obj_area)) {
         return ESP_OK;
@@ -234,78 +197,51 @@ static esp_err_t gfx_button_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
                                 button->style.border_color,
                                 0xFF);
 
-    saved_geometry = (gfx_area_t) {
-        .x1 = obj->geometry.x,
-        .y1 = obj->geometry.y,
-        .x2 = obj->geometry.width,
-        .y2 = obj->geometry.height,
-    };
-    gfx_button_apply_label_geometry(obj);
-    gfx_button_call_label_draw(obj, ctx);
-    obj->geometry.x = saved_geometry.x1;
-    obj->geometry.y = saved_geometry.y1;
-    obj->geometry.width = (uint16_t)saved_geometry.x2;
-    obj->geometry.height = (uint16_t)saved_geometry.y2;
+    gfx_button_get_label_area(obj, &obj_area, &label_area);
+    (void)gfx_label_text_box_draw(obj, &button->label, ctx, &label_area, &clip_area);
 
     return ESP_OK;
 }
 
 static esp_err_t gfx_button_update(gfx_object_t *obj)
 {
-    gfx_area_t saved_geometry;
-    esp_err_t ret;
+    gfx_button_t *button;
+    gfx_area_t obj_area;
+    gfx_area_t label_area;
 
     CHECK_OBJ_TYPE_BUTTON(obj);
     GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
 
-    gfx_object_calc_pos_in_parent(obj);
+    if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
+        return ESP_OK;
+    }
+    button = (gfx_button_t *)obj->src;
 
-    saved_geometry = (gfx_area_t) {
-        .x1 = obj->geometry.x,
-        .y1 = obj->geometry.y,
-        .x2 = obj->geometry.width,
-        .y2 = obj->geometry.height,
-    };
-    gfx_button_apply_label_geometry(obj);
-    ret = gfx_button_call_label_update(obj);
-    obj->geometry.x = saved_geometry.x1;
-    obj->geometry.y = saved_geometry.y1;
-    obj->geometry.width = (uint16_t)saved_geometry.x2;
-    obj->geometry.height = (uint16_t)saved_geometry.y2;
-
-    return ret;
+    gfx_button_get_label_area(obj, &obj_area, &label_area);
+    return gfx_label_text_box_update(obj, &button->label, &label_area);
 }
 
 static esp_err_t gfx_button_delete_impl(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_BUTTON(obj);
-    return gfx_button_call_label_delete(obj);
+    gfx_label_delete_state(obj, &((gfx_button_t *)obj->src)->label);
+    free(obj->src);
+    return ESP_OK;
 }
 
 static esp_err_t gfx_button_load_impl(gfx_object_t *obj)
 {
-    uint8_t original_type = obj->type;
-    esp_err_t ret;
-
     CHECK_OBJ_TYPE_BUTTON(obj);
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    ret = gfx_label_load_impl(obj);
-    obj->type = original_type;
-    return ret;
+    return gfx_label_load_state(obj, &((gfx_button_t *)obj->src)->label);
 }
 
 static void gfx_button_release_impl(gfx_object_t *obj)
 {
-    uint8_t original_type;
-
     if (obj == NULL || obj->src == NULL || obj->type != GFX_OBJ_TYPE_BUTTON) {
         return;
     }
 
-    original_type = obj->type;
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    gfx_label_release_impl(obj);
-    obj->type = original_type;
+    gfx_label_release_state(&((gfx_button_t *)obj->src)->label);
 }
 
 static void gfx_button_touch_event(gfx_object_t *obj, const void *event_data)

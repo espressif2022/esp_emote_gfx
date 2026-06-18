@@ -7,6 +7,7 @@
 #include "common/gfx_subsystem_init_priv.h"
 #include "codecs/image/gfx_image_decoder_priv.h"
 #include "platform/gfx_platform_accel_priv.h"
+#include "platform/gfx_platform_jpeg_priv.h"
 
 esp_err_t gfx_subsystem_image_decoder_init(void)
 {
@@ -36,5 +37,16 @@ esp_err_t gfx_subsystem_accel_init(void)
 esp_err_t gfx_subsystem_accel_deinit(void)
 {
     gfx_platform_accel_deinit();
+    return ESP_OK;
+}
+
+esp_err_t gfx_subsystem_jpeg_init(void)
+{
+    return gfx_platform_jpeg_init();
+}
+
+esp_err_t gfx_subsystem_jpeg_deinit(void)
+{
+    gfx_platform_jpeg_deinit();
     return ESP_OK;
 }

@@ -24,7 +24,7 @@
 #include "render/sw/gfx_sw_draw_priv.h"
 #include "core/object/gfx_object_priv.h"
 #include "gfx/widgets/mesh_image.h"
-#include "codecs/image/gfx_image_decoder_priv.h"
+#include "widgets/img/gfx_image_resource_priv.h"
 
 /*********************
  *      DEFINES
@@ -42,8 +42,7 @@
  **********************/
 
 typedef struct {
-    gfx_image_src_t image_src;
-    gfx_image_header_t header;
+    gfx_image_resource_t resource;
     uint8_t grid_cols;
     uint8_t grid_rows;
     bool ctrl_points_visible;
@@ -74,23 +73,25 @@ typedef struct {
 
 static esp_err_t gfx_mesh_img_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
 static esp_err_t gfx_mesh_img_delete_impl(gfx_object_t *obj);
+static esp_err_t gfx_mesh_img_load_impl(gfx_object_t *obj);
+static void gfx_mesh_img_release_impl(gfx_object_t *obj);
 static void gfx_mesh_img_free_points(gfx_mesh_img_t *mesh);
 static void gfx_mesh_img_free_scratch(gfx_mesh_img_t *mesh);
 static esp_err_t gfx_mesh_img_alloc_points(gfx_mesh_img_t *mesh, uint8_t cols, uint8_t rows);
 static esp_err_t gfx_mesh_img_alloc_scratch(gfx_mesh_img_t *mesh);
 static void gfx_mesh_img_update_bounds(gfx_object_t *obj, gfx_mesh_img_t *mesh);
 static void gfx_mesh_img_reset_rest_points(gfx_mesh_img_t *mesh);
-static void gfx_mesh_img_get_draw_origin_q8(gfx_object_t *obj, const gfx_mesh_img_t *mesh, int32_t *x_q8, int32_t *y_q8);
-static esp_err_t gfx_mesh_img_load_header(const gfx_image_src_t *src, gfx_image_header_t *header);
-static esp_err_t gfx_mesh_img_prepare_decoder(const gfx_mesh_img_t *mesh, gfx_image_decoder_dsc_t *decoder_dsc);
+static void gfx_mesh_img_get_draw_origin_q8(const gfx_area_t *obj_area, const gfx_mesh_img_t *mesh,
+        int32_t *x_q8, int32_t *y_q8);
 static void gfx_mesh_img_draw_ctrl_points(gfx_object_t *obj, const gfx_draw_ctx_t *ctx, const gfx_mesh_img_t *mesh);
-static esp_err_t gfx_mesh_img_validate_src(const gfx_image_src_t *src);
 
 static const gfx_widget_class_t s_gfx_mesh_img_widget_class = {
     .type = GFX_OBJ_TYPE_MESH_IMAGE,
     .name = "mesh_img",
     .draw = gfx_mesh_img_draw,
     .delete = gfx_mesh_img_delete_impl,
+    .load = gfx_mesh_img_load_impl,
+    .release = gfx_mesh_img_release_impl,
     .update = NULL,
     .touch_event = NULL,
 };
@@ -251,8 +252,8 @@ static void gfx_mesh_img_reset_rest_points(gfx_mesh_img_t *mesh)
         return;
     }
 
-    width = (mesh->header.w > 0U) ? ((int32_t)mesh->header.w - 1) : 0;
-    height = (mesh->header.h > 0U) ? ((int32_t)mesh->header.h - 1) : 0;
+    width = (mesh->resource.header.w > 0U) ? ((int32_t)mesh->resource.header.w - 1) : 0;
+    height = (mesh->resource.header.h > 0U) ? ((int32_t)mesh->resource.header.h - 1) : 0;
 
     for (uint8_t row = 0; row <= mesh->grid_rows; row++) {
         int32_t y = (mesh->grid_rows > 0U) ? ((height * row) / mesh->grid_rows) : 0;
@@ -284,16 +285,18 @@ static void gfx_mesh_img_update_bounds(gfx_object_t *obj, gfx_mesh_img_t *mesh)
     }
 
     if (mesh->points == NULL || mesh->point_count == 0U) {
-        obj->geometry.width = mesh->header.w;
-        obj->geometry.height = mesh->header.h;
+        obj->geometry.width = mesh->resource.header.w;
+        obj->geometry.height = mesh->resource.header.h;
+        obj->local_geometry.width = mesh->resource.header.w;
+        obj->local_geometry.height = mesh->resource.header.h;
         mesh->bounds_min_x_q8 = 0;
         mesh->bounds_min_y_q8 = 0;
-        mesh->bounds_max_x_q8 = (mesh->header.w > 0U) ? ((int32_t)(mesh->header.w - 1U) << GFX_MESH_IMG_Q8_SHIFT) : 0;
-        mesh->bounds_max_y_q8 = (mesh->header.h > 0U) ? ((int32_t)(mesh->header.h - 1U) << GFX_MESH_IMG_Q8_SHIFT) : 0;
+        mesh->bounds_max_x_q8 = (mesh->resource.header.w > 0U) ? ((int32_t)(mesh->resource.header.w - 1U) << GFX_MESH_IMG_Q8_SHIFT) : 0;
+        mesh->bounds_max_y_q8 = (mesh->resource.header.h > 0U) ? ((int32_t)(mesh->resource.header.h - 1U) << GFX_MESH_IMG_Q8_SHIFT) : 0;
         mesh->bounds_min_x = 0;
         mesh->bounds_min_y = 0;
-        mesh->bounds_max_x = (mesh->header.w > 0U) ? (gfx_coord_t)(mesh->header.w - 1U) : 0;
-        mesh->bounds_max_y = (mesh->header.h > 0U) ? (gfx_coord_t)(mesh->header.h - 1U) : 0;
+        mesh->bounds_max_x = (mesh->resource.header.w > 0U) ? (gfx_coord_t)(mesh->resource.header.w - 1U) : 0;
+        mesh->bounds_max_y = (mesh->resource.header.h > 0U) ? (gfx_coord_t)(mesh->resource.header.h - 1U) : 0;
         return;
     }
 
@@ -329,63 +332,26 @@ static void gfx_mesh_img_update_bounds(gfx_object_t *obj, gfx_mesh_img_t *mesh)
     mesh->bounds_max_y = (gfx_coord_t)gfx_mesh_img_clamp_i32(max_y, INT16_MIN, INT16_MAX);
     obj->geometry.width = (uint16_t)gfx_mesh_img_clamp_i32((int32_t)((int64_t)max_x - min_x + 1), 0, UINT16_MAX);
     obj->geometry.height = (uint16_t)gfx_mesh_img_clamp_i32((int32_t)((int64_t)max_y - min_y + 1), 0, UINT16_MAX);
+    obj->local_geometry.width = obj->geometry.width;
+    obj->local_geometry.height = obj->geometry.height;
 }
 
-static void gfx_mesh_img_get_draw_origin_q8(gfx_object_t *obj, const gfx_mesh_img_t *mesh, int32_t *x_q8, int32_t *y_q8)
+static void gfx_mesh_img_get_draw_origin_q8(const gfx_area_t *obj_area, const gfx_mesh_img_t *mesh,
+        int32_t *x_q8, int32_t *y_q8)
 {
-    if (obj == NULL || mesh == NULL || x_q8 == NULL || y_q8 == NULL) {
+    if (obj_area == NULL || mesh == NULL || x_q8 == NULL || y_q8 == NULL) {
         return;
     }
 
-    gfx_object_calc_pos_in_parent(obj);
-    *x_q8 = ((int32_t)obj->geometry.x << GFX_MESH_IMG_Q8_SHIFT) - mesh->bounds_min_x_q8;
-    *y_q8 = ((int32_t)obj->geometry.y << GFX_MESH_IMG_Q8_SHIFT) - mesh->bounds_min_y_q8;
-}
-
-static esp_err_t gfx_mesh_img_load_header(const gfx_image_src_t *src, gfx_image_header_t *header)
-{
-    gfx_image_decoder_dsc_t dsc = {
-        .src = *src,
-    };
-
-    ESP_RETURN_ON_ERROR(gfx_mesh_img_validate_src(src), TAG, "load mesh image header: source descriptor is invalid");
-    ESP_RETURN_ON_FALSE(header != NULL, ESP_ERR_INVALID_ARG, TAG, "header is NULL");
-
-    return gfx_image_decoder_info(&dsc, header);
-}
-
-static esp_err_t gfx_mesh_img_validate_src(const gfx_image_src_t *src)
-{
-    ESP_RETURN_ON_FALSE(src != NULL, ESP_ERR_INVALID_ARG, TAG, "resolve mesh image src: descriptor is NULL");
-    ESP_RETURN_ON_FALSE(src->data != NULL, ESP_ERR_INVALID_ARG, TAG, "resolve mesh image src: payload is NULL");
-
-    switch (src->type) {
-    case GFX_IMAGE_SRC_TYPE_IMAGE_DSC:
-        return ESP_OK;
-    default:
-        return ESP_ERR_NOT_SUPPORTED;
-    }
-}
-
-static esp_err_t gfx_mesh_img_prepare_decoder(const gfx_mesh_img_t *mesh, gfx_image_decoder_dsc_t *decoder_dsc)
-{
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_ARG, TAG, "mesh state is NULL");
-    ESP_RETURN_ON_FALSE(decoder_dsc != NULL, ESP_ERR_INVALID_ARG, TAG, "decoder desc is NULL");
-    ESP_RETURN_ON_ERROR(gfx_mesh_img_validate_src(&mesh->image_src), TAG, "prepare mesh image decoder: source descriptor is invalid");
-
-    decoder_dsc->src = mesh->image_src;
-    decoder_dsc->header = mesh->header;
-    decoder_dsc->data = NULL;
-    decoder_dsc->data_size = 0;
-    decoder_dsc->user_data = NULL;
-
-    return gfx_image_decoder_open(decoder_dsc);
+    *x_q8 = ((int32_t)obj_area->x1 << GFX_MESH_IMG_Q8_SHIFT) - mesh->bounds_min_x_q8;
+    *y_q8 = ((int32_t)obj_area->y1 << GFX_MESH_IMG_Q8_SHIFT) - mesh->bounds_min_y_q8;
 }
 
 static void gfx_mesh_img_draw_ctrl_points(gfx_object_t *obj, const gfx_draw_ctx_t *ctx, const gfx_mesh_img_t *mesh)
 {
     int32_t origin_x_q8;
     int32_t origin_y_q8;
+    gfx_area_t obj_area;
     gfx_color_t outer_color = GFX_COLOR_HEX(0x2dd4bf);
     gfx_color_t inner_color = GFX_COLOR_HEX(0xf8fafc);
 
@@ -393,7 +359,11 @@ static void gfx_mesh_img_draw_ctrl_points(gfx_object_t *obj, const gfx_draw_ctx_
         return;
     }
 
-    gfx_mesh_img_get_draw_origin_q8(obj, mesh, &origin_x_q8, &origin_y_q8);
+    if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
+        return;
+    }
+
+    gfx_mesh_img_get_draw_origin_q8(&obj_area, mesh, &origin_x_q8, &origin_y_q8);
 
     for (size_t i = 0; i < mesh->point_count; i++) {
         gfx_coord_t screen_x = gfx_mesh_img_round_q8_to_coord(origin_x_q8 + mesh->points[i].x_q8);
@@ -414,7 +384,6 @@ static void gfx_mesh_img_draw_ctrl_points(gfx_object_t *obj, const gfx_draw_ctx_
 static esp_err_t gfx_mesh_img_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 {
     gfx_mesh_img_t *mesh;
-    gfx_image_decoder_dsc_t decoder_dsc;
     gfx_area_t obj_area;
     gfx_area_t clip_area;
     int32_t origin_x_q8;
@@ -437,7 +406,7 @@ static esp_err_t gfx_mesh_img_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     }
 
     mesh = (gfx_mesh_img_t *)obj->src;
-    if (mesh->image_src.data == NULL) {
+    if (mesh->resource.src.data == NULL) {
         GFX_LOGD("draw mesh image: source descriptor has no payload");
         return ESP_ERR_INVALID_STATE;
     }
@@ -445,44 +414,37 @@ static esp_err_t gfx_mesh_img_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
         return ESP_OK;
     }
 
-    color_format = (gfx_color_format_t)mesh->header.cf;
+    color_format = gfx_image_resource_format(&mesh->resource);
     if (!gfx_color_format_is_image_supported(color_format)) {
         GFX_LOGW("draw mesh image: unsupported color format %u", color_format);
         return ESP_ERR_NOT_SUPPORTED;
     }
 
-    ESP_RETURN_ON_ERROR(gfx_mesh_img_prepare_decoder(mesh, &decoder_dsc), TAG, "draw mesh image: open decoder failed");
-
-    if (decoder_dsc.data == NULL) {
-        GFX_LOGE("draw mesh image: decoder returned no data");
-        gfx_image_decoder_close(&decoder_dsc);
+    if (!gfx_image_resource_is_open(&mesh->resource)) {
+        GFX_LOGE("draw mesh image: resource is not loaded");
         return ESP_ERR_INVALID_STATE;
     }
 
-    gfx_mesh_img_get_draw_origin_q8(obj, mesh, &origin_x_q8, &origin_y_q8);
-
-    obj_area.x1 = obj->geometry.x;
-    obj_area.y1 = obj->geometry.y;
-    obj_area.x2 = obj->geometry.x + obj->geometry.width;
-    obj_area.y2 = obj->geometry.y + obj->geometry.height;
-
-    if (!gfx_area_intersect_exclusive(&clip_area, &ctx->clip_area, &obj_area)) {
-        gfx_image_decoder_close(&decoder_dsc);
+    if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
         return ESP_OK;
     }
 
-    uint8_t src_pixel_size = gfx_color_format_get_size(color_format);
-    src_stride = (mesh->header.stride > 0U && src_pixel_size > 0U)
-                 ? (gfx_coord_t)(mesh->header.stride / src_pixel_size)
-                 : (gfx_coord_t)mesh->header.w;
-    src_height = (gfx_coord_t)mesh->header.h;
-    src_pixels = decoder_dsc.data;
+    gfx_mesh_img_get_draw_origin_q8(&obj_area, mesh, &origin_x_q8, &origin_y_q8);
+
+    if (!gfx_area_intersect_exclusive(&clip_area, &ctx->clip_area, &obj_area)) {
+        return ESP_OK;
+    }
+
+    uint8_t src_pixel_size = gfx_image_resource_pixel_size(&mesh->resource);
+    src_stride = gfx_image_resource_stride_px(&mesh->resource);
+    src_height = gfx_image_resource_height(&mesh->resource);
+    src_pixels = gfx_image_resource_pixels(&mesh->resource);
 
     if (gfx_color_format_has_plane_alpha(color_format)) {
-        alpha_mask = (const gfx_opa_t *)((const uint8_t *)decoder_dsc.data +
-                                         (size_t)src_stride * src_height * src_pixel_size);
-        alpha_stride = (gfx_coord_t)mesh->header.w;
+        alpha_mask = gfx_image_resource_alpha(&mesh->resource);
+        alpha_stride = gfx_image_resource_alpha_stride(&mesh->resource);
     }
+    (void)src_pixel_size;
 
     if (mesh->scanline_fill && mesh->grid_rows == 1U && mesh->points != NULL) {
         int cols = mesh->grid_cols;
@@ -522,7 +484,6 @@ static esp_err_t gfx_mesh_img_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 
         if (scanline_drawn) {
             gfx_mesh_img_draw_ctrl_points(obj, ctx, mesh);
-            gfx_image_decoder_close(&decoder_dsc);
             return ESP_OK;
         }
     }
@@ -784,7 +745,6 @@ static esp_err_t gfx_mesh_img_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     }
 
     gfx_mesh_img_draw_ctrl_points(obj, ctx, mesh);
-    gfx_image_decoder_close(&decoder_dsc);
     return ESP_OK;
 }
 
@@ -796,6 +756,7 @@ static esp_err_t gfx_mesh_img_delete_impl(gfx_object_t *obj)
 
     mesh = (gfx_mesh_img_t *)obj->src;
     if (mesh != NULL) {
+        gfx_image_resource_close(&mesh->resource);
         gfx_mesh_img_free_points(mesh);
         gfx_mesh_img_free_scratch(mesh);
         free(mesh);
@@ -803,6 +764,32 @@ static esp_err_t gfx_mesh_img_delete_impl(gfx_object_t *obj)
     }
 
     return ESP_OK;
+}
+
+static esp_err_t gfx_mesh_img_load_impl(gfx_object_t *obj)
+{
+    gfx_mesh_img_t *mesh;
+
+    CHECK_OBJ_TYPE_MESH_IMAGE(obj);
+    mesh = (gfx_mesh_img_t *)obj->src;
+    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "load mesh image: state is NULL");
+    if (mesh->resource.src.data == NULL) {
+        return ESP_OK;
+    }
+
+    return gfx_image_resource_open(&mesh->resource);
+}
+
+static void gfx_mesh_img_release_impl(gfx_object_t *obj)
+{
+    gfx_mesh_img_t *mesh;
+
+    if (obj == NULL || obj->src == NULL || obj->type != GFX_OBJ_TYPE_MESH_IMAGE) {
+        return;
+    }
+
+    mesh = (gfx_mesh_img_t *)obj->src;
+    gfx_image_resource_close(&mesh->resource);
 }
 
 /**********************
@@ -846,29 +833,24 @@ gfx_object_t *gfx_mesh_img_create(gfx_display_t *disp)
 esp_err_t gfx_mesh_img_set_src_desc(gfx_object_t *obj, const gfx_image_src_t *src)
 {
     gfx_mesh_img_t *mesh;
-    gfx_image_header_t header;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
-    ESP_RETURN_ON_ERROR(gfx_mesh_img_validate_src(src), TAG, "set mesh image src: validate descriptor failed");
 
     mesh = (gfx_mesh_img_t *)obj->src;
     ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh image src: state is NULL");
 
-    ESP_RETURN_ON_ERROR(gfx_mesh_img_load_header(src, &header), TAG, "set mesh image src: query header failed");
-    ESP_RETURN_ON_FALSE(gfx_color_format_is_image_supported((gfx_color_format_t)header.cf),
-                        ESP_ERR_NOT_SUPPORTED, TAG, "set mesh image src: unsupported color format");
+    ESP_RETURN_ON_ERROR(gfx_image_resource_set_source(&mesh->resource, src), TAG, "set mesh image src failed");
 
     gfx_object_invalidate(obj);
 
-    mesh->image_src = *src;
-    mesh->header = header;
     gfx_mesh_img_reset_rest_points(mesh);
     gfx_mesh_img_update_bounds(obj, mesh);
+    gfx_object_mark_resource_dirty(obj);
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
 
     GFX_LOGD("set mesh image src: %ux%u grid=%ux%u",
-             header.w, header.h, mesh->grid_cols, mesh->grid_rows);
+             mesh->resource.header.w, mesh->resource.header.h, mesh->grid_cols, mesh->grid_rows);
     return ESP_OK;
 }
 
@@ -943,6 +925,7 @@ esp_err_t gfx_mesh_img_get_point(gfx_object_t *obj, size_t point_idx, gfx_mesh_i
 esp_err_t gfx_mesh_img_get_point_screen(gfx_object_t *obj, size_t point_idx, gfx_coord_t *x, gfx_coord_t *y)
 {
     gfx_mesh_img_t *mesh;
+    gfx_area_t obj_area;
     int32_t origin_x_q8;
     int32_t origin_y_q8;
 
@@ -952,8 +935,10 @@ esp_err_t gfx_mesh_img_get_point_screen(gfx_object_t *obj, size_t point_idx, gfx
     mesh = (gfx_mesh_img_t *)obj->src;
     ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "get mesh point screen: state is NULL");
     ESP_RETURN_ON_FALSE(point_idx < mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "get mesh point screen: index out of range");
+    ESP_RETURN_ON_FALSE(gfx_object_get_abs_area_exclusive(obj, &obj_area), ESP_ERR_INVALID_STATE,
+                        TAG, "get mesh point screen: object has no visible absolute area");
 
-    gfx_mesh_img_get_draw_origin_q8(obj, mesh, &origin_x_q8, &origin_y_q8);
+    gfx_mesh_img_get_draw_origin_q8(&obj_area, mesh, &origin_x_q8, &origin_y_q8);
     *x = gfx_mesh_img_round_q8_to_coord(origin_x_q8 + mesh->points[point_idx].x_q8);
     *y = gfx_mesh_img_round_q8_to_coord(origin_y_q8 + mesh->points[point_idx].y_q8);
     return ESP_OK;
@@ -977,6 +962,7 @@ esp_err_t gfx_mesh_img_get_point_q8(gfx_object_t *obj, size_t point_idx, gfx_mes
 esp_err_t gfx_mesh_img_get_point_screen_q8(gfx_object_t *obj, size_t point_idx, int32_t *x_q8, int32_t *y_q8)
 {
     gfx_mesh_img_t *mesh;
+    gfx_area_t obj_area;
     int32_t origin_x_q8;
     int32_t origin_y_q8;
 
@@ -986,8 +972,10 @@ esp_err_t gfx_mesh_img_get_point_screen_q8(gfx_object_t *obj, size_t point_idx, 
     mesh = (gfx_mesh_img_t *)obj->src;
     ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "get mesh point screen q8: state is NULL");
     ESP_RETURN_ON_FALSE(point_idx < mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "get mesh point screen q8: index out of range");
+    ESP_RETURN_ON_FALSE(gfx_object_get_abs_area_exclusive(obj, &obj_area), ESP_ERR_INVALID_STATE,
+                        TAG, "get mesh point screen q8: object has no visible absolute area");
 
-    gfx_mesh_img_get_draw_origin_q8(obj, mesh, &origin_x_q8, &origin_y_q8);
+    gfx_mesh_img_get_draw_origin_q8(&obj_area, mesh, &origin_x_q8, &origin_y_q8);
     *x_q8 = origin_x_q8 + mesh->points[point_idx].x_q8;
     *y_q8 = origin_y_q8 + mesh->points[point_idx].y_q8;
     return ESP_OK;
@@ -1089,6 +1077,8 @@ esp_err_t gfx_mesh_img_set_rect(gfx_object_t *obj, uint16_t width, uint16_t heig
     gfx_mesh_img_update_bounds(obj, mesh);
     obj->geometry.width = width;
     obj->geometry.height = height;
+    obj->local_geometry.width = width;
+    obj->local_geometry.height = height;
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
     return ESP_OK;

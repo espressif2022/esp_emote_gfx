@@ -155,6 +155,7 @@ gfx_handle_t gfx_core_init(const gfx_core_config_t *cfg)
     bool mutex_created = false;
     bool decoder_inited = false;
     bool font_lib_created = false;
+    bool jpeg_inited = false;
 
     ESP_GOTO_ON_FALSE(cfg, ESP_ERR_INVALID_ARG, err, TAG, "Invalid configuration");
 
@@ -185,6 +186,13 @@ gfx_handle_t gfx_core_init(const gfx_core_config_t *cfg)
     ESP_GOTO_ON_ERROR(ret, err, TAG, "Failed to initialize image decoder");
     decoder_inited = true;
 
+    ret = gfx_subsystem_jpeg_init();
+    if (ret != ESP_OK) {
+        GFX_LOGW(TAG, "platform jpeg decoder unavailable (%d), JPEG EAF blocks disabled", ret);
+    } else {
+        jpeg_inited = true;
+    }
+
     ret = gfx_subsystem_accel_init();
     if (ret != ESP_OK) {
         GFX_LOGW(TAG, "platform acceleration disabled (%d), falling back to software", ret);
@@ -205,6 +213,9 @@ gfx_handle_t gfx_core_init(const gfx_core_config_t *cfg)
 
 err:
     gfx_subsystem_accel_deinit();
+    if (jpeg_inited) {
+        gfx_subsystem_jpeg_deinit();
+    }
     if (decoder_inited) {
         gfx_subsystem_image_decoder_deinit();
     }
@@ -266,6 +277,7 @@ void gfx_core_deinit(gfx_handle_t handle)
     }
 
     gfx_subsystem_accel_deinit();
+    gfx_subsystem_jpeg_deinit();
     gfx_subsystem_image_decoder_deinit();
     free(ctx);
 }

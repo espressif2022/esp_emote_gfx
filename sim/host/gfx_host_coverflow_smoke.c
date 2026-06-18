@@ -78,6 +78,23 @@ static void expect_true(bool condition, const char *message)
     }
 }
 
+typedef struct {
+    int count;
+    int last_index;
+} changed_trace_t;
+
+static void changed_cb(gfx_object_t *obj, int32_t index, void *user_data)
+{
+    changed_trace_t *trace = (changed_trace_t *)user_data;
+    (void)obj;
+
+    if (trace == NULL) {
+        return;
+    }
+    trace->count++;
+    trace->last_index = (int)index;
+}
+
 static void inject_touch(gfx_display_t *disp, gfx_touch_event_type_t type, uint16_t x, uint16_t y, uint32_t tick)
 {
     expect_true(gfx_touch_inject(disp, &(gfx_touch_event_t) {
@@ -109,6 +126,11 @@ static void sleep_ms(unsigned ms)
 
 int main(void)
 {
+    changed_trace_t trace = {
+        .count = 0,
+        .last_index = -1,
+    };
+
     fill_image(s_img0_pixels, 0x40, 0x70, 0xC0);
     fill_image(s_img1_pixels, 0x90, 0xD0, 0x60);
     fill_image(s_img2_pixels, 0xD0, 0x60, 0x80);
@@ -146,6 +168,7 @@ int main(void)
     expect_true(gfx_coverflow_set_spacing(cover, 38) == GFX_OK, "set spacing");
     expect_true(gfx_coverflow_set_side_dim(cover, 92) == GFX_OK, "set side dim");
     expect_true(gfx_coverflow_set_selected(cover, 1) == GFX_OK, "set selected");
+    expect_true(gfx_coverflow_set_changed_cb(cover, changed_cb, &trace) == GFX_OK, "set changed cb");
 
     gfx_core_refresh_now(gfx);
     expect_true(gfx_coverflow_get_selected(cover) == 1, "selected getter");
@@ -153,9 +176,12 @@ int main(void)
     inject_touch(disp, GFX_TOUCH_EVENT_PRESS, 90, 55, 10);
     inject_touch(disp, GFX_TOUCH_EVENT_MOVE, 20, 55, 20);
     inject_touch(disp, GFX_TOUCH_EVENT_RELEASE, 20, 55, 30);
+    expect_true(gfx_coverflow_get_selected(cover) == 1, "release keeps current selection until tween end");
+    expect_true(trace.count == 0, "release does not emit changed callback immediately");
     sleep_ms(220);
     tick_many(gfx, 16);
     expect_true(gfx_coverflow_get_selected(cover) == 2, "drag left selects next");
+    expect_true(trace.count == 1 && trace.last_index == 2, "tween completion emits changed callback");
 
     gfx_object_t *card0 = gfx_container_create(disp);
     gfx_object_t *card1 = gfx_container_create(disp);

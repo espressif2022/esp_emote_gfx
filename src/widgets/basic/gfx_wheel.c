@@ -150,9 +150,9 @@ static void gfx_wheel_free_items(gfx_wheel_t *wheel)
     memset(&wheel->touch, 0, sizeof(wheel->touch));
 }
 
-static int32_t gfx_wheel_center_y(const gfx_object_t *obj)
+static int32_t gfx_wheel_center_y(const gfx_area_t *obj_area)
 {
-    return obj ? (int32_t)obj->geometry.y + (int32_t)obj->geometry.height / 2 : 0;
+    return obj_area ? ((int32_t)obj_area->y1 + (int32_t)obj_area->y2) / 2 : 0;
 }
 
 static int32_t gfx_wheel_center_scroll_y(const gfx_object_t *obj, const gfx_wheel_t *wheel, int32_t index)
@@ -330,21 +330,6 @@ static void gfx_wheel_snap(gfx_object_t *obj, gfx_wheel_t *wheel)
 static esp_err_t gfx_wheel_call_label_update(gfx_object_t *obj, gfx_wheel_t *wheel,
         const char *text, const gfx_area_t *text_area)
 {
-    uint8_t original_type = obj->type;
-    void *original_src = obj->src;
-    gfx_area_t original_geometry = {
-        .x1 = obj->geometry.x,
-        .y1 = obj->geometry.y,
-        .x2 = obj->geometry.width,
-        .y2 = obj->geometry.height,
-    };
-    uint8_t original_align_type = obj->align.type;
-    gfx_coord_t original_align_x_ofs = obj->align.x_ofs;
-    gfx_coord_t original_align_y_ofs = obj->align.y_ofs;
-    gfx_object_t *original_align_target = obj->align.target;
-    bool original_align_enabled = obj->align.enabled;
-    esp_err_t ret;
-
     wheel->label.text.text = (char *)(text ? text : "");
     wheel->label.text.text_width = 0;
     wheel->label.scroll.offset = 0;
@@ -353,50 +338,14 @@ static esp_err_t gfx_wheel_call_label_update(gfx_object_t *obj, gfx_wheel_t *whe
     wheel->label.render.mask = NULL;
     wheel->label.render.mask_capacity = 0;
 
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    obj->src = &wheel->label;
-    obj->geometry.x = text_area->x1;
-    obj->geometry.y = text_area->y1;
-    obj->geometry.width = (uint16_t)MAX(0, text_area->x2 - text_area->x1);
-    obj->geometry.height = (uint16_t)MAX(0, text_area->y2 - text_area->y1);
-    obj->align.enabled = false;
-    obj->state.dirty = true;
-
-    ret = gfx_label_update_impl(obj);
-
-    obj->type = original_type;
-    obj->src = original_src;
-    obj->geometry.x = original_geometry.x1;
-    obj->geometry.y = original_geometry.y1;
-    obj->geometry.width = (uint16_t)original_geometry.x2;
-    obj->geometry.height = (uint16_t)original_geometry.y2;
-    obj->align.type = original_align_type;
-    obj->align.x_ofs = original_align_x_ofs;
-    obj->align.y_ofs = original_align_y_ofs;
-    obj->align.target = original_align_target;
-    obj->align.enabled = original_align_enabled;
-    return ret;
+    return gfx_label_text_box_update(obj, &wheel->label, text_area);
 }
 
 static esp_err_t gfx_wheel_draw_text(gfx_object_t *obj, gfx_wheel_t *wheel, const gfx_draw_ctx_t *ctx,
                                      const char *text, const gfx_area_t *row_area,
                                      const gfx_area_t *clip_area, gfx_color_t color)
 {
-    uint8_t original_type = obj->type;
-    void *original_src = obj->src;
-    gfx_area_t original_geometry = {
-        .x1 = obj->geometry.x,
-        .y1 = obj->geometry.y,
-        .x2 = obj->geometry.width,
-        .y2 = obj->geometry.height,
-    };
-    uint8_t original_align_type = obj->align.type;
-    gfx_coord_t original_align_x_ofs = obj->align.x_ofs;
-    gfx_coord_t original_align_y_ofs = obj->align.y_ofs;
-    gfx_object_t *original_align_target = obj->align.target;
-    bool original_align_enabled = obj->align.enabled;
     gfx_area_t text_area;
-    gfx_draw_ctx_t text_ctx;
     esp_err_t ret;
 
     if (row_area->x2 <= row_area->x1 || row_area->y2 <= row_area->y1 ||
@@ -420,30 +369,7 @@ static esp_err_t gfx_wheel_draw_text(gfx_object_t *obj, gfx_wheel_t *wheel, cons
     wheel->label.style.color = color;
     wheel->label.style.bg_enable = false;
 
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    obj->src = &wheel->label;
-    obj->geometry.x = text_area.x1;
-    obj->geometry.y = text_area.y1;
-    obj->geometry.width = (uint16_t)MAX(0, text_area.x2 - text_area.x1);
-    obj->geometry.height = (uint16_t)MAX(0, text_area.y2 - text_area.y1);
-    obj->align.enabled = false;
-
-    text_ctx = *ctx;
-    text_ctx.clip_area = *clip_area;
-    ret = gfx_label_draw(obj, &text_ctx);
-
-    obj->type = original_type;
-    obj->src = original_src;
-    obj->geometry.x = original_geometry.x1;
-    obj->geometry.y = original_geometry.y1;
-    obj->geometry.width = (uint16_t)original_geometry.x2;
-    obj->geometry.height = (uint16_t)original_geometry.y2;
-    obj->align.type = original_align_type;
-    obj->align.x_ofs = original_align_x_ofs;
-    obj->align.y_ofs = original_align_y_ofs;
-    obj->align.target = original_align_target;
-    obj->align.enabled = original_align_enabled;
-    return ret;
+    return gfx_label_text_box_draw(obj, &wheel->label, ctx, &text_area, clip_area);
 }
 
 static int32_t gfx_wheel_draw_index_for_slot(const gfx_wheel_t *wheel, int32_t base_index, int32_t slot)
@@ -482,11 +408,9 @@ static esp_err_t gfx_wheel_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     wheel = (gfx_wheel_t *)obj->src;
     GFX_RETURN_IF_NULL(wheel, ESP_ERR_INVALID_STATE);
 
-    gfx_object_calc_pos_in_parent(obj);
-    obj_area.x1 = obj->geometry.x;
-    obj_area.y1 = obj->geometry.y;
-    obj_area.x2 = obj->geometry.x + obj->geometry.width;
-    obj_area.y2 = obj->geometry.y + obj->geometry.height;
+    if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
+        return ESP_OK;
+    }
 
     if (!gfx_area_intersect_exclusive(&clip_area, &ctx->clip_area, &obj_area)) {
         return ESP_OK;
@@ -494,7 +418,7 @@ static esp_err_t gfx_wheel_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 
     gfx_render_surface_fill(obj->disp, &dst_surface, &clip_area, wheel->style.bg_color, 0xFFU);
 
-    center_line_y = gfx_wheel_center_y(obj);
+    center_line_y = gfx_wheel_center_y(&obj_area);
     center_area.x1 = obj_area.x1;
     center_area.y1 = (gfx_coord_t)(center_line_y - (int32_t)wheel->item_height / 2);
     center_area.x2 = obj_area.x2;
@@ -565,7 +489,6 @@ static esp_err_t gfx_wheel_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 static esp_err_t gfx_wheel_update(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_WHEEL(obj);
-    gfx_object_calc_pos_in_parent(obj);
     return ESP_OK;
 }
 
@@ -589,28 +512,17 @@ static esp_err_t gfx_wheel_delete_impl(gfx_object_t *obj)
 
 static esp_err_t gfx_wheel_load_impl(gfx_object_t *obj)
 {
-    uint8_t original_type = obj->type;
-    esp_err_t ret;
-
     CHECK_OBJ_TYPE_WHEEL(obj);
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    ret = gfx_label_load_impl(obj);
-    obj->type = original_type;
-    return ret;
+    return gfx_label_load_state(obj, &((gfx_wheel_t *)obj->src)->label);
 }
 
 static void gfx_wheel_release_impl(gfx_object_t *obj)
 {
-    uint8_t original_type;
-
     if (obj == NULL || obj->src == NULL || obj->type != GFX_OBJ_TYPE_WHEEL) {
         return;
     }
 
-    original_type = obj->type;
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    gfx_label_release_impl(obj);
-    obj->type = original_type;
+    gfx_label_release_state(&((gfx_wheel_t *)obj->src)->label);
 }
 
 static void gfx_wheel_touch_event(gfx_object_t *obj, const void *event_data)
@@ -632,7 +544,6 @@ static void gfx_wheel_touch_event(gfx_object_t *obj, const void *event_data)
         return;
     }
 
-    gfx_object_calc_pos_in_parent(obj);
     was_pressed = wheel->touch.pressed;
     was_dragging = wheel->touch.dragging;
     if (event->type == GFX_TOUCH_EVENT_RELEASE) {

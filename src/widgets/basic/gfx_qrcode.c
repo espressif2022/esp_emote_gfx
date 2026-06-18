@@ -216,14 +216,15 @@ static void gfx_qrcode_blend(gfx_object_t *obj, gfx_qrcode_t *qrcode, const gfx_
         .stride = ctx->stride,
         .format = ctx->format,
     };
-    gfx_object_calc_pos_in_parent(obj);
-
     gfx_area_t render_area = ctx->clip_area;
-    gfx_area_t obj_area = {obj->geometry.x, obj->geometry.y,
-                           obj->geometry.x + qrcode->scaled_size,
-                           obj->geometry.y + qrcode->scaled_size
-                          };
+    gfx_area_t obj_area;
     gfx_area_t clip_area;
+
+    if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
+        return;
+    }
+    obj_area.x2 = (gfx_coord_t)(obj_area.x1 + qrcode->scaled_size);
+    obj_area.y2 = (gfx_coord_t)(obj_area.y1 + qrcode->scaled_size);
 
     if (!gfx_area_intersect_exclusive(&clip_area, &render_area, &obj_area)) {
         return;
@@ -231,9 +232,9 @@ static void gfx_qrcode_blend(gfx_object_t *obj, gfx_qrcode_t *qrcode, const gfx_
 
     gfx_coord_t src_stride = qrcode->scaled_size;
     gfx_color_t *src_pixels = (gfx_color_t *)GFX_BUFFER_OFFSET_16BPP(qrcode->qr_modules,
-                              clip_area.y1 - obj->geometry.y,
+                              clip_area.y1 - obj_area.y1,
                               src_stride,
-                              clip_area.x1 - obj->geometry.x);
+                              clip_area.x1 - obj_area.x1);
     gfx_render_image_t render_src = {
         .pixels = src_pixels,
         .stride = src_stride,
@@ -249,8 +250,8 @@ static void gfx_qrcode_blend(gfx_object_t *obj, gfx_qrcode_t *qrcode, const gfx_
     };
 
     if (gfx_render_surface_blit_image(obj->disp, &dst_surface, &clip_area, &render_src,
-                                      clip_area.x1 - obj->geometry.x,
-                                      clip_area.y1 - obj->geometry.y,
+                                      clip_area.x1 - obj_area.x1,
+                                      clip_area.y1 - obj_area.y1,
                                       0xFFU)) {
         return;
     }
@@ -403,6 +404,8 @@ esp_err_t gfx_qrcode_set_size(gfx_object_t *obj, uint16_t size)
 
     obj->geometry.width = size;
     obj->geometry.height = size;
+    obj->local_geometry.width = size;
+    obj->local_geometry.height = size;
 
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);

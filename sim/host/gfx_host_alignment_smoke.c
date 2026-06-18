@@ -723,7 +723,7 @@ static void test_xrgb8888_triangle_preserves_precise_rgb_sources(void)
                                    NULL, 0,
                                    0xff,
                                    &v0, &v1, &v2,
-                                   GFX_BLEND_TRI_AA_INWARD,
+                                   0,
                                    NULL, 0,
                                    GFX_COLOR_FORMAT_RGB888);
 
@@ -765,7 +765,7 @@ static void test_argb8888_triangle_blends_pixel_alpha(void)
                                    NULL, 0,
                                    0xff,
                                    &v0, &v1, &v2,
-                                   GFX_BLEND_TRI_AA_INWARD,
+                                   0,
                                    NULL, 0,
                                    GFX_COLOR_FORMAT_ARGB8888);
 

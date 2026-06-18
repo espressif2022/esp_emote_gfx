@@ -21,6 +21,9 @@ esp_err_t gfx_subsystem_font_deinit(void);
 esp_err_t gfx_subsystem_accel_init(void);
 esp_err_t gfx_subsystem_accel_deinit(void);
 
+esp_err_t gfx_subsystem_jpeg_init(void);
+esp_err_t gfx_subsystem_jpeg_deinit(void);
+
 #ifdef __cplusplus
 }
 #endif

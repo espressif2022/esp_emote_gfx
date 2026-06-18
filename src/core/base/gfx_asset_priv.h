@@ -15,6 +15,10 @@ extern "C" {
 typedef struct {
     gfx_err_t (*open_by_name)(gfx_asset_store_t *store, const char *name, gfx_asset_view_t *out_view);
     gfx_err_t (*open_by_id)(gfx_asset_store_t *store, int32_t id, gfx_asset_view_t *out_view);
+    gfx_err_t (*open_region)(gfx_asset_store_t *store,
+                             const gfx_asset_region_t *region,
+                             gfx_asset_view_t *out_view);
+    gfx_err_t (*get_caps)(const gfx_asset_store_t *store, gfx_asset_store_caps_t *out_caps);
     void (*view_close)(gfx_asset_view_t *view);
     void (*store_close)(gfx_asset_store_t *store);
 } gfx_asset_store_vtable_t;
@@ -29,7 +33,9 @@ typedef struct {
     gfx_asset_store_t *store;
 } gfx_asset_view_state_base_t;
 
+gfx_err_t gfx_asset_store_open_config_port(const gfx_asset_store_config_t *config, gfx_asset_store_t **out_store);
 gfx_err_t gfx_asset_store_open_dir_port(const char *root_dir, gfx_asset_store_t **out_store);
+gfx_err_t gfx_asset_store_open_mmap_port(const gfx_asset_mmap_config_t *config, gfx_asset_store_t **out_store);
 
 #ifdef __cplusplus
 }

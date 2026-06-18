@@ -9,9 +9,13 @@
 #endif
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <setjmp.h>
 #include <time.h>
+
+#include <jpeglib.h>
 
 #include "gfx/asset.h"
 #include "gfx/backends/sdl.h"
@@ -30,11 +34,16 @@
 #include "gfx/widgets/wheel.h"
 
 #include "../../test_apps/main/claw_motion.inc"
-#include "gfx_host_demo_images.inc"
+
+#define DEMO_FLOW_IMAGE_COUNT 5U
 
 typedef struct {
     gfx_motion_player_t *motion;
     gfx_asset_store_t *asset_store;
+    gfx_asset_view_t flow_image_views[DEMO_FLOW_IMAGE_COUNT];
+    gfx_image_dsc_t flow_images[DEMO_FLOW_IMAGE_COUNT];
+    const gfx_image_dsc_t *flow_image_ptrs[DEMO_FLOW_IMAGE_COUNT];
+    uint8_t *flow_image_pixels[DEMO_FLOW_IMAGE_COUNT];
     gfx_asset_view_t anim_view;
     gfx_object_t *anim;
     gfx_object_t *image;
@@ -46,8 +55,8 @@ typedef struct {
     gfx_object_t *wheel;
     gfx_object_t *pageflow;
     gfx_object_t *coverflow;
-    gfx_object_t *cover_cards[4];
-    gfx_coverflow_card_dsc_t cover_card_dsc[4];
+    gfx_object_t *cover_cards[DEMO_FLOW_IMAGE_COUNT];
+    gfx_coverflow_card_dsc_t cover_card_dsc[DEMO_FLOW_IMAGE_COUNT];
     gfx_object_t *preview_title;
     gfx_object_t *preview_note;
     gfx_object_t *label_demo;
@@ -93,26 +102,18 @@ static const char *const s_action_names[] = {
 
 static const char *const s_cover_card_titles[] = {
     "Misty Ridge",
+    "Format Probe",
     "Warm Harbor",
     "Quiet Trail",
     "Night Lake",
 };
 
-#define DEMO_LANDSCAPE_W 240U
-#define DEMO_LANDSCAPE_H 160U
-
-static uint8_t s_landscape_rgb888_map[DEMO_LANDSCAPE_W * DEMO_LANDSCAPE_H * 3U];
-
-static const gfx_image_dsc_t s_landscape_rgb888 = {
-    .header = {
-        .magic = GFX_IMAGE_HEADER_MAGIC,
-        .cf = GFX_COLOR_FORMAT_RGB888,
-        .w = DEMO_LANDSCAPE_W,
-        .h = DEMO_LANDSCAPE_H,
-        .stride = DEMO_LANDSCAPE_W * 3U,
-    },
-    .data_size = sizeof(s_landscape_rgb888_map),
-    .data = s_landscape_rgb888_map,
+static const char *const s_flow_image_names[DEMO_FLOW_IMAGE_COUNT] = {
+    "flow_misty_ridge.jpg",
+    "flow_format_probe.jpg",
+    "flow_warm_harbor.jpg",
+    "flow_quiet_trail.jpg",
+    "flow_night_lake.jpg",
 };
 
 static void host_sleep_ms(unsigned ms)
@@ -126,103 +127,148 @@ static void host_sleep_ms(unsigned ms)
     }
 }
 
-static void demo_landscape_put_px(uint32_t x, uint32_t y, uint8_t r, uint8_t g, uint8_t b)
+typedef struct {
+    struct jpeg_error_mgr pub;
+    jmp_buf setjmp_buffer;
+    char message[JMSG_LENGTH_MAX];
+} demo_jpeg_error_mgr_t;
+
+static void demo_jpeg_error_exit(j_common_ptr cinfo)
 {
-    if (x >= DEMO_LANDSCAPE_W || y >= DEMO_LANDSCAPE_H) {
+    demo_jpeg_error_mgr_t *err = (demo_jpeg_error_mgr_t *)cinfo->err;
+
+    (*cinfo->err->format_message)(cinfo, err->message);
+    longjmp(err->setjmp_buffer, 1);
+}
+
+static bool demo_decode_jpeg_rgb888(const void *data, size_t size, uint8_t **out_pixels,
+                                    uint16_t *out_w, uint16_t *out_h, size_t *out_size)
+{
+    struct jpeg_decompress_struct cinfo;
+    demo_jpeg_error_mgr_t jerr;
+    uint8_t *pixels = NULL;
+    bool ok = false;
+
+    if (data == NULL || size == 0U || out_pixels == NULL || out_w == NULL || out_h == NULL || out_size == NULL) {
+        return false;
+    }
+
+    cinfo.err = jpeg_std_error(&jerr.pub);
+    jerr.pub.error_exit = demo_jpeg_error_exit;
+    jerr.message[0] = '\0';
+
+    if (setjmp(jerr.setjmp_buffer) != 0) {
+        fprintf(stderr, "jpeg decode failed: %s\n", jerr.message[0] ? jerr.message : "unknown");
+        jpeg_destroy_decompress(&cinfo);
+        free(pixels);
+        return false;
+    }
+
+    jpeg_create_decompress(&cinfo);
+    jpeg_mem_src(&cinfo, (const unsigned char *)data, (unsigned long)size);
+    if (jpeg_read_header(&cinfo, TRUE) != JPEG_HEADER_OK) {
+        goto cleanup;
+    }
+
+    cinfo.out_color_space = JCS_RGB;
+    if (!jpeg_start_decompress(&cinfo)) {
+        goto cleanup;
+    }
+
+    if (cinfo.output_width == 0U || cinfo.output_height == 0U ||
+            cinfo.output_width > UINT16_MAX || cinfo.output_height > UINT16_MAX ||
+            cinfo.output_components != 3U || cinfo.output_width * 3U > UINT16_MAX) {
+        goto cleanup;
+    }
+
+    size_t row_stride = (size_t)cinfo.output_width * 3U;
+    size_t pixel_size = row_stride * (size_t)cinfo.output_height;
+    pixels = malloc(pixel_size);
+    if (pixels == NULL) {
+        goto cleanup;
+    }
+
+    while (cinfo.output_scanline < cinfo.output_height) {
+        JSAMPROW row = &pixels[(size_t)cinfo.output_scanline * row_stride];
+        if (jpeg_read_scanlines(&cinfo, &row, 1) != 1U) {
+            goto cleanup;
+        }
+    }
+
+    if (!jpeg_finish_decompress(&cinfo)) {
+        goto cleanup;
+    }
+
+    *out_pixels = pixels;
+    *out_w = (uint16_t)cinfo.output_width;
+    *out_h = (uint16_t)cinfo.output_height;
+    *out_size = pixel_size;
+    pixels = NULL;
+    ok = true;
+
+cleanup:
+    jpeg_destroy_decompress(&cinfo);
+    free(pixels);
+    return ok;
+}
+
+static bool demo_load_flow_images(demo_state_t *state)
+{
+    if (state == NULL || state->asset_store == NULL) {
+        return false;
+    }
+
+    for (size_t i = 0; i < DEMO_FLOW_IMAGE_COUNT; i++) {
+        uint8_t *pixels = NULL;
+        uint16_t w = 0;
+        uint16_t h = 0;
+        size_t image_size = 0;
+        gfx_err_t err = gfx_asset_open_by_name(state->asset_store, s_flow_image_names[i],
+                                               &state->flow_image_views[i]);
+        if (err != GFX_OK) {
+            fprintf(stderr, "flow image open failed: %d file=%s\n", err, s_flow_image_names[i]);
+            return false;
+        }
+
+        if (!demo_decode_jpeg_rgb888(state->flow_image_views[i].data, state->flow_image_views[i].size,
+                                     &pixels, &w, &h, &image_size)) {
+            fprintf(stderr, "flow image decode failed: file=%s\n", s_flow_image_names[i]);
+            return false;
+        }
+
+        state->flow_image_pixels[i] = pixels;
+        state->flow_images[i] = (gfx_image_dsc_t) {
+            .header = {
+                .magic = GFX_IMAGE_HEADER_MAGIC,
+                .cf = GFX_COLOR_FORMAT_RGB888,
+                .w = w,
+                .h = h,
+                .stride = (uint16_t)(w * 3U),
+            },
+            .data_size = image_size,
+            .data = pixels,
+        };
+        state->flow_image_ptrs[i] = &state->flow_images[i];
+    }
+
+    return true;
+}
+
+static void demo_close_assets(demo_state_t *state)
+{
+    if (state == NULL) {
         return;
     }
 
-    size_t offset = ((size_t)y * DEMO_LANDSCAPE_W + x) * 3U;
-    s_landscape_rgb888_map[offset + 0U] = r;
-    s_landscape_rgb888_map[offset + 1U] = g;
-    s_landscape_rgb888_map[offset + 2U] = b;
-}
-
-static void demo_landscape_generate(void)
-{
-    for (uint32_t y = 0; y < DEMO_LANDSCAPE_H; y++) {
-        for (uint32_t x = 0; x < DEMO_LANDSCAPE_W; x++) {
-            uint8_t r;
-            uint8_t g;
-            uint8_t b;
-            uint32_t sky_h = 72U;
-            uint32_t mountain_h = 36U;
-            uint32_t lake_y0 = sky_h + mountain_h;
-            int32_t xi = (int32_t)x;
-            int32_t yi = (int32_t)y;
-
-            if (y < sky_h) {
-                uint32_t t = (y * 255U) / (sky_h - 1U);
-                r = (uint8_t)((72U * (255U - t) + 165U * t) / 255U);
-                g = (uint8_t)((152U * (255U - t) + 210U * t) / 255U);
-                b = (uint8_t)((220U * (255U - t) + 238U * t) / 255U);
-
-                int32_t dx = xi - 184;
-                int32_t dy = yi - 34;
-                int32_t dist2 = dx * dx + dy * dy;
-                if (dist2 <= 19 * 19) {
-                    r = 255U;
-                    g = (uint8_t)(214U - (uint32_t)dist2 / 28U);
-                    b = 96U;
-                }
-            } else if (y < lake_y0) {
-                int32_t left_peak = 112 - abs(xi - 76) * 58 / 76;
-                int32_t right_peak = 116 - abs(xi - 158) * 48 / 82;
-                int32_t ridge = left_peak > right_peak ? left_peak : right_peak;
-
-                if (yi <= ridge) {
-                    uint32_t shade = (uint32_t)((yi - (int32_t)sky_h) * 120 / (int32_t)mountain_h);
-                    r = (uint8_t)(64U + shade / 7U);
-                    g = (uint8_t)(83U + shade / 5U);
-                    b = (uint8_t)(104U + shade / 4U);
-
-                    if ((xi > 54 && xi < 98 && yi < left_peak - 7) ||
-                            (xi > 140 && xi < 178 && yi < right_peak - 7)) {
-                        r = 224U;
-                        g = 232U;
-                        b = 228U;
-                    }
-                } else {
-                    r = 138U;
-                    g = 190U;
-                    b = 194U;
-                }
-            } else if (y < 136U) {
-                uint32_t t = ((y - lake_y0) * 255U) / (136U - lake_y0);
-                r = (uint8_t)((54U * (255U - t) + 28U * t) / 255U);
-                g = (uint8_t)((132U * (255U - t) + 98U * t) / 255U);
-                b = (uint8_t)((176U * (255U - t) + 150U * t) / 255U);
-
-                if (((x + y * 3U) % 23U) < 3U) {
-                    r = (uint8_t)(r + 20U);
-                    g = (uint8_t)(g + 25U);
-                    b = (uint8_t)(b + 22U);
-                }
-
-                int32_t rx = abs(xi - 184);
-                if (rx < (yi - (int32_t)lake_y0) / 2 + 8) {
-                    r = (uint8_t)(r + 36U);
-                    g = (uint8_t)(g + 30U);
-                    b = (uint8_t)(b + 8U);
-                }
-            } else if (y < 142U) {
-                r = 196U;
-                g = 159U;
-                b = 91U;
-            } else {
-                r = 58U;
-                g = 124U;
-                b = 72U;
-                if (((x * 5U + y * 3U) % 31U) < 5U) {
-                    r = 83U;
-                    g = 151U;
-                    b = 85U;
-                }
-            }
-
-            demo_landscape_put_px(x, y, r, g, b);
-        }
+    gfx_asset_view_close(&state->anim_view);
+    for (uint16_t i = 0; i < DEMO_FLOW_IMAGE_COUNT; i++) {
+        gfx_asset_view_close(&state->flow_image_views[i]);
+        free(state->flow_image_pixels[i]);
+        state->flow_image_pixels[i] = NULL;
+        state->flow_image_ptrs[i] = NULL;
     }
+    gfx_asset_store_close(state->asset_store);
+    state->asset_store = NULL;
 }
 
 static const char *demo_action_name(uint16_t action_idx)
@@ -486,26 +532,26 @@ static gfx_object_t *demo_create_label(gfx_display_t *display, gfx_font_t font, 
     return label;
 }
 
-static gfx_object_t *demo_create_image_preview(gfx_display_t *display)
+static gfx_object_t *demo_create_image_preview(gfx_display_t *display, const gfx_image_dsc_t *image_dsc)
 {
     gfx_object_t *image = gfx_image_create(display);
-    const gfx_image_src_t image_src = {
-        .type = GFX_IMAGE_SRC_TYPE_IMAGE_DSC,
-        .data = &s_landscape_rgb888,
-    };
 
-    if (image == NULL) {
+    if (image == NULL || image_dsc == NULL) {
         return NULL;
     }
 
+    const gfx_image_src_t image_src = {
+        .type = GFX_IMAGE_SRC_TYPE_IMAGE_DSC,
+        .data = image_dsc,
+    };
     (void)gfx_object_set_pos(image, 300, 148);
     (void)gfx_image_set_source_desc(image, &image_src);
     return image;
 }
 
 static gfx_object_t *demo_create_cover_card(gfx_display_t *display, gfx_font_t font,
-                                            const gfx_image_dsc_t *image_dsc, const char *title,
-                                            gfx_object_t **out_image, gfx_object_t **out_label)
+        const gfx_image_dsc_t *image_dsc, const char *title,
+        gfx_object_t **out_image, gfx_object_t **out_label)
 {
     gfx_object_t *card = gfx_container_create(display);
     gfx_object_t *image = gfx_mesh_img_create(display);
@@ -539,28 +585,18 @@ static gfx_object_t *demo_create_cover_card(gfx_display_t *display, gfx_font_t f
 
 static void demo_create_anim_panel(gfx_display_t *display, gfx_font_t font, demo_state_t *state)
 {
-    const char *asset_root = getenv("GFX_ASSET_ROOT");
     const char *anim_name = getenv("GFX_DEMO_ANIM");
     gfx_anim_src_t anim_src;
 
-    if (state == NULL) {
+    if (state == NULL || state->asset_store == NULL) {
         return;
     }
 
-    if (asset_root == NULL || asset_root[0] == '\0') {
-        asset_root = "test_apps/assets_test";
-    }
     if (anim_name == NULL || anim_name[0] == '\0') {
         anim_name = "mi_1_eye_8bit.eaf";
     }
 
-    gfx_err_t err = gfx_asset_store_open_dir(asset_root, &state->asset_store);
-    if (err != GFX_OK) {
-        fprintf(stderr, "asset store open failed: %d root=%s\n", err, asset_root);
-        return;
-    }
-
-    err = gfx_asset_open_by_name(state->asset_store, anim_name, &state->anim_view);
+    gfx_err_t err = gfx_asset_open_by_name(state->asset_store, anim_name, &state->anim_view);
     if (err != GFX_OK) {
         fprintf(stderr, "anim asset open failed: %d file=%s\n", err, anim_name);
         return;
@@ -586,7 +622,7 @@ static void demo_create_anim_panel(gfx_display_t *display, gfx_font_t font, demo
     (void)gfx_anim_start(state->anim);
 
     printf("anim asset: root=%s file=%s size=%zu mapped=%s\n",
-           asset_root,
+           getenv("GFX_ASSET_ROOT") ? getenv("GFX_ASSET_ROOT") : "test_apps/assets_test",
            anim_name,
            state->anim_view.size,
            state->anim_view.is_mapped ? "yes" : "no");
@@ -596,15 +632,31 @@ static void demo_create_anim_panel(gfx_display_t *display, gfx_font_t font, demo
 int main(void)
 {
     demo_state_t state = {0};
+    const char *asset_root = getenv("GFX_ASSET_ROOT");
     gfx_core_config_t core_cfg = {
         .fps = 30,
         .manual_tick = true,
         .task = GFX_CORE_TASK_DEFAULT_CONFIG(),
     };
 
+    if (asset_root == NULL || asset_root[0] == '\0') {
+        asset_root = "test_apps/assets_test";
+    }
+
+    gfx_err_t asset_err = gfx_asset_store_open_dir(asset_root, &state.asset_store);
+    if (asset_err != GFX_OK) {
+        fprintf(stderr, "asset store open failed: %d root=%s\n", asset_err, asset_root);
+        return 1;
+    }
+    if (!demo_load_flow_images(&state)) {
+        demo_close_assets(&state);
+        return 1;
+    }
+
     gfx_handle_t gfx = gfx_core_init(&core_cfg);
     if (gfx == NULL) {
         fprintf(stderr, "failed to init gfx core\n");
+        demo_close_assets(&state);
         return 1;
     }
 
@@ -646,8 +698,7 @@ int main(void)
     state.preview_note = demo_create_label(display, font, 284, 154, 380, 48, "", GFX_COLOR_HEX(0xDCE4EC));
     state.label_demo = demo_create_label(display, font, 300, 170, 360, 64, "Hello from gfx_label", GFX_COLOR_HEX(0xF3F7FA));
 
-    demo_landscape_generate();
-    state.image = demo_create_image_preview(display);
+    state.image = demo_create_image_preview(display, &state.flow_images[2]);
     demo_create_anim_panel(display, font, &state);
 
     state.motion = gfx_motion_player_create(display, &claw_motion_scene_asset);
@@ -786,8 +837,7 @@ int main(void)
     if (state.pageflow != NULL) {
         (void)gfx_object_set_pos(state.pageflow, 300, 148);
         (void)gfx_object_set_size(state.pageflow, 340, 220);
-        (void)gfx_pageflow_set_image_pages(state.pageflow, s_demo_flow_images,
-                                           (uint16_t)(sizeof(s_demo_flow_images) / sizeof(s_demo_flow_images[0])));
+        (void)gfx_pageflow_set_image_pages(state.pageflow, state.flow_image_ptrs, DEMO_FLOW_IMAGE_COUNT);
         (void)gfx_pageflow_set_font(state.pageflow, font);
         (void)gfx_pageflow_set_drag_threshold(state.pageflow, 8);
         (void)gfx_pageflow_set_page_threshold(state.pageflow, 56);
@@ -800,7 +850,7 @@ int main(void)
 
     state.coverflow = gfx_coverflow_create(display);
     if (state.coverflow != NULL) {
-        uint16_t cover_count = (uint16_t)(sizeof(s_demo_flow_images) / sizeof(s_demo_flow_images[0]));
+        uint16_t cover_count = DEMO_FLOW_IMAGE_COUNT;
         if (cover_count > (uint16_t)(sizeof(state.cover_cards) / sizeof(state.cover_cards[0]))) {
             cover_count = (uint16_t)(sizeof(state.cover_cards) / sizeof(state.cover_cards[0]));
         }
@@ -822,8 +872,8 @@ int main(void)
         for (uint16_t i = 0; i < cover_count; i++) {
             gfx_object_t *image = NULL;
             gfx_object_t *label = NULL;
-            state.cover_cards[i] = demo_create_cover_card(display, font, s_demo_flow_images[i],
-                                  s_cover_card_titles[i], &image, &label);
+            state.cover_cards[i] = demo_create_cover_card(display, font, &state.flow_images[i],
+                                   s_cover_card_titles[i], &image, &label);
             state.cover_card_dsc[i] = (gfx_coverflow_card_dsc_t) {
                 .card = state.cover_cards[i],
                 .image_slot = image,
@@ -858,8 +908,7 @@ int main(void)
     if (state.anim != NULL) {
         (void)gfx_anim_stop(state.anim);
     }
-    gfx_asset_view_close(&state.anim_view);
-    gfx_asset_store_close(state.asset_store);
+    demo_close_assets(&state);
     gfx_motion_player_delete(state.motion);
     gfx_core_deinit(gfx);
     return 0;

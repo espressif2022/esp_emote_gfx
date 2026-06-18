@@ -18,6 +18,12 @@ extern "C" {
  **********************/
 
 typedef struct {
+    uint16_t width;
+    uint16_t height;
+    uint32_t frame_count;
+} gfx_anim_info_t;
+
+typedef struct {
     uint8_t bit_depth;
     uint16_t width;
     uint16_t height;
@@ -34,6 +40,7 @@ typedef struct gfx_anim_decoder {
     bool (*probe)(const gfx_anim_src_t *src);
     esp_err_t (*open)(const gfx_anim_src_t *src, void **out_ctx);
     void (*close)(void *ctx);
+    esp_err_t (*get_info)(void *ctx, gfx_anim_info_t *info);
     uint32_t (*get_frame_count)(void *ctx);
     esp_err_t (*read_frame_desc)(void *ctx, uint32_t frame_index, gfx_anim_frame_desc_t *frame_desc);
     void (*free_frame_desc)(gfx_anim_frame_desc_t *frame_desc);

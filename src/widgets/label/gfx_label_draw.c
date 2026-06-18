@@ -28,6 +28,7 @@
 #include "gfx/widgets/label.h"
 #include "fonts/gfx_font_priv.h"
 #include "widgets/label/gfx_label_draw_priv.h"
+#include "widgets/label/gfx_label_priv.h"
 
 /*********************
  *      DEFINES
@@ -1263,6 +1264,58 @@ static esp_err_t gfx_render_parse(gfx_object_t *obj, gfx_opa_t *mask, gfx_color_
     return gfx_render_text_to_mask(obj, mask, color_mask, line_height, total_line_height);
 }
 
+static void gfx_label_make_text_box_object(gfx_object_t *owner, gfx_label_t *label,
+        const gfx_area_t *area, gfx_object_t *box)
+{
+    memset(box, 0, sizeof(*box));
+    box->src = label;
+    box->type = GFX_OBJ_TYPE_LABEL;
+    box->disp = owner != NULL ? owner->disp : NULL;
+    box->parent = NULL;
+    box->geometry.x = area->x1;
+    box->geometry.y = area->y1;
+    box->geometry.width = (uint16_t)MAX(0, area->x2 - area->x1);
+    box->geometry.height = (uint16_t)MAX(0, area->y2 - area->y1);
+    box->local_geometry.x = box->geometry.x;
+    box->local_geometry.y = box->geometry.y;
+    box->local_geometry.width = box->geometry.width;
+    box->local_geometry.height = box->geometry.height;
+    box->align.enabled = false;
+    box->state.is_visible = true;
+    box->state.dirty = true;
+}
+
+esp_err_t gfx_label_text_box_update(gfx_object_t *owner, gfx_label_t *label, const gfx_area_t *area)
+{
+    gfx_object_t box;
+
+    GFX_RETURN_IF_NULL(owner, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(label, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(area, ESP_ERR_INVALID_ARG);
+
+    gfx_label_make_text_box_object(owner, label, area, &box);
+    return gfx_label_update_impl(&box);
+}
+
+esp_err_t gfx_label_text_box_draw(gfx_object_t *owner, gfx_label_t *label, const gfx_draw_ctx_t *ctx,
+                                  const gfx_area_t *area, const gfx_area_t *clip)
+{
+    gfx_object_t box;
+    gfx_draw_ctx_t text_ctx;
+
+    GFX_RETURN_IF_NULL(owner, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(label, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(ctx, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(area, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(clip, ESP_ERR_INVALID_ARG);
+
+    text_ctx = *ctx;
+    text_ctx.clip_area = *clip;
+    gfx_label_make_text_box_object(owner, label, area, &box);
+    box.state.dirty = false;
+    return gfx_label_draw(&box, &text_ctx);
+}
+
 esp_err_t gfx_label_prepare_glyphs(gfx_object_t *obj)
 {
     GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
@@ -1329,11 +1382,13 @@ esp_err_t gfx_label_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
         return ESP_OK;
     }
 
-    gfx_object_calc_pos_in_parent(obj);
-
     gfx_area_t render_area = ctx->clip_area;
-    gfx_area_t obj_area = {obj->geometry.x, obj->geometry.y, obj->geometry.x + obj->geometry.width, obj->geometry.y + obj->geometry.height};
+    gfx_area_t obj_area;
     gfx_area_t clip_area;
+
+    if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
+        return ESP_OK;
+    }
 
     if (!gfx_area_intersect_exclusive(&clip_area, &render_area, &obj_area)) {
         return ESP_OK;
@@ -1350,15 +1405,15 @@ esp_err_t gfx_label_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 
     gfx_coord_t mask_stride = obj->geometry.width;
     gfx_opa_t *mask = (gfx_opa_t *)GFX_BUFFER_OFFSET_8BPP(label->render.mask,
-                      clip_area.y1 - obj->geometry.y,
+                      clip_area.y1 - obj_area.y1,
                       mask_stride,
-                      clip_area.x1 - obj->geometry.x);
+                      clip_area.x1 - obj_area.x1);
 
     gfx_color_t color = label->style.color;
 
     if (label->render.inline_color && label->render.color_mask != NULL) {
-        gfx_coord_t color_x = (gfx_coord_t)(clip_area.x1 - obj->geometry.x);
-        gfx_coord_t color_y = (gfx_coord_t)(clip_area.y1 - obj->geometry.y);
+        gfx_coord_t color_x = (gfx_coord_t)(clip_area.x1 - obj_area.x1);
+        gfx_coord_t color_y = (gfx_coord_t)(clip_area.y1 - obj_area.y1);
         gfx_color_t *color_mask = label->render.color_mask + (size_t)color_y * (size_t)mask_stride + (size_t)color_x;
         gfx_render_surface_draw_color_mask(obj->disp, &dst_surface, &clip_area,
                                            mask, mask_stride, color_mask, mask_stride,

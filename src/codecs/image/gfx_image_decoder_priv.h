@@ -25,6 +25,7 @@ extern "C" {
 typedef enum {
     GFX_IMAGE_FORMAT_UNKNOWN = 0,  /**< Unknown format */
     GFX_IMAGE_FORMAT_C_ARRAY = 1,  /**< C array format */
+    GFX_IMAGE_FORMAT_JPEG = 2,     /**< JPEG encoded byte stream */
 } gfx_image_format_t;
 
 typedef struct {

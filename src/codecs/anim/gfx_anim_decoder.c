@@ -23,6 +23,7 @@ static esp_err_t gfx_anim_decoder_register_internal(const gfx_anim_decoder_t *de
     ESP_RETURN_ON_FALSE(decoder->probe != NULL, ESP_ERR_INVALID_ARG, "gfx_anim_decoder", "decoder probe is NULL");
     ESP_RETURN_ON_FALSE(decoder->open != NULL, ESP_ERR_INVALID_ARG, "gfx_anim_decoder", "decoder open is NULL");
     ESP_RETURN_ON_FALSE(decoder->close != NULL, ESP_ERR_INVALID_ARG, "gfx_anim_decoder", "decoder close is NULL");
+    ESP_RETURN_ON_FALSE(decoder->get_info != NULL, ESP_ERR_INVALID_ARG, "gfx_anim_decoder", "decoder get_info is NULL");
     ESP_RETURN_ON_FALSE(decoder->get_frame_count != NULL, ESP_ERR_INVALID_ARG, "gfx_anim_decoder", "decoder get_frame_count is NULL");
     ESP_RETURN_ON_FALSE(decoder->read_frame_desc != NULL, ESP_ERR_INVALID_ARG, "gfx_anim_decoder", "decoder read_frame_desc is NULL");
     ESP_RETURN_ON_FALSE(decoder->free_frame_desc != NULL, ESP_ERR_INVALID_ARG, "gfx_anim_decoder", "decoder free_frame_desc is NULL");

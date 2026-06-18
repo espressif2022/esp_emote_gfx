@@ -202,19 +202,6 @@ esp_err_t eaf_dec_decode_heatshrink(const uint8_t *in_data, size_t in_size,
 esp_err_t eaf_dec_decode_raw(const uint8_t *in_data, size_t in_size,
                              uint8_t *out_data, size_t *out_size);
 
-#if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
-/**
- * @brief Decode JPEG compressed data
- * @param in_data Input JPEG data
- * @param in_size Size of input data
- * @param out_data Output buffer for decoded data
- * @param out_size Size of output buffer
- * @return ESP_OK on success, ESP_FAIL on failure
- */
-esp_err_t eaf_dec_decode_jpeg(const uint8_t *in_data, size_t in_size,
-                              uint8_t *out_data, size_t *out_size);
-#endif // CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
-
 /**********************
  *  FRAME OPERATIONS
  **********************/

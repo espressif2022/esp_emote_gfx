@@ -113,11 +113,12 @@ static esp_err_t gfx_anim_validate_src(const gfx_anim_src_t *src);
 static esp_err_t gfx_anim_set_src_internal(gfx_object_t *obj, const gfx_anim_src_t *src);
 static esp_err_t gfx_anim_set_src_with_decoder_internal(gfx_object_t *obj, const gfx_anim_decoder_t *decoder,
         const gfx_anim_src_t *src);
+static void gfx_anim_apply_natural_size(gfx_object_t *obj, const gfx_anim_t *anim,
+                                        uint16_t width, uint16_t height);
 static void gfx_anim_calculate_offsets(const gfx_anim_frame_desc_t *frame_desc, uint32_t *offsets);
 static size_t gfx_anim_get_decode_buffer_size(const gfx_anim_frame_desc_t *frame_desc);
 static esp_err_t gfx_anim_init_palette_cache(gfx_object_t *obj, gfx_anim_t *anim);
 static int32_t gfx_anim_get_effective_mirror_offset(const gfx_object_t *obj, const gfx_anim_t *anim);
-static void gfx_anim_update_geometry(gfx_object_t *obj, gfx_anim_t *anim);
 static void gfx_anim_emit_update(gfx_object_t *obj, gfx_display_event_t event);
 static uint8_t gfx_anim_get_4bit_pixel(const uint8_t *row, int32_t pixel_idx);
 static uint8_t *gfx_anim_get_4bit_row(uint8_t *buffer, int32_t y, int32_t stride_pixels);
@@ -274,6 +275,8 @@ static esp_err_t gfx_anim_validate_src(const gfx_anim_src_t *src)
     case GFX_ANIM_SRC_TYPE_MEMORY:
         ESP_RETURN_ON_FALSE(src->data_len > 0U, ESP_ERR_INVALID_ARG, TAG, "set animation source: source length must be greater than 0");
         return ESP_OK;
+    case GFX_ANIM_SRC_TYPE_FILE:
+        return ESP_OK;
     default:
         return ESP_ERR_NOT_SUPPORTED;
     }
@@ -400,8 +403,16 @@ static esp_err_t gfx_anim_init_palette_cache(gfx_object_t *obj, gfx_anim_t *anim
 static int32_t gfx_anim_get_effective_mirror_offset(const gfx_object_t *obj, const gfx_anim_t *anim)
 {
     if (anim->mirror_mode == GFX_MIRROR_AUTO) {
+        gfx_area_t obj_area;
+        gfx_coord_t obj_x;
+
+        if (!gfx_object_get_abs_area_exclusive((gfx_object_t *)obj, &obj_area)) {
+            obj_x = obj->local_geometry.x;
+        } else {
+            obj_x = obj_area.x1;
+        }
         int32_t parent_w = (int32_t)gfx_display_get_h_res(obj->disp);
-        return parent_w - (((int32_t)obj->geometry.width + obj->geometry.x) * 2);
+        return parent_w - (((int32_t)obj->geometry.width + obj_x) * 2);
     }
 
     if (anim->mirror_mode == GFX_MIRROR_MANUAL) {
@@ -411,17 +422,35 @@ static int32_t gfx_anim_get_effective_mirror_offset(const gfx_object_t *obj, con
     return 0;
 }
 
-static void gfx_anim_update_geometry(gfx_object_t *obj, gfx_anim_t *anim)
+static void gfx_anim_apply_natural_size(gfx_object_t *obj, const gfx_anim_t *anim,
+                                        uint16_t width, uint16_t height)
 {
+    uint16_t resolved_width = width;
+    uint16_t resolved_height = height;
     int32_t mirror_offset;
 
-    obj->geometry.width = anim->frame.desc.width;
-    obj->geometry.height = anim->frame.desc.height;
+    if (obj == NULL || anim == NULL || width == 0U || height == 0U) {
+        return;
+    }
 
     if (anim->mirror_mode != GFX_MIRROR_DISABLED) {
         mirror_offset = gfx_anim_get_effective_mirror_offset(obj, anim);
-        obj->geometry.width = (uint16_t)MAX(0, (int32_t)obj->geometry.width * 2 + mirror_offset);
+        resolved_width = (uint16_t)MAX(0, (int32_t)width * 2 + mirror_offset);
     }
+
+    if (obj->geometry.width == resolved_width && obj->geometry.height == resolved_height &&
+            obj->local_geometry.width == resolved_width && obj->local_geometry.height == resolved_height) {
+        return;
+    }
+
+    gfx_object_invalidate_tree(obj);
+    obj->geometry.width = resolved_width;
+    obj->geometry.height = resolved_height;
+    obj->local_geometry.width = resolved_width;
+    obj->local_geometry.height = resolved_height;
+    gfx_object_invalidate_abs_area_cache_tree(obj);
+    gfx_object_update_layout(obj);
+    gfx_object_invalidate_tree(obj);
 }
 
 static void gfx_anim_emit_update(gfx_object_t *obj, gfx_display_event_t event)
@@ -525,7 +554,7 @@ static esp_err_t gfx_anim_prepare_frame(gfx_object_t *obj)
 
     gfx_anim_calculate_offsets(&anim->frame.desc, anim->frame.block_offsets);
 
-    gfx_anim_update_geometry(obj, anim);
+    gfx_anim_apply_natural_size(obj, anim, anim->frame.desc.width, anim->frame.desc.height);
 
     // GFX_LOGD(TAG, "prepared frame[%" PRIu32 "] with decoder %s", current_frame,
     //          decoder->name ? decoder->name : "unknown");
@@ -785,16 +814,13 @@ static esp_err_t gfx_draw_animation(gfx_object_t *obj, const gfx_draw_ctx_t *ctx
     gfx_coord_t block_height = (gfx_coord_t)frame_desc->block_height;
     uint16_t num_blocks = frame_desc->blocks;
 
-    gfx_object_calc_pos_in_parent(obj);
-
     gfx_area_t render_area = ctx->clip_area;
-    gfx_area_t obj_area = {
-        obj->geometry.x,
-        obj->geometry.y,
-        obj->geometry.x + obj->geometry.width,
-        obj->geometry.y + obj->geometry.height,
-    };
+    gfx_area_t obj_area;
     gfx_area_t clip_area;
+
+    if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
+        return ESP_OK;
+    }
 
     if (!gfx_area_intersect_exclusive(&clip_area, &render_area, &obj_area)) {
         return ESP_OK;
@@ -807,10 +833,10 @@ static esp_err_t gfx_draw_animation(gfx_object_t *obj, const gfx_draw_ctx_t *ctx
         gfx_coord_t block_start_x = 0;
         gfx_coord_t block_end_x = frame_width;
 
-        block_start_y += obj->geometry.y;
-        block_end_y += obj->geometry.y;
-        block_start_x += obj->geometry.x;
-        block_end_x += obj->geometry.x;
+        block_start_y += obj_area.y1;
+        block_end_y += obj_area.y1;
+        block_start_x += obj_area.x1;
+        block_end_x += obj_area.x1;
 
         gfx_area_t block_area = {block_start_x, block_start_y, block_end_x, block_end_y};
         gfx_area_t clip_block;
@@ -1053,7 +1079,7 @@ static esp_err_t gfx_anim_set_src_with_decoder_internal(gfx_object_t *obj, const
 {
     esp_err_t ret = ESP_OK;
     void *new_decoder_ctx = NULL;
-    uint32_t total_frames;
+    gfx_anim_info_t info;
     gfx_anim_t *anim;
 
     CHECK_OBJ_TYPE_ANIMATION(obj);
@@ -1070,10 +1096,11 @@ static esp_err_t gfx_anim_set_src_with_decoder_internal(gfx_object_t *obj, const
     ESP_RETURN_ON_ERROR(decoder->open(src, &new_decoder_ctx), TAG, "set animation source: open animation source failed");
     ESP_RETURN_ON_FALSE(new_decoder_ctx != NULL, ESP_ERR_INVALID_STATE, TAG, "set animation source: decoder returned a NULL context");
 
-    total_frames = decoder->get_frame_count(new_decoder_ctx);
-    if (total_frames == 0U) {
+    memset(&info, 0, sizeof(info));
+    ret = decoder->get_info(new_decoder_ctx, &info);
+    if (ret != ESP_OK || info.frame_count == 0U || info.width == 0U || info.height == 0U) {
         decoder->close(new_decoder_ctx);
-        return ESP_ERR_INVALID_SIZE;
+        return ret != ESP_OK ? ret : ESP_ERR_INVALID_SIZE;
     }
 
     gfx_object_invalidate(obj);
@@ -1085,7 +1112,9 @@ static esp_err_t gfx_anim_set_src_with_decoder_internal(gfx_object_t *obj, const
     anim->decoder_ctx = new_decoder_ctx;
     anim->start_frame = 0;
     anim->current_frame = 0;
-    anim->end_frame = total_frames - 1U;
+    anim->end_frame = info.frame_count - 1U;
+
+    gfx_anim_apply_natural_size(obj, anim, info.width, info.height);
 
     ESP_GOTO_ON_ERROR(gfx_anim_prepare_frame(obj), err, TAG, "set animation source: prepare the first frame failed");
 

@@ -185,9 +185,9 @@ static bool test_add_image(gfx_display_t *disp, const gfx_image_dsc_t *image, gf
         return false;
     }
     if (gfx_image_set_source_desc(obj, &(gfx_image_src_t) {
-        .type = GFX_IMAGE_SRC_TYPE_IMAGE_DSC,
-        .data = image,
-    }) != GFX_OK) {
+    .type = GFX_IMAGE_SRC_TYPE_IMAGE_DSC,
+    .data = image,
+}) != GFX_OK) {
         return false;
     }
     return gfx_object_set_pos(obj, x, y) == GFX_OK;

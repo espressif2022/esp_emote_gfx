@@ -1,4 +1,6 @@
 if(COMMAND idf_component_register)
+    idf_build_get_property(GFX_IDF_PATH IDF_PATH)
+
     # Keep source discovery automatic while ensuring newly added files trigger
     # CMake regeneration in normal configure mode. ESP-IDF also evaluates
     # component CMakeLists in script mode while collecting requirements, where
@@ -17,6 +19,21 @@ if(COMMAND idf_component_register)
         "src"
     )
 
+    set(GFX_IDF_REQUIRES
+        esp_partition
+        esp_timer
+    )
+
+    list(APPEND GFX_IDF_REQUIRES esp_mmap_assets)
+
+    if(EXISTS "${GFX_IDF_PATH}/components/esp_driver_ppa/CMakeLists.txt")
+        list(APPEND GFX_IDF_REQUIRES esp_driver_ppa)
+    endif()
+
+    if(EXISTS "${GFX_IDF_PATH}/components/esp_driver_jpeg/CMakeLists.txt")
+        list(APPEND GFX_IDF_REQUIRES esp_driver_jpeg)
+    endif()
+
     idf_component_register(
         SRCS
             ${SRC_FILES}
@@ -25,7 +42,7 @@ if(COMMAND idf_component_register)
         PRIV_INCLUDE_DIRS
             ${PRIV_INCLUDE_DIRS}
         REQUIRES
-            esp_timer
+            ${GFX_IDF_REQUIRES}
     )
     return()
 endif()
@@ -38,6 +55,7 @@ option(GFX_BUILD_HOST_SDL "Build the Linux host SDL simulator target" ON)
 
 set(GFX_HOST_CORE_SRCS
     "src/core/base/gfx_asset.c"
+    "src/core/base/gfx_asset_source.c"
     "src/core/base/gfx_color.c"
     "src/core/base/gfx_log.c"
     "src/core/display/gfx_backend.c"
@@ -67,6 +85,7 @@ set(GFX_HOST_CORE_SRCS
     "src/widgets/basic/gfx_pageflow.c"
     "src/widgets/basic/gfx_wheel.c"
     "src/widgets/img/gfx_img.c"
+    "src/widgets/img/gfx_image_resource.c"
     "src/widgets/img/gfx_mesh_img.c"
     "src/widgets/label/gfx_label.c"
     "src/widgets/label/gfx_label_draw.c"
@@ -77,6 +96,8 @@ set(GFX_HOST_CORE_SRCS
     "src/widgets/motion/gfx_motion_scene.c"
     "src/widgets/motion/gfx_motion_style.c"
     "src/platform/host/gfx_font_host.c"
+    "src/platform/host/gfx_platform_accel_host_stub.c"
+    "src/platform/host/gfx_platform_jpeg_host_stub.c"
     "src/platform/host/gfx_touch_port_host.c"
     "src/platform/linux/gfx_asset_fs_linux.c"
     "src/platform/linux/gfx_platform_linux.c"
@@ -127,6 +148,8 @@ if(GFX_BUILD_HOST_SDL)
         endif()
     endif()
 
+    find_package(JPEG REQUIRED)
+
     add_library(gfx_backend_sdl STATIC "src/backend/sdl/gfx_backend_sdl.c")
     target_include_directories(gfx_backend_sdl
         PUBLIC
@@ -144,9 +167,13 @@ if(GFX_BUILD_HOST_SDL)
     target_link_libraries(gfx_backend_sdl PUBLIC gfx_host_core ${GFX_SDL_TARGET} ${GFX_SDL_LIBRARIES})
 
     add_executable(gfx_host_sdl_demo "sim/host/gfx_host_sdl_demo.c")
-    target_include_directories(gfx_host_sdl_demo PRIVATE "include" "sim/host" "sim/port/include")
+    target_include_directories(gfx_host_sdl_demo PRIVATE "include" "sim/host" "sim/port/include" ${JPEG_INCLUDE_DIRS})
     target_compile_features(gfx_host_sdl_demo PRIVATE c_std_11)
-    target_link_libraries(gfx_host_sdl_demo PRIVATE gfx_host_core gfx_backend_sdl)
+    if(TARGET JPEG::JPEG)
+        target_link_libraries(gfx_host_sdl_demo PRIVATE gfx_host_core gfx_backend_sdl JPEG::JPEG)
+    else()
+        target_link_libraries(gfx_host_sdl_demo PRIVATE gfx_host_core gfx_backend_sdl ${JPEG_LIBRARIES})
+    endif()
 
     add_executable(gfx_host_asset_smoke "sim/host/gfx_host_asset_smoke.c")
     target_include_directories(gfx_host_asset_smoke PRIVATE "include" "sim/port/include")
@@ -201,7 +228,8 @@ if(GFX_BUILD_HOST_SDL)
         add_test(NAME gfx_host_sdl_dummy_smoke
             COMMAND ${CMAKE_COMMAND}
                 -D GFX_HOST_SDL_DEMO=$<TARGET_FILE:gfx_host_sdl_demo>
-                -P ${CMAKE_CURRENT_SOURCE_DIR}/sim/host/run_sdl_dummy_smoke.cmake)
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/sim/host/run_sdl_dummy_smoke.cmake
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
     endif()
 
     add_custom_target(gfx_host_smoke

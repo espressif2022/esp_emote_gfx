@@ -21,6 +21,7 @@
 #include "render/gfx_render_priv.h"
 #include "render/sw/gfx_blend_priv.h"
 #include "render/sw/gfx_sw_draw_priv.h"
+#include "widgets/img/gfx_image_resource_priv.h"
 #include "widgets/label/gfx_label_draw_priv.h"
 #include "widgets/label/gfx_label_priv.h"
 
@@ -63,7 +64,8 @@ typedef struct {
 typedef struct {
     gfx_label_t label;
     char **items;
-    const gfx_image_dsc_t *const *images;
+    const gfx_image_dsc_t **images;
+    gfx_image_resource_t *image_resources;
     gfx_coverflow_card_dsc_t *cards;
     uint16_t item_count;
     int32_t selected_index;
@@ -166,9 +168,17 @@ static void gfx_coverflow_free_items(gfx_coverflow_t *flow)
         }
     }
     free(flow->items);
+    free(flow->images);
+    if (flow->image_resources != NULL) {
+        for (uint16_t i = 0; i < flow->item_count; i++) {
+            gfx_image_resource_close(&flow->image_resources[i]);
+        }
+    }
+    free(flow->image_resources);
     free(flow->cards);
     flow->items = NULL;
     flow->images = NULL;
+    flow->image_resources = NULL;
     flow->cards = NULL;
     flow->item_count = 0;
     flow->selected_index = 0;
@@ -291,6 +301,9 @@ static void gfx_coverflow_start_tween(gfx_object_t *obj, gfx_coverflow_t *flow, 
 
     if (flow->tween_commit_pending) {
         end_offset = (target_index > flow->selected_index) ? -spacing : spacing;
+        if (start_offset == end_offset) {
+            start_offset += (end_offset < 0) ? 1 : -1;
+        }
     }
 
     if (flow->tween == NULL) {
@@ -341,20 +354,6 @@ static gfx_object_t *gfx_coverflow_card_root(const gfx_coverflow_t *flow, int32_
 static esp_err_t gfx_coverflow_draw_text(gfx_object_t *obj, gfx_coverflow_t *flow,
         const gfx_draw_ctx_t *ctx, const char *text, const gfx_area_t *area, const gfx_area_t *clip)
 {
-    uint8_t original_type = obj->type;
-    void *original_src = obj->src;
-    gfx_area_t original_geometry = {
-        .x1 = obj->geometry.x,
-        .y1 = obj->geometry.y,
-        .x2 = obj->geometry.width,
-        .y2 = obj->geometry.height,
-    };
-    uint8_t original_align_type = obj->align.type;
-    gfx_coord_t original_align_x_ofs = obj->align.x_ofs;
-    gfx_coord_t original_align_y_ofs = obj->align.y_ofs;
-    gfx_object_t *original_align_target = obj->align.target;
-    bool original_align_enabled = obj->align.enabled;
-    gfx_draw_ctx_t text_ctx = *ctx;
     gfx_area_t text_area = {
         .x1 = (gfx_coord_t)(area->x1 + 10),
         .y1 = (gfx_coord_t)(area->y1 + 8),
@@ -373,37 +372,15 @@ static esp_err_t gfx_coverflow_draw_text(gfx_object_t *obj, gfx_coverflow_t *flo
     flow->label.style.color = flow->style.text_color;
     flow->label.style.bg_enable = false;
 
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    obj->src = &flow->label;
-    obj->geometry.x = text_area.x1;
-    obj->geometry.y = text_area.y1;
-    obj->geometry.width = (uint16_t)MAX(0, text_area.x2 - text_area.x1);
-    obj->geometry.height = (uint16_t)MAX(0, text_area.y2 - text_area.y1);
-    obj->align.enabled = false;
-    obj->state.dirty = true;
-
-    ret = gfx_label_update_impl(obj);
+    ret = gfx_label_text_box_update(obj, &flow->label, &text_area);
     if (ret == ESP_OK) {
-        text_ctx.clip_area = *clip;
-        ret = gfx_label_draw(obj, &text_ctx);
+        ret = gfx_label_text_box_draw(obj, &flow->label, ctx, &text_area, clip);
     }
-
-    obj->type = original_type;
-    obj->src = original_src;
-    obj->geometry.x = original_geometry.x1;
-    obj->geometry.y = original_geometry.y1;
-    obj->geometry.width = (uint16_t)original_geometry.x2;
-    obj->geometry.height = (uint16_t)original_geometry.y2;
-    obj->align.type = original_align_type;
-    obj->align.x_ofs = original_align_x_ofs;
-    obj->align.y_ofs = original_align_y_ofs;
-    obj->align.target = original_align_target;
-    obj->align.enabled = original_align_enabled;
     return ret;
 }
 
 static void gfx_coverflow_draw_image_scaled(gfx_object_t *obj, const gfx_draw_ctx_t *ctx,
-        const gfx_image_dsc_t *image, const gfx_area_t *card,
+        const gfx_image_resource_t *resource, const gfx_area_t *card,
         const gfx_area_t *clip)
 {
     gfx_color_format_t color_format;
@@ -430,33 +407,31 @@ static void gfx_coverflow_draw_image_scaled(gfx_object_t *obj, const gfx_draw_ct
         .format = ctx->format,
     };
 
-    if (obj == NULL || ctx == NULL || image == NULL || image->data == NULL ||
-            image->header.magic != GFX_IMAGE_HEADER_MAGIC ||
-            image->header.w == 0U || image->header.h == 0U) {
+    if (obj == NULL || ctx == NULL || resource == NULL ||
+            resource->header.w == 0U || resource->header.h == 0U ||
+            !gfx_image_resource_is_open(resource)) {
         return;
     }
 
-    color_format = (gfx_color_format_t)image->header.cf;
+    color_format = gfx_image_resource_format(resource);
     if (!gfx_color_format_is_image_supported(color_format)) {
         return;
     }
 
-    src_pixel_size = gfx_color_format_get_size(color_format);
+    src_pixel_size = gfx_image_resource_pixel_size(resource);
     if (src_pixel_size == 0U) {
         return;
     }
 
-    src_stride = (image->header.stride > 0U)
-                 ? (gfx_coord_t)(image->header.stride / src_pixel_size)
-                 : (gfx_coord_t)image->header.w;
+    src_stride = gfx_image_resource_stride_px(resource);
     if (!gfx_area_intersect_exclusive(&draw_area, clip, card)) {
         return;
     }
 
     dst_w = card->x2 - card->x1;
     dst_h = card->y2 - card->y1;
-    src_w = (int32_t)image->header.w;
-    src_h = (int32_t)image->header.h;
+    src_w = (int32_t)resource->header.w;
+    src_h = (int32_t)resource->header.h;
     if (dst_w <= 0 || dst_h <= 0 || src_w <= 0 || src_h <= 0) {
         return;
     }
@@ -477,9 +452,12 @@ static void gfx_coverflow_draw_image_scaled(gfx_object_t *obj, const gfx_draw_ct
     src_x0 = (src_w - src_draw_w) / 2;
     src_y0 = (src_h - src_draw_h) / 2;
 
-    const uint8_t *alpha_base = NULL;
+    const gfx_opa_t *alpha_base = NULL;
     if (gfx_color_format_has_plane_alpha(color_format)) {
-        alpha_base = image->data + (size_t)src_stride * image->header.h * src_pixel_size;
+        alpha_base = gfx_image_resource_alpha(resource);
+        if (alpha_base == NULL) {
+            return;
+        }
     }
 
     dst_area.x1 = card->x1 - ctx->buf_area.x1;
@@ -504,19 +482,19 @@ static void gfx_coverflow_draw_image_scaled(gfx_object_t *obj, const gfx_draw_ct
     src_area.y2 = (gfx_coord_t)(src_y0 + src_draw_h);
 
     gfx_render_image_t render_src = {
-        .pixels = image->data,
+        .pixels = gfx_image_resource_pixels(resource),
         .stride = src_stride,
         .format = color_format,
         .alpha = alpha_base,
-        .alpha_stride = (gfx_coord_t)image->header.w,
+        .alpha_stride = gfx_image_resource_alpha_stride(resource),
     };
     if (gfx_render_surface_scale_image(obj->disp, &dst_surface, card, &render_src, &src_area, 0xFFU)) {
         return;
     }
 
     gfx_sw_blend_img_scale_draw_fmt(ctx->buf, ctx->stride, ctx->format,
-                                    image->data, src_stride,
-                                    alpha_base, (gfx_coord_t)image->header.w,
+                                    gfx_image_resource_pixels(resource), src_stride,
+                                    alpha_base, gfx_image_resource_alpha_stride(resource),
                                     &dst_area, &dst_clip, &src_area,
                                     color_format, 0xFF);
 }
@@ -668,7 +646,9 @@ static void gfx_coverflow_draw_card_state(gfx_object_t *obj, gfx_coverflow_t *fl
                                     &state->area, flow->style.border_width, flow->style.border_color, 0xFF);
     }
     if (flow->use_images) {
-        gfx_coverflow_draw_image_scaled(obj, ctx, flow->images[state->index], &state->area, &clip);
+        if (flow->image_resources != NULL) {
+            gfx_coverflow_draw_image_scaled(obj, ctx, &flow->image_resources[state->index], &state->area, &clip);
+        }
     } else {
         (void)gfx_coverflow_draw_text(obj, flow, ctx, flow->items[state->index], &state->area, &clip);
     }
@@ -679,11 +659,14 @@ static void gfx_coverflow_draw_card_state(gfx_object_t *obj, gfx_coverflow_t *fl
     }
 }
 
-static void gfx_coverflow_apply_card_state(gfx_coverflow_t *flow, const gfx_coverflow_card_state_t *state, bool visible)
+static void gfx_coverflow_apply_card_state(gfx_coverflow_t *flow, const gfx_area_t *flow_area,
+        const gfx_coverflow_card_state_t *state, bool visible)
 {
     gfx_object_t *card;
     gfx_object_t *image;
     gfx_object_t *title;
+    gfx_coord_t card_x;
+    gfx_coord_t card_y;
     int32_t card_w;
     int32_t card_h;
     int32_t title_h;
@@ -691,7 +674,7 @@ static void gfx_coverflow_apply_card_state(gfx_coverflow_t *flow, const gfx_cove
     uint16_t width;
     uint16_t height;
 
-    if (flow == NULL || state == NULL || state->index < 0 ||
+    if (flow == NULL || flow_area == NULL || state == NULL || state->index < 0 ||
             state->index >= (int32_t)flow->item_count || flow->cards == NULL) {
         return;
     }
@@ -710,8 +693,10 @@ static void gfx_coverflow_apply_card_state(gfx_coverflow_t *flow, const gfx_cove
 
     width = (uint16_t)MAX(0, state->area.x2 - state->area.x1);
     height = (uint16_t)MAX(0, state->area.y2 - state->area.y1);
-    if (card->geometry.x != state->area.x1 || card->geometry.y != state->area.y1) {
-        (void)gfx_object_set_pos(card, state->area.x1, state->area.y1);
+    card_x = (gfx_coord_t)(state->area.x1 - flow_area->x1);
+    card_y = (gfx_coord_t)(state->area.y1 - flow_area->y1);
+    if (card->local_geometry.x != card_x || card->local_geometry.y != card_y) {
+        (void)gfx_object_set_pos(card, card_x, card_y);
     }
     if (card->geometry.width != width || card->geometry.height != height) {
         (void)gfx_object_set_size(card, width, height);
@@ -730,12 +715,12 @@ static void gfx_coverflow_apply_card_state(gfx_coverflow_t *flow, const gfx_cove
     if (image != NULL) {
         uint16_t image_w = (uint16_t)MAX(0, card_w - pad * 2);
         uint16_t image_h = (uint16_t)MAX(0, card_h - title_h - pad * 2);
-        gfx_coord_t image_x = (gfx_coord_t)(state->area.x1 + pad);
-        gfx_coord_t image_y = (gfx_coord_t)(state->area.y1 + pad);
+        gfx_coord_t image_x = (gfx_coord_t)pad;
+        gfx_coord_t image_y = (gfx_coord_t)pad;
         if (image->state.is_visible != visible) {
             (void)gfx_object_set_visible(image, visible);
         }
-        if (image->geometry.x != image_x || image->geometry.y != image_y) {
+        if (image->local_geometry.x != image_x || image->local_geometry.y != image_y) {
             (void)gfx_object_set_pos(image, image_x, image_y);
         }
         if (image->type == GFX_OBJ_TYPE_MESH_IMAGE &&
@@ -748,14 +733,14 @@ static void gfx_coverflow_apply_card_state(gfx_coverflow_t *flow, const gfx_cove
     }
 
     if (title != NULL) {
-        gfx_coord_t title_x = (gfx_coord_t)(state->area.x1 + pad);
-        gfx_coord_t title_y = (gfx_coord_t)(state->area.y2 - title_h - pad / 2);
+        gfx_coord_t title_x = (gfx_coord_t)pad;
+        gfx_coord_t title_y = (gfx_coord_t)(card_h - title_h - pad / 2);
         uint16_t title_w = (uint16_t)MAX(0, card_w - pad * 2);
         uint16_t title_h_u16 = (uint16_t)MAX(0, title_h);
         if (title->state.is_visible != visible) {
             (void)gfx_object_set_visible(title, visible);
         }
-        if (title->geometry.x != title_x || title->geometry.y != title_y) {
+        if (title->local_geometry.x != title_x || title->local_geometry.y != title_y) {
             (void)gfx_object_set_pos(title, title_x, title_y);
         }
         if (title->geometry.width != title_w || title->geometry.height != title_h_u16) {
@@ -787,27 +772,23 @@ static void gfx_coverflow_hide_card_items(gfx_coverflow_t *flow, const gfx_cover
 }
 
 static uint8_t gfx_coverflow_collect_card_states(gfx_object_t *obj, gfx_coverflow_t *flow,
+        const gfx_area_t *obj_area,
         gfx_coverflow_card_state_t *cards, uint8_t max_cards,
         bool sort_by_zoom)
 {
-    gfx_area_t obj_area;
     uint8_t card_count = 0;
 
-    if (obj == NULL || flow == NULL || cards == NULL || max_cards == 0U || flow->item_count == 0U) {
+    if (obj == NULL || flow == NULL || obj_area == NULL ||
+            cards == NULL || max_cards == 0U || flow->item_count == 0U) {
         return 0;
     }
-
-    obj_area.x1 = obj->geometry.x;
-    obj_area.y1 = obj->geometry.y;
-    obj_area.x2 = obj->geometry.x + obj->geometry.width;
-    obj_area.y2 = obj->geometry.y + obj->geometry.height;
 
     for (int32_t slot = -GFX_COVERFLOW_VISIBLE_SIDE_COUNT; slot <= GFX_COVERFLOW_VISIBLE_SIDE_COUNT; slot++) {
         int32_t index = flow->selected_index + slot;
         if (index < 0 || index >= (int32_t)flow->item_count || card_count >= max_cards) {
             continue;
         }
-        gfx_coverflow_calc_card_state(flow, &obj_area, index, slot, &cards[card_count]);
+        gfx_coverflow_calc_card_state(flow, obj_area, index, slot, &cards[card_count]);
         card_count++;
     }
 
@@ -829,17 +810,22 @@ static uint8_t gfx_coverflow_collect_card_states(gfx_object_t *obj, gfx_coverflo
 static void gfx_coverflow_layout_cards(gfx_object_t *obj, gfx_coverflow_t *flow)
 {
     gfx_coverflow_card_state_t cards[GFX_COVERFLOW_VISIBLE_SIDE_COUNT * 2 + 1];
+    gfx_area_t obj_area;
     uint8_t card_count;
 
     if (obj == NULL || flow == NULL || !flow->use_cards) {
         return;
     }
 
-    card_count = gfx_coverflow_collect_card_states(obj, flow, cards,
+    if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
+        return;
+    }
+
+    card_count = gfx_coverflow_collect_card_states(obj, flow, &obj_area, cards,
                  (uint8_t)(sizeof(cards) / sizeof(cards[0])), false);
     gfx_coverflow_hide_card_items(flow, cards, card_count);
     for (uint8_t i = 0; i < card_count; i++) {
-        gfx_coverflow_apply_card_state(flow, &cards[i], true);
+        gfx_coverflow_apply_card_state(flow, &obj_area, &cards[i], true);
     }
 }
 
@@ -858,11 +844,9 @@ static esp_err_t gfx_coverflow_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx
     flow = (gfx_coverflow_t *)obj->src;
     GFX_RETURN_IF_NULL(flow, ESP_ERR_INVALID_STATE);
 
-    gfx_object_calc_pos_in_parent(obj);
-    obj_area.x1 = obj->geometry.x;
-    obj_area.y1 = obj->geometry.y;
-    obj_area.x2 = obj->geometry.x + obj->geometry.width;
-    obj_area.y2 = obj->geometry.y + obj->geometry.height;
+    if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
+        return ESP_OK;
+    }
     if (!gfx_area_intersect_exclusive(&clip, &ctx->clip_area, &obj_area)) {
         return ESP_OK;
     }
@@ -883,7 +867,7 @@ static esp_err_t gfx_coverflow_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx
         return ESP_OK;
     }
 
-    card_count = gfx_coverflow_collect_card_states(obj, flow, cards,
+    card_count = gfx_coverflow_collect_card_states(obj, flow, &obj_area, cards,
                  (uint8_t)(sizeof(cards) / sizeof(cards[0])), true);
 
     if (flow->use_cards) {
@@ -908,7 +892,6 @@ static esp_err_t gfx_coverflow_update(gfx_object_t *obj)
     gfx_coverflow_t *flow;
 
     CHECK_OBJ_TYPE_COVERFLOW(obj);
-    gfx_object_calc_pos_in_parent(obj);
     flow = (gfx_coverflow_t *)obj->src;
     if (flow != NULL) {
         gfx_coverflow_layout_cards(obj, flow);
@@ -934,25 +917,35 @@ static esp_err_t gfx_coverflow_delete_impl(gfx_object_t *obj)
 
 static esp_err_t gfx_coverflow_load_impl(gfx_object_t *obj)
 {
-    uint8_t original_type = obj->type;
-    esp_err_t ret;
+    gfx_coverflow_t *flow;
+
     CHECK_OBJ_TYPE_COVERFLOW(obj);
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    ret = gfx_label_load_impl(obj);
-    obj->type = original_type;
-    return ret;
+    flow = (gfx_coverflow_t *)obj->src;
+    ESP_RETURN_ON_FALSE(flow != NULL, ESP_ERR_INVALID_STATE, TAG, "load: state is NULL");
+
+    ESP_RETURN_ON_ERROR(gfx_label_load_state(obj, &flow->label), TAG, "load label failed");
+    if (flow->use_images && flow->image_resources != NULL) {
+        for (uint16_t i = 0; i < flow->item_count; i++) {
+            ESP_RETURN_ON_ERROR(gfx_image_resource_open(&flow->image_resources[i]),
+                                TAG, "load image resource failed");
+        }
+    }
+    return ESP_OK;
 }
 
 static void gfx_coverflow_release_impl(gfx_object_t *obj)
 {
-    uint8_t original_type;
     if (obj == NULL || obj->src == NULL || obj->type != GFX_OBJ_TYPE_COVERFLOW) {
         return;
     }
-    original_type = obj->type;
-    obj->type = GFX_OBJ_TYPE_LABEL;
-    gfx_label_release_impl(obj);
-    obj->type = original_type;
+
+    gfx_coverflow_t *flow = (gfx_coverflow_t *)obj->src;
+    gfx_label_release_state(&flow->label);
+    if (flow->image_resources != NULL) {
+        for (uint16_t i = 0; i < flow->item_count; i++) {
+            gfx_image_resource_close(&flow->image_resources[i]);
+        }
+    }
 }
 
 static void gfx_coverflow_touch_event(gfx_object_t *obj, const void *event_data)
@@ -1077,6 +1070,7 @@ gfx_err_t gfx_coverflow_add_item(gfx_object_t *obj, const char *text)
     flow->items = new_items;
     flow->items[flow->item_count++] = dup_text;
     flow->images = NULL;
+    flow->image_resources = NULL;
     flow->cards = NULL;
     flow->use_images = false;
     flow->use_cards = false;
@@ -1102,14 +1096,71 @@ gfx_err_t gfx_coverflow_set_items(gfx_object_t *obj, const char *const *items, u
 gfx_err_t gfx_coverflow_set_image_items(gfx_object_t *obj, const gfx_image_dsc_t *const *images,
                                         uint16_t item_count)
 {
+    gfx_image_src_t *sources = NULL;
+    gfx_err_t ret;
+
+    CHECK_OBJ_TYPE_COVERFLOW(obj);
+    ESP_RETURN_ON_FALSE(item_count == 0U || images != NULL, ESP_ERR_INVALID_ARG, TAG, "images is NULL");
+
+    if (item_count > 0U) {
+        sources = calloc(item_count, sizeof(sources[0]));
+        if (sources == NULL) {
+            return ESP_ERR_NO_MEM;
+        }
+        for (uint16_t i = 0; i < item_count; i++) {
+            sources[i] = (gfx_image_src_t) {
+                .type = GFX_IMAGE_SRC_TYPE_IMAGE_DSC,
+                .data = images[i],
+            };
+        }
+    }
+
+    ret = gfx_coverflow_set_image_sources(obj, sources, item_count);
+    free(sources);
+    return ret;
+}
+
+gfx_err_t gfx_coverflow_set_image_sources(gfx_object_t *obj, const gfx_image_src_t *sources,
+        uint16_t item_count)
+{
     gfx_coverflow_t *flow;
+    const gfx_image_dsc_t **image_copy = NULL;
+    gfx_image_resource_t *resource_copy = NULL;
+
     CHECK_OBJ_TYPE_COVERFLOW(obj);
     GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
-    ESP_RETURN_ON_FALSE(item_count == 0U || images != NULL, ESP_ERR_INVALID_ARG, TAG, "images is NULL");
+    ESP_RETURN_ON_FALSE(item_count == 0U || sources != NULL, ESP_ERR_INVALID_ARG, TAG, "image sources is NULL");
+
+    if (item_count > 0U) {
+        image_copy = calloc(item_count, sizeof(image_copy[0]));
+        if (image_copy == NULL) {
+            return ESP_ERR_NO_MEM;
+        }
+        resource_copy = calloc(item_count, sizeof(resource_copy[0]));
+        if (resource_copy == NULL) {
+            free(image_copy);
+            return ESP_ERR_NO_MEM;
+        }
+        for (uint16_t i = 0; i < item_count; i++) {
+            esp_err_t ret = gfx_image_resource_set_source(&resource_copy[i], &sources[i]);
+            if (ret != ESP_OK) {
+                for (uint16_t j = 0; j < i; j++) {
+                    gfx_image_resource_close(&resource_copy[j]);
+                }
+                free(resource_copy);
+                free(image_copy);
+                return ret;
+            }
+            if (sources[i].type == GFX_IMAGE_SRC_TYPE_IMAGE_DSC) {
+                image_copy[i] = (const gfx_image_dsc_t *)sources[i].data;
+            }
+        }
+    }
 
     flow = (gfx_coverflow_t *)obj->src;
     gfx_coverflow_free_items(flow);
-    flow->images = images;
+    flow->images = image_copy;
+    flow->image_resources = resource_copy;
     flow->item_count = item_count;
     flow->selected_index = item_count > 0U ? 0 : -1;
     flow->tween_target_index = flow->selected_index;
@@ -1117,6 +1168,7 @@ gfx_err_t gfx_coverflow_set_image_items(gfx_object_t *obj, const gfx_image_dsc_t
     flow->use_images = true;
     flow->use_cards = false;
     gfx_object_set_manual_child_draw(obj, false);
+    gfx_object_mark_resource_dirty(obj);
     gfx_object_invalidate(obj);
     return ESP_OK;
 }

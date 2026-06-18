@@ -108,7 +108,7 @@ int main(void)
     expect_true(gfx_container_set_bg_color(container, GFX_COLOR_HEX(0x18202A)) == GFX_OK, "container bg");
     expect_true(gfx_container_set_border_width(container, 2) == GFX_OK, "container border");
 
-    expect_true(gfx_object_set_pos(button, 44, 52) == GFX_OK, "button pos");
+    expect_true(gfx_object_set_pos(button, 24, 32) == GFX_OK, "button local pos");
     expect_true(gfx_object_set_size(button, 80, 34) == GFX_OK, "button size");
     expect_true(gfx_button_set_text(button, "Child") == GFX_OK, "button text");
     expect_true(gfx_object_set_touch_cb(button, button_touch_cb, NULL) == GFX_OK, "button touch cb");
@@ -127,14 +127,14 @@ int main(void)
     expect_true(aligned_x == 70 && aligned_y == 58, "align uses parent area");
 
     expect_true(gfx_object_set_size(clipped, 50, 30) == GFX_OK, "clipped size");
-    expect_true(gfx_object_set_pos(clipped, 150, 100) == GFX_OK, "clipped pos");
+    expect_true(gfx_object_set_pos(clipped, 130, 80) == GFX_OK, "clipped local pos");
     expect_true(gfx_button_set_text(clipped, "Clip") == GFX_OK, "clipped text");
     expect_true(gfx_object_set_touch_cb(clipped, button_touch_cb, NULL) == GFX_OK, "clipped touch cb");
     expect_true(gfx_object_add_child(container, clipped) == GFX_OK, "add clipped child");
     expect_true(gfx_container_set_clip_children(container, true) == GFX_OK, "enable child clipping");
 
     clear_dirty(disp);
-    expect_true(gfx_object_set_pos(clipped, 150, 100) == GFX_OK, "clipped pos invalidates");
+    expect_true(gfx_object_set_pos(clipped, 130, 80) == GFX_OK, "clipped pos invalidates");
     expect_true(dirty_contains(disp, 150, 100, 159, 115), "clipped dirty keeps visible intersection");
     expect_true(!dirty_contains(disp, 150, 100, 199, 129), "clipped dirty does not expose full child area");
 

@@ -308,13 +308,8 @@ bool gfx_object_get_abs_area(gfx_object_t *obj, gfx_area_t *area)
 {
     gfx_area_t result;
 
-    if (obj == NULL || area == NULL || obj->disp == NULL ||
-            obj->geometry.width == 0 || obj->geometry.height == 0) {
+    if (obj == NULL || area == NULL || obj->disp == NULL) {
         return false;
-    }
-
-    if (obj->align.enabled || obj->state.layout_dirty) {
-        gfx_object_calc_pos_in_parent(obj);
     }
 
     if (obj->state.abs_area_valid) {
@@ -322,10 +317,10 @@ bool gfx_object_get_abs_area(gfx_object_t *obj, gfx_area_t *area)
         return true;
     }
 
-    result.x1 = obj->geometry.x;
-    result.y1 = obj->geometry.y;
-    result.x2 = obj->geometry.x + obj->geometry.width - 1;
-    result.y2 = obj->geometry.y + obj->geometry.height - 1;
+    if (!gfx_object_resolve_abs_area_unclipped(obj, &result)) {
+        obj->state.abs_area_valid = false;
+        return false;
+    }
 
     for (gfx_object_t *parent = obj->parent; parent != NULL; parent = parent->parent) {
         gfx_area_t parent_area;
@@ -401,21 +396,27 @@ static void gfx_refresh_update_layout_dirty_object(gfx_object_t *obj)
     }
 
     if (obj->state.layout_dirty && obj->align.enabled) {
-        gfx_coord_t old_x = obj->geometry.x;
-        gfx_coord_t old_y = obj->geometry.y;
+        gfx_area_t old_area;
+        gfx_area_t new_area;
+        bool had_old_area;
 
+        had_old_area = gfx_object_get_abs_area(obj, &old_area);
         gfx_object_invalidate_tree(obj);
         gfx_object_calc_pos_in_parent(obj);
+        gfx_object_invalidate_abs_area_cache_tree(obj);
+        (void)gfx_object_get_abs_area(obj, &new_area);
 
         gfx_object_invalidate_tree(obj);
 
-        GFX_LOGD(TAG,
-                 "layout update: obj=%p (%d,%d) -> (%d,%d)",
-                 obj,
-                 old_x,
-                 old_y,
-                 obj->geometry.x,
-                 obj->geometry.y);
+        if (had_old_area) {
+            GFX_LOGD(TAG,
+                     "layout update: obj=%p (%d,%d) -> (%d,%d)",
+                     obj,
+                     old_area.x1,
+                     old_area.y1,
+                     new_area.x1,
+                     new_area.y1);
+        }
 
         obj->state.layout_dirty = false;
     }

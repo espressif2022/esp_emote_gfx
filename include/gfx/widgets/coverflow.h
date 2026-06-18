@@ -28,10 +28,12 @@ gfx_object_t *gfx_coverflow_create(gfx_display_t *disp);
 gfx_err_t gfx_coverflow_clear(gfx_object_t *obj);
 gfx_err_t gfx_coverflow_add_item(gfx_object_t *obj, const char *text);
 gfx_err_t gfx_coverflow_set_items(gfx_object_t *obj, const char *const *items, uint16_t item_count);
+gfx_err_t gfx_coverflow_set_image_sources(gfx_object_t *obj, const gfx_image_src_t *sources,
+        uint16_t item_count);
 gfx_err_t gfx_coverflow_set_image_items(gfx_object_t *obj, const gfx_image_dsc_t *const *images,
                                         uint16_t item_count);
 gfx_err_t gfx_coverflow_set_card_descriptors(gfx_object_t *obj, const gfx_coverflow_card_dsc_t *cards,
-                                             uint16_t item_count);
+        uint16_t item_count);
 gfx_err_t gfx_coverflow_set_card_items(gfx_object_t *obj, gfx_object_t *const *cards,
                                        uint16_t item_count);
 

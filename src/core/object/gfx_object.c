@@ -38,6 +38,7 @@ static const char *const TAG = "obj";
 static void gfx_object_notify_aligned_dependents(gfx_object_t *obj, uint8_t depth);
 static void gfx_object_detach_aligned_dependents(gfx_object_t *obj);
 static void gfx_object_calc_pos_in_parent_internal(gfx_object_t *obj, uint8_t depth);
+static bool gfx_object_resolve_abs_area_internal(gfx_object_t *obj, gfx_area_t *area, uint8_t depth);
 static gfx_err_t gfx_object_detach_from_parent(gfx_object_t *obj);
 static gfx_err_t gfx_object_delete_children(gfx_object_t *obj);
 
@@ -180,10 +181,7 @@ static gfx_err_t gfx_object_delete_children(gfx_object_t *obj)
 
 static void gfx_object_calc_pos_in_parent_internal(gfx_object_t *obj, uint8_t depth)
 {
-    gfx_coord_t origin_x = 0;
-    gfx_coord_t origin_y = 0;
-    uint32_t parent_w;
-    uint32_t parent_h;
+    gfx_area_t area;
 
     GFX_RETURN_IF_NULL_VOID(obj);
 
@@ -192,37 +190,73 @@ static void gfx_object_calc_pos_in_parent_internal(gfx_object_t *obj, uint8_t de
         return;
     }
 
-    if (!obj->align.enabled) {
-        return;
+    if (gfx_object_resolve_abs_area_internal(obj, &area, depth)) {
+        obj->resolved.abs_area = area;
+        obj->state.abs_area_valid = true;
+    } else {
+        obj->state.abs_area_valid = false;
+    }
+}
+
+static bool gfx_object_resolve_abs_area_internal(gfx_object_t *obj, gfx_area_t *area, uint8_t depth)
+{
+    gfx_coord_t origin_x = 0;
+    gfx_coord_t origin_y = 0;
+    gfx_coord_t local_x;
+    gfx_coord_t local_y;
+    uint16_t width;
+    uint16_t height;
+    uint32_t parent_w;
+    uint32_t parent_h;
+    gfx_area_t base_area;
+
+    if (obj == NULL || area == NULL || obj->disp == NULL || depth > 8U) {
+        return false;
+    }
+
+    width = obj->local_geometry.width;
+    height = obj->local_geometry.height;
+    if (width == 0U || height == 0U) {
+        width = obj->geometry.width;
+        height = obj->geometry.height;
+    }
+    if (width == 0U || height == 0U) {
+        return false;
     }
 
     parent_w = gfx_display_get_h_res(obj->disp);
     parent_h = gfx_display_get_v_res(obj->disp);
 
-    if (obj->align.target != NULL && obj->align.target != obj) {
-        gfx_object_t *target = obj->align.target;
-
-        if (target->disp == obj->disp) {
-            gfx_object_calc_pos_in_parent_internal(target, depth + 1);
-            origin_x = target->geometry.x;
-            origin_y = target->geometry.y;
-            parent_w = target->geometry.width;
-            parent_h = target->geometry.height;
+    if (obj->align.target != NULL && obj->align.target != obj && obj->align.target->disp == obj->disp) {
+        if (!gfx_object_resolve_abs_area_internal(obj->align.target, &base_area, (uint8_t)(depth + 1U))) {
+            return false;
         }
+        origin_x = base_area.x1;
+        origin_y = base_area.y1;
+        parent_w = (uint32_t)(base_area.x2 - base_area.x1 + 1);
+        parent_h = (uint32_t)(base_area.y2 - base_area.y1 + 1);
     } else if (obj->parent != NULL && obj->parent != obj && obj->parent->disp == obj->disp) {
-        gfx_object_t *parent = obj->parent;
-
-        gfx_object_calc_pos_in_parent_internal(parent, depth + 1);
-        origin_x = parent->geometry.x;
-        origin_y = parent->geometry.y;
-        parent_w = parent->geometry.width;
-        parent_h = parent->geometry.height;
+        if (!gfx_object_resolve_abs_area_internal(obj->parent, &base_area, (uint8_t)(depth + 1U))) {
+            return false;
+        }
+        origin_x = base_area.x1;
+        origin_y = base_area.y1;
+        parent_w = (uint32_t)(base_area.x2 - base_area.x1 + 1);
+        parent_h = (uint32_t)(base_area.y2 - base_area.y1 + 1);
     }
 
-    gfx_object_cal_aligned_pos(obj, parent_w, parent_h, &obj->geometry.x, &obj->geometry.y);
-    obj->geometry.x += origin_x;
-    obj->geometry.y += origin_y;
-    obj->state.abs_area_valid = false;
+    if (obj->align.enabled) {
+        gfx_object_cal_aligned_pos(obj, parent_w, parent_h, &local_x, &local_y);
+    } else {
+        local_x = obj->local_geometry.x;
+        local_y = obj->local_geometry.y;
+    }
+
+    area->x1 = (gfx_coord_t)(origin_x + local_x);
+    area->y1 = (gfx_coord_t)(origin_y + local_y);
+    area->x2 = (gfx_coord_t)(area->x1 + width - 1);
+    area->y2 = (gfx_coord_t)(area->y1 + height - 1);
+    return true;
 }
 
 /**********************
@@ -383,8 +417,8 @@ void gfx_object_cal_aligned_pos(gfx_object_t *obj, uint32_t parent_width, uint32
     GFX_RETURN_IF_NULL_VOID(y);
 
     if (!obj->align.enabled) {
-        *x = obj->geometry.x;
-        *y = obj->geometry.y;
+        *x = obj->local_geometry.x;
+        *y = obj->local_geometry.y;
         return;
     }
 
@@ -477,8 +511,8 @@ void gfx_object_cal_aligned_pos(gfx_object_t *obj, uint32_t parent_width, uint32
         break;
     default:
         GFX_LOGW(TAG, "Unknown alignment type: %d", obj->align.type);
-        calculated_x = obj->geometry.x;
-        calculated_y = obj->geometry.y;
+        calculated_x = obj->local_geometry.x;
+        calculated_y = obj->local_geometry.y;
         break;
     }
 
@@ -491,6 +525,11 @@ void gfx_object_calc_pos_in_parent(gfx_object_t *obj)
     gfx_object_calc_pos_in_parent_internal(obj, 0);
 }
 
+bool gfx_object_resolve_abs_area_unclipped(gfx_object_t *obj, gfx_area_t *area)
+{
+    return gfx_object_resolve_abs_area_internal(obj, area, 0);
+}
+
 /* Generic getters */
 
 gfx_err_t gfx_object_get_pos(gfx_object_t *obj, gfx_coord_t *x, gfx_coord_t *y)
@@ -499,8 +538,14 @@ gfx_err_t gfx_object_get_pos(gfx_object_t *obj, gfx_coord_t *x, gfx_coord_t *y)
     GFX_RETURN_IF_NULL(x, ESP_ERR_INVALID_ARG);
     GFX_RETURN_IF_NULL(y, ESP_ERR_INVALID_ARG);
 
-    *x = obj->geometry.x;
-    *y = obj->geometry.y;
+    gfx_area_t area;
+    if (gfx_object_resolve_abs_area_unclipped(obj, &area)) {
+        *x = area.x1;
+        *y = area.y1;
+    } else {
+        *x = obj->local_geometry.x;
+        *y = obj->local_geometry.y;
+    }
     return ESP_OK;
 }
 

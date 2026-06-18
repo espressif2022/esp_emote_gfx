@@ -18,9 +18,7 @@
 
 #include "core/gfx_types_priv.h"
 #include "gfx_eaf_dec.h"
-#if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
-#include "esp_jpeg_dec.h"
-#endif
+#include "platform/gfx_platform_jpeg_priv.h"
 
 #ifdef CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
 #include "heatshrink_decoder.h"
@@ -60,6 +58,8 @@ static void huffman_tree_free(eaf_dec_huffman_node_t *node);
 static esp_err_t huffman_decode_data(const uint8_t *in_data, size_t in_size,
                                      const uint8_t *dict_data, size_t dict_len,
                                      uint8_t *out_data, size_t *out_size);
+static esp_err_t eaf_dec_decode_jpeg_block_with_hint(const uint8_t *in_data, size_t in_size,
+        uint32_t width, uint32_t height, uint8_t *out_data, size_t *out_size);
 
 /**********************
  *   STATIC FUNCTIONS
@@ -391,7 +391,6 @@ static esp_err_t init_decoders(void)
     ret |= register_decoder(EAF_DEC_ENCODING_HUFFMAN, decode_huffman_rle);
     ret |= register_decoder(EAF_DEC_ENCODING_HUFFMAN_DIRECT, eaf_dec_decode_huffman);
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
-    ret |= register_decoder(EAF_DEC_ENCODING_JPEG, eaf_dec_decode_jpeg);
 #endif
 #ifdef CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
     ret |= register_decoder(EAF_DEC_ENCODING_HEATSHRINK, eaf_dec_decode_heatshrink);
@@ -415,22 +414,29 @@ esp_err_t eaf_dec_decode_block(const eaf_dec_header_t *header, const uint8_t *bl
         return ESP_FAIL;
     }
 
-    eaf_dec_block_decoder_cb_t decoder = s_eaf_decoders[encoding_type];
-    if (!decoder) {
-        GFX_LOGE(TAG, "No decoder for encoding type: %02X", encoding_type);
-        return ESP_FAIL;
-    }
-
     size_t out_size;
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
     if (encoding_type == EAF_DEC_ENCODING_JPEG) {
         out_size = width * block_height * 2;
+        decode_result = eaf_dec_decode_jpeg_block_with_hint(block_data + 1, block_len - 1,
+                        (uint32_t)width, (uint32_t)block_height,
+                        out_data, &out_size);
+        if (decode_result != ESP_OK) {
+            return ESP_FAIL;
+        }
+        return ESP_OK;
     } else {
         out_size = width * block_height;
     }
 #else
     out_size = width * block_height;
 #endif
+
+    eaf_dec_block_decoder_cb_t decoder = s_eaf_decoders[encoding_type];
+    if (!decoder) {
+        GFX_LOGE(TAG, "No decoder for encoding type: %02X", encoding_type);
+        return ESP_FAIL;
+    }
 
     decode_result = decoder(block_data + 1, block_len - 1, out_data, &out_size);
 
@@ -596,63 +602,17 @@ hs_fail:
 #endif // CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
 
 #if CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
-esp_err_t eaf_dec_decode_jpeg(const uint8_t *in_data, size_t in_size,
-                              uint8_t *out_data, size_t *out_size)
+static esp_err_t eaf_dec_decode_jpeg_block_with_hint(const uint8_t *in_data, size_t in_size,
+        uint32_t width, uint32_t height, uint8_t *out_data, size_t *out_size)
 {
-    esp_err_t ret = ESP_OK;
-    uint32_t w, h;
-    jpeg_dec_handle_t jpeg_dec = NULL;
-    jpeg_dec_io_t *jpeg_io = NULL;
-    jpeg_dec_header_info_t *out_info = NULL;
-
-    jpeg_dec_config_t config = {
-        .output_type = JPEG_PIXEL_FORMAT_RGB565_LE,
-        .rotate = JPEG_ROTATE_0D,
-    };
-
-    ESP_GOTO_ON_ERROR(jpeg_dec_open(&config, &jpeg_dec), err, TAG, "JPEG decoder open failed");
-
-    jpeg_io = malloc(sizeof(jpeg_dec_io_t));
-    ESP_GOTO_ON_FALSE(jpeg_io, ESP_ERR_NO_MEM, err, TAG, "No mem for jpeg_io");
-
-    out_info = malloc(sizeof(jpeg_dec_header_info_t));
-    ESP_GOTO_ON_FALSE(out_info, ESP_ERR_NO_MEM, err, TAG, "No mem for out_info");
-
-    jpeg_io->inbuf = (unsigned char *)in_data;
-    jpeg_io->inbuf_len = in_size;
-
-    jpeg_error_t jpeg_ret = jpeg_dec_parse_header(jpeg_dec, jpeg_io, out_info);
-    ESP_GOTO_ON_FALSE(jpeg_ret == JPEG_ERR_OK, ESP_FAIL, err, TAG, "JPEG header parse failed");
-
-    w = out_info->width;
-    h = out_info->height;
-
-    size_t required_size = w * h * 2;
-    ESP_GOTO_ON_FALSE(*out_size >= required_size, ESP_ERR_INVALID_SIZE, err, TAG,
-                      "Buffer too small: need %zu, got %zu", required_size, *out_size);
-
-    jpeg_io->outbuf = out_data;
-    jpeg_ret = jpeg_dec_process(jpeg_dec, jpeg_io);
-    ESP_GOTO_ON_FALSE(jpeg_ret == JPEG_ERR_OK, ESP_FAIL, err, TAG, "JPEG decode failed: %d", jpeg_ret);
-
-    *out_size = required_size;
-
-    free(jpeg_io);
-    free(out_info);
-    jpeg_dec_close(jpeg_dec);
-    return ESP_OK;
-
-err:
-    if (jpeg_io) {
-        free(jpeg_io);
+    if (!gfx_platform_jpeg_is_available()) {
+        GFX_LOGE(TAG, "JPEG decoder unavailable");
+        return ESP_ERR_NOT_SUPPORTED;
     }
-    if (out_info) {
-        free(out_info);
-    }
-    if (jpeg_dec) {
-        jpeg_dec_close(jpeg_dec);
-    }
-    return ret;
+
+    return gfx_platform_jpeg_decode_rgb565_with_hint(in_data, in_size,
+            width, height,
+            out_data, out_size);
 }
 #endif // CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 

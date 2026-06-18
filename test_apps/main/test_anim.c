@@ -125,7 +125,7 @@ static esp_err_t test_anim_decode_first_frame_rgb565(mmap_assets_handle_t assets
 }
 
 static void test_anim_find_sample_pixel(const uint16_t *pixels, uint16_t width, uint16_t height,
-        uint16_t avoid_color, uint16_t *out_x, uint16_t *out_y, uint16_t *out_color)
+                                        uint16_t avoid_color, uint16_t *out_x, uint16_t *out_y, uint16_t *out_color)
 {
     for (uint16_t y = 0; y < height; y++) {
         for (uint16_t x = 0; x < width; x++) {

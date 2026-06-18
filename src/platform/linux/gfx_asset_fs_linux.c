@@ -158,6 +158,7 @@ static gfx_err_t gfx_asset_dir_open_by_name(gfx_asset_store_t *store, const char
             state->mapped_size = size;
             out_view->data = mapped;
             out_view->is_mapped = true;
+            out_view->flags = GFX_ASSET_VIEW_FLAG_DIRECT_ADDR | GFX_ASSET_VIEW_FLAG_MAPPED;
         } else {
             err = gfx_asset_read_file(fd, size, &state->owned);
             if (err != GFX_OK) {
@@ -165,6 +166,7 @@ static gfx_err_t gfx_asset_dir_open_by_name(gfx_asset_store_t *store, const char
             }
             out_view->data = state->owned;
             out_view->is_mapped = false;
+            out_view->flags = GFX_ASSET_VIEW_FLAG_OWNED;
         }
     }
 
@@ -193,6 +195,25 @@ static gfx_err_t gfx_asset_dir_open_by_id(gfx_asset_store_t *store, int32_t id, 
     (void)id;
     (void)out_view;
     return GFX_ERR_NOT_SUPPORTED;
+}
+
+static gfx_err_t gfx_asset_dir_get_caps(const gfx_asset_store_t *store, gfx_asset_store_caps_t *out_caps)
+{
+    (void)store;
+    if (out_caps == NULL) {
+        return GFX_ERR_INVALID_ARG;
+    }
+
+    *out_caps = (gfx_asset_store_caps_t) {
+        .open_by_name = true,
+        .open_by_id = false,
+        .open_region = false,
+        .can_direct_addr = true,
+        .can_owned_copy = true,
+        .can_force_copy = false,
+        .can_force_direct = false,
+    };
+    return GFX_OK;
 }
 
 static void gfx_asset_dir_view_close(gfx_asset_view_t *view)
@@ -227,9 +248,29 @@ static void gfx_asset_dir_store_close(gfx_asset_store_t *store)
 static const gfx_asset_store_vtable_t s_gfx_asset_dir_vtable = {
     .open_by_name = gfx_asset_dir_open_by_name,
     .open_by_id = gfx_asset_dir_open_by_id,
+    .get_caps = gfx_asset_dir_get_caps,
     .view_close = gfx_asset_dir_view_close,
     .store_close = gfx_asset_dir_store_close,
 };
+
+gfx_err_t gfx_asset_store_open_config_port(const gfx_asset_store_config_t *config, gfx_asset_store_t **out_store)
+{
+    if (config == NULL || out_store == NULL) {
+        return GFX_ERR_INVALID_ARG;
+    }
+    *out_store = NULL;
+
+    switch (config->type) {
+    case GFX_ASSET_STORE_TYPE_AUTO:
+    case GFX_ASSET_STORE_TYPE_DIR:
+        return gfx_asset_store_open_dir_port(config->root_dir, out_store);
+    case GFX_ASSET_STORE_TYPE_MMAP_ASSETS:
+    case GFX_ASSET_STORE_TYPE_PARTITION:
+    case GFX_ASSET_STORE_TYPE_MEMORY_TABLE:
+    default:
+        return GFX_ERR_NOT_SUPPORTED;
+    }
+}
 
 gfx_err_t gfx_asset_store_open_dir_port(const char *root_dir, gfx_asset_store_t **out_store)
 {
@@ -264,4 +305,13 @@ gfx_err_t gfx_asset_store_open_dir_port(const char *root_dir, gfx_asset_store_t 
     store->backend_data = backend;
     *out_store = store;
     return GFX_OK;
+}
+
+gfx_err_t gfx_asset_store_open_mmap_port(const gfx_asset_mmap_config_t *config, gfx_asset_store_t **out_store)
+{
+    (void)config;
+    if (out_store != NULL) {
+        *out_store = NULL;
+    }
+    return GFX_ERR_NOT_SUPPORTED;
 }

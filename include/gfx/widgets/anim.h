@@ -54,12 +54,12 @@ typedef struct {
 /**
  * @brief Public animation source type.
  *
- * The current implementation supports in-memory animation payloads.
- * The enum exists so future source types can be added without changing the
- * source-setting API shape again.
+ * The current implementation supports in-memory animation payloads and
+ * name/path based file sources resolved by the default asset store.
  */
 typedef enum {
     GFX_ANIM_SRC_TYPE_MEMORY = 0, /**< In-memory animation payload */
+    GFX_ANIM_SRC_TYPE_FILE,       /**< File path encoded animation source */
 } gfx_anim_src_type_t;
 
 /**

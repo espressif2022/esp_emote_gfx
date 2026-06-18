@@ -134,7 +134,7 @@ static esp_err_t hmi_rgb_board_touch_select_addr(uint8_t addr)
     gpio_config_t gpio_cfg = {
         .mode = GPIO_MODE_OUTPUT,
         .pin_bit_mask = gpio_pin_bit64((unsigned)HMI_RGB_BOARD_TOUCH_RST) |
-                        gpio_pin_bit64((unsigned)HMI_RGB_BOARD_TOUCH_INT),
+        gpio_pin_bit64((unsigned)HMI_RGB_BOARD_TOUCH_INT),
     };
     ESP_RETURN_ON_ERROR(gpio_config(&gpio_cfg), TAG, "configure touch rst/int failed");
 

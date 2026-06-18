@@ -28,6 +28,8 @@ gfx_object_t *gfx_pageflow_create(gfx_display_t *disp);
 gfx_err_t gfx_pageflow_clear(gfx_object_t *obj);
 gfx_err_t gfx_pageflow_add_page(gfx_object_t *obj, const char *text);
 gfx_err_t gfx_pageflow_set_pages(gfx_object_t *obj, const char *const *pages, uint16_t page_count);
+gfx_err_t gfx_pageflow_set_image_sources(gfx_object_t *obj, const gfx_image_src_t *sources,
+        uint16_t page_count);
 gfx_err_t gfx_pageflow_set_image_pages(gfx_object_t *obj, const gfx_image_dsc_t *const *images,
                                        uint16_t page_count);
 
