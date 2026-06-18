@@ -52,7 +52,7 @@ static void test_anim_show_case(mmap_assets_handle_t assets_handle, gfx_object_t
 {
     const void *anim_data = NULL;
     size_t anim_size = 0;
-    gfx_anim_src_t anim_src;
+    gfx_anim_src_t anim_src = {0};
     char case_name[64];
 
     test_anim_format_case_name(test_case, case_name, sizeof(case_name));

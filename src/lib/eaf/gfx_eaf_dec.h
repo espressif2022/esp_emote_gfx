@@ -54,9 +54,46 @@ typedef struct {
     const eaf_dec_frame_table_entry_t *table;
 } eaf_dec_frame_entry_t;
 
+/* Forward declaration so the parser context can own a reusable node arena. */
+struct eaf_dec_huffman_node;
+
+/**
+ * @brief Read-only access layer over an EAF/AAF source for streaming decode.
+ *
+ * The decoder never opens files itself; the caller supplies `read` (and the
+ * total `size`) so the same decode core works over a resident buffer, an
+ * mmap mapping, or an on-demand VFS stream. `read` must copy exactly `len`
+ * bytes at absolute `offset` into `dst`.
+ */
+typedef struct {
+    void *io_ctx;            /*!< Opaque backend state passed back to read(). */
+    size_t size;             /*!< Total source size in bytes. */
+    esp_err_t (*read)(void *io_ctx, size_t offset, size_t len, uint8_t *dst);
+} eaf_dec_reader_t;
+
 typedef struct {
     eaf_dec_frame_entry_t *entries;
     int total_frames;
+    /* Reusable decode scratch, owned by the handle and grown on demand. Decode
+     * for a given handle is single-threaded (one render/decode task), so these
+     * buffers are reused across blocks/frames to remove per-block malloc/free
+     * churn. Reuse only: the decoded output is identical to the non-pooled path. */
+    uint8_t *huff_tmp;                       /*!< Huffman+RLE intermediate buffer */
+    size_t huff_tmp_cap;                     /*!< Capacity of huff_tmp in bytes */
+    struct eaf_dec_huffman_node *huff_nodes; /*!< Huffman tree node arena */
+    size_t huff_node_cap;                    /*!< Arena capacity in nodes */
+
+    /* Streaming mode (eaf_dec_init_reader). When `streaming` is true, frame
+     * payloads are pulled on demand into `frame_buf` instead of pointing into a
+     * resident file buffer, so only the header/table plus one frame are
+     * resident. Resident mode (eaf_dec_init) leaves all of these zeroed. */
+    bool streaming;                          /*!< Pull frames on demand via reader. */
+    eaf_dec_reader_t reader;                 /*!< Source access layer (streaming). */
+    size_t frame_base;                       /*!< Source offset where frames begin. */
+    eaf_dec_frame_table_entry_t *table_copy; /*!< Integerized frame table copy. */
+    uint8_t *frame_buf;                      /*!< Reusable current-frame payload. */
+    size_t frame_buf_cap;                    /*!< Capacity of frame_buf in bytes. */
+    int loaded_frame;                        /*!< Frame index in frame_buf, -1 none. */
 } eaf_dec_ctx_t;
 
 typedef enum {
@@ -208,14 +245,16 @@ esp_err_t eaf_dec_decode_raw(const uint8_t *in_data, size_t in_size,
 
 /**
  * @brief Decode a block of EAF data
+ * @param handle Parser handle providing reusable decode scratch (may be NULL,
+ *               in which case decode falls back to transient allocations)
  * @param header EAF header information
  * @param block_data Pointer to the block data
  * @param block_len Length of the block
  * @param out_data Buffer to store decoded data
  * @return ESP_OK on success, ESP_FAIL on failure
  */
-esp_err_t eaf_dec_decode_block(const eaf_dec_header_t *header, const uint8_t *block_data,
-                               int block_len, uint8_t *out_data);
+esp_err_t eaf_dec_decode_block(eaf_dec_handle_t handle, const eaf_dec_header_t *header,
+                               const uint8_t *block_data, int block_len, uint8_t *out_data);
 
 /**********************
  *  FORMAT OPERATIONS
@@ -229,6 +268,25 @@ esp_err_t eaf_dec_decode_block(const eaf_dec_header_t *header, const uint8_t *bl
  * @return ESP_OK on success, ESP_FAIL on failure
  */
 esp_err_t eaf_dec_init(const uint8_t *data, size_t data_len, eaf_dec_handle_t *ret_parser);
+
+/**
+ * @brief Initialize a streaming EAF parser over a read-only access layer.
+ *
+ * Only the fixed header and the frame table are read at init (the frame table
+ * is copied and integerized); each frame payload is then pulled on demand into
+ * a reused buffer at decode time. This drops the resident footprint from the
+ * whole file to a single frame, and is the streaming counterpart to the
+ * resident eaf_dec_init(). The decode core (frame info, block decode) is shared
+ * between both modes.
+ *
+ * The parser borrows `reader` by value (including `io_ctx`); the caller must
+ * keep the underlying backend alive until eaf_dec_deinit().
+ *
+ * @param reader Source access layer; `reader->read` and `reader->size` required.
+ * @param ret_parser Pointer to store the parser handle.
+ * @return ESP_OK on success, or an esp_err_t error code.
+ */
+esp_err_t eaf_dec_init_reader(const eaf_dec_reader_t *reader, eaf_dec_handle_t *ret_parser);
 
 /**
  * @brief Deinitialize EAF format parser

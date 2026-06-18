@@ -56,6 +56,11 @@ typedef struct {
     uint32_t *block_offsets;
     uint8_t *decode_buffer;
     uint32_t *palette_cache;
+    /* Allocated capacities so the per-frame buffers are reused across frames
+     * (anim geometry is constant) and only reallocated when they must grow. */
+    size_t block_offsets_cap;   /*!< capacity in entries */
+    size_t decode_buffer_cap;   /*!< capacity in bytes */
+    size_t palette_cache_cap;   /*!< capacity in entries */
     uint16_t cached_block_index;
     bool has_cached_block;
 } gfx_anim_frame_cache_t;
@@ -183,6 +188,9 @@ static void gfx_anim_free_frame_buffers(gfx_anim_frame_cache_t *frame)
         free(frame->palette_cache);
         frame->palette_cache = NULL;
     }
+    frame->block_offsets_cap = 0;
+    frame->decode_buffer_cap = 0;
+    frame->palette_cache_cap = 0;
 }
 
 static void gfx_anim_reset_runtime_state(gfx_anim_t *anim)
@@ -210,7 +218,9 @@ static void gfx_anim_reset_frame(gfx_anim_t *anim)
         memset(&anim->frame.desc, 0, sizeof(anim->frame.desc));
     }
 
-    gfx_anim_free_frame_buffers(&anim->frame);
+    /* Keep block_offsets/decode_buffer/palette_cache allocated for reuse by the
+     * next frame; they are released in gfx_anim_release_source(). The decoded
+     * contents are invalidated by clearing the block cache below. */
     anim->frame.frame_payload = NULL;
     anim->frame.frame_payload_size = 0;
     anim->frame.cached_block_index = 0;
@@ -238,6 +248,7 @@ static void gfx_anim_signal_event(gfx_anim_t *anim, gfx_platform_event_bits_t bi
 static void gfx_anim_release_source(gfx_anim_t *anim)
 {
     gfx_anim_reset_frame(anim);
+    gfx_anim_free_frame_buffers(&anim->frame);
     gfx_anim_clear_segments(anim);
 
     if (anim->decoder != NULL && anim->decoder->close != NULL && anim->decoder_ctx != NULL) {
@@ -384,9 +395,15 @@ static esp_err_t gfx_anim_init_palette_cache(gfx_object_t *obj, gfx_anim_t *anim
     ESP_RETURN_ON_FALSE(decoder != NULL && decoder->read_palette_color != NULL,
                         ESP_ERR_INVALID_STATE, TAG, "init palette cache: decoder palette callback is missing");
 
-    anim->frame.palette_cache = gfx_platform_malloc(palette_size * sizeof(uint32_t),
-                                GFX_PLATFORM_HEAP_INTERNAL | GFX_PLATFORM_HEAP_8BIT);
-    ESP_RETURN_ON_FALSE(anim->frame.palette_cache != NULL, ESP_ERR_NO_MEM, TAG, "init palette cache: failed to allocate palette cache");
+    /* Reuse the palette cache across frames; only (re)allocate when it grows.
+     * The entries themselves are rebuilt below for every frame. */
+    if (anim->frame.palette_cache == NULL || anim->frame.palette_cache_cap < palette_size) {
+        free(anim->frame.palette_cache);
+        anim->frame.palette_cache = gfx_platform_malloc(palette_size * sizeof(uint32_t),
+                                    GFX_PLATFORM_HEAP_INTERNAL | GFX_PLATFORM_HEAP_8BIT);
+        ESP_RETURN_ON_FALSE(anim->frame.palette_cache != NULL, ESP_ERR_NO_MEM, TAG, "init palette cache: failed to allocate palette cache");
+        anim->frame.palette_cache_cap = palette_size;
+    }
 
     for (uint16_t i = 0; i < palette_size; i++) {
         gfx_color_t color;
@@ -540,15 +557,28 @@ static esp_err_t gfx_anim_prepare_frame(gfx_object_t *obj)
     ESP_GOTO_ON_FALSE(decode_buffer_size > 0, ESP_ERR_INVALID_ARG, err, TAG,
                       "prepare frame: unsupported bit depth %u", anim->frame.desc.bit_depth);
 
-    anim->frame.block_offsets = malloc(anim->frame.desc.blocks * sizeof(uint32_t));
-    ESP_GOTO_ON_FALSE(anim->frame.block_offsets != NULL, ESP_ERR_NO_MEM, err, TAG, "prepare frame: failed to allocate block offsets");
-
-    if (anim->frame.desc.bit_depth == GFX_ANIM_DEPTH_24BIT) {
-        anim->frame.decode_buffer = gfx_platform_aligned_alloc(16, decode_buffer_size, GFX_PLATFORM_HEAP_DEFAULT);
-    } else {
-        anim->frame.decode_buffer = malloc(decode_buffer_size);
+    /* Reuse the block-offset table when it is already large enough; only grow. */
+    if (anim->frame.block_offsets == NULL || anim->frame.block_offsets_cap < anim->frame.desc.blocks) {
+        free(anim->frame.block_offsets);
+        anim->frame.block_offsets = malloc(anim->frame.desc.blocks * sizeof(uint32_t));
+        ESP_GOTO_ON_FALSE(anim->frame.block_offsets != NULL, ESP_ERR_NO_MEM, err, TAG, "prepare frame: failed to allocate block offsets");
+        anim->frame.block_offsets_cap = anim->frame.desc.blocks;
     }
-    ESP_GOTO_ON_FALSE(anim->frame.decode_buffer != NULL, ESP_ERR_NO_MEM, err, TAG, "prepare frame: failed to allocate decode buffer");
+
+    /* Reuse the decode buffer across frames (constant geometry); reallocate only
+     * when a larger block payload is needed. 24-bit output keeps 16-byte
+     * alignment for the blit path. */
+    if (anim->frame.decode_buffer == NULL || anim->frame.decode_buffer_cap < decode_buffer_size) {
+        free(anim->frame.decode_buffer);
+        anim->frame.decode_buffer = NULL;
+        if (anim->frame.desc.bit_depth == GFX_ANIM_DEPTH_24BIT) {
+            anim->frame.decode_buffer = gfx_platform_aligned_alloc(16, decode_buffer_size, GFX_PLATFORM_HEAP_DEFAULT);
+        } else {
+            anim->frame.decode_buffer = malloc(decode_buffer_size);
+        }
+        ESP_GOTO_ON_FALSE(anim->frame.decode_buffer != NULL, ESP_ERR_NO_MEM, err, TAG, "prepare frame: failed to allocate decode buffer");
+        anim->frame.decode_buffer_cap = decode_buffer_size;
+    }
 
     ESP_GOTO_ON_ERROR(gfx_anim_init_palette_cache(obj, anim), err, TAG, "prepare frame: failed to initialize palette cache");
 
@@ -856,8 +886,8 @@ static esp_err_t gfx_draw_animation(gfx_object_t *obj, const gfx_draw_ctx_t *ctx
         if (!anim->frame.has_cached_block || block_idx != *cached_block_index) {
             const uint8_t *block_payload = (const uint8_t *)anim->frame.frame_payload + block_offsets[block_idx];
             size_t block_payload_size = frame_desc->block_len[block_idx];
-            esp_err_t decode_result = anim->decoder->decode_frame_block(frame_desc, block_payload, block_payload_size,
-                                      decode_buffer);
+            esp_err_t decode_result = anim->decoder->decode_frame_block(anim->decoder_ctx, frame_desc,
+                                      block_payload, block_payload_size, decode_buffer);
             if (decode_result != ESP_OK) {
                 continue;
             }

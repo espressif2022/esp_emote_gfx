@@ -9,6 +9,7 @@
  *********************/
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -42,6 +43,35 @@
  **********************/
 
 /**********************
+ *  STATIC INLINE HELPERS
+ **********************/
+
+/* EAF tables and frame headers are byte-packed and not guaranteed to be
+ * naturally aligned, so reads go through memcpy to avoid unaligned-access
+ * faults/UB. Values are stored little-endian (matches the encoder and the
+ * Xtensa/RISC-V targets), so the bytes are consumed in LE order. */
+static inline uint16_t eaf_rd_u16(const uint8_t *p)
+{
+    uint16_t v;
+    memcpy(&v, p, sizeof(v));
+    return v;
+}
+
+static inline uint32_t eaf_rd_u32(const uint8_t *p)
+{
+    uint32_t v;
+    memcpy(&v, p, sizeof(v));
+    return v;
+}
+
+static inline int32_t eaf_rd_i32(const uint8_t *p)
+{
+    int32_t v;
+    memcpy(&v, p, sizeof(v));
+    return v;
+}
+
+/**********************
  *  STATIC VARIABLES
  **********************/
 
@@ -53,11 +83,15 @@ static eaf_dec_block_decoder_cb_t s_eaf_decoders[EAF_DEC_ENCODING_MAX] = {0};
  **********************/
 
 static uint32_t dec_calculate_checksum(const uint8_t *data, uint32_t length);
-static eaf_dec_huffman_node_t *huffman_node_create(void);
 static void huffman_tree_free(eaf_dec_huffman_node_t *node);
-static esp_err_t huffman_decode_data(const uint8_t *in_data, size_t in_size,
+static esp_err_t huffman_decode_data(eaf_dec_ctx_t *ctx,
+                                     const uint8_t *in_data, size_t in_size,
                                      const uint8_t *dict_data, size_t dict_len,
                                      uint8_t *out_data, size_t *out_size);
+static esp_err_t eaf_dec_decode_huffman_ctx(eaf_dec_ctx_t *ctx, const uint8_t *in_data, size_t in_size,
+        uint8_t *out_data, size_t *out_size);
+static esp_err_t decode_huffman_rle_ctx(eaf_dec_ctx_t *ctx, const uint8_t *in_data, size_t in_size,
+                                        uint8_t *out_data, size_t *out_size);
 static esp_err_t eaf_dec_decode_jpeg_block_with_hint(const uint8_t *in_data, size_t in_size,
         uint32_t width, uint32_t height, uint8_t *out_data, size_t *out_size);
 
@@ -74,12 +108,6 @@ static uint32_t dec_calculate_checksum(const uint8_t *data, uint32_t length)
     return checksum;
 }
 
-static eaf_dec_huffman_node_t *huffman_node_create(void)
-{
-    eaf_dec_huffman_node_t *node = (eaf_dec_huffman_node_t *)calloc(1, sizeof(eaf_dec_huffman_node_t));
-    return node;
-}
-
 static void huffman_tree_free(eaf_dec_huffman_node_t *node)
 {
     if (!node) {
@@ -90,7 +118,74 @@ static void huffman_tree_free(eaf_dec_huffman_node_t *node)
     free(node);
 }
 
-static esp_err_t huffman_decode_data(const uint8_t *in_data, size_t in_size,
+/* Tree-node allocator. With a parser ctx, nodes are bump-allocated from a
+ * reusable arena (reset every call, freed only at deinit); without one, each
+ * node is calloc'd and the tree is freed after use. Either way the resulting
+ * tree structure and decoded output are identical. */
+typedef struct {
+    eaf_dec_ctx_t *ctx; /*!< Arena owner, or NULL for transient malloc mode */
+    size_t used;        /*!< Bump index into ctx->huff_nodes (arena mode) */
+} huff_builder_t;
+
+/* Upper bound on tree nodes for a dictionary: root + sum(code_len), since each
+ * code adds at most code_len nodes along its root-to-leaf path. */
+static size_t huff_count_nodes(const uint8_t *dict_data, size_t dict_len)
+{
+    size_t dict_pos = 1; /* skip padding byte */
+    size_t nodes = 1;    /* root */
+    while (dict_pos + 1 < dict_len) {
+        dict_pos++; /* symbol */
+        uint8_t code_len = dict_data[dict_pos++];
+        size_t code_byte_len = (code_len + 7) / 8;
+        if (dict_pos + code_byte_len > dict_len) {
+            break;
+        }
+        dict_pos += code_byte_len;
+        nodes += code_len;
+    }
+    return nodes;
+}
+
+static esp_err_t huff_arena_reserve(eaf_dec_ctx_t *ctx, size_t nodes)
+{
+    if (ctx->huff_node_cap >= nodes) {
+        return ESP_OK;
+    }
+    eaf_dec_huffman_node_t *p = (eaf_dec_huffman_node_t *)realloc(ctx->huff_nodes,
+                                nodes * sizeof(eaf_dec_huffman_node_t));
+    if (p == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+    ctx->huff_nodes = p;
+    ctx->huff_node_cap = nodes;
+    return ESP_OK;
+}
+
+static eaf_dec_huffman_node_t *huff_node_get(huff_builder_t *b)
+{
+    eaf_dec_huffman_node_t *node;
+    if (b->ctx != NULL) {
+        if (b->used >= b->ctx->huff_node_cap) {
+            return NULL; /* arena was pre-sized to the upper bound; should not happen */
+        }
+        node = &b->ctx->huff_nodes[b->used++];
+        memset(node, 0, sizeof(*node));
+    } else {
+        node = (eaf_dec_huffman_node_t *)calloc(1, sizeof(*node));
+    }
+    return node;
+}
+
+static void huff_builder_cleanup(huff_builder_t *b, eaf_dec_huffman_node_t *root)
+{
+    if (b->ctx == NULL) {
+        huffman_tree_free(root); /* transient mode owns the tree */
+    }
+    /* Arena mode: nodes persist in ctx and are recycled on the next call. */
+}
+
+static esp_err_t huffman_decode_data(eaf_dec_ctx_t *ctx,
+                                     const uint8_t *in_data, size_t in_size,
                                      const uint8_t *dict_data, size_t dict_len,
                                      uint8_t *out_data, size_t *out_size)
 {
@@ -99,10 +194,23 @@ static esp_err_t huffman_decode_data(const uint8_t *in_data, size_t in_size,
         return ESP_OK;
     }
 
+    huff_builder_t builder = { .ctx = ctx, .used = 0 };
+    if (ctx != NULL) {
+        esp_err_t res = huff_arena_reserve(ctx, huff_count_nodes(dict_data, dict_len));
+        if (res != ESP_OK) {
+            GFX_LOGE(TAG, "No mem for Huffman node arena");
+            return ESP_FAIL;
+        }
+    }
+
     uint8_t padding_bits = dict_data[0];
     size_t dict_pos = 1;
 
-    eaf_dec_huffman_node_t *root = huffman_node_create();
+    eaf_dec_huffman_node_t *root = huff_node_get(&builder);
+    if (root == NULL) {
+        GFX_LOGE(TAG, "No mem for Huffman root");
+        return ESP_FAIL;
+    }
     eaf_dec_huffman_node_t *current_node = NULL;
 
     while (dict_pos < dict_len) {
@@ -120,14 +228,19 @@ static esp_err_t huffman_decode_data(const uint8_t *in_data, size_t in_size,
             int bit_val = (code >> bit_pos) & 1;
             if (bit_val == 0) {
                 if (!current_node->left) {
-                    current_node->left = huffman_node_create();
+                    current_node->left = huff_node_get(&builder);
                 }
                 current_node = current_node->left;
             } else {
                 if (!current_node->right) {
-                    current_node->right = huffman_node_create();
+                    current_node->right = huff_node_get(&builder);
                 }
                 current_node = current_node->right;
+            }
+            if (current_node == NULL) {
+                GFX_LOGE(TAG, "No mem for Huffman node");
+                huff_builder_cleanup(&builder, root);
+                return ESP_FAIL;
             }
         }
         current_node->is_leaf = 1;
@@ -165,7 +278,7 @@ static esp_err_t huffman_decode_data(const uint8_t *in_data, size_t in_size,
     }
 
     *out_size = out_pos;
-    huffman_tree_free(root);
+    huff_builder_cleanup(&builder, root);
     return ESP_OK;
 }
 
@@ -195,19 +308,27 @@ eaf_dec_type_t eaf_dec_probe_frame_info(eaf_dec_handle_t handle, int frame_index
 
     if (strncmp(header.format, "_S", 2) == 0) {
 
+        /* Fixed sub-header spans bytes [0, EAF_FRAME_BLOCK_LEN_TABLE_OFFSET). */
+        if (file_size < EAF_FRAME_BLOCK_LEN_TABLE_OFFSET) {
+            GFX_LOGE(TAG, "Frame %d too small for sub-header", frame_index);
+            return EAF_DEC_TYPE_INVALID;
+        }
+
         memcpy(header.version, file_data + EAF_FRAME_VERSION_OFFSET, 6);
 
         header.bit_depth = file_data[EAF_FRAME_BIT_DEPTH_OFFSET];
 
-        if (header.bit_depth != EAF_COLOR_DEPTH_4BIT && header.bit_depth != EAF_COLOR_DEPTH_8BIT && header.bit_depth != EAF_COLOR_DEPTH_24BIT) {
-            GFX_LOGE(TAG, "Invalid bit depth: %d", header.bit_depth);
+        /* 4-bit is not implemented in the block decoders, so do not advertise it
+         * as a valid frame; only 8-bit (palette) and 24-bit (RGB565) decode. */
+        if (header.bit_depth != EAF_COLOR_DEPTH_8BIT && header.bit_depth != EAF_COLOR_DEPTH_24BIT) {
+            GFX_LOGE(TAG, "Unsupported bit depth: %d (only 8/24-bit decode is implemented)", header.bit_depth);
             return EAF_DEC_TYPE_INVALID;
         }
 
-        header.width = *(uint16_t *)(file_data + EAF_FRAME_WIDTH_OFFSET);
-        header.height = *(uint16_t *)(file_data + EAF_FRAME_HEIGHT_OFFSET);
-        header.blocks = *(uint16_t *)(file_data + EAF_FRAME_BLOCKS_OFFSET);
-        header.block_height = *(uint16_t *)(file_data + EAF_FRAME_BLOCK_HEIGHT_OFFSET);
+        header.width = eaf_rd_u16(file_data + EAF_FRAME_WIDTH_OFFSET);
+        header.height = eaf_rd_u16(file_data + EAF_FRAME_HEIGHT_OFFSET);
+        header.blocks = eaf_rd_u16(file_data + EAF_FRAME_BLOCKS_OFFSET);
+        header.block_height = eaf_rd_u16(file_data + EAF_FRAME_BLOCK_HEIGHT_OFFSET);
 
         if (header.width == 0 || header.height == 0 || header.blocks == 0 || header.block_height == 0) {
             return EAF_DEC_TYPE_INVALID;
@@ -246,37 +367,54 @@ eaf_dec_type_t eaf_dec_get_frame_info(eaf_dec_handle_t handle, int frame_index, 
     header->format[2] = '\0';
 
     if (strncmp(header->format, "_S", 2) == 0) {
+        /* Fixed sub-header spans bytes [0, EAF_FRAME_BLOCK_LEN_TABLE_OFFSET). */
+        if (file_size < EAF_FRAME_BLOCK_LEN_TABLE_OFFSET) {
+            GFX_LOGE(TAG, "Frame %d too small for sub-header", frame_index);
+            return EAF_DEC_TYPE_INVALID;
+        }
+
         memcpy(header->version, file_data + EAF_FRAME_VERSION_OFFSET, 6);
 
         header->bit_depth = file_data[EAF_FRAME_BIT_DEPTH_OFFSET];
 
-        if (header->bit_depth != EAF_COLOR_DEPTH_4BIT && header->bit_depth != EAF_COLOR_DEPTH_8BIT && header->bit_depth != EAF_COLOR_DEPTH_24BIT) {
-            GFX_LOGE(TAG, "Invalid bit depth: %d", header->bit_depth);
+        /* 4-bit is not implemented in the block decoders, so do not advertise it
+         * as a valid frame; only 8-bit (palette) and 24-bit (RGB565) decode. */
+        if (header->bit_depth != EAF_COLOR_DEPTH_8BIT && header->bit_depth != EAF_COLOR_DEPTH_24BIT) {
+            GFX_LOGE(TAG, "Unsupported bit depth: %d (only 8/24-bit decode is implemented)", header->bit_depth);
             return EAF_DEC_TYPE_INVALID;
         }
 
-        header->width = *(uint16_t *)(file_data + EAF_FRAME_WIDTH_OFFSET);
-        header->height = *(uint16_t *)(file_data + EAF_FRAME_HEIGHT_OFFSET);
-        header->blocks = *(uint16_t *)(file_data + EAF_FRAME_BLOCKS_OFFSET);
-        header->block_height = *(uint16_t *)(file_data + EAF_FRAME_BLOCK_HEIGHT_OFFSET);
+        header->width = eaf_rd_u16(file_data + EAF_FRAME_WIDTH_OFFSET);
+        header->height = eaf_rd_u16(file_data + EAF_FRAME_HEIGHT_OFFSET);
+        header->blocks = eaf_rd_u16(file_data + EAF_FRAME_BLOCKS_OFFSET);
+        header->block_height = eaf_rd_u16(file_data + EAF_FRAME_BLOCK_HEIGHT_OFFSET);
 
-        header->block_len = (uint32_t *)malloc(header->blocks * sizeof(uint32_t));
+        header->num_colors = (header->bit_depth == EAF_COLOR_DEPTH_24BIT) ? 0 : (1 << header->bit_depth);
+
+        /* The block-length table and palette must lie inside the frame payload
+         * before we read them. */
+        const size_t block_len_bytes = (size_t)header->blocks * EAF_FRAME_BLOCK_LEN_SIZE;
+        const size_t palette_bytes = (size_t)header->num_colors * EAF_FRAME_PALETTE_ENTRY_SIZE;
+        const size_t header_bytes = (size_t)EAF_FRAME_BLOCK_LEN_TABLE_OFFSET + block_len_bytes + palette_bytes;
+        if ((size_t)file_size < header_bytes) {
+            GFX_LOGE(TAG, "Frame %d header (%zu) exceeds payload (%zu)", frame_index, header_bytes, (size_t)file_size);
+            return EAF_DEC_TYPE_INVALID;
+        }
+
+        header->block_len = (uint32_t *)malloc(block_len_bytes);
         if (header->block_len == NULL) {
             GFX_LOGE(TAG, "No mem for block_len");
             return EAF_DEC_TYPE_INVALID;
         }
 
         for (int i = 0; i < header->blocks; i++) {
-            header->block_len[i] = *(uint32_t *)(file_data + EAF_FRAME_BLOCK_LEN_TABLE_OFFSET + i * EAF_FRAME_BLOCK_LEN_SIZE);
+            header->block_len[i] = eaf_rd_u32(file_data + EAF_FRAME_BLOCK_LEN_TABLE_OFFSET + i * EAF_FRAME_BLOCK_LEN_SIZE);
         }
 
-        header->num_colors = 1 << header->bit_depth;
-
         if (header->bit_depth == EAF_COLOR_DEPTH_24BIT) {
-            header->num_colors = 0;
             header->palette = NULL;
         } else {
-            header->palette = (uint8_t *)malloc(header->num_colors * EAF_FRAME_PALETTE_ENTRY_SIZE);
+            header->palette = (uint8_t *)malloc(palette_bytes);
             if (header->palette == NULL) {
                 GFX_LOGE(TAG, "No mem for palette");
                 free(header->block_len);
@@ -284,9 +422,9 @@ eaf_dec_type_t eaf_dec_get_frame_info(eaf_dec_handle_t handle, int frame_index, 
                 return EAF_DEC_TYPE_INVALID;
             }
 
-            memcpy(header->palette, file_data + EAF_FRAME_BLOCK_LEN_TABLE_OFFSET + header->blocks * EAF_FRAME_BLOCK_LEN_SIZE, header->num_colors * EAF_FRAME_PALETTE_ENTRY_SIZE);
+            memcpy(header->palette, file_data + EAF_FRAME_BLOCK_LEN_TABLE_OFFSET + block_len_bytes, palette_bytes);
         }
-        header->data_offset = EAF_FRAME_BLOCK_LEN_TABLE_OFFSET + header->blocks * EAF_FRAME_BLOCK_LEN_SIZE + header->num_colors * EAF_FRAME_PALETTE_ENTRY_SIZE;
+        header->data_offset = (uint16_t)header_bytes;
         return EAF_DEC_TYPE_VALID;
 
     } else if (strncmp(header->format, "_C", 2) == 0) {
@@ -343,29 +481,60 @@ bool eaf_dec_get_palette_color(const eaf_dec_header_t *header, uint8_t color_ind
  *  DECODING FUNCTIONS
  **********************/
 
-static esp_err_t decode_huffman_rle(const uint8_t *in_data, size_t in_size,
-                                    uint8_t *out_data, size_t *out_size)
+static esp_err_t decode_huffman_rle_ctx(eaf_dec_ctx_t *ctx, const uint8_t *in_data, size_t in_size,
+                                        uint8_t *out_data, size_t *out_size)
 {
     if (out_size == NULL || *out_size == 0) {
         GFX_LOGE(TAG, "Output size is invalid");
         return ESP_FAIL;
     }
 
+    /* tmp holds the Huffman output, which is the RLE-encoded stream that later
+     * expands into *out_size decoded bytes. Each RLE (count,value) pair is 2
+     * input bytes and emits >=1 byte (encoders never emit count==0), so the RLE
+     * input is at most 2 * decoded_size: that is the worst-case bound used here. */
     size_t tmp_size = *out_size * 2;
-    uint8_t *tmp_data = malloc(tmp_size);
-    if (tmp_data == NULL) {
-        GFX_LOGE(TAG, "No mem for tmp buffer");
-        return ESP_FAIL;
+
+    /* Reuse the handle-owned scratch when available to avoid a per-block malloc;
+     * fall back to a transient buffer otherwise. */
+    uint8_t *tmp_data;
+    bool tmp_owned = false;
+    if (ctx != NULL) {
+        if (ctx->huff_tmp_cap < tmp_size) {
+            uint8_t *p = (uint8_t *)realloc(ctx->huff_tmp, tmp_size);
+            if (p == NULL) {
+                GFX_LOGE(TAG, "No mem for tmp buffer");
+                return ESP_FAIL;
+            }
+            ctx->huff_tmp = p;
+            ctx->huff_tmp_cap = tmp_size;
+        }
+        tmp_data = ctx->huff_tmp;
+    } else {
+        tmp_data = (uint8_t *)malloc(tmp_size);
+        if (tmp_data == NULL) {
+            GFX_LOGE(TAG, "No mem for tmp buffer");
+            return ESP_FAIL;
+        }
+        tmp_owned = true;
     }
 
     size_t tmp_len = tmp_size;
-    esp_err_t ret = eaf_dec_decode_huffman(in_data, in_size, tmp_data, &tmp_len);
+    esp_err_t ret = eaf_dec_decode_huffman_ctx(ctx, in_data, in_size, tmp_data, &tmp_len);
     if (ret == ESP_OK) {
         ret = eaf_dec_decode_rle(tmp_data, tmp_len, out_data, out_size);
     }
 
-    free(tmp_data);
+    if (tmp_owned) {
+        free(tmp_data);
+    }
     return ret;
+}
+
+static esp_err_t decode_huffman_rle(const uint8_t *in_data, size_t in_size,
+                                    uint8_t *out_data, size_t *out_size)
+{
+    return decode_huffman_rle_ctx(NULL, in_data, in_size, out_data, out_size);
 }
 
 static esp_err_t register_decoder(eaf_dec_encoding_type_t type, eaf_dec_block_decoder_cb_t decoder)
@@ -400,9 +569,10 @@ static esp_err_t init_decoders(void)
     return ret;
 }
 
-esp_err_t eaf_dec_decode_block(const eaf_dec_header_t *header, const uint8_t *block_data,
-                               int block_len, uint8_t *out_data)
+esp_err_t eaf_dec_decode_block(eaf_dec_handle_t handle, const eaf_dec_header_t *header,
+                               const uint8_t *block_data, int block_len, uint8_t *out_data)
 {
+    eaf_dec_ctx_t *ctx = (eaf_dec_ctx_t *)handle;
     uint8_t encoding_type = block_data[0];
     int width = header->width;
     int block_height = header->block_height;
@@ -432,13 +602,20 @@ esp_err_t eaf_dec_decode_block(const eaf_dec_header_t *header, const uint8_t *bl
     out_size = width * block_height;
 #endif
 
-    eaf_dec_block_decoder_cb_t decoder = s_eaf_decoders[encoding_type];
-    if (!decoder) {
-        GFX_LOGE(TAG, "No decoder for encoding type: %02X", encoding_type);
-        return ESP_FAIL;
+    /* Huffman variants take the handle scratch (reusable Huffman tmp + node
+     * arena); the remaining encoders are stateless and use the registry. */
+    if (encoding_type == EAF_DEC_ENCODING_HUFFMAN) {
+        decode_result = decode_huffman_rle_ctx(ctx, block_data + 1, block_len - 1, out_data, &out_size);
+    } else if (encoding_type == EAF_DEC_ENCODING_HUFFMAN_DIRECT) {
+        decode_result = eaf_dec_decode_huffman_ctx(ctx, block_data + 1, block_len - 1, out_data, &out_size);
+    } else {
+        eaf_dec_block_decoder_cb_t decoder = s_eaf_decoders[encoding_type];
+        if (!decoder) {
+            GFX_LOGE(TAG, "No decoder for encoding type: %02X", encoding_type);
+            return ESP_FAIL;
+        }
+        decode_result = decoder(block_data + 1, block_len - 1, out_data, &out_size);
     }
-
-    decode_result = decoder(block_data + 1, block_len - 1, out_data, &out_size);
 
     if (decode_result != ESP_OK) {
         return ESP_FAIL;
@@ -616,8 +793,8 @@ static esp_err_t eaf_dec_decode_jpeg_block_with_hint(const uint8_t *in_data, siz
 }
 #endif // CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT
 
-esp_err_t eaf_dec_decode_huffman(const uint8_t *in_data, size_t in_size,
-                                 uint8_t *out_data, size_t *out_size)
+static esp_err_t eaf_dec_decode_huffman_ctx(eaf_dec_ctx_t *ctx, const uint8_t *in_data, size_t in_size,
+        uint8_t *out_data, size_t *out_size)
 {
     size_t out_len = *out_size;
 
@@ -662,7 +839,7 @@ esp_err_t eaf_dec_decode_huffman(const uint8_t *in_data, size_t in_size,
             memset(out_data, single_symbol, out_len);
         }
     } else {
-        ret = huffman_decode_data(in_data + 2 + dict_size, encoded_size,
+        ret = huffman_decode_data(ctx, in_data + 2 + dict_size, encoded_size,
                                   in_data + 2, dict_size,
                                   out_data, &out_len);
     }
@@ -681,11 +858,17 @@ esp_err_t eaf_dec_decode_huffman(const uint8_t *in_data, size_t in_size,
     return ESP_OK;
 }
 
+esp_err_t eaf_dec_decode_huffman(const uint8_t *in_data, size_t in_size,
+                                 uint8_t *out_data, size_t *out_size)
+{
+    return eaf_dec_decode_huffman_ctx(NULL, in_data, in_size, out_data, out_size);
+}
+
 /**********************
  *  FORMAT FUNCTIONS
  **********************/
 
-esp_err_t eaf_dec_init(const uint8_t *data, size_t data_len, eaf_dec_handle_t *ret_parser)
+static esp_err_t eaf_dec_ensure_decoders(void)
 {
     static bool decoders_initialized = false;
 
@@ -697,11 +880,33 @@ esp_err_t eaf_dec_init(const uint8_t *data, size_t data_len, eaf_dec_handle_t *r
         }
         decoders_initialized = true;
     }
+    return ESP_OK;
+}
+
+esp_err_t eaf_dec_init(const uint8_t *data, size_t data_len, eaf_dec_handle_t *ret_parser)
+{
+    esp_err_t init_ret = eaf_dec_ensure_decoders();
+    if (init_ret != ESP_OK) {
+        return init_ret;
+    }
 
     esp_err_t ret = ESP_OK;
     eaf_dec_frame_entry_t *entries = NULL;
+    eaf_dec_ctx_t *parser = NULL;
 
-    eaf_dec_ctx_t *parser = (eaf_dec_ctx_t *)calloc(1, sizeof(eaf_dec_ctx_t));
+    if (data == NULL || ret_parser == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    *ret_parser = NULL;
+
+    /* Need at least the fixed file header (magic, format string, frame count,
+     * checksum, table length) before dereferencing any of those fields. */
+    if (data_len < EAF_TABLE_OFFSET) {
+        GFX_LOGE(TAG, "data too small for header: %zu", data_len);
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    parser = (eaf_dec_ctx_t *)calloc(1, sizeof(eaf_dec_ctx_t));
     ESP_GOTO_ON_FALSE(parser, ESP_ERR_NO_MEM, err, TAG, "no mem for parser handle");
 
     ESP_GOTO_ON_FALSE(data[EAF_FORMAT_OFFSET] == EAF_FORMAT_MAGIC, ESP_ERR_INVALID_CRC, err, TAG, "bad file format magic");
@@ -710,22 +915,47 @@ esp_err_t eaf_dec_init(const uint8_t *data, size_t data_len, eaf_dec_handle_t *r
     bool is_valid = (memcmp(format_str, EAF_FORMAT_STR, 3) == 0) || (memcmp(format_str, AAF_FORMAT_STR, 3) == 0);
     ESP_GOTO_ON_FALSE(is_valid, ESP_ERR_INVALID_CRC, err, TAG, "bad file format string (expected EAF or AAF)");
 
-    int total_frames = *(int *)(data + EAF_NUM_OFFSET);
-    uint32_t stored_chk = *(uint32_t *)(data + EAF_CHECKSUM_OFFSET);
-    uint32_t stored_len = *(uint32_t *)(data + EAF_TABLE_LEN);
+    int total_frames = eaf_rd_i32(data + EAF_NUM_OFFSET);
+    uint32_t stored_chk = eaf_rd_u32(data + EAF_CHECKSUM_OFFSET);
+    uint32_t stored_len = eaf_rd_u32(data + EAF_TABLE_LEN);
+
+    /* The checksum spans data[EAF_TABLE_OFFSET .. +stored_len); reject lengths
+     * that would read past the supplied buffer before hashing. */
+    ESP_GOTO_ON_FALSE(stored_len <= data_len - EAF_TABLE_OFFSET, ESP_ERR_INVALID_SIZE, err, TAG,
+                      "table length %" PRIu32 " exceeds buffer", stored_len);
+
+    /* Frame table must fit: EAF_TABLE_OFFSET + total_frames * entry_size. The
+     * division form avoids size_t overflow on a corrupt frame count. */
+    ESP_GOTO_ON_FALSE(total_frames > 0, ESP_ERR_INVALID_SIZE, err, TAG, "non-positive frame count");
+    size_t entry_size = sizeof(eaf_dec_frame_table_entry_t);
+    ESP_GOTO_ON_FALSE((size_t)total_frames <= (data_len - EAF_TABLE_OFFSET) / entry_size,
+                      ESP_ERR_INVALID_SIZE, err, TAG, "frame table %d exceeds buffer", total_frames);
 
     uint32_t calculated_chk = dec_calculate_checksum((uint8_t *)(data + EAF_TABLE_OFFSET), stored_len);
     ESP_GOTO_ON_FALSE(calculated_chk == stored_chk, ESP_ERR_INVALID_CRC, err, TAG, "bad full checksum");
 
-    entries = (eaf_dec_frame_entry_t *)malloc(sizeof(eaf_dec_frame_entry_t) * total_frames);
+    entries = (eaf_dec_frame_entry_t *)malloc(sizeof(eaf_dec_frame_entry_t) * (size_t)total_frames);
+    ESP_GOTO_ON_FALSE(entries, ESP_ERR_NO_MEM, err, TAG, "no mem for frame entries");
 
     eaf_dec_frame_table_entry_t *table = (eaf_dec_frame_table_entry_t *)(data + EAF_TABLE_OFFSET);
+    const size_t frame_base = (size_t)EAF_TABLE_OFFSET + (size_t)total_frames * entry_size;
     for (int i = 0; i < total_frames; i++) {
-        (entries + i)->table = (table + i);
-        (entries + i)->frame_mem = (void *)(data + EAF_TABLE_OFFSET + total_frames * sizeof(eaf_dec_frame_table_entry_t) + table[i].frame_offset);
+        /* Validate frame_base + frame_offset + frame_size <= data_len without
+         * overflowing, so frame_mem and its magic stay inside the buffer. */
+        uint32_t frame_offset = table[i].frame_offset;
+        uint32_t frame_size = table[i].frame_size;
+        ESP_GOTO_ON_FALSE(frame_size >= EAF_MAGIC_LEN, ESP_ERR_INVALID_SIZE, err, TAG,
+                          "frame %d size %" PRIu32 " too small", i, frame_size);
+        ESP_GOTO_ON_FALSE(frame_offset <= data_len - frame_base, ESP_ERR_INVALID_SIZE, err, TAG,
+                          "frame %d offset out of range", i);
+        ESP_GOTO_ON_FALSE(frame_size <= data_len - frame_base - frame_offset, ESP_ERR_INVALID_SIZE, err, TAG,
+                          "frame %d extends past buffer", i);
 
-        uint16_t *magic_ptr = (uint16_t *)(entries + i)->frame_mem;
-        ESP_GOTO_ON_FALSE(*magic_ptr == EAF_MAGIC_HEAD, ESP_ERR_INVALID_CRC, err, TAG, "bad file magic header");
+        (entries + i)->table = (table + i);
+        (entries + i)->frame_mem = (const char *)(data + frame_base + frame_offset);
+
+        uint16_t magic = eaf_rd_u16((const uint8_t *)(entries + i)->frame_mem);
+        ESP_GOTO_ON_FALSE(magic == EAF_MAGIC_HEAD, ESP_ERR_INVALID_CRC, err, TAG, "bad file magic header");
     }
 
     parser->entries = entries;
@@ -747,6 +977,126 @@ err:
     return ret;
 }
 
+esp_err_t eaf_dec_init_reader(const eaf_dec_reader_t *reader, eaf_dec_handle_t *ret_parser)
+{
+    esp_err_t init_ret = eaf_dec_ensure_decoders();
+    if (init_ret != ESP_OK) {
+        return init_ret;
+    }
+
+    if (reader == NULL || reader->read == NULL || ret_parser == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    *ret_parser = NULL;
+
+    esp_err_t ret = ESP_OK;
+    eaf_dec_ctx_t *parser = NULL;
+    eaf_dec_frame_entry_t *entries = NULL;
+    eaf_dec_frame_table_entry_t *table_copy = NULL;
+    uint8_t *chunk = NULL;
+
+    const size_t size = reader->size;
+    if (size < EAF_TABLE_OFFSET) {
+        GFX_LOGE(TAG, "stream too small for header: %zu", size);
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    /* Fixed file header (magic, format string, frame count, checksum, table len). */
+    uint8_t head[EAF_TABLE_OFFSET];
+    ESP_RETURN_ON_ERROR(reader->read(reader->io_ctx, 0, sizeof(head), head), TAG, "read header");
+
+    ESP_RETURN_ON_FALSE(head[EAF_FORMAT_OFFSET] == EAF_FORMAT_MAGIC, ESP_ERR_INVALID_CRC, TAG,
+                        "bad file format magic");
+    bool is_valid = (memcmp(head + EAF_STR_OFFSET, EAF_FORMAT_STR, 3) == 0) ||
+                    (memcmp(head + EAF_STR_OFFSET, AAF_FORMAT_STR, 3) == 0);
+    ESP_RETURN_ON_FALSE(is_valid, ESP_ERR_INVALID_CRC, TAG, "bad file format string (expected EAF or AAF)");
+
+    int total_frames = eaf_rd_i32(head + EAF_NUM_OFFSET);
+    uint32_t stored_chk = eaf_rd_u32(head + EAF_CHECKSUM_OFFSET);
+    uint32_t stored_len = eaf_rd_u32(head + EAF_TABLE_LEN);
+
+    ESP_RETURN_ON_FALSE(stored_len <= size - EAF_TABLE_OFFSET, ESP_ERR_INVALID_SIZE, TAG,
+                        "table length %" PRIu32 " exceeds stream", stored_len);
+    ESP_RETURN_ON_FALSE(total_frames > 0, ESP_ERR_INVALID_SIZE, TAG, "non-positive frame count");
+    const size_t entry_size = sizeof(eaf_dec_frame_table_entry_t);
+    ESP_RETURN_ON_FALSE((size_t)total_frames <= (size - EAF_TABLE_OFFSET) / entry_size,
+                        ESP_ERR_INVALID_SIZE, TAG, "frame table %d exceeds stream", total_frames);
+
+    parser = (eaf_dec_ctx_t *)calloc(1, sizeof(eaf_dec_ctx_t));
+    ESP_GOTO_ON_FALSE(parser, ESP_ERR_NO_MEM, err, TAG, "no mem for parser handle");
+
+    /* Checksum spans data[EAF_TABLE_OFFSET .. +stored_len). Hash it in fixed
+     * chunks so peak RAM stays at the chunk size instead of the whole region. */
+    const size_t chunk_cap = 2048;
+    chunk = (uint8_t *)malloc(chunk_cap);
+    ESP_GOTO_ON_FALSE(chunk, ESP_ERR_NO_MEM, err, TAG, "no mem for checksum chunk");
+    uint32_t calc = 0;
+    size_t remaining = stored_len;
+    size_t off = EAF_TABLE_OFFSET;
+    while (remaining > 0) {
+        size_t n = remaining < chunk_cap ? remaining : chunk_cap;
+        ESP_GOTO_ON_ERROR(reader->read(reader->io_ctx, off, n, chunk), err, TAG, "read checksum region");
+        for (size_t i = 0; i < n; i++) {
+            calc += chunk[i];
+        }
+        off += n;
+        remaining -= n;
+    }
+    ESP_GOTO_ON_FALSE(calc == stored_chk, ESP_ERR_INVALID_CRC, err, TAG, "bad full checksum");
+    free(chunk);
+    chunk = NULL;
+
+    /* Copy and integerize the frame table (small metadata kept resident). */
+    table_copy = (eaf_dec_frame_table_entry_t *)malloc(entry_size * (size_t)total_frames);
+    ESP_GOTO_ON_FALSE(table_copy, ESP_ERR_NO_MEM, err, TAG, "no mem for frame table copy");
+    ESP_GOTO_ON_ERROR(reader->read(reader->io_ctx, EAF_TABLE_OFFSET, entry_size * (size_t)total_frames,
+                                   (uint8_t *)table_copy), err, TAG, "read frame table");
+
+    entries = (eaf_dec_frame_entry_t *)malloc(sizeof(eaf_dec_frame_entry_t) * (size_t)total_frames);
+    ESP_GOTO_ON_FALSE(entries, ESP_ERR_NO_MEM, err, TAG, "no mem for frame entries");
+
+    const size_t frame_base = (size_t)EAF_TABLE_OFFSET + (size_t)total_frames * entry_size;
+    for (int i = 0; i < total_frames; i++) {
+        uint32_t frame_offset = table_copy[i].frame_offset;
+        uint32_t frame_size = table_copy[i].frame_size;
+        ESP_GOTO_ON_FALSE(frame_size >= EAF_MAGIC_LEN, ESP_ERR_INVALID_SIZE, err, TAG,
+                          "frame %d size %" PRIu32 " too small", i, frame_size);
+        ESP_GOTO_ON_FALSE(frame_offset <= size - frame_base, ESP_ERR_INVALID_SIZE, err, TAG,
+                          "frame %d offset out of range", i);
+        ESP_GOTO_ON_FALSE(frame_size <= size - frame_base - frame_offset, ESP_ERR_INVALID_SIZE, err, TAG,
+                          "frame %d extends past stream", i);
+
+        /* Validate the frame magic header with a small targeted read. */
+        uint8_t magic_bytes[EAF_MAGIC_LEN];
+        ESP_GOTO_ON_ERROR(reader->read(reader->io_ctx, frame_base + frame_offset, EAF_MAGIC_LEN, magic_bytes),
+                          err, TAG, "read frame %d magic", i);
+        ESP_GOTO_ON_FALSE(eaf_rd_u16(magic_bytes) == EAF_MAGIC_HEAD, ESP_ERR_INVALID_CRC, err, TAG,
+                          "frame %d bad magic header", i);
+
+        entries[i].table = &table_copy[i];
+        entries[i].frame_mem = NULL; /* streaming: payload pulled on demand */
+    }
+
+    parser->entries = entries;
+    parser->total_frames = total_frames;
+    parser->streaming = true;
+    parser->reader = *reader;
+    parser->frame_base = frame_base;
+    parser->table_copy = table_copy;
+    parser->loaded_frame = -1;
+
+    *ret_parser = (eaf_dec_handle_t)parser;
+    return ESP_OK;
+
+err:
+    free(chunk);
+    free(entries);
+    free(table_copy);
+    free(parser);
+    *ret_parser = NULL;
+    return ret;
+}
+
 esp_err_t eaf_dec_deinit(eaf_dec_handle_t handle)
 {
     if (handle == NULL) {
@@ -758,6 +1108,12 @@ esp_err_t eaf_dec_deinit(eaf_dec_handle_t handle)
         if (parser->entries) {
             free(parser->entries);
         }
+        free(parser->huff_tmp);
+        free(parser->huff_nodes);
+        /* Streaming-only resources; NULL in resident mode. The reader's backend
+         * is owned by the caller and is not closed here. */
+        free(parser->table_copy);
+        free(parser->frame_buf);
         free(parser);
     }
     return ESP_OK;
@@ -782,6 +1138,42 @@ const uint8_t *eaf_dec_get_frame_data(eaf_dec_handle_t handle, int index)
     }
 
     eaf_dec_ctx_t *parser = (eaf_dec_ctx_t *)(handle);
+
+    if (parser->streaming) {
+        if (index < 0 || index >= parser->total_frames) {
+            GFX_LOGE(TAG, "Invalid index: %d. Maximum index is %d.", index, parser->total_frames);
+            return NULL;
+        }
+        const eaf_dec_frame_table_entry_t *t = &parser->table_copy[index];
+        if (t->frame_size < EAF_MAGIC_LEN) {
+            return NULL;
+        }
+        /* Payload starts after the 2-byte frame magic, matching the resident
+         * path that returns frame_mem + EAF_MAGIC_LEN. */
+        size_t payload_off = parser->frame_base + t->frame_offset + EAF_MAGIC_LEN;
+        size_t payload_len = (size_t)t->frame_size - EAF_MAGIC_LEN;
+
+        /* Read on demand into the reused per-frame buffer; same frame is a
+         * cache hit so repeated calls within one frame do not re-read. */
+        if (parser->loaded_frame != index) {
+            if (parser->frame_buf_cap < payload_len) {
+                uint8_t *p = (uint8_t *)realloc(parser->frame_buf, payload_len);
+                if (p == NULL) {
+                    GFX_LOGE(TAG, "No mem for streaming frame buffer (%zu)", payload_len);
+                    return NULL;
+                }
+                parser->frame_buf = p;
+                parser->frame_buf_cap = payload_len;
+            }
+            if (parser->reader.read(parser->reader.io_ctx, payload_off, payload_len, parser->frame_buf) != ESP_OK) {
+                parser->loaded_frame = -1;
+                GFX_LOGE(TAG, "Stream read failed for frame %d", index);
+                return NULL;
+            }
+            parser->loaded_frame = index;
+        }
+        return parser->frame_buf;
+    }
 
     if (parser->total_frames > index) {
         return (const uint8_t *)((parser->entries + index)->frame_mem + EAF_MAGIC_LEN);
@@ -858,7 +1250,7 @@ esp_err_t eaf_dec_decode_frame(eaf_dec_handle_t handle, int frame_index,
     for (int block = 0; block < header.blocks; block++) {
         const uint8_t *block_data = frame_data + offsets[block];
         int block_len = header.block_len[block];
-        esp_err_t ret = eaf_dec_decode_block(&header, block_data, block_len, tmp_data);
+        esp_err_t ret = eaf_dec_decode_block(handle, &header, block_data, block_len, tmp_data);
 
         if (ret != ESP_OK) {
             GFX_LOGD(TAG, "Block %d decode failed", block);

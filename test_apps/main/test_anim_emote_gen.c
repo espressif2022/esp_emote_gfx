@@ -245,7 +245,7 @@ static bool test_anim_show_index_entry(mmap_assets_handle_t assets_handle, gfx_o
 {
     const void *anim_data = NULL;
     size_t anim_size = 0;
-    gfx_anim_src_t anim_src;
+    gfx_anim_src_t anim_src = {0};
     gfx_anim_segment_t segments[3];
 
     if (item == NULL) {

@@ -14,6 +14,10 @@
 #include "playground_scene.h"
 #include "playground_scene_priv.h"
 
+#define DEMO_PREVIEW_X        276
+#define DEMO_PREVIEW_W        340
+#define DEMO_PREVIEW_BUTTON_W 190
+
 extern const lv_font_t font_puhui_16_4;
 
 static format_playground_scene_t s_scene;
@@ -59,7 +63,8 @@ static void demo_set_object_visible(gfx_object_t *obj, bool visible)
 
 static gfx_object_t *demo_create_label(gfx_display_t *display, gfx_font_t font,
                                        gfx_coord_t x, gfx_coord_t y, uint16_t w, uint16_t h,
-                                       const char *text, gfx_color_t color)
+                                       const char *text, gfx_color_t color,
+                                       gfx_label_long_mode_t long_mode)
 {
     gfx_object_t *label = gfx_label_create(display);
 
@@ -72,8 +77,81 @@ static gfx_object_t *demo_create_label(gfx_display_t *display, gfx_font_t font,
     (void)gfx_label_set_text(label, text);
     (void)gfx_label_set_font(label, font);
     (void)gfx_label_set_color(label, color);
-    (void)gfx_label_set_long_mode(label, GFX_LABEL_LONG_CLIP);
+    (void)gfx_label_set_long_mode(label, long_mode);
+    if (long_mode == GFX_LABEL_LONG_SCROLL) {
+        (void)gfx_label_set_scroll_loop(label, true);
+        (void)gfx_label_set_scroll_speed(label, 40);
+    }
     return label;
+}
+
+static void demo_preview_button_cb(gfx_object_t *obj, const gfx_touch_event_t *event, void *user_data)
+{
+    format_playground_scene_t *scene = (format_playground_scene_t *)user_data;
+
+    if (obj == NULL || scene == NULL || event == NULL || event->type != GFX_TOUCH_EVENT_RELEASE) {
+        return;
+    }
+
+    switch ((demo_widget_id_t)scene->widget_idx) {
+    case DEMO_WIDGET_IMAGE:
+        (void)gfx_format_demo_next_image_clip(scene);
+        break;
+    case DEMO_WIDGET_ANIM_JPG:
+        (void)gfx_format_demo_next_anim_jpg_clip(scene);
+        break;
+    default:
+        break;
+    }
+}
+
+static gfx_object_t *demo_create_preview_button(gfx_display_t *display, gfx_font_t font)
+{
+    gfx_object_t *button = gfx_button_create(display);
+
+    if (button == NULL) {
+        return NULL;
+    }
+
+    (void)gfx_object_set_pos(button,
+                             DEMO_PREVIEW_X + (DEMO_PREVIEW_W - DEMO_PREVIEW_BUTTON_W) / 2,
+                             388);
+    (void)gfx_object_set_size(button, DEMO_PREVIEW_BUTTON_W, 42);
+    (void)gfx_button_set_font(button, font);
+    (void)gfx_button_set_bg_color(button, GFX_COLOR_HEX(0x245C8F));
+    (void)gfx_button_set_bg_color_pressed(button, GFX_COLOR_HEX(0x2E7D32));
+    (void)gfx_button_set_border_color(button, GFX_COLOR_HEX(0x76B7E8));
+    (void)gfx_button_set_border_width(button, 2);
+    (void)gfx_button_set_text_color(button, GFX_COLOR_HEX(0xFFFFFF));
+    (void)gfx_button_set_text_align(button, GFX_TEXT_ALIGN_CENTER);
+    (void)gfx_object_set_touch_cb(button, demo_preview_button_cb, &s_scene);
+    (void)gfx_object_set_visible(button, false);
+    return button;
+}
+
+static void demo_set_preview_note(format_playground_scene_t *scene, const char *text)
+{
+    if (scene != NULL && scene->preview_note != NULL) {
+        (void)gfx_label_set_text(scene->preview_note, text != NULL ? text : "");
+        demo_set_object_visible(scene->preview_note, true);
+    }
+}
+
+static void demo_set_preview_next_button(format_playground_scene_t *scene, const char *label,
+        uint16_t index, uint16_t count)
+{
+    if (scene == NULL || scene->preview_button == NULL) {
+        return;
+    }
+
+    if (count <= 1U || label == NULL) {
+        demo_set_object_visible(scene->preview_button, false);
+        return;
+    }
+
+    (void)gfx_button_set_text_fmt(scene->preview_button, "%s  %u/%u",
+                                  label, (unsigned)(index + 1U), (unsigned)count);
+    demo_set_object_visible(scene->preview_button, true);
 }
 
 static void demo_hide_preview_objects(format_playground_scene_t *scene)
@@ -85,13 +163,12 @@ static void demo_hide_preview_objects(format_playground_scene_t *scene)
     demo_set_object_visible(scene->button_demo, false);
     demo_set_object_visible(scene->list_demo, false);
     demo_set_object_visible(scene->image_demo, false);
-    demo_set_object_visible(scene->image_button, false);
     demo_set_object_visible(scene->anim_jpg_demo, false);
-    demo_set_object_visible(scene->anim_jpg_button, false);
     demo_set_object_visible(scene->wheel_demo, false);
     demo_set_object_visible(scene->pageflow_demo, false);
     demo_set_object_visible(scene->coverflow_demo, false);
     demo_set_object_visible(scene->preview_note, false);
+    demo_set_object_visible(scene->preview_button, false);
     if (scene->motion != NULL) {
         (void)gfx_motion_player_set_visible(scene->motion, false);
     }
@@ -99,15 +176,7 @@ static void demo_hide_preview_objects(format_playground_scene_t *scene)
 
 void gfx_format_demo_update_status(format_playground_scene_t *scene)
 {
-    if (scene == NULL || scene->status == NULL) {
-        return;
-    }
-
-    (void)gfx_label_set_text_fmt(scene->status,
-                                 "Widget: %s   Motion: %s   Output: %s",
-                                 gfx_format_demo_widget_name(scene->widget_idx),
-                                 gfx_format_demo_action_name(scene->action_idx),
-                                 scene->format_tag != NULL ? scene->format_tag : "Unknown");
+    (void)scene;
 }
 
 static void demo_apply_action(format_playground_scene_t *scene, bool snap)
@@ -143,33 +212,25 @@ void gfx_format_demo_apply_widget_focus(format_playground_scene_t *scene, uint16
     switch ((demo_widget_id_t)widget_idx) {
     case DEMO_WIDGET_BUTTON:
         demo_set_object_visible(scene->button_demo, true);
-        if (scene->preview_note != NULL) {
-            (void)gfx_label_set_text(scene->preview_note, "Tap the button to confirm touch and color.");
-            demo_set_object_visible(scene->preview_note, true);
-        }
+        demo_set_preview_note(scene, "Tap the button to confirm touch and color.");
         break;
     case DEMO_WIDGET_LIST:
         demo_set_object_visible(scene->list_demo, true);
-        if (scene->preview_note != NULL) {
-            (void)gfx_label_set_text(scene->preview_note, "Scroll and select list rows.");
-            demo_set_object_visible(scene->preview_note, true);
-        }
+        demo_set_preview_note(scene, "Scroll and select list rows.");
         break;
     case DEMO_WIDGET_IMAGE:
         demo_set_object_visible(scene->image_demo, true);
-        demo_set_object_visible(scene->image_button, true);
-        if (scene->preview_note != NULL) {
-            (void)gfx_label_set_text(scene->preview_note, "JPEG from mmap store (FILE), SPIFFS (fread) or assets_test mapping (MEM); tap to switch.");
-            demo_set_object_visible(scene->preview_note, true);
-        }
+        demo_set_preview_note(scene, gfx_format_demo_image_clip_note());
+        demo_set_preview_next_button(scene, "Next Image",
+                                     (uint16_t)gfx_format_demo_image_clip_index(),
+                                     (uint16_t)gfx_format_demo_image_clip_count());
         break;
     case DEMO_WIDGET_ANIM_JPG:
         demo_set_object_visible(scene->anim_jpg_demo, true);
-        demo_set_object_visible(scene->anim_jpg_button, gfx_format_demo_anim_asset_count() > 1U);
-        if (scene->preview_note != NULL) {
-            (void)gfx_label_set_text(scene->preview_note, "AAF/EAF anim from mmap store, SPIFFS (fread) or mmap mapping (MEM); tap to switch.");
-            demo_set_object_visible(scene->preview_note, true);
-        }
+        demo_set_preview_note(scene, gfx_format_demo_anim_jpg_clip_note());
+        demo_set_preview_next_button(scene, "Next Anim",
+                                     (uint16_t)gfx_format_demo_anim_jpg_clip_index(),
+                                     (uint16_t)gfx_format_demo_anim_asset_count());
         break;
     case DEMO_WIDGET_MOTION:
         if (scene->motion != NULL) {
@@ -183,20 +244,15 @@ void gfx_format_demo_apply_widget_focus(format_playground_scene_t *scene, uint16
         break;
     case DEMO_WIDGET_WHEEL:
         demo_set_object_visible(scene->wheel_demo, true);
+        demo_set_preview_note(scene, "Spin the wheel and watch the selected row snap to center.");
         break;
     case DEMO_WIDGET_PAGEFLOW:
         demo_set_object_visible(scene->pageflow_demo, true);
-        if (scene->preview_note != NULL) {
-            (void)gfx_label_set_text(scene->preview_note, "Swipe to the format probe image and compare RGB565 vs RGB888 banding.");
-            demo_set_object_visible(scene->preview_note, true);
-        }
+        demo_set_preview_note(scene, "Swipe to the format probe image and compare color banding.");
         break;
     case DEMO_WIDGET_COVERFLOW:
         demo_set_object_visible(scene->coverflow_demo, true);
-        if (scene->preview_note != NULL) {
-            (void)gfx_label_set_text(scene->preview_note, "Center card starts on the format probe image for color-depth comparison.");
-            demo_set_object_visible(scene->preview_note, true);
-        }
+        demo_set_preview_note(scene, "Center card starts on the format probe image for color-depth comparison.");
         break;
     default:
         break;
@@ -227,19 +283,16 @@ esp_err_t gfx_format_demo_build_playground_scene(gfx_display_t *disp, const char
 
     s_scene.header_title = demo_create_label(disp, s_scene.font, 22, 18, (uint16_t)(hres - 44U), 34,
                            title_text != NULL ? title_text : "GFX Format Playground",
-                           GFX_COLOR_HEX(0xF3F7FA));
+                           GFX_COLOR_HEX(0xF3F7FA), GFX_LABEL_LONG_CLIP);
     s_scene.header_tag = demo_create_label(disp, s_scene.font, 22, 56, 220, 24, "Widgets",
-                                           GFX_COLOR_HEX(0xA8B3BD));
-    s_scene.preview_title = demo_create_label(disp, s_scene.font, 276, 56, 340, 24, "Button Preview",
-                            GFX_COLOR_HEX(0xA8B3BD));
-    s_scene.preview_note = demo_create_label(disp, s_scene.font, 276, 88, 360, 42, "",
-                           GFX_COLOR_HEX(0xDCE4EC));
-    s_scene.status = demo_create_label(disp, s_scene.font, 276, 430, 360, 26, "",
-                                       GFX_COLOR_HEX(0xA8B3BD));
-
+                                           GFX_COLOR_HEX(0xA8B3BD), GFX_LABEL_LONG_CLIP);
+    s_scene.preview_title = demo_create_label(disp, s_scene.font, DEMO_PREVIEW_X, 56, DEMO_PREVIEW_W, 24, "Button Preview",
+                            GFX_COLOR_HEX(0xA8B3BD), GFX_LABEL_LONG_SCROLL);
+    s_scene.preview_note = demo_create_label(disp, s_scene.font, DEMO_PREVIEW_X, 88, DEMO_PREVIEW_W, 42, "",
+                           GFX_COLOR_HEX(0xDCE4EC), GFX_LABEL_LONG_SCROLL);
     ESP_RETURN_ON_FALSE(s_scene.header_title != NULL && s_scene.header_tag != NULL &&
-                        s_scene.preview_title != NULL && s_scene.preview_note != NULL &&
-                        s_scene.status != NULL, ESP_ERR_NO_MEM, "playground", "create labels failed");
+                        s_scene.preview_title != NULL && s_scene.preview_note != NULL,
+                        ESP_ERR_NO_MEM, "playground", "create labels failed");
 
     if (s_scene.header_tag != NULL && format_tag != NULL) {
         (void)gfx_label_set_text_fmt(s_scene.header_tag, "Widgets   %s", format_tag);
@@ -254,6 +307,10 @@ esp_err_t gfx_format_demo_build_playground_scene(gfx_display_t *disp, const char
     ESP_RETURN_ON_ERROR(gfx_format_demo_build_wheel_demo(&s_scene), "playground", "build wheel failed");
     ESP_RETURN_ON_ERROR(gfx_format_demo_build_pageflow_demo(&s_scene), "playground", "build pageflow failed");
     ESP_RETURN_ON_ERROR(gfx_format_demo_build_coverflow_demo(&s_scene), "playground", "build coverflow failed");
+
+    s_scene.preview_button = demo_create_preview_button(disp, s_scene.font);
+    ESP_RETURN_ON_FALSE(s_scene.preview_button != NULL, ESP_ERR_NO_MEM,
+                        "playground", "create preview button failed");
 
     s_scene.action_idx = 0;
     demo_apply_action(&s_scene, true);

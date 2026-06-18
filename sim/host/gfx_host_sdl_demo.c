@@ -586,7 +586,7 @@ static gfx_object_t *demo_create_cover_card(gfx_display_t *display, gfx_font_t f
 static void demo_create_anim_panel(gfx_display_t *display, gfx_font_t font, demo_state_t *state)
 {
     const char *anim_name = getenv("GFX_DEMO_ANIM");
-    gfx_anim_src_t anim_src;
+    gfx_anim_src_t anim_src = {0};
 
     if (state == NULL || state->asset_store == NULL) {
         return;
@@ -608,9 +608,28 @@ static void demo_create_anim_panel(gfx_display_t *display, gfx_font_t font, demo
         return;
     }
 
-    anim_src.type = GFX_ANIM_SRC_TYPE_MEMORY;
-    anim_src.data = state->anim_view.data;
-    anim_src.data_len = state->anim_view.size;
+    /* GFX_DEMO_ANIM_STREAM exercises the opt-in per-frame streaming path: the
+     * anim is fed as a file path with the streaming flag instead of a resident
+     * memory buffer, so frames are pulled on demand at decode time. */
+    static char anim_path[1024];
+    const char *asset_root = getenv("GFX_ASSET_ROOT");
+    const bool stream = getenv("GFX_DEMO_ANIM_STREAM") != NULL;
+    if (asset_root == NULL || asset_root[0] == '\0') {
+        asset_root = "test_apps/assets_test";
+    }
+
+    if (stream) {
+        snprintf(anim_path, sizeof(anim_path), "%s/%s", asset_root, anim_name);
+        anim_src.type = GFX_ANIM_SRC_TYPE_FILE;
+        anim_src.data = anim_path;
+        anim_src.data_len = 0;
+        anim_src.flags = GFX_ANIM_SRC_FLAG_STREAMING;
+    } else {
+        anim_src.type = GFX_ANIM_SRC_TYPE_MEMORY;
+        anim_src.data = state->anim_view.data;
+        anim_src.data_len = state->anim_view.size;
+        anim_src.flags = GFX_ANIM_SRC_FLAG_NONE;
+    }
     if (gfx_anim_set_src_desc(state->anim, &anim_src) != GFX_OK) {
         fprintf(stderr, "failed to set anim source: %s size=%zu\n", anim_name, state->anim_view.size);
         return;
@@ -621,11 +640,12 @@ static void demo_create_anim_panel(gfx_display_t *display, gfx_font_t font, demo
     (void)gfx_anim_set_segment(state->anim, 0, 0xFFFFFFFF, 30, true);
     (void)gfx_anim_start(state->anim);
 
-    printf("anim asset: root=%s file=%s size=%zu mapped=%s\n",
-           getenv("GFX_ASSET_ROOT") ? getenv("GFX_ASSET_ROOT") : "test_apps/assets_test",
+    printf("anim asset: root=%s file=%s size=%zu mapped=%s mode=%s\n",
+           asset_root,
            anim_name,
            state->anim_view.size,
-           state->anim_view.is_mapped ? "yes" : "no");
+           state->anim_view.is_mapped ? "yes" : "no",
+           stream ? "stream" : "resident");
     fflush(stdout);
 }
 

@@ -42,9 +42,8 @@ typedef struct {
     gfx_object_t *button_demo;
     gfx_object_t *list_demo;
     gfx_object_t *image_demo;
-    gfx_object_t *image_button;
     gfx_object_t *anim_jpg_demo;
-    gfx_object_t *anim_jpg_button;
+    gfx_object_t *preview_button;
     gfx_object_t *wheel_demo;
     gfx_object_t *pageflow_demo;
     gfx_object_t *coverflow_demo;
@@ -68,6 +67,13 @@ extern const char *const gfx_format_demo_wheel_items[];
 extern const uint16_t gfx_format_demo_wheel_item_count;
 
 size_t gfx_format_demo_anim_asset_count(void);
+size_t gfx_format_demo_image_clip_count(void);
+size_t gfx_format_demo_image_clip_index(void);
+size_t gfx_format_demo_anim_jpg_clip_index(void);
+const char *gfx_format_demo_image_clip_note(void);
+const char *gfx_format_demo_anim_jpg_clip_note(void);
+esp_err_t gfx_format_demo_next_image_clip(format_playground_scene_t *scene);
+esp_err_t gfx_format_demo_next_anim_jpg_clip(format_playground_scene_t *scene);
 
 const char *gfx_format_demo_widget_name(uint16_t widget_idx);
 const char *gfx_format_demo_action_name(uint16_t action_idx);

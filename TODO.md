@@ -351,13 +351,19 @@
 
 - [ ] EAF/AAF 解码层优化(`src/lib/eaf/gfx_eaf_dec.c`)。
   风险提示：以下都在 decode 热路径上，逐项小步改、每步跑 host anim smoke + SDL dummy smoke 回归(同一 `.eaf/.aaf` 解码输出字节应保持一致)；先做低风险性能项，再碰正确性项，流式重构留最后。
-  - [ ] (低风险，先做)decode session / scratch 复用：把 `eaf_dec_decode_frame` 每帧 malloc 的 `block_len`/`palette`/`offsets`/`tmp_data` 以及 `eaf_dec_get_frame_info` 的再分配，收敛为按“最大帧”预分配一次的 decode ctx，消除逐帧 malloc/free churn。只加复用、不改解码算法与输出。
-  - [ ] (低风险)Huffman 树复用：`huffman_decode_data` 每块从零 `calloc` 节点 + 解完 `free`，改为 arena/节点池或同 dict 复用，降低每块建树开销。
-  - [ ] (中风险，需回归)header/table 非对齐 `*(uint16_t*)`/`*(uint32_t*)` 读改为 `memcpy`/字节拼装，避免特定平台非对齐访问问题；行为应严格等价。
-  - [ ] (中风险)`decode_huffman_rle` 中间 buffer 大小从 `*out_size * 2` 猜测改为由 header `width*block_height` 推导，去掉魔法系数与潜在溢出。
-  - [ ] (中风险)`eaf_dec_init` 补长度校验：`total_frames` / frame table / `frame_offset` 与 `data_len` 比对，截断或损坏文件不越界。
-  - [ ] (小项)4bit 矛盾收口：`eaf_dec_get_frame_info` 接受 4bit 但 `eaf_dec_decode_frame` 不支持，统一为“要么支持、要么早拒”。
-  - [ ] (高风险/大改，留架构)fread 流式 reader 抽象：在解码核之上加只读访问层(`size`/`map`/`read`)——mmap/partition 走 `map` 零拷贝、fread/SPIFFS 走 `read` 到复用 scratch；`eaf_dec_init` 改为拷贝小元数据(frame table/offset 整数化)，decode 按块取，把“整文件常驻”降到“按块”。明确这是 streaming 优化，与当前 P1“一次性 load 并保持”是两种并存模式，需在 decode session 与 smoke 稳定后再做。
+  - [x] (低风险，先做)decode session / scratch 复用：handle(`eaf_dec_ctx_t`) 持有可复用 scratch(Huffman tmp buffer + 节点 arena)，按需增长、deinit 释放；anim widget 侧 `block_offsets`/`decode_buffer`/`palette_cache` 改为跨帧复用、仅按需增长。消除逐块 Huffman malloc/free 与逐帧 buffer churn。只加复用、解码输出严格不变。(done: 2026-06-18，host smoke + 8bit/24bit headless 回归通过)
+  - [x] (低风险)Huffman 树复用：`huffman_decode_data` 改为从 handle arena bump 分配节点(按 dict `Σcode_len+1` 上界预留)，跨块复用、无逐块 `calloc`/递归 `free`；无 handle 时回退 transient malloc。树结构与输出与原实现一致。(done: 2026-06-18)
+  - [x] (中风险，需回归)header/table 非对齐 `*(uint16_t*)`/`*(uint32_t*)` 读改为 `memcpy`(`eaf_rd_u16/u32/i32`)；行为严格等价(小端语义不变)。(done: 2026-06-18)
+  - [x] (中风险)`decode_huffman_rle` 中间 buffer：`*out_size`(已等于 `width*block_height`) `*2` 保留为可证明的最坏上界(RLE pair 2 字节→≥1 字节输出)，加注释说明非魔法系数；buffer 改为复用 handle scratch。(done: 2026-06-18)
+  - [x] (中风险)`eaf_dec_init` 补长度校验：NULL/最小头/`stored_len` 校验区间/`total_frames` 与 frame table 容量(防溢出)/逐帧 `frame_base+offset+size <= data_len` 与 `frame_size>=EAF_MAGIC_LEN`；`entries` malloc null 检查。截断/损坏文件不越界。(done: 2026-06-18)
+  - [x] (小项)4bit 矛盾收口：`eaf_dec_get_frame_info`/`probe` 早拒 4bit(decode 未实现)，仅放行 8/24bit；并补 frame payload 大小 guard。(done: 2026-06-18)
+  - [x] (高风险/大改)fread 流式 reader 抽象 —— 按帧 streaming 基座落地：在解码核之上加只读访问层 `eaf_dec_reader_t {io_ctx,size,read}`；新增 `eaf_dec_init_reader()` 只在 open 时读 header + frame table(整数化拷贝到 ctx)，decode 时把每帧 payload 按需 `read` 进复用 `frame_buf`(按 index 缓存，同帧不重读)，把“整文件常驻”降到“单帧常驻”。decode 核(`get_frame_info`/`decode_block`)与 widget 完全不改：streaming 时 `eaf_dec_get_frame_data()` 返回复用帧缓冲，resident `eaf_dec_init()` 路径原样保留(两种并存模式，opt-in)。(done: 2026-06-18)
+    - asset 层新增 `gfx_asset_source_open_stream/stream_read/close_stream`(`gfx_asset_stream_t`)：fopen 优先(SPIFFS/FATFS/SD/host-dir 真流式，仅请求字节常驻)，否则回退默认 store 的 mapped/direct view 零拷贝；decoder 不直接开文件，由 `gfx_anim_decoder_eaf.c` 把 stream 桥到 reader，边界清晰。
+    - opt-in：`gfx_anim_src_t.flags` 新增 `GFX_ANIM_SRC_FLAG_STREAMING`(默认 0 = resident P1)，仅对 FILE 源生效；mapped/direct 源即使请求 streaming 也走零拷贝 resident(streaming mmap 无收益)。host demo 经 `GFX_DEMO_ANIM_STREAM` 跑 FILE+streaming。
+    - 决策落定：granularity 选“按帧”而非“按块”——正常整帧播放时按帧只 1 次顺序 `read`(syscall 最少)，且与 widget `frame_payload + block_offsets[i]` 常驻指针契约零冲突；prefetch task 暂不引入(见下方 follow-up)。
+    - 校验：payload 字节 resident≡streaming 完全一致(`payload_diff=0`)；整套帧解码 streaming 与 fresh resident handle 在 8bit.eaf/24bit.aaf 全帧 0 mismatch，huff.aaf 的 41/62 差异为 **streaming 无关**(resident-vs-resident 同样 41 帧、同一帧集)。host ctest 8/8 通过。
+  - [ ] (follow-up，需决策)frame-level bounce 双缓冲 + prefetch：当前按帧 streaming 串行(读帧 N → 解帧 N)，要真正“两块交互”需在显示帧 N 时预读帧 N+1 到第二缓冲——同步 fread 下必须借独立 prefetch task 才有真重叠(render 由 timer 驱动，非自由解码循环)，是本项最高风险部分，建议落到目标板按真实 I/O 时序决定 task 形态后再做。
+  - [ ] (新发现，streaming 无关，pre-existing)Huffman/RLE 块短解码尾部未初始化：部分 huff 块 decode 返回 OK 但 `out_size < width*block_height`，`eaf_dec_decode_frame`/widget 的 per-frame temp/decode_buffer 尾部保留旧值/未初始化即被渲染(复用 buffer 时为上一块残留)。表现为两 handle 解同一 huff 文件确定性地差 41/62 帧。建议：decode_block 成功后对未覆盖区清零，或对短解码块按错误处理。属解码健壮性，独立小步评估。
 
 - [ ] Host SDL demo / test app 验证。
   - [x] 给 host SDL demo 增加一个 animation panel，从 host 文件系统加载 `.aaf/.eaf`。(done: 2026-06-12)

@@ -20,8 +20,17 @@
 
 typedef struct {
     eaf_dec_handle_t eaf;
-    gfx_asset_source_t source;
+    gfx_asset_source_t source;   /**< Resident load (whole file); used when stream_active is false. */
+    gfx_asset_stream_t stream;   /**< On-demand stream; used when stream_active is true. */
+    bool stream_active;          /**< Which backing store to release in close(). */
 } gfx_anim_eaf_decoder_ctx_t;
+
+/* Bridge the asset stream behind the EAF reader's read() callback so the EAF
+ * core stays free of any file/VFS dependency. */
+static esp_err_t gfx_anim_eaf_stream_read(void *io_ctx, size_t offset, size_t len, uint8_t *dst)
+{
+    return gfx_asset_source_stream_read((gfx_asset_stream_t *)io_ctx, offset, len, dst);
+}
 
 /**********************
  *  STATIC PROTOTYPES
@@ -77,10 +86,39 @@ static esp_err_t gfx_anim_eaf_open(const gfx_anim_src_t *src, void **out_ctx)
         return ESP_ERR_NO_MEM;
     }
 
-    /* Load the whole eaf/aaf once into a resident range. All frames are decoded
-     * from this buffer at runtime; no per-frame file reads. Direct backends
-     * (mmap-assets / raw partition mmap) stay zero-copy, while VFS/SPIFFS and
-     * the fread fallback own a heap copy released in close(). */
+    /* Streaming (opt-in, file sources only): load just the header/frame table at
+     * open and pull each frame payload on demand, dropping the resident
+     * footprint from the whole file to a single frame. A memory-mapped/direct
+     * backend has no streaming benefit, so it decodes zero-copy from the
+     * mapping; only a genuinely streamed (fread) backend uses the reader path.
+     * If streaming setup fails we fall back to the resident load below. */
+    if (src->type == GFX_ANIM_SRC_TYPE_FILE && (src->flags & GFX_ANIM_SRC_FLAG_STREAMING) != 0U) {
+        if (gfx_asset_source_open_stream((const char *)src->data, &ctx->stream) == ESP_OK) {
+            esp_err_t sret;
+            if (ctx->stream.mapped != NULL) {
+                sret = eaf_dec_init(ctx->stream.mapped, ctx->stream.size, &ctx->eaf);
+            } else {
+                eaf_dec_reader_t reader = {
+                    .io_ctx = &ctx->stream,
+                    .size = ctx->stream.size,
+                    .read = gfx_anim_eaf_stream_read,
+                };
+                sret = eaf_dec_init_reader(&reader, &ctx->eaf);
+            }
+            if (sret == ESP_OK) {
+                ctx->stream_active = true;
+                *out_ctx = ctx;
+                return ESP_OK;
+            }
+            gfx_asset_source_close_stream(&ctx->stream);
+        }
+        /* Fall through to the resident path on any streaming failure. */
+    }
+
+    /* Resident: load the whole eaf/aaf once. All frames decode from this buffer
+     * at runtime with no per-frame file reads. Direct backends (mmap-assets /
+     * raw partition mmap) stay zero-copy, while VFS/SPIFFS and the fread
+     * fallback own a heap copy released in close(). */
     if (src->type == GFX_ANIM_SRC_TYPE_FILE) {
         esp_err_t ret = gfx_asset_source_load((const char *)src->data, &ctx->source);
         if (ret != ESP_OK) {
@@ -118,7 +156,13 @@ static void gfx_anim_eaf_close(void *ctx)
     if (decoder_ctx->eaf != NULL) {
         eaf_dec_deinit(decoder_ctx->eaf);
     }
-    gfx_asset_source_release(&decoder_ctx->source);
+    /* The EAF handle borrowed the stream/source bytes, so release the backing
+     * store only after deinit. */
+    if (decoder_ctx->stream_active) {
+        gfx_asset_source_close_stream(&decoder_ctx->stream);
+    } else {
+        gfx_asset_source_release(&decoder_ctx->source);
+    }
 
     free(decoder_ctx);
 }
@@ -248,17 +292,20 @@ static size_t gfx_anim_eaf_get_frame_payload_size(void *ctx, uint32_t frame_inde
     return payload_size > 0 ? (size_t)payload_size : 0;
 }
 
-static esp_err_t gfx_anim_eaf_decode_frame_block(const gfx_anim_frame_desc_t *frame_desc,
+static esp_err_t gfx_anim_eaf_decode_frame_block(void *ctx, const gfx_anim_frame_desc_t *frame_desc,
         const uint8_t *block_payload, size_t block_payload_size, uint8_t *out_pixels)
 {
+    gfx_anim_eaf_decoder_ctx_t *decoder_ctx = (gfx_anim_eaf_decoder_ctx_t *)ctx;
     eaf_dec_header_t header;
 
-    if (frame_desc == NULL || block_payload_size > INT_MAX) {
+    if (decoder_ctx == NULL || frame_desc == NULL || block_payload_size > INT_MAX) {
         return ESP_ERR_INVALID_ARG;
     }
 
     gfx_anim_eaf_export_frame_desc(frame_desc, &header);
-    return eaf_dec_decode_block(&header, block_payload, (int)block_payload_size, out_pixels);
+    /* Pass the parser handle so the EAF decoder reuses its per-handle Huffman
+     * scratch (tmp buffer + node arena) instead of allocating per block. */
+    return eaf_dec_decode_block(decoder_ctx->eaf, &header, block_payload, (int)block_payload_size, out_pixels);
 }
 
 static bool gfx_anim_eaf_read_palette_color(const gfx_anim_frame_desc_t *frame_desc, uint8_t color_index,

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -63,6 +63,27 @@ typedef enum {
 } gfx_anim_src_type_t;
 
 /**
+ * @brief Source behaviour flags for `gfx_anim_src_t.flags`.
+ */
+typedef enum {
+    GFX_ANIM_SRC_FLAG_NONE      = 0,
+    /**
+     * Pull frames on demand instead of keeping the whole file resident.
+     *
+     * Only meaningful for `GFX_ANIM_SRC_TYPE_FILE` sources whose path can be
+     * opened as a stream (SPIFFS/FATFS/SD or a host directory file). In that
+     * case the decoder loads only the header and frame table at open time and
+     * reads each frame payload on demand into a reused buffer, dropping the
+     * resident footprint from the whole file to a single frame. Memory-mapped
+     * backends (mmap-assets / raw partition) stay zero-copy resident because
+     * streaming a mapping has no benefit. Memory sources ignore this flag.
+     *
+     * Default (flag unset) keeps the whole-file resident "load once" behaviour.
+     */
+    GFX_ANIM_SRC_FLAG_STREAMING = 1U << 0,
+} gfx_anim_src_flags_t;
+
+/**
  * @brief Typed animation source descriptor.
  *
  * `gfx_anim_set_src_desc()` keeps the source type explicit.
@@ -71,6 +92,7 @@ typedef struct {
     gfx_anim_src_type_t type; /**< Source payload type */
     const void *data;         /**< Type-specific payload pointer */
     size_t data_len;          /**< Payload length in bytes */
+    uint32_t flags;           /**< GFX_ANIM_SRC_FLAG_* (0 = resident load) */
 } gfx_anim_src_t;
 
 /**********************

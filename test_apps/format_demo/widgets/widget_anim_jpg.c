@@ -6,6 +6,8 @@
 
 #include "playground_scene_priv.h"
 
+#include <stdio.h>
+
 #include "esp_check.h"
 #include "esp_log.h"
 #include "esp_spiffs.h"
@@ -19,6 +21,7 @@ typedef struct {
     const char *name;
     gfx_anim_src_type_t type;
     const char *path;  /**< FILE: store name or absolute path. MEMORY: mmap asset name. */
+    const char *mode;
 } demo_anim_clip_t;
 
 /*
@@ -28,20 +31,42 @@ typedef struct {
  * Switching index just updates the src.
  */
 static const demo_anim_clip_t s_anim_jpg_clips[] = {
-    { .name = "Eye Anim 1",     .type = GFX_ANIM_SRC_TYPE_FILE,   .path = "mi_1_eye_24bit.aaf" },
-    { .name = "Eye Anim 2",     .type = GFX_ANIM_SRC_TYPE_FILE,   .path = "mi_2_eye_24bit.aaf" },
-    { .name = "SPIFFS Eye AAF", .type = GFX_ANIM_SRC_TYPE_FILE,   .path = DEMO_SPIFFS_ANIM_MOUNT "/mi_1_eye_24bit.aaf" },
-    { .name = "SPIFFS Eye EAF", .type = GFX_ANIM_SRC_TYPE_FILE,   .path = DEMO_SPIFFS_ANIM_MOUNT "/mi_1_eye_8bit.eaf" },
-    { .name = "MEM Eye AAF",    .type = GFX_ANIM_SRC_TYPE_MEMORY, .path = "mi_1_eye_24bit.aaf" },
+    { .name = "Eye Anim 1",     .type = GFX_ANIM_SRC_TYPE_FILE,   .path = "mi_1_eye_24bit.aaf", .mode = "mmap FILE" },
+    { .name = "Eye Anim 2",     .type = GFX_ANIM_SRC_TYPE_FILE,   .path = "mi_2_eye_24bit.aaf", .mode = "mmap FILE" },
+    { .name = "SPIFFS Eye AAF", .type = GFX_ANIM_SRC_TYPE_FILE,   .path = DEMO_SPIFFS_ANIM_MOUNT "/mi_1_eye_24bit.aaf", .mode = "SPIFFS fread" },
+    { .name = "SPIFFS Eye EAF", .type = GFX_ANIM_SRC_TYPE_FILE,   .path = DEMO_SPIFFS_ANIM_MOUNT "/mi_1_eye_8bit.eaf", .mode = "SPIFFS fread" },
+    { .name = "MEM Eye AAF",    .type = GFX_ANIM_SRC_TYPE_MEMORY, .path = "mi_1_eye_24bit.aaf", .mode = "assets_test MEM" },
 };
 
 #define DEMO_ANIM_JPG_COUNT (sizeof(s_anim_jpg_clips) / sizeof(s_anim_jpg_clips[0]))
 
 static size_t s_anim_jpg_index;
+static char s_anim_jpg_note[96];
+
+static void demo_update_anim_jpg_note(size_t index)
+{
+    const demo_anim_clip_t *clip = &s_anim_jpg_clips[index];
+
+    (void)snprintf(s_anim_jpg_note, sizeof(s_anim_jpg_note), "%s | %s | %s",
+                   clip->name, clip->mode, clip->path);
+}
 
 size_t gfx_format_demo_anim_asset_count(void)
 {
     return DEMO_ANIM_JPG_COUNT;
+}
+
+size_t gfx_format_demo_anim_jpg_clip_index(void)
+{
+    return s_anim_jpg_index;
+}
+
+const char *gfx_format_demo_anim_jpg_clip_note(void)
+{
+    if (s_anim_jpg_note[0] == '\0') {
+        demo_update_anim_jpg_note(s_anim_jpg_index);
+    }
+    return s_anim_jpg_note;
 }
 
 static void demo_mount_spiffs_assets(void)
@@ -100,33 +125,25 @@ static esp_err_t demo_load_anim_jpg_clip(format_playground_scene_t *scene, size_
     ESP_RETURN_ON_ERROR(gfx_anim_start(scene->anim_jpg_demo), "playground", "start anim failed");
 
     s_anim_jpg_index = index;
-    if (scene->anim_jpg_button != NULL) {
-        (void)gfx_button_set_text_fmt(scene->anim_jpg_button, "Next Anim  %u/%u",
+    demo_update_anim_jpg_note(index);
+    if (scene->preview_button != NULL && scene->widget_idx == DEMO_WIDGET_ANIM_JPG) {
+        (void)gfx_button_set_text_fmt(scene->preview_button, "Next Anim  %u/%u",
                                       (unsigned)(index + 1U), (unsigned)DEMO_ANIM_JPG_COUNT);
     }
-    if (scene->status != NULL && scene->widget_idx == DEMO_WIDGET_ANIM_JPG) {
-        (void)gfx_label_set_text_fmt(scene->status, "Anim: %s   Output: %s",
-                                     clip->name,
-                                     scene->format_tag != NULL ? scene->format_tag : "Unknown");
+    if (scene->preview_note != NULL && scene->widget_idx == DEMO_WIDGET_ANIM_JPG) {
+        (void)gfx_label_set_text(scene->preview_note, gfx_format_demo_anim_jpg_clip_note());
     }
     return ESP_OK;
 }
 
-static void demo_anim_jpg_button_cb(gfx_object_t *obj, const gfx_touch_event_t *event, void *user_data)
+esp_err_t gfx_format_demo_next_anim_jpg_clip(format_playground_scene_t *scene)
 {
-    format_playground_scene_t *scene = (format_playground_scene_t *)user_data;
-
-    if (obj == NULL || scene == NULL || event == NULL || event->type != GFX_TOUCH_EVENT_RELEASE) {
-        return;
-    }
-
-    (void)demo_load_anim_jpg_clip(scene, (s_anim_jpg_index + 1U) % DEMO_ANIM_JPG_COUNT);
+    return demo_load_anim_jpg_clip(scene, (s_anim_jpg_index + 1U) % DEMO_ANIM_JPG_COUNT);
 }
 
 esp_err_t gfx_format_demo_build_anim_jpg_demo(format_playground_scene_t *scene)
 {
     gfx_object_t *obj;
-    gfx_object_t *button;
 
     demo_mount_spiffs_assets();
 
@@ -136,22 +153,7 @@ esp_err_t gfx_format_demo_build_anim_jpg_demo(format_playground_scene_t *scene)
     scene->anim_jpg_demo = obj;
     (void)gfx_object_set_pos(obj, 286, 164);
 
-    button = gfx_button_create(scene->disp);
-    ESP_RETURN_ON_FALSE(button != NULL, ESP_ERR_NO_MEM, "playground", "create anim switch button failed");
-    scene->anim_jpg_button = button;
-    (void)gfx_object_set_pos(button, 330, 370);
-    (void)gfx_object_set_size(button, 190, 42);
-    (void)gfx_button_set_font(button, scene->font);
-    (void)gfx_button_set_bg_color(button, GFX_COLOR_HEX(0x245C8F));
-    (void)gfx_button_set_bg_color_pressed(button, GFX_COLOR_HEX(0x2E7D32));
-    (void)gfx_button_set_border_color(button, GFX_COLOR_HEX(0x76B7E8));
-    (void)gfx_button_set_border_width(button, 2);
-    (void)gfx_button_set_text_color(button, GFX_COLOR_HEX(0xFFFFFF));
-    (void)gfx_button_set_text_align(button, GFX_TEXT_ALIGN_CENTER);
-    (void)gfx_object_set_touch_cb(button, demo_anim_jpg_button_cb, scene);
-
     ESP_RETURN_ON_ERROR(demo_load_anim_jpg_clip(scene, 0), "playground", "load anim clip failed");
     (void)gfx_object_set_visible(obj, false);
-    (void)gfx_object_set_visible(button, false);
     return ESP_OK;
 }
