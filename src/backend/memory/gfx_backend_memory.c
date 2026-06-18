@@ -13,7 +13,7 @@
 #include "common/gfx_log_priv.h"
 
 #include "gfx/backends/memory.h"
-#include "core/gfx_types_priv.h"
+#include "common/gfx_types_priv.h"
 #include "core/display/gfx_backend_priv.h"
 #include "core/display/gfx_display_priv.h"
 #include "platform/gfx_platform.h"

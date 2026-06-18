@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include "unity.h"
 #include "common.h"
-#include "core/gfx_types_priv.h"
+#include "common/gfx_types_priv.h"
 #include "gfx/backends/memory.h"
 #include "lib/eaf/gfx_eaf_dec.h"
 

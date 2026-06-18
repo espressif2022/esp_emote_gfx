@@ -8,7 +8,7 @@
 
 #include <stddef.h>
 
-#include "core/gfx_types_priv.h"
+#include "common/gfx_types_priv.h"
 #include "core/gfx_disp.h"
 
 #ifdef __cplusplus

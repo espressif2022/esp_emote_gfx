@@ -17,7 +17,7 @@
 #define GFX_LOG_MODULE GFX_LOG_MODULE_EAF_DEC
 #include "common/gfx_log_priv.h"
 
-#include "core/gfx_types_priv.h"
+#include "common/gfx_types_priv.h"
 #include "gfx_eaf_dec.h"
 #include "platform/gfx_platform_jpeg_priv.h"
 
@@ -194,6 +194,11 @@ static esp_err_t huffman_decode_data(eaf_dec_ctx_t *ctx,
         return ESP_OK;
     }
 
+    /* On entry *out_size carries the destination capacity (the caller sizes
+     * out_data to the expected decoded length). Treat it as a hard bound so a
+     * crafted bitstream/dictionary cannot write past the buffer. */
+    const size_t out_cap = *out_size;
+
     huff_builder_t builder = { .ctx = ctx, .used = 0 };
     if (ctx != NULL) {
         esp_err_t res = huff_arena_reserve(ctx, huff_count_nodes(dict_data, dict_len));
@@ -248,9 +253,14 @@ static esp_err_t huffman_decode_data(eaf_dec_ctx_t *ctx,
     }
 
     size_t total_bits = in_size * 8;
-    if (padding_bits > 0) {
-        total_bits -= padding_bits;
+    if (padding_bits >= total_bits) {
+        /* Malformed dictionary header: padding cannot consume the whole stream. */
+        GFX_LOGE(TAG, "Invalid Huffman padding bits %u (stream bits %zu)", padding_bits, total_bits);
+        huff_builder_cleanup(&builder, root);
+        *out_size = 0;
+        return ESP_FAIL;
     }
+    total_bits -= padding_bits;
 
     current_node = root;
     size_t out_pos = 0;
@@ -272,6 +282,12 @@ static esp_err_t huffman_decode_data(eaf_dec_ctx_t *ctx,
         }
 
         if (current_node->is_leaf) {
+            if (out_pos >= out_cap) {
+                GFX_LOGE(TAG, "Huffman output exceeds capacity %zu", out_cap);
+                *out_size = out_pos;
+                huff_builder_cleanup(&builder, root);
+                return ESP_FAIL;
+            }
             out_data[out_pos++] = current_node->symbol;
             current_node = root;
         }
@@ -464,6 +480,9 @@ bool eaf_dec_get_palette_color(const eaf_dec_header_t *header, uint8_t color_ind
     const uint8_t *color_data = &header->palette[color_index * 4];
 
     if (color_data[0] == 0 && color_data[1] == 0 && color_data[2] == 0 && color_data[3] == 0) {
+        /* Transparent/empty entry. Still publish a defined color so callers that
+         * ignore the return value do not read an uninitialised gfx_color_t. */
+        result->full = 0;
         return true;
     }
 
@@ -573,6 +592,10 @@ esp_err_t eaf_dec_decode_block(eaf_dec_handle_t handle, const eaf_dec_header_t *
                                const uint8_t *block_data, int block_len, uint8_t *out_data)
 {
     eaf_dec_ctx_t *ctx = (eaf_dec_ctx_t *)handle;
+    if (header == NULL || block_data == NULL || out_data == NULL || block_len < 1) {
+        GFX_LOGE(TAG, "Invalid block decode args");
+        return ESP_FAIL;
+    }
     uint8_t encoding_type = block_data[0];
     int width = header->width;
     int block_height = header->block_height;
@@ -619,6 +642,14 @@ esp_err_t eaf_dec_decode_block(eaf_dec_handle_t handle, const eaf_dec_header_t *
 
     if (decode_result != ESP_OK) {
         return ESP_FAIL;
+    }
+
+    /* A short decode (Huffman/RLE that emits fewer bytes than the block holds)
+     * must leave a deterministic, zero-filled tail rather than uninitialised
+     * scratch, so independent decoder instances produce identical output. */
+    const size_t expected_size = (size_t)width * (size_t)block_height;
+    if (out_size < expected_size) {
+        memset(out_data + out_size, 0, expected_size - out_size);
     }
 
     return ESP_OK;
@@ -837,6 +868,12 @@ static esp_err_t eaf_dec_decode_huffman_ctx(eaf_dec_ctx_t *ctx, const uint8_t *i
 
         if (symbol_count == 1) {
             memset(out_data, single_symbol, out_len);
+        } else {
+            /* No single fill symbol: there is nothing decodable, so report a
+             * zero-length result and let the caller zero-fill the block. This
+             * keeps output deterministic instead of exposing the uninitialised
+             * scratch buffer. */
+            out_len = 0;
         }
     } else {
         ret = huffman_decode_data(ctx, in_data + 2 + dict_size, encoded_size,
@@ -1175,7 +1212,7 @@ const uint8_t *eaf_dec_get_frame_data(eaf_dec_handle_t handle, int index)
         return parser->frame_buf;
     }
 
-    if (parser->total_frames > index) {
+    if (index >= 0 && index < parser->total_frames) {
         return (const uint8_t *)((parser->entries + index)->frame_mem + EAF_MAGIC_LEN);
     } else {
         GFX_LOGE(TAG, "Invalid index: %d. Maximum index is %d.", index, parser->total_frames);
@@ -1192,7 +1229,7 @@ int eaf_dec_get_frame_size(eaf_dec_handle_t handle, int index)
 
     eaf_dec_ctx_t *parser = (eaf_dec_ctx_t *)(handle);
 
-    if (parser->total_frames > index) {
+    if (index >= 0 && index < parser->total_frames) {
         return ((parser->entries + index)->table->frame_size - EAF_MAGIC_LEN);
     } else {
         GFX_LOGE(TAG, "Invalid index: %d. Maximum index is %d.", index, parser->total_frames);
@@ -1236,7 +1273,7 @@ esp_err_t eaf_dec_decode_frame(eaf_dec_handle_t handle, int frame_index,
     }
     eaf_dec_calculate_offsets(&header, offsets);
 
-    uint8_t *tmp_data = malloc(block_size);
+    uint8_t *tmp_data = calloc(1, block_size);
     if (!tmp_data) {
         GFX_LOGE(TAG, "No mem for block buffer");
         free(offsets);

@@ -7,7 +7,7 @@
 #pragma once
 
 #include <stdint.h>
-#include "core/gfx_types_priv.h"
+#include "common/gfx_types_priv.h"
 #include "core/gfx_obj.h"
 
 #ifdef __cplusplus

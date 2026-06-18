@@ -222,17 +222,19 @@ err:
     if (font_lib_created) {
         gfx_subsystem_font_deinit();
     }
-    if (mutex_created) {
-        gfx_platform_mutex_delete(disp_ctx->sync.render_mutex);
+    if (disp_ctx != NULL) {
+        if (mutex_created) {
+            gfx_platform_mutex_delete(disp_ctx->sync.render_mutex);
+        }
+        if (disp_ctx->sync.render_events) {
+            gfx_platform_event_delete(disp_ctx->sync.render_events);
+            disp_ctx->sync.render_events = NULL;
+        }
+        if (lifecycle_events_created) {
+            gfx_platform_event_delete(disp_ctx->sync.lifecycle_events);
+        }
+        free(disp_ctx);
     }
-    if (disp_ctx->sync.render_events) {
-        gfx_platform_event_delete(disp_ctx->sync.render_events);
-        disp_ctx->sync.render_events = NULL;
-    }
-    if (lifecycle_events_created) {
-        gfx_platform_event_delete(disp_ctx->sync.lifecycle_events);
-    }
-    free(disp_ctx);
     return NULL;
 }
 

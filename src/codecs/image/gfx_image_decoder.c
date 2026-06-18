@@ -18,7 +18,7 @@
 #include "common/gfx_log_priv.h"
 #include "core/gfx_asset.h"
 #include "core/base/gfx_asset_source.h"
-#include "core/gfx_types_priv.h"
+#include "common/gfx_types_priv.h"
 #include "platform/gfx_platform.h"
 #include "platform/gfx_platform_jpeg_priv.h"
 

@@ -114,7 +114,7 @@ static void gfx_qrcode_generate_callback(qrcode_wrapper_handle_t qrcode, void *u
              qr_size, display_size, scale, scaled_size, offset_x, offset_y);
 
     if (qrcode_obj->qr_modules) {
-        free(qrcode_obj->qr_modules);
+        gfx_platform_free(qrcode_obj->qr_modules);
         qrcode_obj->qr_modules = NULL;
     }
 
@@ -311,7 +311,7 @@ static esp_err_t gfx_qrcode_delete_impl(gfx_object_t *obj)
             free(qrcode->text);
         }
         if (qrcode->qr_modules) {
-            free(qrcode->qr_modules);
+            gfx_platform_free(qrcode->qr_modules);
         }
         free(qrcode);
     }

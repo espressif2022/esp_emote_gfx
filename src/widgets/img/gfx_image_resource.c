@@ -9,7 +9,7 @@
 #include "esp_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_IMG
 #include "common/gfx_log_priv.h"
-#include "core/gfx_types_priv.h"
+#include "common/gfx_types_priv.h"
 #include "widgets/img/gfx_image_resource_priv.h"
 
 static const char *const TAG = "img_res";
