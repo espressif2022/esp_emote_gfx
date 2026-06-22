@@ -6,4 +6,4 @@
 
 #pragma once
 
-#include "core/gfx_asset.h"
+#include "core/gfx_fs.h"

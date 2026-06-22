@@ -54,8 +54,8 @@ include(CTest)
 option(GFX_BUILD_HOST_SDL "Build the Linux host SDL simulator target" ON)
 
 set(GFX_HOST_CORE_SRCS
-    "src/core/base/gfx_asset.c"
-    "src/core/base/gfx_asset_source.c"
+    "src/core/base/gfx_fs.c"
+    "src/core/base/gfx_fs_file.c"
     "src/core/base/gfx_color.c"
     "src/core/base/gfx_log.c"
     "src/core/display/gfx_backend.c"
@@ -99,7 +99,7 @@ set(GFX_HOST_CORE_SRCS
     "src/platform/host/gfx_platform_accel_host_stub.c"
     "src/platform/host/gfx_platform_jpeg_host_stub.c"
     "src/platform/host/gfx_touch_port_host.c"
-    "src/platform/linux/gfx_asset_fs_linux.c"
+    "src/platform/linux/gfx_fs_linux.c"
     "src/platform/linux/gfx_platform_linux.c"
     "src/platform/host/gfx_subsystem_host_stub.c"
     "test_apps/managed_components/laride__heatshrink/heatshrink_decoder.c"
@@ -175,10 +175,10 @@ if(GFX_BUILD_HOST_SDL)
         target_link_libraries(gfx_host_sdl_demo PRIVATE gfx_host_core gfx_backend_sdl ${JPEG_LIBRARIES})
     endif()
 
-    add_executable(gfx_host_asset_smoke "sim/host/gfx_host_asset_smoke.c")
-    target_include_directories(gfx_host_asset_smoke PRIVATE "include" "sim/port/include")
-    target_compile_features(gfx_host_asset_smoke PRIVATE c_std_11)
-    target_link_libraries(gfx_host_asset_smoke PRIVATE gfx_host_core)
+    add_executable(gfx_host_fs_smoke "sim/host/gfx_host_fs_smoke.c")
+    target_include_directories(gfx_host_fs_smoke PRIVATE "include" "src" "sim/port/include")
+    target_compile_features(gfx_host_fs_smoke PRIVATE c_std_11)
+    target_link_libraries(gfx_host_fs_smoke PRIVATE gfx_host_core)
 
     add_executable(gfx_host_alignment_smoke "sim/host/gfx_host_alignment_smoke.c")
     target_include_directories(gfx_host_alignment_smoke PRIVATE "include" "src" "sim/port/include")
@@ -211,8 +211,8 @@ if(GFX_BUILD_HOST_SDL)
     target_link_libraries(gfx_host_tween_smoke PRIVATE gfx_host_core)
 
     if(BUILD_TESTING)
-        add_test(NAME gfx_host_asset_smoke
-            COMMAND gfx_host_asset_smoke ${CMAKE_CURRENT_SOURCE_DIR} TODO.md)
+        add_test(NAME gfx_host_fs_smoke
+            COMMAND gfx_host_fs_smoke ${CMAKE_CURRENT_SOURCE_DIR} TODO.md)
         add_test(NAME gfx_host_alignment_smoke
             COMMAND gfx_host_alignment_smoke)
         add_test(NAME gfx_host_list_smoke
@@ -234,7 +234,7 @@ if(GFX_BUILD_HOST_SDL)
 
     add_custom_target(gfx_host_smoke
         COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-        DEPENDS gfx_host_asset_smoke gfx_host_alignment_smoke gfx_host_list_smoke gfx_host_coverflow_smoke gfx_host_wheel_smoke gfx_host_container_smoke gfx_host_tween_smoke gfx_host_sdl_demo
+        DEPENDS gfx_host_fs_smoke gfx_host_alignment_smoke gfx_host_list_smoke gfx_host_coverflow_smoke gfx_host_wheel_smoke gfx_host_container_smoke gfx_host_tween_smoke gfx_host_sdl_demo
         USES_TERMINAL
     )
 endif()

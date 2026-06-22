@@ -16,8 +16,7 @@
 #include "esp_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_IMAGE_DECODER
 #include "common/gfx_log_priv.h"
-#include "core/gfx_asset.h"
-#include "core/base/gfx_asset_source.h"
+#include "core/gfx_fs.h"
 #include "common/gfx_types_priv.h"
 #include "platform/gfx_platform.h"
 #include "platform/gfx_platform_jpeg_priv.h"
@@ -46,6 +45,7 @@ static esp_err_t gfx_image_decoder_jpeg_open_cb(gfx_image_decoder_t *decoder, gf
 static void gfx_image_decoder_jpeg_close_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc);
 static const void *gfx_image_decoder_get_payload(const gfx_image_decoder_dsc_t *dsc);
 static size_t gfx_image_decoder_get_payload_size(const gfx_image_decoder_dsc_t *dsc);
+static esp_err_t gfx_image_decoder_fs_err(gfx_err_t err);
 
 /**********************
  *  STATIC VARIABLES
@@ -115,6 +115,20 @@ static size_t gfx_image_decoder_get_payload_size(const gfx_image_decoder_dsc_t *
         return dsc->src.data_len;
     default:
         return 0U;
+    }
+}
+
+static esp_err_t gfx_image_decoder_fs_err(gfx_err_t err)
+{
+    switch (err) {
+    case GFX_OK:                return ESP_OK;
+    case GFX_ERR_NO_MEM:        return ESP_ERR_NO_MEM;
+    case GFX_ERR_INVALID_ARG:   return ESP_ERR_INVALID_ARG;
+    case GFX_ERR_INVALID_STATE: return ESP_ERR_INVALID_STATE;
+    case GFX_ERR_INVALID_SIZE:  return ESP_ERR_INVALID_SIZE;
+    case GFX_ERR_NOT_FOUND:     return ESP_ERR_NOT_FOUND;
+    case GFX_ERR_NOT_SUPPORTED: return ESP_ERR_NOT_SUPPORTED;
+    default:                    return ESP_FAIL;
     }
 }
 
@@ -319,18 +333,20 @@ static esp_err_t gfx_image_decoder_jpeg_info_cb(gfx_image_decoder_t *decoder, gf
     uint32_t w = 0;
     uint32_t h = 0;
     const uint8_t *payload = NULL;
-    gfx_asset_source_t file_src = {0};
+    gfx_fs_blob_t file_blob = {0};
     size_t payload_size = 0;
+    gfx_err_t fs_err;
     (void)decoder;
 
     ESP_RETURN_ON_FALSE(dsc != NULL && (dsc->src.type == GFX_IMAGE_SRC_TYPE_MEMORY ||
                                         dsc->src.type == GFX_IMAGE_SRC_TYPE_FILE),
                         ESP_ERR_INVALID_ARG, TAG, "jpeg info: unsupported source type");
     if (dsc->src.type == GFX_IMAGE_SRC_TYPE_FILE) {
-        ESP_RETURN_ON_ERROR(gfx_asset_source_load((const char *)dsc->src.data, &file_src),
+        fs_err = gfx_fs_load((const char *)dsc->src.data, &file_blob);
+        ESP_RETURN_ON_FALSE(fs_err == GFX_OK, gfx_image_decoder_fs_err(fs_err),
                             TAG, "jpeg info: open file source failed");
-        payload = file_src.data;
-        payload_size = file_src.size;
+        payload = file_blob.data;
+        payload_size = file_blob.size;
     } else {
         payload = (const uint8_t *)gfx_image_decoder_get_payload(dsc);
         payload_size = gfx_image_decoder_get_payload_size(dsc);
@@ -358,7 +374,7 @@ static esp_err_t gfx_image_decoder_jpeg_info_cb(gfx_image_decoder_t *decoder, gf
     header->stride = (uint16_t)(w * 3U);
 
 cleanup:
-    gfx_asset_source_release(&file_src);
+    gfx_fs_unload(&file_blob);
     return ret;
 }
 
@@ -366,20 +382,22 @@ static esp_err_t gfx_image_decoder_jpeg_open_cb(gfx_image_decoder_t *decoder, gf
 {
     gfx_image_header_t header;
     const uint8_t *payload = NULL;
-    gfx_asset_source_t file_src = {0};
+    gfx_fs_blob_t file_blob = {0};
     size_t payload_size = 0;
     uint8_t *out_data;
     size_t out_size;
     esp_err_t ret;
+    gfx_err_t fs_err;
 
     ESP_RETURN_ON_ERROR(gfx_image_decoder_jpeg_info_cb(decoder, dsc, &header),
                         TAG, "jpeg open: info failed");
 
     if (dsc->src.type == GFX_IMAGE_SRC_TYPE_FILE) {
-        ESP_RETURN_ON_ERROR(gfx_asset_source_load((const char *)dsc->src.data, &file_src),
+        fs_err = gfx_fs_load((const char *)dsc->src.data, &file_blob);
+        ESP_RETURN_ON_FALSE(fs_err == GFX_OK, gfx_image_decoder_fs_err(fs_err),
                             TAG, "jpeg open: open file source failed");
-        payload = file_src.data;
-        payload_size = file_src.size;
+        payload = file_blob.data;
+        payload_size = file_blob.size;
     } else {
         payload = (const uint8_t *)gfx_image_decoder_get_payload(dsc);
         payload_size = gfx_image_decoder_get_payload_size(dsc);
@@ -388,7 +406,7 @@ static esp_err_t gfx_image_decoder_jpeg_open_cb(gfx_image_decoder_t *decoder, gf
     out_size = (size_t)header.stride * (size_t)header.h;
     out_data = gfx_platform_aligned_alloc(16, out_size, GFX_PLATFORM_HEAP_DEFAULT);
     if (out_data == NULL) {
-        gfx_asset_source_release(&file_src);
+        gfx_fs_unload(&file_blob);
         return ESP_ERR_NO_MEM;
     }
 
@@ -396,7 +414,7 @@ static esp_err_t gfx_image_decoder_jpeg_open_cb(gfx_image_decoder_t *decoder, gf
              gfx_image_decoder_src_type_name(dsc->src.type), dsc->src.data, payload_size,
              (unsigned)header.w, (unsigned)header.h, out_size);
     ret = gfx_platform_jpeg_decode_rgb888(payload, payload_size, out_data, &out_size);
-    gfx_asset_source_release(&file_src);
+    gfx_fs_unload(&file_blob);
     if (ret != ESP_OK) {
         gfx_platform_free(out_data);
         return ret;

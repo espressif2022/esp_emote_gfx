@@ -27,28 +27,26 @@ const char *const gfx_format_demo_flow_image_names[DEMO_CARD_COUNT] = {
 
 typedef struct {
     const char *name;
-    gfx_image_src_type_t type;
-    const char *path;  /**< FILE: store name or absolute path. MEMORY: mmap asset name. */
+    const char *path;  /**< Store name or absolute filesystem path. */
     const char *mode;
 } demo_image_clip_t;
 
 /*
- * Image clips for the preview. FILE names resolve through the mmap asset store,
- * the "/spiffs/..." path is read from a real SPIFFS filesystem via fread, and the
- * MEMORY clip is decoded straight from the assets_test mmap mapping
- * (direct-addressable flash). Switching index just updates the image src.
+ * Image clips for the preview. Plain names resolve through the default mmap
+ * asset store; "/spiffs/..." paths fall back to normal filesystem reads.
+ * Switching index just updates the file source path.
  */
 static const demo_image_clip_t s_image_clips[] = {
-    { .name = "Warm Harbor",   .type = GFX_IMAGE_SRC_TYPE_FILE,   .path = "flow_warm_harbor.jpg", .mode = "mmap FILE" },
-    { .name = "Misty Ridge",   .type = GFX_IMAGE_SRC_TYPE_FILE,   .path = "flow_misty_ridge.jpg", .mode = "mmap FILE" },
-    { .name = "SPIFFS Trail",  .type = GFX_IMAGE_SRC_TYPE_FILE,   .path = DEMO_SPIFFS_IMAGE_MOUNT "/flow_quiet_trail.jpg", .mode = "SPIFFS fread" },
-    { .name = "MEM Probe JPG", .type = GFX_IMAGE_SRC_TYPE_MEMORY, .path = "flow_format_probe.jpg", .mode = "assets_test MEM" },
+    { .name = "Format Probe", .path = "flow_format_probe.jpg", .mode = "mmap JPEG" },
+    { .name = "Warm Harbor",  .path = "flow_warm_harbor.jpg", .mode = "mmap JPEG" },
+    { .name = "Night Lake",   .path = "flow_night_lake.jpg", .mode = "mmap JPEG" },
+    { .name = "SPIFFS Trail", .path = DEMO_SPIFFS_IMAGE_MOUNT "/flow_quiet_trail.jpg", .mode = "SPIFFS JPEG" },
 };
 
 #define DEMO_IMAGE_CLIP_COUNT (sizeof(s_image_clips) / sizeof(s_image_clips[0]))
 
 static size_t s_image_index;
-static char s_image_note[96];
+static char s_image_note[128];
 
 static void demo_update_image_note(size_t index)
 {
@@ -106,23 +104,8 @@ static esp_err_t demo_load_image_clip(format_playground_scene_t *scene, size_t i
                         "playground", "image index is invalid");
 
     clip = &s_image_clips[index];
-    src.type = clip->type;
-    if (clip->type == GFX_IMAGE_SRC_TYPE_MEMORY) {
-        /* Reuse the assets_test mmap mapping: the view is direct-addressable
-         * and persistent for the store lifetime, so the pointer stays valid
-         * after close. */
-        gfx_asset_store_t *store = gfx_asset_get_default_store();
-        gfx_asset_view_t view = {0};
-        ESP_RETURN_ON_FALSE(store != NULL, ESP_ERR_INVALID_STATE, "playground",
-                            "mem image needs the default asset store");
-        ESP_RETURN_ON_FALSE(gfx_asset_open_by_name(store, clip->path, &view) == GFX_OK,
-                            ESP_ERR_NOT_FOUND, "playground", "mem image asset not found");
-        src.data = view.data;
-        src.data_len = view.size;
-        gfx_asset_view_close(&view);
-    } else {
-        src.data = clip->path;
-    }
+    src.type = GFX_IMAGE_SRC_TYPE_FILE;
+    src.data = clip->path;
 
     ESP_RETURN_ON_ERROR(gfx_image_set_source_desc(scene->image_demo, &src),
                         "playground", "set image src failed");

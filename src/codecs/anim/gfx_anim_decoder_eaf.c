@@ -4,13 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
 #include "esp_check.h"
 #include "esp_err.h"
-#include "core/gfx_asset.h"
-#include "core/base/gfx_asset_source.h"
+#include "core/gfx_fs.h"
 #include "lib/eaf/gfx_eaf_dec.h"
 #include "codecs/anim/gfx_anim_decoder_priv.h"
 
@@ -20,16 +20,24 @@
 
 typedef struct {
     eaf_dec_handle_t eaf;
-    gfx_asset_source_t source;   /**< Resident load (whole file); used when stream_active is false. */
-    gfx_asset_stream_t stream;   /**< On-demand stream; used when stream_active is true. */
-    bool stream_active;          /**< Which backing store to release in close(). */
+    gfx_fs_blob_t blob;       /**< Resident load (whole file); used when file_active is false. */
+    gfx_fs_file_t *file;      /**< On-demand file handle; used when file_active is true. */
+    bool file_active;         /**< Which backing store to release in close(). */
 } gfx_anim_eaf_decoder_ctx_t;
 
-/* Bridge the asset stream behind the EAF reader's read() callback so the EAF
+/* Bridge the asset file behind the EAF reader's read() callback so the EAF
  * core stays free of any file/VFS dependency. */
-static esp_err_t gfx_anim_eaf_stream_read(void *io_ctx, size_t offset, size_t len, uint8_t *dst)
+static esp_err_t gfx_anim_eaf_file_read(void *io_ctx, size_t offset, size_t len, uint8_t *dst)
 {
-    return gfx_asset_source_stream_read((gfx_asset_stream_t *)io_ctx, offset, len, dst);
+    gfx_fs_file_t *file = (gfx_fs_file_t *)io_ctx;
+
+    if (file == NULL || dst == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (gfx_fs_fseek(file, (long)offset, SEEK_SET) != 0) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+    return gfx_fs_fread(file, dst, len) == len ? ESP_OK : ESP_FAIL;
 }
 
 /**********************
@@ -39,10 +47,24 @@ static esp_err_t gfx_anim_eaf_stream_read(void *io_ctx, size_t offset, size_t le
 static esp_err_t gfx_anim_eaf_read_frame_desc(void *ctx, uint32_t frame_index, gfx_anim_frame_desc_t *frame_desc);
 static void gfx_anim_eaf_free_frame_desc(gfx_anim_frame_desc_t *frame_desc);
 
+static esp_err_t gfx_anim_eaf_fs_err(gfx_err_t err)
+{
+    switch (err) {
+    case GFX_OK:                return ESP_OK;
+    case GFX_ERR_NO_MEM:        return ESP_ERR_NO_MEM;
+    case GFX_ERR_INVALID_ARG:   return ESP_ERR_INVALID_ARG;
+    case GFX_ERR_INVALID_STATE: return ESP_ERR_INVALID_STATE;
+    case GFX_ERR_INVALID_SIZE:  return ESP_ERR_INVALID_SIZE;
+    case GFX_ERR_NOT_FOUND:     return ESP_ERR_NOT_FOUND;
+    case GFX_ERR_NOT_SUPPORTED: return ESP_ERR_NOT_SUPPORTED;
+    default:                    return ESP_FAIL;
+    }
+}
+
 static bool gfx_anim_eaf_probe(const gfx_anim_src_t *src)
 {
     const uint8_t *data = NULL;
-    gfx_asset_source_t source = {0};
+    gfx_fs_blob_t blob = {0};
     bool matched = false;
 
     if (src == NULL || src->data == NULL) {
@@ -50,12 +72,12 @@ static bool gfx_anim_eaf_probe(const gfx_anim_src_t *src)
     }
 
     if (src->type == GFX_ANIM_SRC_TYPE_FILE) {
-        if (gfx_asset_source_load((const char *)src->data, &source) != ESP_OK ||
-                source.size < sizeof(eaf_dec_header_t)) {
-            gfx_asset_source_release(&source);
+        if (gfx_fs_load((const char *)src->data, &blob) != GFX_OK ||
+                blob.size < sizeof(eaf_dec_header_t)) {
+            gfx_fs_unload(&blob);
             return false;
         }
-        data = source.data;
+        data = blob.data;
     } else if (src->type == GFX_ANIM_SRC_TYPE_MEMORY && src->data_len >= sizeof(eaf_dec_header_t)) {
         data = (const uint8_t *)src->data;
     } else {
@@ -67,7 +89,7 @@ static bool gfx_anim_eaf_probe(const gfx_anim_src_t *src)
                   (memcmp(data + EAF_STR_OFFSET, AAF_FORMAT_STR, 3) == 0);
     }
 
-    gfx_asset_source_release(&source);
+    gfx_fs_unload(&blob);
     return matched;
 }
 
@@ -93,24 +115,27 @@ static esp_err_t gfx_anim_eaf_open(const gfx_anim_src_t *src, void **out_ctx)
      * mapping; only a genuinely streamed (fread) backend uses the reader path.
      * If streaming setup fails we fall back to the resident load below. */
     if (src->type == GFX_ANIM_SRC_TYPE_FILE && (src->flags & GFX_ANIM_SRC_FLAG_STREAMING) != 0U) {
-        if (gfx_asset_source_open_stream((const char *)src->data, &ctx->stream) == ESP_OK) {
+        ctx->file = gfx_fs_fopen((const char *)src->data);
+        if (ctx->file != NULL) {
             esp_err_t sret;
-            if (ctx->stream.mapped != NULL) {
-                sret = eaf_dec_init(ctx->stream.mapped, ctx->stream.size, &ctx->eaf);
+            const void *direct = gfx_fs_fdata(ctx->file);
+            if (direct != NULL) {
+                sret = eaf_dec_init(direct, gfx_fs_fsize(ctx->file), &ctx->eaf);
             } else {
                 eaf_dec_reader_t reader = {
-                    .io_ctx = &ctx->stream,
-                    .size = ctx->stream.size,
-                    .read = gfx_anim_eaf_stream_read,
+                    .io_ctx = ctx->file,
+                    .size = gfx_fs_fsize(ctx->file),
+                    .read = gfx_anim_eaf_file_read,
                 };
                 sret = eaf_dec_init_reader(&reader, &ctx->eaf);
             }
             if (sret == ESP_OK) {
-                ctx->stream_active = true;
+                ctx->file_active = true;
                 *out_ctx = ctx;
                 return ESP_OK;
             }
-            gfx_asset_source_close_stream(&ctx->stream);
+            gfx_fs_fclose(ctx->file);
+            ctx->file = NULL;
         }
         /* Fall through to the resident path on any streaming failure. */
     }
@@ -120,13 +145,13 @@ static esp_err_t gfx_anim_eaf_open(const gfx_anim_src_t *src, void **out_ctx)
      * raw partition mmap) stay zero-copy, while VFS/SPIFFS and the fread
      * fallback own a heap copy released in close(). */
     if (src->type == GFX_ANIM_SRC_TYPE_FILE) {
-        esp_err_t ret = gfx_asset_source_load((const char *)src->data, &ctx->source);
-        if (ret != ESP_OK) {
+        gfx_err_t err = gfx_fs_load((const char *)src->data, &ctx->blob);
+        if (err != GFX_OK) {
             free(ctx);
-            return ret;
+            return gfx_anim_eaf_fs_err(err);
         }
-        data = ctx->source.data;
-        data_len = ctx->source.size;
+        data = ctx->blob.data;
+        data_len = ctx->blob.size;
     } else if (src->type == GFX_ANIM_SRC_TYPE_MEMORY && src->data_len > 0U) {
         data = (const uint8_t *)src->data;
         data_len = src->data_len;
@@ -136,7 +161,7 @@ static esp_err_t gfx_anim_eaf_open(const gfx_anim_src_t *src, void **out_ctx)
     }
 
     if (eaf_dec_init(data, data_len, &ctx->eaf) != ESP_OK) {
-        gfx_asset_source_release(&ctx->source);
+        gfx_fs_unload(&ctx->blob);
         free(ctx);
         return ESP_FAIL;
     }
@@ -158,10 +183,10 @@ static void gfx_anim_eaf_close(void *ctx)
     }
     /* The EAF handle borrowed the stream/source bytes, so release the backing
      * store only after deinit. */
-    if (decoder_ctx->stream_active) {
-        gfx_asset_source_close_stream(&decoder_ctx->stream);
+    if (decoder_ctx->file_active) {
+        gfx_fs_fclose(decoder_ctx->file);
     } else {
-        gfx_asset_source_release(&decoder_ctx->source);
+        gfx_fs_unload(&decoder_ctx->blob);
     }
 
     free(decoder_ctx);

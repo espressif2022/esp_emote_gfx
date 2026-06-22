@@ -17,21 +17,21 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "core/base/gfx_asset_priv.h"
+#include "core/base/gfx_fs_priv.h"
 
 typedef struct {
     char *root_dir;
-} gfx_asset_dir_backend_t;
+} gfx_fs_dir_backend_t;
 
 typedef struct {
-    gfx_asset_view_state_base_t base;
+    gfx_fs_view_state_base_t base;
     char *name;
     void *mapped;
     size_t mapped_size;
     void *owned;
-} gfx_asset_dir_view_t;
+} gfx_fs_dir_view_t;
 
-static char *gfx_asset_strdup(const char *s)
+static char *gfx_fs_strdup(const char *s)
 {
     if (s == NULL) {
         return NULL;
@@ -45,7 +45,7 @@ static char *gfx_asset_strdup(const char *s)
     return copy;
 }
 
-static bool gfx_asset_name_is_safe(const char *name)
+static bool gfx_fs_name_is_safe(const char *name)
 {
     if (name == NULL || name[0] == '\0' || name[0] == '/') {
         return false;
@@ -62,7 +62,7 @@ static bool gfx_asset_name_is_safe(const char *name)
     return true;
 }
 
-static char *gfx_asset_join_path(const char *root, const char *name)
+static char *gfx_fs_join_path(const char *root, const char *name)
 {
     size_t root_len = strlen(root);
     size_t name_len = strlen(name);
@@ -82,7 +82,7 @@ static char *gfx_asset_join_path(const char *root, const char *name)
     return path;
 }
 
-static gfx_err_t gfx_asset_read_file(int fd, size_t size, void **out_data)
+static gfx_err_t gfx_fs_read_file(int fd, size_t size, void **out_data)
 {
     uint8_t *buf = malloc(size);
     if (buf == NULL) {
@@ -110,20 +110,20 @@ static gfx_err_t gfx_asset_read_file(int fd, size_t size, void **out_data)
     return GFX_OK;
 }
 
-static gfx_err_t gfx_asset_dir_open_by_name(gfx_asset_store_t *store, const char *name, gfx_asset_view_t *out_view)
+static gfx_err_t gfx_fs_dir_open_by_name(gfx_fs_t *store, const char *name, gfx_fs_view_t *out_view)
 {
-    gfx_asset_dir_backend_t *backend = (gfx_asset_dir_backend_t *)store->backend_data;
-    gfx_asset_dir_view_t *state = NULL;
+    gfx_fs_dir_backend_t *backend = (gfx_fs_dir_backend_t *)store->backend_data;
+    gfx_fs_dir_view_t *state = NULL;
     char *path = NULL;
     int fd = -1;
     struct stat st;
     gfx_err_t err = GFX_FAIL;
 
-    if (backend == NULL || !gfx_asset_name_is_safe(name)) {
+    if (backend == NULL || !gfx_fs_name_is_safe(name)) {
         return GFX_ERR_INVALID_ARG;
     }
 
-    path = gfx_asset_join_path(backend->root_dir, name);
+    path = gfx_fs_join_path(backend->root_dir, name);
     if (path == NULL) {
         return GFX_ERR_NO_MEM;
     }
@@ -144,7 +144,7 @@ static gfx_err_t gfx_asset_dir_open_by_name(gfx_asset_store_t *store, const char
         goto cleanup;
     }
     state->base.store = store;
-    state->name = gfx_asset_strdup(name);
+    state->name = gfx_fs_strdup(name);
     if (state->name == NULL) {
         err = GFX_ERR_NO_MEM;
         goto cleanup;
@@ -158,15 +158,15 @@ static gfx_err_t gfx_asset_dir_open_by_name(gfx_asset_store_t *store, const char
             state->mapped_size = size;
             out_view->data = mapped;
             out_view->is_mapped = true;
-            out_view->flags = GFX_ASSET_VIEW_FLAG_DIRECT_ADDR | GFX_ASSET_VIEW_FLAG_MAPPED;
+            out_view->flags = GFX_FS_VIEW_FLAG_DIRECT_ADDR | GFX_FS_VIEW_FLAG_MAPPED;
         } else {
-            err = gfx_asset_read_file(fd, size, &state->owned);
+            err = gfx_fs_read_file(fd, size, &state->owned);
             if (err != GFX_OK) {
                 goto cleanup;
             }
             out_view->data = state->owned;
             out_view->is_mapped = false;
-            out_view->flags = GFX_ASSET_VIEW_FLAG_OWNED;
+            out_view->flags = GFX_FS_VIEW_FLAG_OWNED;
         }
     }
 
@@ -189,7 +189,7 @@ cleanup:
     return err;
 }
 
-static gfx_err_t gfx_asset_dir_open_by_id(gfx_asset_store_t *store, int32_t id, gfx_asset_view_t *out_view)
+static gfx_err_t gfx_fs_dir_open_by_id(gfx_fs_t *store, int32_t id, gfx_fs_view_t *out_view)
 {
     (void)store;
     (void)id;
@@ -197,14 +197,14 @@ static gfx_err_t gfx_asset_dir_open_by_id(gfx_asset_store_t *store, int32_t id, 
     return GFX_ERR_NOT_SUPPORTED;
 }
 
-static gfx_err_t gfx_asset_dir_get_caps(const gfx_asset_store_t *store, gfx_asset_store_caps_t *out_caps)
+static gfx_err_t gfx_fs_dir_get_caps(const gfx_fs_t *store, gfx_fs_caps_t *out_caps)
 {
     (void)store;
     if (out_caps == NULL) {
         return GFX_ERR_INVALID_ARG;
     }
 
-    *out_caps = (gfx_asset_store_caps_t) {
+    *out_caps = (gfx_fs_caps_t) {
         .open_by_name = true,
         .open_by_id = false,
         .open_region = false,
@@ -216,9 +216,9 @@ static gfx_err_t gfx_asset_dir_get_caps(const gfx_asset_store_t *store, gfx_asse
     return GFX_OK;
 }
 
-static void gfx_asset_dir_view_close(gfx_asset_view_t *view)
+static void gfx_fs_dir_view_close(gfx_fs_view_t *view)
 {
-    gfx_asset_dir_view_t *state = view != NULL ? (gfx_asset_dir_view_t *)view->priv : NULL;
+    gfx_fs_dir_view_t *state = view != NULL ? (gfx_fs_dir_view_t *)view->priv : NULL;
     if (state == NULL) {
         return;
     }
@@ -231,13 +231,13 @@ static void gfx_asset_dir_view_close(gfx_asset_view_t *view)
     free(state);
 }
 
-static void gfx_asset_dir_store_close(gfx_asset_store_t *store)
+static void gfx_fs_dir_store_close(gfx_fs_t *store)
 {
     if (store == NULL) {
         return;
     }
 
-    gfx_asset_dir_backend_t *backend = (gfx_asset_dir_backend_t *)store->backend_data;
+    gfx_fs_dir_backend_t *backend = (gfx_fs_dir_backend_t *)store->backend_data;
     if (backend != NULL) {
         free(backend->root_dir);
         free(backend);
@@ -245,15 +245,15 @@ static void gfx_asset_dir_store_close(gfx_asset_store_t *store)
     free(store);
 }
 
-static const gfx_asset_store_vtable_t s_gfx_asset_dir_vtable = {
-    .open_by_name = gfx_asset_dir_open_by_name,
-    .open_by_id = gfx_asset_dir_open_by_id,
-    .get_caps = gfx_asset_dir_get_caps,
-    .view_close = gfx_asset_dir_view_close,
-    .store_close = gfx_asset_dir_store_close,
+static const gfx_fs_vtable_t s_gfx_fs_dir_vtable = {
+    .open_by_name = gfx_fs_dir_open_by_name,
+    .open_by_id = gfx_fs_dir_open_by_id,
+    .get_caps = gfx_fs_dir_get_caps,
+    .view_close = gfx_fs_dir_view_close,
+    .store_close = gfx_fs_dir_store_close,
 };
 
-gfx_err_t gfx_asset_store_open_config_port(const gfx_asset_store_config_t *config, gfx_asset_store_t **out_store)
+gfx_err_t gfx_fs_open_config_port(const gfx_fs_config_t *config, gfx_fs_t **out_store)
 {
     if (config == NULL || out_store == NULL) {
         return GFX_ERR_INVALID_ARG;
@@ -261,21 +261,21 @@ gfx_err_t gfx_asset_store_open_config_port(const gfx_asset_store_config_t *confi
     *out_store = NULL;
 
     switch (config->type) {
-    case GFX_ASSET_STORE_TYPE_AUTO:
-    case GFX_ASSET_STORE_TYPE_DIR:
-        return gfx_asset_store_open_dir_port(config->root_dir, out_store);
-    case GFX_ASSET_STORE_TYPE_MMAP_ASSETS:
-    case GFX_ASSET_STORE_TYPE_PARTITION:
-    case GFX_ASSET_STORE_TYPE_MEMORY_TABLE:
+    case GFX_FS_TYPE_AUTO:
+    case GFX_FS_TYPE_DIR:
+        return gfx_fs_open_dir_port(config->root_dir, out_store);
+    case GFX_FS_TYPE_MMAP_ASSETS:
+    case GFX_FS_TYPE_PARTITION:
+    case GFX_FS_TYPE_MEMORY_TABLE:
     default:
         return GFX_ERR_NOT_SUPPORTED;
     }
 }
 
-gfx_err_t gfx_asset_store_open_dir_port(const char *root_dir, gfx_asset_store_t **out_store)
+gfx_err_t gfx_fs_open_dir_port(const char *root_dir, gfx_fs_t **out_store)
 {
-    gfx_asset_store_t *store = NULL;
-    gfx_asset_dir_backend_t *backend = NULL;
+    gfx_fs_t *store = NULL;
+    gfx_fs_dir_backend_t *backend = NULL;
     struct stat st;
 
     if (root_dir == NULL || out_store == NULL) {
@@ -293,21 +293,21 @@ gfx_err_t gfx_asset_store_open_dir_port(const char *root_dir, gfx_asset_store_t 
         return GFX_ERR_NO_MEM;
     }
 
-    backend->root_dir = gfx_asset_strdup(root_dir);
+    backend->root_dir = gfx_fs_strdup(root_dir);
     if (backend->root_dir == NULL) {
         free(store);
         free(backend);
         return GFX_ERR_NO_MEM;
     }
 
-    store->backend = GFX_ASSET_BACKEND_DIR;
-    store->vtable = &s_gfx_asset_dir_vtable;
+    store->backend = GFX_FS_BACKEND_DIR;
+    store->vtable = &s_gfx_fs_dir_vtable;
     store->backend_data = backend;
     *out_store = store;
     return GFX_OK;
 }
 
-gfx_err_t gfx_asset_store_open_mmap_port(const gfx_asset_mmap_config_t *config, gfx_asset_store_t **out_store)
+gfx_err_t gfx_fs_open_mmap_port(const gfx_fs_mmap_config_t *config, gfx_fs_t **out_store)
 {
     (void)config;
     if (out_store != NULL) {

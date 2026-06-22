@@ -12,16 +12,16 @@
 
 static const char *const TAG = "gfx888";
 
-static gfx_asset_store_t *s_assets_store;
+static gfx_fs_t *s_assets_store;
 
 static void init_format_demo_assets(void)
 {
-    const gfx_asset_mmap_config_t asset_config = {
+    const gfx_fs_mmap_config_t asset_config = {
         .partition_label = "assets_test",
         .full_check = true,
     };
 
-    gfx_err_t err = gfx_asset_store_open_mmap(&asset_config, &s_assets_store);
+    gfx_err_t err = gfx_fs_open_mmap(&asset_config, &s_assets_store);
     if (err != GFX_OK) {
         ESP_LOGW(TAG, "assets_test open failed: %d; flash full project including assets_test.bin", err);
         return;

@@ -6,7 +6,7 @@ idf_component_register(
         "../../format_demo/widgets/widget_button.c"
         "../../format_demo/widgets/widget_coverflow.c"
         "../../format_demo/widgets/widget_image.c"
-        "../../format_demo/widgets/widget_anim_jpg.c"
+        "../../format_demo/widgets/widget_anim.c"
         "../../format_demo/widgets/widget_list.c"
         "../../format_demo/widgets/widget_motion.c"
         "../../format_demo/widgets/widget_nav_list.c"

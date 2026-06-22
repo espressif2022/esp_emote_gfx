@@ -17,7 +17,7 @@
 
 #include <jpeglib.h>
 
-#include "gfx/asset.h"
+#include "gfx/fs.h"
 #include "gfx/backends/sdl.h"
 #include "gfx/base.h"
 #include "gfx_host_font.h"
@@ -39,12 +39,11 @@
 
 typedef struct {
     gfx_motion_player_t *motion;
-    gfx_asset_store_t *asset_store;
-    gfx_asset_view_t flow_image_views[DEMO_FLOW_IMAGE_COUNT];
+    gfx_fs_t *asset_store;
+    gfx_fs_file_t *flow_image_files[DEMO_FLOW_IMAGE_COUNT];
     gfx_image_dsc_t flow_images[DEMO_FLOW_IMAGE_COUNT];
     const gfx_image_dsc_t *flow_image_ptrs[DEMO_FLOW_IMAGE_COUNT];
     uint8_t *flow_image_pixels[DEMO_FLOW_IMAGE_COUNT];
-    gfx_asset_view_t anim_view;
     gfx_object_t *anim;
     gfx_object_t *image;
     gfx_object_t *button_demo;
@@ -223,14 +222,14 @@ static bool demo_load_flow_images(demo_state_t *state)
         uint16_t w = 0;
         uint16_t h = 0;
         size_t image_size = 0;
-        gfx_err_t err = gfx_asset_open_by_name(state->asset_store, s_flow_image_names[i],
-                                               &state->flow_image_views[i]);
-        if (err != GFX_OK) {
-            fprintf(stderr, "flow image open failed: %d file=%s\n", err, s_flow_image_names[i]);
+        gfx_fs_file_t *file = gfx_fs_fopen(s_flow_image_names[i]);
+        if (file == NULL) {
+            fprintf(stderr, "flow image open failed: file=%s\n", s_flow_image_names[i]);
             return false;
         }
+        state->flow_image_files[i] = file;
 
-        if (!demo_decode_jpeg_rgb888(state->flow_image_views[i].data, state->flow_image_views[i].size,
+        if (!demo_decode_jpeg_rgb888(gfx_fs_fdata(file), gfx_fs_fsize(file),
                                      &pixels, &w, &h, &image_size)) {
             fprintf(stderr, "flow image decode failed: file=%s\n", s_flow_image_names[i]);
             return false;
@@ -260,14 +259,14 @@ static void demo_close_assets(demo_state_t *state)
         return;
     }
 
-    gfx_asset_view_close(&state->anim_view);
     for (uint16_t i = 0; i < DEMO_FLOW_IMAGE_COUNT; i++) {
-        gfx_asset_view_close(&state->flow_image_views[i]);
+        gfx_fs_fclose(state->flow_image_files[i]);
+        state->flow_image_files[i] = NULL;
         free(state->flow_image_pixels[i]);
         state->flow_image_pixels[i] = NULL;
         state->flow_image_ptrs[i] = NULL;
     }
-    gfx_asset_store_close(state->asset_store);
+    gfx_fs_close(state->asset_store);
     state->asset_store = NULL;
 }
 
@@ -596,12 +595,6 @@ static void demo_create_anim_panel(gfx_display_t *display, gfx_font_t font, demo
         anim_name = "mi_1_eye_8bit.eaf";
     }
 
-    gfx_err_t err = gfx_asset_open_by_name(state->asset_store, anim_name, &state->anim_view);
-    if (err != GFX_OK) {
-        fprintf(stderr, "anim asset open failed: %d file=%s\n", err, anim_name);
-        return;
-    }
-
     state->anim = gfx_anim_create(display);
     if (state->anim == NULL) {
         fprintf(stderr, "failed to create anim object\n");
@@ -611,27 +604,13 @@ static void demo_create_anim_panel(gfx_display_t *display, gfx_font_t font, demo
     /* GFX_DEMO_ANIM_STREAM exercises the opt-in per-frame streaming path: the
      * anim is fed as a file path with the streaming flag instead of a resident
      * memory buffer, so frames are pulled on demand at decode time. */
-    static char anim_path[1024];
-    const char *asset_root = getenv("GFX_ASSET_ROOT");
     const bool stream = getenv("GFX_DEMO_ANIM_STREAM") != NULL;
-    if (asset_root == NULL || asset_root[0] == '\0') {
-        asset_root = "test_apps/assets_test";
-    }
-
-    if (stream) {
-        snprintf(anim_path, sizeof(anim_path), "%s/%s", asset_root, anim_name);
-        anim_src.type = GFX_ANIM_SRC_TYPE_FILE;
-        anim_src.data = anim_path;
-        anim_src.data_len = 0;
-        anim_src.flags = GFX_ANIM_SRC_FLAG_STREAMING;
-    } else {
-        anim_src.type = GFX_ANIM_SRC_TYPE_MEMORY;
-        anim_src.data = state->anim_view.data;
-        anim_src.data_len = state->anim_view.size;
-        anim_src.flags = GFX_ANIM_SRC_FLAG_NONE;
-    }
+    anim_src.type = GFX_ANIM_SRC_TYPE_FILE;
+    anim_src.data = anim_name;
+    anim_src.data_len = 0;
+    anim_src.flags = stream ? GFX_ANIM_SRC_FLAG_STREAMING : GFX_ANIM_SRC_FLAG_NONE;
     if (gfx_anim_set_src_desc(state->anim, &anim_src) != GFX_OK) {
-        fprintf(stderr, "failed to set anim source: %s size=%zu\n", anim_name, state->anim_view.size);
+        fprintf(stderr, "failed to set anim source: %s\n", anim_name);
         return;
     }
 
@@ -640,19 +619,14 @@ static void demo_create_anim_panel(gfx_display_t *display, gfx_font_t font, demo
     (void)gfx_anim_set_segment(state->anim, 0, 0xFFFFFFFF, 30, true);
     (void)gfx_anim_start(state->anim);
 
-    printf("anim asset: root=%s file=%s size=%zu mapped=%s mode=%s\n",
-           asset_root,
-           anim_name,
-           state->anim_view.size,
-           state->anim_view.is_mapped ? "yes" : "no",
-           stream ? "stream" : "resident");
+    printf("anim asset: file=%s mode=%s\n", anim_name, stream ? "stream" : "resident");
     fflush(stdout);
 }
 
 int main(void)
 {
     demo_state_t state = {0};
-    const char *asset_root = getenv("GFX_ASSET_ROOT");
+    const char *asset_root = getenv("GFX_FS_ROOT");
     gfx_core_config_t core_cfg = {
         .fps = 30,
         .manual_tick = true,
@@ -663,11 +637,12 @@ int main(void)
         asset_root = "test_apps/assets_test";
     }
 
-    gfx_err_t asset_err = gfx_asset_store_open_dir(asset_root, &state.asset_store);
+    gfx_err_t asset_err = gfx_fs_open_dir(asset_root, &state.asset_store);
     if (asset_err != GFX_OK) {
         fprintf(stderr, "asset store open failed: %d root=%s\n", asset_err, asset_root);
         return 1;
     }
+    gfx_fs_set_default(state.asset_store);
     if (!demo_load_flow_images(&state)) {
         demo_close_assets(&state);
         return 1;

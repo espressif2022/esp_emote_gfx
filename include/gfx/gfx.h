@@ -11,7 +11,7 @@
  */
 
 #include "gfx/base.h"
-#include "gfx/asset.h"
+#include "gfx/fs.h"
 #include "gfx/backends/custom.h"
 #include "gfx/backends/memory.h"
 #include "gfx/tween.h"

@@ -20,6 +20,18 @@
   - [ ] 将直接依赖 `esp_mmap_assets` 的示例/播放器迁移到 `gfx_asset_store_t`，资源层不解析 `index.json` 或业务内容。
   - [x] 增加 host 与 ESP-IDF smoke，覆盖 open/read/load/view close 生命周期。(done: 2026-06-18)
 
+- [ ] 资源加载接口收敛 V2：参考 `esp_lv_fs.c` 的 file-driver 思路，把 mmap assets / 普通文件统一到 `gfx_fs_*` 文件语义。
+  目标：mmap/direct-address 只是 backend 能力，业务层、widget、decoder 只使用“路径 + 文件操作”或“一次性 blob load”；不再在上层区分 mmap 接口和普通 `fopen` 接口。
+  - [x] 固化 public 边界：`gfx_fs_open_mmap/open_dir/open` 只负责注册资源源；资源使用方只走 `gfx_fs_fopen/fread/fseek/ftell/fclose/fdata` 与 `gfx_fs_load/unload`。(done: 2026-06-22)
+  - [x] 明确并统一路径解析顺序：默认 store 优先，其次普通 filesystem `fopen()` fallback；同步修正 `gfx_fs.h` 注释，并删除 `gfx_fs_source_load()` / `gfx_fs_source_open_stream()` 的双入口分歧。(done: 2026-06-22)
+  - [x] 收敛 source descriptor 语义：资源分区和 SPIFFS/SD/host 文件都用 `*_SRC_TYPE_FILE + path/name`；`*_SRC_TYPE_MEMORY` 仅表示调用方手里已有裸内存 bytes，不再用于“从 mmap store 取出指针再伪装成 memory”。(done: 2026-06-22)
+  - [x] 迁移 demo：删除 format demo 中 `gfx_fs_fopen_from() + gfx_fs_fdata()` 手动转 MEMORY 的分支，image/anim/pageflow/coverflow 统一传 FILE path。(done: 2026-06-22)
+  - [x] 迁移 decoder：JPEG/EAF 不再直接依赖 `gfx_fs_source_*` 私有 helper；改用 public `gfx_fs_file_t` / `gfx_fs_load()`，并删除 `gfx_fs_source.h` 旧私有接口声明。(done: 2026-06-22)
+  - [ ] JPEG decoder 去重 load：当前 `info()` 与 `open()` 对 FILE 源会重复加载同一 JPG；收敛后用 file handle/header probe 或 decoded/open context 避免 SPIFFS/fread 路径重复分配与重复读。
+  - [x] EAF/AAF decoder 统一 file-like 入口：`gfx_fs_fdata()` 非空时零拷贝 `eaf_dec_init()`；否则走 reader callback + `gfx_fs_fread/fseek`，streaming flag 只决定 resident/reader 策略，不决定 backend 类型。(done: 2026-06-22)
+  - [ ] 隐藏 backend view/caps：`gfx_fs_view_open_by_name/id/region` 仅供 backend 与 conformance test 使用，应用和 decoder 不再直接碰 view/flags/caps。
+  - [ ] 补回归：host `gfx_host_fs_smoke` 覆盖 default-store 命中、filesystem fallback、`fdata()` direct 与 streamed read；ESP 覆盖 mmap assets + SPIFFS 同一 widget/decoder 路径；补同名资源解析顺序测试。
+
 ## 架构和命名整理
 
 - [x] 新增 `docs/architecture.md`，固化目标分层、命名规则和迁移顺序。

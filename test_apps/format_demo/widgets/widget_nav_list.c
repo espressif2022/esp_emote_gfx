@@ -12,7 +12,7 @@ const char *const gfx_format_demo_widget_names[DEMO_WIDGET_COUNT] = {
     "Button",
     "List",
     "Image",
-    "Anim JPG",
+    "Anim",
     "Motion",
     "Wheel",
     "Pageflow",

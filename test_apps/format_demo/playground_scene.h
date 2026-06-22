@@ -17,7 +17,7 @@ extern "C" {
 
 esp_err_t gfx_format_demo_build_playground_scene(gfx_display_t *disp, const char *title_text,
         const char *format_tag);
-esp_err_t gfx_format_demo_set_asset_store(gfx_asset_store_t *store);
+esp_err_t gfx_format_demo_set_asset_store(gfx_fs_t *store);
 
 #ifdef __cplusplus
 }

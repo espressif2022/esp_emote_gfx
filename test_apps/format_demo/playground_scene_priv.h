@@ -24,7 +24,7 @@ typedef enum {
     DEMO_WIDGET_BUTTON = 0,
     DEMO_WIDGET_LIST,
     DEMO_WIDGET_IMAGE,
-    DEMO_WIDGET_ANIM_JPG,
+    DEMO_WIDGET_ANIM,
     DEMO_WIDGET_MOTION,
     DEMO_WIDGET_WHEEL,
     DEMO_WIDGET_PAGEFLOW,
@@ -42,7 +42,7 @@ typedef struct {
     gfx_object_t *button_demo;
     gfx_object_t *list_demo;
     gfx_object_t *image_demo;
-    gfx_object_t *anim_jpg_demo;
+    gfx_object_t *anim_demo;
     gfx_object_t *preview_button;
     gfx_object_t *wheel_demo;
     gfx_object_t *pageflow_demo;
@@ -66,14 +66,14 @@ extern const uint16_t gfx_format_demo_list_item_count;
 extern const char *const gfx_format_demo_wheel_items[];
 extern const uint16_t gfx_format_demo_wheel_item_count;
 
-size_t gfx_format_demo_anim_asset_count(void);
 size_t gfx_format_demo_image_clip_count(void);
+size_t gfx_format_demo_anim_clip_count(void);
 size_t gfx_format_demo_image_clip_index(void);
-size_t gfx_format_demo_anim_jpg_clip_index(void);
+size_t gfx_format_demo_anim_clip_index(void);
 const char *gfx_format_demo_image_clip_note(void);
-const char *gfx_format_demo_anim_jpg_clip_note(void);
+const char *gfx_format_demo_anim_clip_note(void);
 esp_err_t gfx_format_demo_next_image_clip(format_playground_scene_t *scene);
-esp_err_t gfx_format_demo_next_anim_jpg_clip(format_playground_scene_t *scene);
+esp_err_t gfx_format_demo_next_anim_clip(format_playground_scene_t *scene);
 
 const char *gfx_format_demo_widget_name(uint16_t widget_idx);
 const char *gfx_format_demo_action_name(uint16_t action_idx);
@@ -84,7 +84,7 @@ esp_err_t gfx_format_demo_build_widget_list(format_playground_scene_t *scene);
 esp_err_t gfx_format_demo_build_button(format_playground_scene_t *scene);
 esp_err_t gfx_format_demo_build_list_demo(format_playground_scene_t *scene);
 esp_err_t gfx_format_demo_build_image_demo(format_playground_scene_t *scene);
-esp_err_t gfx_format_demo_build_anim_jpg_demo(format_playground_scene_t *scene);
+esp_err_t gfx_format_demo_build_anim_demo(format_playground_scene_t *scene);
 esp_err_t gfx_format_demo_build_motion_demo(format_playground_scene_t *scene);
 esp_err_t gfx_format_demo_build_wheel_demo(format_playground_scene_t *scene);
 esp_err_t gfx_format_demo_build_pageflow_demo(format_playground_scene_t *scene);
