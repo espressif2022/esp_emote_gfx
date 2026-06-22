@@ -7,7 +7,7 @@
 #include <math.h>
 #include <stdint.h>
 
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_MOTION
 #define GFX_LOG_TAG    "gfx_motion_prim"
 #include "common/gfx_log_priv.h"
@@ -25,7 +25,7 @@ uint8_t gfx_motion_player_ring_segs(float radius)
     return (uint8_t)s;
 }
 
-esp_err_t gfx_motion_player_apply_capsule(gfx_object_t *obj,
+gfx_err_t gfx_motion_player_apply_capsule(gfx_object_t *obj,
         const gfx_motion_player_screen_point_t *a,
         const gfx_motion_player_screen_point_t *b,
         int32_t thick)
@@ -77,13 +77,13 @@ esp_err_t gfx_motion_player_apply_capsule(gfx_object_t *obj,
         pts[i].x_q8 = (px[i] - min_x) << GFX_MESH_FRAC_SHIFT;
         pts[i].y_q8 = (py[i] - min_y) << GFX_MESH_FRAC_SHIFT;
     }
-    ESP_RETURN_ON_ERROR(gfx_object_align(obj, GFX_ALIGN_TOP_LEFT,
+    GFX_RETURN_ON_ERROR(gfx_object_align(obj, GFX_ALIGN_TOP_LEFT,
                                          (gfx_coord_t)min_x, (gfx_coord_t)min_y),
                         TAG, "capsule align");
     return gfx_mesh_img_set_points_q8(obj, pts, 4U);
 }
 
-esp_err_t gfx_motion_player_apply_ring(gfx_object_t *obj,
+gfx_err_t gfx_motion_player_apply_ring(gfx_object_t *obj,
                                        gfx_motion_player_runtime_scratch_t *scratch,
                                        const gfx_motion_player_screen_point_t *c,
                                        int32_t radius, int32_t thick, uint8_t segs)
@@ -142,7 +142,7 @@ esp_err_t gfx_motion_player_apply_ring(gfx_object_t *obj,
         pts[i].x_q8 -= (min_x << GFX_MESH_FRAC_SHIFT);
         pts[i].y_q8 -= (min_y << GFX_MESH_FRAC_SHIFT);
     }
-    ESP_RETURN_ON_ERROR(gfx_object_align(obj, GFX_ALIGN_TOP_LEFT,
+    GFX_RETURN_ON_ERROR(gfx_object_align(obj, GFX_ALIGN_TOP_LEFT,
                                          (gfx_coord_t)min_x, (gfx_coord_t)min_y),
                         TAG, "ring align");
     return gfx_mesh_img_set_points_q8(obj, pts, ((size_t)segs + 1U) * 2U);
@@ -193,7 +193,7 @@ static inline void gfx_motion_prim_cubic_pos_tan(const gfx_motion_player_screen_
     }
 }
 
-esp_err_t gfx_motion_player_apply_bezier(gfx_object_t *obj,
+gfx_err_t gfx_motion_player_apply_bezier(gfx_object_t *obj,
         gfx_motion_player_runtime_scratch_t *scratch,
         const gfx_motion_player_screen_point_t *ctrl,
         uint8_t n, int32_t thick, bool loop)
@@ -209,7 +209,7 @@ esp_err_t gfx_motion_player_apply_bezier(gfx_object_t *obj,
     uint16_t M = 0;
 
     if (n < 4U) {
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     const uint8_t k = (uint8_t)((n - 1U) / 3U);
@@ -337,7 +337,7 @@ esp_err_t gfx_motion_player_apply_bezier(gfx_object_t *obj,
         pts[cols + i].y_q8 = (iy_arr[i] - min_y) << GFX_MESH_FRAC_SHIFT;
     }
 
-    ESP_RETURN_ON_ERROR(gfx_object_align(obj, GFX_ALIGN_TOP_LEFT,
+    GFX_RETURN_ON_ERROR(gfx_object_align(obj, GFX_ALIGN_TOP_LEFT,
                                          (gfx_coord_t)min_x, (gfx_coord_t)min_y),
                         TAG, "bezier align");
     return gfx_mesh_img_set_points_q8(obj, pts, (size_t)cols * 2U);
@@ -371,7 +371,7 @@ static uint16_t gfx_motion_prim_closed_loop_centerline_fixed(const gfx_motion_pl
     return M;
 }
 
-static esp_err_t gfx_motion_prim_apply_bezier_fill_hub(gfx_object_t *obj,
+static gfx_err_t gfx_motion_prim_apply_bezier_fill_hub(gfx_object_t *obj,
         gfx_motion_player_runtime_scratch_t *scratch,
         const gfx_motion_player_screen_point_t *ctrl,
         uint8_t n)
@@ -384,7 +384,7 @@ static esp_err_t gfx_motion_prim_apply_bezier_fill_hub(gfx_object_t *obj,
                      ctrl, n, MOTION_BEZIER_FILL_LOOP_SEGS_PER_SEG, ox, oy, MOTION_BEZIER_MAX_TESS + 1U);
 
     if (M != expect) {
-        return ESP_ERR_INVALID_STATE;
+        return GFX_ERR_INVALID_STATE;
     }
 
     double cx = 0.0, cy = 0.0;
@@ -400,7 +400,7 @@ static esp_err_t gfx_motion_prim_apply_bezier_fill_hub(gfx_object_t *obj,
     gfx_mesh_img_point_q8_t *pts = scratch->hub_pts;
 
     if (pc > MOTION_HUB_FILL_MAX_PTS) {
-        return ESP_ERR_INVALID_STATE;
+        return GFX_ERR_INVALID_STATE;
     }
 
     int32_t min_x = INT32_MAX, max_x = INT32_MIN;
@@ -453,13 +453,13 @@ static esp_err_t gfx_motion_prim_apply_bezier_fill_hub(gfx_object_t *obj,
         pts[i1].y_q8 = (ry - min_y) << GFX_MESH_FRAC_SHIFT;
     }
 
-    ESP_RETURN_ON_ERROR(gfx_object_align(obj, GFX_ALIGN_TOP_LEFT,
+    GFX_RETURN_ON_ERROR(gfx_object_align(obj, GFX_ALIGN_TOP_LEFT,
                                          (gfx_coord_t)min_x, (gfx_coord_t)min_y),
                         TAG, "bezier_fill_hub align");
     return gfx_mesh_img_set_points_q8(obj, pts, pc);
 }
 
-esp_err_t gfx_motion_player_apply_bezier_fill(gfx_object_t *obj,
+gfx_err_t gfx_motion_player_apply_bezier_fill(gfx_object_t *obj,
         gfx_motion_player_runtime_scratch_t *scratch,
         const gfx_motion_player_screen_point_t *ctrl,
         uint8_t n)
@@ -474,7 +474,7 @@ esp_err_t gfx_motion_player_apply_bezier_fill(gfx_object_t *obj,
 
     if (n != 7U && n != 13U) {
         if (((n - 1U) % 3U) != 0U || n < 4U) {
-            return ESP_ERR_INVALID_ARG;
+            return GFX_ERR_INVALID_ARG;
         }
         return gfx_motion_prim_apply_bezier_fill_hub(obj, scratch, ctrl, n);
     }
@@ -551,7 +551,7 @@ esp_err_t gfx_motion_player_apply_bezier_fill(gfx_object_t *obj,
         pts[cols + i].y_q8 = (lower[i].y - min_y) << GFX_MESH_FRAC_SHIFT;
     }
 
-    ESP_RETURN_ON_ERROR(gfx_object_align(obj, GFX_ALIGN_TOP_LEFT,
+    GFX_RETURN_ON_ERROR(gfx_object_align(obj, GFX_ALIGN_TOP_LEFT,
                                          (gfx_coord_t)min_x, (gfx_coord_t)min_y),
                         TAG, "bezier_fill align");
     return gfx_mesh_img_set_points_q8(obj, pts, (size_t)cols * 2U);

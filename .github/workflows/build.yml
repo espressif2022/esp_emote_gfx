@@ -40,6 +40,17 @@ jobs:
         with:
           submodules: 'recursive'
 
+      - name: Check platform boundary (no esp_* in src/)
+        run: scripts/check_no_esp_in_src.sh
+
+      - name: Build host SDL simulator
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsdl2-dev pkg-config
+          cmake -S . -B build-host-sdl -DGFX_BUILD_HOST_SDL=ON -DBUILD_TESTING=ON
+          cmake --build build-host-sdl --parallel
+          cd build-host-sdl && ctest --output-on-failure
+
       - name: Build test_apps
         shell: bash
         timeout-minutes: 100

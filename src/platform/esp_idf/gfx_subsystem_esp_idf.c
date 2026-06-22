@@ -9,44 +9,44 @@
 #include "platform/gfx_platform_accel_priv.h"
 #include "platform/gfx_platform_jpeg_priv.h"
 
-esp_err_t gfx_subsystem_image_decoder_init(void)
+gfx_err_t gfx_subsystem_image_decoder_init(void)
 {
     return gfx_image_decoder_init();
 }
 
-esp_err_t gfx_subsystem_image_decoder_deinit(void)
+gfx_err_t gfx_subsystem_image_decoder_deinit(void)
 {
     return gfx_image_decoder_deinit();
 }
 
-esp_err_t gfx_subsystem_font_init(void)
+gfx_err_t gfx_subsystem_font_init(void)
 {
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_subsystem_font_deinit(void)
+gfx_err_t gfx_subsystem_font_deinit(void)
 {
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_subsystem_accel_init(void)
+gfx_err_t gfx_subsystem_accel_init(void)
 {
     return gfx_platform_accel_init();
 }
 
-esp_err_t gfx_subsystem_accel_deinit(void)
+gfx_err_t gfx_subsystem_accel_deinit(void)
 {
     gfx_platform_accel_deinit();
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_subsystem_jpeg_init(void)
+gfx_err_t gfx_subsystem_jpeg_init(void)
 {
     return gfx_platform_jpeg_init();
 }
 
-esp_err_t gfx_subsystem_jpeg_deinit(void)
+gfx_err_t gfx_subsystem_jpeg_deinit(void)
 {
     gfx_platform_jpeg_deinit();
-    return ESP_OK;
+    return GFX_OK;
 }

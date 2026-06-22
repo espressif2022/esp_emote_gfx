@@ -39,6 +39,7 @@ if(COMMAND idf_component_register)
             ${SRC_FILES}
         INCLUDE_DIRS
             "include"
+            "src"
         PRIV_INCLUDE_DIRS
             ${PRIV_INCLUDE_DIRS}
         REQUIRES
@@ -49,9 +50,16 @@ endif()
 
 cmake_minimum_required(VERSION 3.16)
 project(esp_emote_gfx_host C)
-include(CTest)
 
 option(GFX_BUILD_HOST_SDL "Build the Linux host SDL simulator target" ON)
+
+set(GFX_HEATSHRINK_ROOT "${CMAKE_CURRENT_LIST_DIR}/test_apps/managed_components/laride__heatshrink")
+if(NOT EXISTS "${GFX_HEATSHRINK_ROOT}/heatshrink_decoder.c")
+    set(GFX_HEATSHRINK_ROOT "${CMAKE_CURRENT_LIST_DIR}/managed_components/laride__heatshrink")
+endif()
+if(NOT EXISTS "${GFX_HEATSHRINK_ROOT}/heatshrink_decoder.c")
+    message(FATAL_ERROR "heatshrink not found; run idf.py in test_apps/ to fetch managed_components")
+endif()
 
 set(GFX_HOST_CORE_SRCS
     "src/core/base/gfx_fs.c"
@@ -73,6 +81,7 @@ set(GFX_HOST_CORE_SRCS
     "src/codecs/anim/gfx_anim_decoder_eaf.c"
     "src/codecs/image/gfx_image_decoder.c"
     "src/fonts/gfx_font_adapter.c"
+    "src/fonts/gfx_font_lvgl.c"
     "src/render/gfx_render.c"
     "src/render/sw/gfx_blend.c"
     "src/render/sw/gfx_sw_draw.c"
@@ -83,6 +92,7 @@ set(GFX_HOST_CORE_SRCS
     "src/widgets/basic/gfx_coverflow.c"
     "src/widgets/basic/gfx_list.c"
     "src/widgets/basic/gfx_pageflow.c"
+    "src/widgets/basic/gfx_qrcode.c"
     "src/widgets/basic/gfx_wheel.c"
     "src/widgets/img/gfx_img.c"
     "src/widgets/img/gfx_image_resource.c"
@@ -95,6 +105,8 @@ set(GFX_HOST_CORE_SRCS
     "src/widgets/motion/gfx_motion_primitives.c"
     "src/widgets/motion/gfx_motion_scene.c"
     "src/widgets/motion/gfx_motion_style.c"
+    "src/lib/qrcode/qrcode_wrapper.c"
+    "src/lib/qrcode/qrcodegen.c"
     "src/platform/host/gfx_font_host.c"
     "src/platform/host/gfx_platform_accel_host_stub.c"
     "src/platform/host/gfx_platform_jpeg_host_stub.c"
@@ -102,17 +114,17 @@ set(GFX_HOST_CORE_SRCS
     "src/platform/linux/gfx_fs_linux.c"
     "src/platform/linux/gfx_platform_linux.c"
     "src/platform/host/gfx_subsystem_host_stub.c"
-    "test_apps/managed_components/laride__heatshrink/heatshrink_decoder.c"
+    "${GFX_HEATSHRINK_ROOT}/heatshrink_decoder.c"
 )
 
 add_library(gfx_host_core STATIC ${GFX_HOST_CORE_SRCS})
 target_include_directories(gfx_host_core
     PUBLIC
         "include"
-        "sim/port/include"
     PRIVATE
         "src"
-        "test_apps/managed_components/laride__heatshrink/include"
+        "sim/port/include"
+        "${GFX_HEATSHRINK_ROOT}/include"
 )
 target_compile_definitions(gfx_host_core PUBLIC GFX_HOST_BUILD=1)
 target_compile_features(gfx_host_core PUBLIC c_std_11)
@@ -149,6 +161,13 @@ if(GFX_BUILD_HOST_SDL)
     endif()
 
     find_package(JPEG REQUIRED)
+    target_compile_definitions(gfx_host_core PRIVATE GFX_HOST_USE_LIBJPEG=1)
+    target_include_directories(gfx_host_core PRIVATE ${JPEG_INCLUDE_DIRS})
+    if(TARGET JPEG::JPEG)
+        target_link_libraries(gfx_host_core PUBLIC JPEG::JPEG)
+    else()
+        target_link_libraries(gfx_host_core PUBLIC ${JPEG_LIBRARIES})
+    endif()
 
     add_library(gfx_backend_sdl STATIC "src/backend/sdl/gfx_backend_sdl.c")
     target_include_directories(gfx_backend_sdl
@@ -156,7 +175,6 @@ if(GFX_BUILD_HOST_SDL)
             "include"
         PRIVATE
             "src"
-            "sim/port/include"
             ${GFX_SDL_INCLUDE_DIRS}
     )
     target_compile_definitions(gfx_backend_sdl PUBLIC ${GFX_SDL_COMPILE_DEFS})
@@ -166,19 +184,101 @@ if(GFX_BUILD_HOST_SDL)
     endif()
     target_link_libraries(gfx_backend_sdl PUBLIC gfx_host_core ${GFX_SDL_TARGET} ${GFX_SDL_LIBRARIES})
 
-    add_executable(gfx_host_sdl_demo "sim/host/gfx_host_sdl_demo.c")
-    target_include_directories(gfx_host_sdl_demo PRIVATE "include" "sim/host" "sim/port/include" ${JPEG_INCLUDE_DIRS})
+    set(GFX_FORMAT_DEMO_SRCS
+        "examples/format_playground/playground_scene.c"
+        "examples/format_playground/widgets/widget_anim.c"
+        "examples/format_playground/widgets/widget_button.c"
+        "examples/format_playground/widgets/widget_coverflow.c"
+        "examples/format_playground/widgets/widget_image.c"
+        "examples/format_playground/widgets/widget_list.c"
+        "examples/format_playground/widgets/widget_motion.c"
+        "examples/format_playground/widgets/widget_nav_list.c"
+        "examples/format_playground/widgets/widget_pageflow.c"
+        "examples/format_playground/widgets/widget_wheel.c"
+    )
+
+    add_executable(gfx_host_sdl_demo
+        "sim/host/gfx_host_sdl_demo.c"
+        ${GFX_FORMAT_DEMO_SRCS}
+    )
+    target_include_directories(gfx_host_sdl_demo
+        PRIVATE
+            "include"
+            "src"
+            "sim/host"
+            "sim/port/include"
+            "examples/format_playground"
+            "examples/motion"
+    )
     target_compile_features(gfx_host_sdl_demo PRIVATE c_std_11)
-    if(TARGET JPEG::JPEG)
-        target_link_libraries(gfx_host_sdl_demo PRIVATE gfx_host_core gfx_backend_sdl JPEG::JPEG)
+    target_link_libraries(gfx_host_sdl_demo PRIVATE gfx_host_core gfx_backend_sdl)
+
+    # Shared esp_emote_expression tree for ESP-IDF (override_path) and host SDL builds.
+    set(GFX_EXPRESSION_ROOT "${CMAKE_CURRENT_LIST_DIR}/../esp_emote_expression" CACHE PATH
+        "esp_emote_expression source tree (single source for device + host SDL)")
+
+    set(GFX_CJSON_ROOT "${GFX_EXPRESSION_ROOT}/third_party/cjson")
+
+    if(EXISTS "${GFX_EXPRESSION_ROOT}/src/emote_init.c")
+        set(GFX_EXPRESSION_FONT_SRCS "sim/host/expression/gfx_host_expression_fonts.c")
+        if(EXISTS "${GFX_EXPRESSION_ROOT}/src/default_assets/font_puhui_basic_20_4.c")
+            set(GFX_EXPRESSION_FONT_SRCS
+                "${GFX_EXPRESSION_ROOT}/src/default_assets/font_maison_neue_book_12.c"
+                "${GFX_EXPRESSION_ROOT}/src/default_assets/font_maison_neue_book_26.c"
+                "${GFX_EXPRESSION_ROOT}/src/default_assets/font_puhui_basic_20_4.c"
+            )
+        endif()
+        set(GFX_HOST_EXPRESSION_SRCS
+            "${GFX_EXPRESSION_ROOT}/src/emote_init.c"
+            "${GFX_EXPRESSION_ROOT}/src/emote_load.c"
+            "${GFX_EXPRESSION_ROOT}/src/emote_op.c"
+            "${GFX_EXPRESSION_ROOT}/src/emote_setup.c"
+            "${GFX_CJSON_ROOT}/cJSON.c"
+            ${GFX_EXPRESSION_FONT_SRCS}
+        )
+
+        message(STATUS "gfx_host_expression source: ${GFX_EXPRESSION_ROOT}")
+
+        add_library(gfx_host_expression STATIC ${GFX_HOST_EXPRESSION_SRCS})
+        target_include_directories(gfx_host_expression
+            PUBLIC
+                "${GFX_EXPRESSION_ROOT}/include"
+            PRIVATE
+                "include"
+                "src"
+                "sim/port/include"
+                "${GFX_EXPRESSION_ROOT}/priv_include"
+                "${GFX_CJSON_ROOT}"
+        )
+        target_compile_features(gfx_host_expression PUBLIC c_std_11)
+        target_link_libraries(gfx_host_expression PUBLIC gfx_host_core)
+
+        add_executable(gfx_host_expression_demo
+            "sim/host/expression/gfx_host_expression_demo.c"
+        )
+        target_include_directories(gfx_host_expression_demo
+            PRIVATE
+                "include"
+                "src"
+                "sim/port/include"
+                "${GFX_EXPRESSION_ROOT}/include"
+                "${GFX_EXPRESSION_ROOT}/priv_include"
+        )
+        target_compile_features(gfx_host_expression_demo PRIVATE c_std_11)
+        target_link_libraries(gfx_host_expression_demo PRIVATE gfx_host_expression gfx_backend_sdl)
     else()
-        target_link_libraries(gfx_host_sdl_demo PRIVATE gfx_host_core gfx_backend_sdl ${JPEG_LIBRARIES})
+        message(STATUS "Skipping gfx_host_expression_demo: ${GFX_EXPRESSION_ROOT} not found")
     endif()
 
     add_executable(gfx_host_fs_smoke "sim/host/gfx_host_fs_smoke.c")
-    target_include_directories(gfx_host_fs_smoke PRIVATE "include" "src" "sim/port/include")
+    target_include_directories(gfx_host_fs_smoke PRIVATE "include" "src")
     target_compile_features(gfx_host_fs_smoke PRIVATE c_std_11)
     target_link_libraries(gfx_host_fs_smoke PRIVATE gfx_host_core)
+
+    add_executable(gfx_host_font_smoke "sim/host/gfx_host_font_smoke.c")
+    target_include_directories(gfx_host_font_smoke PRIVATE "include" "src" "sim/port/include")
+    target_compile_features(gfx_host_font_smoke PRIVATE c_std_11)
+    target_link_libraries(gfx_host_font_smoke PRIVATE gfx_host_core)
 
     add_executable(gfx_host_alignment_smoke "sim/host/gfx_host_alignment_smoke.c")
     target_include_directories(gfx_host_alignment_smoke PRIVATE "include" "src" "sim/port/include")
@@ -210,21 +310,21 @@ if(GFX_BUILD_HOST_SDL)
     target_compile_features(gfx_host_tween_smoke PRIVATE c_std_11)
     target_link_libraries(gfx_host_tween_smoke PRIVATE gfx_host_core)
 
+    include(CTest)
     if(BUILD_TESTING)
         add_test(NAME gfx_host_fs_smoke
-            COMMAND gfx_host_fs_smoke ${CMAKE_CURRENT_SOURCE_DIR} TODO.md)
-        add_test(NAME gfx_host_alignment_smoke
-            COMMAND gfx_host_alignment_smoke)
-        add_test(NAME gfx_host_list_smoke
-            COMMAND gfx_host_list_smoke)
-        add_test(NAME gfx_host_coverflow_smoke
-            COMMAND gfx_host_coverflow_smoke)
-        add_test(NAME gfx_host_wheel_smoke
-            COMMAND gfx_host_wheel_smoke)
-        add_test(NAME gfx_host_container_smoke
-            COMMAND gfx_host_container_smoke)
-        add_test(NAME gfx_host_tween_smoke
-            COMMAND gfx_host_tween_smoke)
+            COMMAND gfx_host_fs_smoke
+                ${CMAKE_CURRENT_SOURCE_DIR}/examples/assets/format
+                icon_rgb565.bin)
+        add_test(NAME gfx_host_font_smoke
+            COMMAND gfx_host_font_smoke
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        add_test(NAME gfx_host_alignment_smoke COMMAND gfx_host_alignment_smoke)
+        add_test(NAME gfx_host_list_smoke COMMAND gfx_host_list_smoke)
+        add_test(NAME gfx_host_coverflow_smoke COMMAND gfx_host_coverflow_smoke)
+        add_test(NAME gfx_host_wheel_smoke COMMAND gfx_host_wheel_smoke)
+        add_test(NAME gfx_host_container_smoke COMMAND gfx_host_container_smoke)
+        add_test(NAME gfx_host_tween_smoke COMMAND gfx_host_tween_smoke)
         add_test(NAME gfx_host_sdl_dummy_smoke
             COMMAND ${CMAKE_COMMAND}
                 -D GFX_HOST_SDL_DEMO=$<TARGET_FILE:gfx_host_sdl_demo>
@@ -234,7 +334,9 @@ if(GFX_BUILD_HOST_SDL)
 
     add_custom_target(gfx_host_smoke
         COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-        DEPENDS gfx_host_fs_smoke gfx_host_alignment_smoke gfx_host_list_smoke gfx_host_coverflow_smoke gfx_host_wheel_smoke gfx_host_container_smoke gfx_host_tween_smoke gfx_host_sdl_demo
+        DEPENDS gfx_host_fs_smoke gfx_host_font_smoke gfx_host_alignment_smoke gfx_host_list_smoke
+            gfx_host_coverflow_smoke gfx_host_wheel_smoke gfx_host_container_smoke
+            gfx_host_tween_smoke gfx_host_sdl_demo
         USES_TERMINAL
     )
 endif()

@@ -9,8 +9,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "sdkconfig.h"
-#include "esp_err.h"
+#include "core/gfx_err.h"
+#include "common/gfx_config_internal.h"
 #include "core/gfx_types.h"
 
 #ifdef __cplusplus
@@ -61,14 +61,14 @@ struct eaf_dec_huffman_node;
  * @brief Read-only access layer over an EAF/AAF source for streaming decode.
  *
  * The decoder never opens files itself; the caller supplies `read` (and the
- * total `size`) so the same decode core works over a resident buffer, an
- * mmap mapping, or an on-demand VFS stream. `read` must copy exactly `len`
+ * total `size`) so the same decode core works over a copied buffer, a direct
+ * mapping, or an on-demand stream. `read` must copy exactly `len` bytes at
  * bytes at absolute `offset` into `dst`.
  */
 typedef struct {
     void *io_ctx;            /*!< Opaque backend state passed back to read(). */
     size_t size;             /*!< Total source size in bytes. */
-    esp_err_t (*read)(void *io_ctx, size_t offset, size_t len, uint8_t *dst);
+    gfx_err_t (*read)(void *io_ctx, size_t offset, size_t len, uint8_t *dst);
 } eaf_dec_reader_t;
 
 typedef struct {
@@ -85,8 +85,8 @@ typedef struct {
 
     /* Streaming mode (eaf_dec_init_reader). When `streaming` is true, frame
      * payloads are pulled on demand into `frame_buf` instead of pointing into a
-     * resident file buffer, so only the header/table plus one frame are
-     * resident. Resident mode (eaf_dec_init) leaves all of these zeroed. */
+     * whole-file buffer, so only the header/table plus one frame stay in memory.
+     * Copy/direct mode (eaf_dec_init) leaves all of these zeroed. */
     bool streaming;                          /*!< Pull frames on demand via reader. */
     eaf_dec_reader_t reader;                 /*!< Source access layer (streaming). */
     size_t frame_base;                       /*!< Source offset where frames begin. */
@@ -190,7 +190,7 @@ bool eaf_dec_get_palette_color(const eaf_dec_header_t *header, uint8_t color_ind
  *  COMPRESSION OPERATIONS
  **********************/
 
-typedef esp_err_t (*eaf_dec_block_decoder_cb_t)(const uint8_t *in_data, size_t in_size,
+typedef gfx_err_t (*eaf_dec_block_decoder_cb_t)(const uint8_t *in_data, size_t in_size,
         uint8_t *out_data, size_t *out_size);
 
 /**
@@ -199,9 +199,9 @@ typedef esp_err_t (*eaf_dec_block_decoder_cb_t)(const uint8_t *in_data, size_t i
  * @param in_size Size of compressed data
  * @param out_data Output buffer for decompressed data
  * @param out_size Size of output buffer
- * @return ESP_OK on success, ESP_FAIL on failure
+ * @return GFX_OK on success, GFX_FAIL on failure
  */
-esp_err_t eaf_dec_decode_rle(const uint8_t *in_data, size_t in_size,
+gfx_err_t eaf_dec_decode_rle(const uint8_t *in_data, size_t in_size,
                              uint8_t *out_data, size_t *out_size);
 
 /**
@@ -210,9 +210,9 @@ esp_err_t eaf_dec_decode_rle(const uint8_t *in_data, size_t in_size,
  * @param in_size Size of input data
  * @param out_data Output buffer for decompressed data
  * @param out_size Size of output buffer
- * @return ESP_OK on success, ESP_FAIL on failure
+ * @return GFX_OK on success, GFX_FAIL on failure
  */
-esp_err_t eaf_dec_decode_huffman(const uint8_t *in_data, size_t in_size,
+gfx_err_t eaf_dec_decode_huffman(const uint8_t *in_data, size_t in_size,
                                  uint8_t *out_data, size_t *out_size);
 
 #ifdef CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
@@ -222,9 +222,9 @@ esp_err_t eaf_dec_decode_huffman(const uint8_t *in_data, size_t in_size,
  * @param in_size Size of input data
  * @param out_data Output buffer for decompressed data
  * @param out_size Size of output buffer
- * @return ESP_OK on success, ESP_FAIL on failure
+ * @return GFX_OK on success, GFX_FAIL on failure
  */
-esp_err_t eaf_dec_decode_heatshrink(const uint8_t *in_data, size_t in_size,
+gfx_err_t eaf_dec_decode_heatshrink(const uint8_t *in_data, size_t in_size,
                                     uint8_t *out_data, size_t *out_size);
 #endif // CONFIG_GFX_EAF_HEATSHRINK_SUPPORT
 
@@ -234,9 +234,9 @@ esp_err_t eaf_dec_decode_heatshrink(const uint8_t *in_data, size_t in_size,
  * @param in_size Size of input data
  * @param out_data Output buffer for data
  * @param out_size Size of output buffer
- * @return ESP_OK on success, ESP_FAIL on failure
+ * @return GFX_OK on success, GFX_FAIL on failure
  */
-esp_err_t eaf_dec_decode_raw(const uint8_t *in_data, size_t in_size,
+gfx_err_t eaf_dec_decode_raw(const uint8_t *in_data, size_t in_size,
                              uint8_t *out_data, size_t *out_size);
 
 /**********************
@@ -251,9 +251,9 @@ esp_err_t eaf_dec_decode_raw(const uint8_t *in_data, size_t in_size,
  * @param block_data Pointer to the block data
  * @param block_len Length of the block
  * @param out_data Buffer to store decoded data
- * @return ESP_OK on success, ESP_FAIL on failure
+ * @return GFX_OK on success, GFX_FAIL on failure
  */
-esp_err_t eaf_dec_decode_block(eaf_dec_handle_t handle, const eaf_dec_header_t *header,
+gfx_err_t eaf_dec_decode_block(eaf_dec_handle_t handle, const eaf_dec_header_t *header,
                                const uint8_t *block_data, int block_len, uint8_t *out_data);
 
 /**********************
@@ -265,18 +265,18 @@ esp_err_t eaf_dec_decode_block(eaf_dec_handle_t handle, const eaf_dec_header_t *
  * @param data Pointer to EAF file data
  * @param data_len Length of EAF file data
  * @param ret_parser Pointer to store the parser handle
- * @return ESP_OK on success, ESP_FAIL on failure
+ * @return GFX_OK on success, GFX_FAIL on failure
  */
-esp_err_t eaf_dec_init(const uint8_t *data, size_t data_len, eaf_dec_handle_t *ret_parser);
+gfx_err_t eaf_dec_init(const uint8_t *data, size_t data_len, eaf_dec_handle_t *ret_parser);
 
 /**
  * @brief Initialize a streaming EAF parser over a read-only access layer.
  *
  * Only the fixed header and the frame table are read at init (the frame table
  * is copied and integerized); each frame payload is then pulled on demand into
- * a reused buffer at decode time. This drops the resident footprint from the
+ * a reused buffer at decode time. This drops the memory footprint from the
  * whole file to a single frame, and is the streaming counterpart to the
- * resident eaf_dec_init(). The decode core (frame info, block decode) is shared
+ * copy/direct eaf_dec_init(). The decode core (frame info, block decode) is shared
  * between both modes.
  *
  * The parser borrows `reader` by value (including `io_ctx`); the caller must
@@ -284,16 +284,16 @@ esp_err_t eaf_dec_init(const uint8_t *data, size_t data_len, eaf_dec_handle_t *r
  *
  * @param reader Source access layer; `reader->read` and `reader->size` required.
  * @param ret_parser Pointer to store the parser handle.
- * @return ESP_OK on success, or an esp_err_t error code.
+ * @return GFX_OK on success, or an gfx_err_t error code.
  */
-esp_err_t eaf_dec_init_reader(const eaf_dec_reader_t *reader, eaf_dec_handle_t *ret_parser);
+gfx_err_t eaf_dec_init_reader(const eaf_dec_reader_t *reader, eaf_dec_handle_t *ret_parser);
 
 /**
  * @brief Deinitialize EAF format parser
  * @param handle Parser handle
- * @return ESP_OK on success, ESP_FAIL on failure
+ * @return GFX_OK on success, GFX_FAIL on failure
  */
-esp_err_t eaf_dec_deinit(eaf_dec_handle_t handle);
+gfx_err_t eaf_dec_deinit(eaf_dec_handle_t handle);
 
 /**
  * @brief Get total number of frames in EAF file
@@ -324,9 +324,9 @@ int eaf_dec_get_frame_size(eaf_dec_handle_t handle, int index);
  * @param frame_index Index of the frame to decode
  * @param out_data Output buffer for decoded frame
  * @param out_size Size of output buffer
- * @return ESP_OK on success, ESP_FAIL on failure
+ * @return GFX_OK on success, GFX_FAIL on failure
  */
-esp_err_t eaf_dec_decode_frame(eaf_dec_handle_t handle, int frame_index,
+gfx_err_t eaf_dec_decode_frame(eaf_dec_handle_t handle, int frame_index,
                                uint8_t *out_data, size_t out_size);
 
 #ifdef __cplusplus

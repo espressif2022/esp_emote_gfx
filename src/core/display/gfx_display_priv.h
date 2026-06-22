@@ -131,19 +131,19 @@ struct gfx_display {
 /**
  * @brief Free display frame buffers
  * @param disp Display whose buffers to free (internal alloc only; ext_bufs are not freed)
- * @return ESP_OK
+ * @return GFX_OK
  * @internal Used by gfx_core deinit when tearing down displays.
  */
-esp_err_t gfx_display_buf_free(gfx_display_t *disp);
+gfx_err_t gfx_display_buf_free(gfx_display_t *disp);
 
 /**
  * @brief Initialize display buffers from config
  * @param disp Display to init (h_res, v_res already set)
  * @param cfg Display config (buffers.buf1/buf2/buf_pixels)
- * @return ESP_OK on success, ESP_ERR_NO_MEM if internal alloc fails
+ * @return GFX_OK on success, GFX_ERR_NO_MEM if internal alloc fails
  * @internal Used by gfx_display_add when cfg->buffers.buf1 is NULL.
  */
-esp_err_t gfx_display_buf_init(gfx_display_t *disp, const gfx_display_config_t *cfg);
+gfx_err_t gfx_display_buf_init(gfx_display_t *disp, const gfx_display_config_t *cfg);
 
 /* Object/render helpers (obj/widget/render only, not in public gfx_disp.h) */
 
@@ -152,27 +152,27 @@ esp_err_t gfx_display_buf_init(gfx_display_t *disp, const gfx_display_config_t *
  * @param disp Display to attach to
  * @param type Child type (GFX_OBJ_TYPE_IMAGE, GFX_OBJ_TYPE_LABEL, etc.)
  * @param src Child object pointer (e.g. gfx_object_t *)
- * @return ESP_OK on success
+ * @return GFX_OK on success
  * @internal Used by widget create functions such as gfx_image_create and gfx_label_create.
  */
-esp_err_t gfx_display_add_child(gfx_display_t *disp, void *src);
+gfx_err_t gfx_display_add_child(gfx_display_t *disp, void *src);
 
 /**
  * @brief Remove a child object from a display
  * @param disp Display that owns the child
  * @param src Child object pointer to remove (e.g. gfx_object_t *)
- * @return ESP_OK on success, ESP_ERR_NOT_FOUND if not in list
+ * @return GFX_OK on success, GFX_ERR_NOT_FOUND if not in list
  * @internal Used by gfx_object_delete.
  */
-esp_err_t gfx_display_remove_child(gfx_display_t *disp, void *src);
+gfx_err_t gfx_display_remove_child(gfx_display_t *disp, void *src);
 
 /**
  * @brief Delete and detach every child object owned by a display.
  * @param disp Display that owns the child list
- * @return ESP_OK on success
+ * @return GFX_OK on success
  * @internal Used during display/core teardown to ensure widget destructors run.
  */
-esp_err_t gfx_display_delete_children(gfx_display_t *disp);
+gfx_err_t gfx_display_delete_children(gfx_display_t *disp);
 
 /**
  * @brief Return the topmost visible object containing a point.

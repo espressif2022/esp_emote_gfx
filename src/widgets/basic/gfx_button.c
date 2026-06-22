@@ -12,8 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "esp_check.h"
-#include "esp_log.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_BUTTON
 #include "common/gfx_log_priv.h"
 
@@ -70,10 +69,10 @@ static const char *const TAG = "button";
 static void gfx_button_init_default_state(gfx_button_t *button);
 static void gfx_button_get_label_area(const gfx_object_t *obj, const gfx_area_t *obj_area, gfx_area_t *area);
 static bool gfx_button_contains_point(gfx_object_t *obj, uint16_t x, uint16_t y);
-static esp_err_t gfx_button_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
-static esp_err_t gfx_button_update(gfx_object_t *obj);
-static esp_err_t gfx_button_delete_impl(gfx_object_t *obj);
-static esp_err_t gfx_button_load_impl(gfx_object_t *obj);
+static gfx_err_t gfx_button_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
+static gfx_err_t gfx_button_update(gfx_object_t *obj);
+static gfx_err_t gfx_button_delete_impl(gfx_object_t *obj);
+static gfx_err_t gfx_button_load_impl(gfx_object_t *obj);
 static void gfx_button_release_impl(gfx_object_t *obj);
 static void gfx_button_touch_event(gfx_object_t *obj, const void *event_data);
 
@@ -156,7 +155,7 @@ static bool gfx_button_contains_point(gfx_object_t *obj, uint16_t x, uint16_t y)
            ((gfx_coord_t)y < obj_area.y2);
 }
 
-static esp_err_t gfx_button_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
+static gfx_err_t gfx_button_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 {
     gfx_button_t *button;
     gfx_area_t obj_area;
@@ -172,17 +171,17 @@ static esp_err_t gfx_button_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     };
 
     CHECK_OBJ_TYPE_BUTTON(obj);
-    GFX_RETURN_IF_NULL(ctx, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(ctx, GFX_ERR_INVALID_ARG);
 
     button = (gfx_button_t *)obj->src;
-    GFX_RETURN_IF_NULL(button, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(button, GFX_ERR_INVALID_STATE);
 
     if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     if (!gfx_area_intersect_exclusive(&clip_area, &ctx->clip_area, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     fill_color = button->state.pressed ? button->style.bg_color_pressed : button->style.bg_color;
@@ -200,20 +199,20 @@ static esp_err_t gfx_button_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     gfx_button_get_label_area(obj, &obj_area, &label_area);
     (void)gfx_label_text_box_draw(obj, &button->label, ctx, &label_area, &clip_area);
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_button_update(gfx_object_t *obj)
+static gfx_err_t gfx_button_update(gfx_object_t *obj)
 {
     gfx_button_t *button;
     gfx_area_t obj_area;
     gfx_area_t label_area;
 
     CHECK_OBJ_TYPE_BUTTON(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
     button = (gfx_button_t *)obj->src;
 
@@ -221,15 +220,15 @@ static esp_err_t gfx_button_update(gfx_object_t *obj)
     return gfx_label_text_box_update(obj, &button->label, &label_area);
 }
 
-static esp_err_t gfx_button_delete_impl(gfx_object_t *obj)
+static gfx_err_t gfx_button_delete_impl(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_BUTTON(obj);
     gfx_label_delete_state(obj, &((gfx_button_t *)obj->src)->label);
     free(obj->src);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_button_load_impl(gfx_object_t *obj)
+static gfx_err_t gfx_button_load_impl(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_BUTTON(obj);
     return gfx_label_load_state(obj, &((gfx_button_t *)obj->src)->label);
@@ -305,7 +304,7 @@ gfx_object_t *gfx_button_create(gfx_display_t *disp)
 
     if (gfx_object_create_class_instance(disp, &s_gfx_button_widget_class,
                                          button, GFX_BUTTON_DEFAULT_WIDTH, GFX_BUTTON_DEFAULT_HEIGHT,
-                                         "gfx_button_create", &obj) != ESP_OK) {
+                                         "gfx_button_create", &obj) != GFX_OK) {
         free(button);
         GFX_LOGE(TAG, "create button: no mem for object");
         return NULL;
@@ -315,7 +314,7 @@ gfx_object_t *gfx_button_create(gfx_display_t *disp)
     return obj;
 }
 
-esp_err_t gfx_button_set_text(gfx_object_t *obj, const char *text)
+gfx_err_t gfx_button_set_text(gfx_object_t *obj, const char *text)
 {
     CHECK_OBJ_TYPE_BUTTON(obj);
 
@@ -324,12 +323,12 @@ esp_err_t gfx_button_set_text(gfx_object_t *obj, const char *text)
     char *dup_text = NULL;
     size_t len;
 
-    GFX_RETURN_IF_NULL(button, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(button, GFX_ERR_INVALID_STATE);
 
     len = strlen(new_text) + 1;
     dup_text = malloc(len);
     if (dup_text == NULL) {
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
     memcpy(dup_text, new_text, len);
 
@@ -340,19 +339,19 @@ esp_err_t gfx_button_set_text(gfx_object_t *obj, const char *text)
     button->label.snap.offset = 0;
     gfx_object_invalidate(obj);
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_button_set_text_fmt(gfx_object_t *obj, const char *fmt, ...)
+gfx_err_t gfx_button_set_text_fmt(gfx_object_t *obj, const char *fmt, ...)
 {
     char *buf = NULL;
     va_list args;
     va_list args_copy;
     int len;
-    esp_err_t ret;
+    gfx_err_t ret;
 
     CHECK_OBJ_TYPE_BUTTON(obj);
-    ESP_RETURN_ON_FALSE(fmt != NULL, ESP_ERR_INVALID_ARG, TAG, "fmt is NULL");
+    GFX_RETURN_ON_FALSE(fmt != NULL, GFX_ERR_INVALID_ARG, TAG, "fmt is NULL");
 
     va_start(args, fmt);
     va_copy(args_copy, args);
@@ -360,13 +359,13 @@ esp_err_t gfx_button_set_text_fmt(gfx_object_t *obj, const char *fmt, ...)
     va_end(args_copy);
     if (len < 0) {
         va_end(args);
-        return ESP_FAIL;
+        return GFX_FAIL;
     }
 
     buf = malloc((size_t)len + 1U);
     if (buf == NULL) {
         va_end(args);
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
 
     vsnprintf(buf, (size_t)len + 1U, fmt, args);
@@ -377,73 +376,73 @@ esp_err_t gfx_button_set_text_fmt(gfx_object_t *obj, const char *fmt, ...)
     return ret;
 }
 
-esp_err_t gfx_button_set_font(gfx_object_t *obj, gfx_font_t font)
+gfx_err_t gfx_button_set_font(gfx_object_t *obj, gfx_font_t font)
 {
     gfx_button_t *button;
 
     CHECK_OBJ_TYPE_BUTTON(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     button = (gfx_button_t *)obj->src;
     return gfx_label_set_font_source(obj, &button->label, font);
 }
 
-esp_err_t gfx_button_set_text_color(gfx_object_t *obj, gfx_color_t color)
+gfx_err_t gfx_button_set_text_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_BUTTON(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     ((gfx_button_t *)obj->src)->label.style.color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_button_set_bg_color(gfx_object_t *obj, gfx_color_t color)
+gfx_err_t gfx_button_set_bg_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_BUTTON(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     ((gfx_button_t *)obj->src)->style.bg_color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_button_set_bg_color_pressed(gfx_object_t *obj, gfx_color_t color)
+gfx_err_t gfx_button_set_bg_color_pressed(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_BUTTON(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     ((gfx_button_t *)obj->src)->style.bg_color_pressed = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_button_set_border_color(gfx_object_t *obj, gfx_color_t color)
+gfx_err_t gfx_button_set_border_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_BUTTON(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     ((gfx_button_t *)obj->src)->style.border_color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_button_set_border_width(gfx_object_t *obj, uint16_t width)
+gfx_err_t gfx_button_set_border_width(gfx_object_t *obj, uint16_t width)
 {
     CHECK_OBJ_TYPE_BUTTON(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     ((gfx_button_t *)obj->src)->style.border_width = width;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_button_set_text_align(gfx_object_t *obj, gfx_text_align_t align)
+gfx_err_t gfx_button_set_text_align(gfx_object_t *obj, gfx_text_align_t align)
 {
     CHECK_OBJ_TYPE_BUTTON(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     ((gfx_button_t *)obj->src)->label.style.text_align = align;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }

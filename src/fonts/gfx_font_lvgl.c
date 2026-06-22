@@ -14,8 +14,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include "esp_log.h"
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_FONT_LVGL
 #include "common/gfx_log_priv.h"
 #include "fonts/gfx_font_lvgl_priv.h"
@@ -26,6 +25,13 @@
  **********************/
 
 static const char *const TAG = "font_lvgl";
+
+#if GFX_HOST_BUILD
+typedef struct {
+    const uint8_t *glyph_dsc_bin;
+    uint8_t glyph_dsc_stride;
+} gfx_font_lv_runtime_t;
+#endif
 
 /**********************
  *   STATIC PROTOTYPES
@@ -44,6 +50,8 @@ static int gfx_font_lv_get_base_line(gfx_font_handle_t font_adapter);
 static uint8_t gfx_font_lv_get_pixel_value(gfx_font_handle_t font_adapter, const uint8_t *bitmap, int32_t x, int32_t y, int32_t box_w);
 static int gfx_font_lv_adjust_baseline_offset(gfx_font_handle_t font_adapter, void *glyph_dsc);
 static int gfx_font_lv_get_advance_width(gfx_font_handle_t font_adapter, void *glyph_dsc);
+static uint16_t gfx_font_lv_bin_u16(const uint8_t *addr);
+static uint32_t gfx_font_lv_bin_u32(const uint8_t *addr);
 
 static void *malloc_cpy(void *src, size_t sz);
 static void addr_add(void **addr, uintptr_t add);
@@ -182,6 +190,22 @@ static bool gfx_font_lv_get_glyph_dsc(gfx_font_handle_t font_adapter, void *glyp
     if (glyph_index >= 65536 || !dsc->glyph_dsc) {
         return false;
     }
+
+#if GFX_HOST_BUILD
+    const gfx_font_lv_runtime_t *runtime = (const gfx_font_lv_runtime_t *)lvgl_font->user_data;
+    if (runtime != NULL && runtime->glyph_dsc_bin != NULL && runtime->glyph_dsc_stride == 16U) {
+        const uint8_t *src_glyph = runtime->glyph_dsc_bin + (size_t)glyph_index * 16U;
+        gfx_glyph_dsc_t *out_glyph = (gfx_glyph_dsc_t *)glyph_dsc;
+
+        out_glyph->bitmap_index = gfx_font_lv_bin_u32(src_glyph);
+        out_glyph->adv_w = gfx_font_lv_bin_u32(src_glyph + 4);
+        out_glyph->box_w = gfx_font_lv_bin_u16(src_glyph + 8);
+        out_glyph->box_h = gfx_font_lv_bin_u16(src_glyph + 10);
+        out_glyph->ofs_x = (int16_t)gfx_font_lv_bin_u16(src_glyph + 12);
+        out_glyph->ofs_y = (int16_t)gfx_font_lv_bin_u16(src_glyph + 14);
+        return true;
+    }
+#endif
 
     const lv_font_fmt_txt_glyph_dsc_t *src_glyph = &dsc->glyph_dsc[glyph_index];
 
@@ -364,13 +388,211 @@ void gfx_font_lv_init_adapter(gfx_font_handle_t font_adapter, const void *font)
  * Original source: https://github.com/78/xiaozhi-fonts
  */
 
+static uint8_t gfx_font_lv_bin_u8(const uint8_t *addr)
+{
+    return addr[0];
+}
+
+static uint16_t gfx_font_lv_bin_u16(const uint8_t *addr)
+{
+    return (uint16_t)addr[0] | ((uint16_t)addr[1] << 8);
+}
+
+static uint32_t gfx_font_lv_bin_u32(const uint8_t *addr)
+{
+    return (uint32_t)addr[0] |
+           ((uint32_t)addr[1] << 8) |
+           ((uint32_t)addr[2] << 16) |
+           ((uint32_t)addr[3] << 24);
+}
+
+static void gfx_font_lv_free_runtime_font(lv_font_t *font)
+{
+    if (font == NULL) {
+        return;
+    }
+
+    lv_font_fmt_txt_dsc_t *dsc = (lv_font_fmt_txt_dsc_t *)font->dsc;
+    if (dsc != NULL) {
+        free((void *)dsc->cmaps);
+        free((void *)dsc->kern_dsc);
+        free(dsc);
+    }
+#if GFX_HOST_BUILD
+    free(font->user_data);
+#endif
+    free(font);
+}
+
+static bool gfx_font_lv_parse_cmaps(const uint8_t *bin_base, lv_font_fmt_txt_dsc_t *dsc, uint32_t cmaps_ofs)
+{
+    const uint8_t *cmaps_base = bin_base + cmaps_ofs;
+    lv_font_fmt_txt_cmap_t *cmaps;
+
+    if (dsc->cmap_num == 0U) {
+        return true;
+    }
+
+    cmaps = calloc(dsc->cmap_num, sizeof(*cmaps));
+    if (cmaps == NULL) {
+        GFX_LOGE(TAG, "load lvgl font: allocate host cmaps failed");
+        return false;
+    }
+
+    for (uint16_t i = 0; i < dsc->cmap_num; i++) {
+        const uint8_t *src = cmaps_base + (size_t)i * 20U;
+        uint32_t unicode_list_ofs;
+        uint32_t glyph_id_ofs_list_ofs;
+
+        cmaps[i].range_start = gfx_font_lv_bin_u32(src);
+        cmaps[i].range_length = gfx_font_lv_bin_u16(src + 4);
+        cmaps[i].glyph_id_start = gfx_font_lv_bin_u16(src + 6);
+
+        unicode_list_ofs = gfx_font_lv_bin_u32(src + 8);
+        glyph_id_ofs_list_ofs = gfx_font_lv_bin_u32(src + 12);
+        cmaps[i].unicode_list = unicode_list_ofs != 0U ? (const uint16_t *)(cmaps_base + unicode_list_ofs) : NULL;
+        cmaps[i].glyph_id_ofs_list = glyph_id_ofs_list_ofs != 0U ? (const void *)(cmaps_base + glyph_id_ofs_list_ofs) : NULL;
+
+        cmaps[i].list_length = gfx_font_lv_bin_u16(src + 16);
+        cmaps[i].type = (lv_font_fmt_txt_cmap_type_t)gfx_font_lv_bin_u8(src + 18);
+    }
+
+    dsc->cmaps = cmaps;
+    return true;
+}
+
+static bool gfx_font_lv_parse_kern(const uint8_t *bin_base, lv_font_fmt_txt_dsc_t *dsc, uint32_t kern_ofs)
+{
+    const uint8_t *kern_base;
+
+    if (kern_ofs == 0U) {
+        return true;
+    }
+
+    kern_base = bin_base + kern_ofs;
+    if (dsc->kern_classes == 1U) {
+        lv_font_fmt_txt_kern_classes_t *kern = calloc(1, sizeof(*kern));
+        if (kern == NULL) {
+            GFX_LOGE(TAG, "load lvgl font: allocate kern classes failed");
+            return false;
+        }
+
+        uint32_t pair_values_ofs = gfx_font_lv_bin_u32(kern_base);
+        uint32_t left_map_ofs = gfx_font_lv_bin_u32(kern_base + 4);
+        uint32_t right_map_ofs = gfx_font_lv_bin_u32(kern_base + 8);
+
+        kern->class_pair_values = pair_values_ofs != 0U ? (const int8_t *)(kern_base + pair_values_ofs) : NULL;
+        kern->left_class_mapping = left_map_ofs != 0U ? (const uint8_t *)(kern_base + left_map_ofs) : NULL;
+        kern->right_class_mapping = right_map_ofs != 0U ? (const uint8_t *)(kern_base + right_map_ofs) : NULL;
+        kern->left_class_cnt = gfx_font_lv_bin_u8(kern_base + 12);
+        kern->right_class_cnt = gfx_font_lv_bin_u8(kern_base + 13);
+        dsc->kern_dsc = kern;
+    } else {
+        lv_font_fmt_txt_kern_pair_t *kern = calloc(1, sizeof(*kern));
+        if (kern == NULL) {
+            GFX_LOGE(TAG, "load lvgl font: allocate kern pairs failed");
+            return false;
+        }
+
+        uint32_t glyph_ids_ofs = gfx_font_lv_bin_u32(kern_base);
+        uint32_t values_ofs = gfx_font_lv_bin_u32(kern_base + 4);
+        uint32_t packed = gfx_font_lv_bin_u32(kern_base + 8);
+
+        kern->glyph_ids = glyph_ids_ofs != 0U ? (const void *)(kern_base + glyph_ids_ofs) : NULL;
+        kern->values = values_ofs != 0U ? (const int8_t *)(kern_base + values_ofs) : NULL;
+        kern->pair_cnt = packed & 0x3FFFFFFFU;
+        kern->glyph_ids_size = packed >> 30;
+        dsc->kern_dsc = kern;
+    }
+
+    return true;
+}
+
+static lv_font_t *gfx_font_lv_parse_binary(uint8_t *bin_addr)
+{
+    const uint8_t *bin_base = bin_addr;
+    uint32_t dsc_ofs = gfx_font_lv_bin_u32(bin_base + 24);
+    uint32_t glyph_dsc_ofs;
+    const uint8_t *src_dsc;
+    uint16_t packed;
+    lv_font_t *font;
+    lv_font_fmt_txt_dsc_t *dsc;
+
+    if (gfx_font_lv_bin_u32(bin_base + 12) == 0U || dsc_ofs == 0U) {
+        return NULL;
+    }
+
+    font = calloc(1, sizeof(*font));
+    if (font == NULL) {
+        GFX_LOGE(TAG, "load lvgl font: allocate font failed");
+        return NULL;
+    }
+
+    dsc = calloc(1, sizeof(*dsc));
+    if (dsc == NULL) {
+        GFX_LOGE(TAG, "load lvgl font: allocate font dsc failed");
+        free(font);
+        return NULL;
+    }
+
+    font->get_glyph_dsc = lv_font_get_glyph_dsc_fmt_txt;
+    font->get_glyph_bitmap = lv_font_get_bitmap_fmt_txt;
+    font->line_height = (int32_t)gfx_font_lv_bin_u32(bin_base + 12);
+    font->base_line = (int32_t)gfx_font_lv_bin_u32(bin_base + 16);
+    font->subpx = gfx_font_lv_bin_u8(bin_base + 20) & 0x03U;
+    font->kerning = (gfx_font_lv_bin_u8(bin_base + 20) >> 2) & 0x01U;
+    font->static_bitmap = (gfx_font_lv_bin_u8(bin_base + 20) >> 3) & 0x01U;
+    font->underline_position = (int8_t)gfx_font_lv_bin_u8(bin_base + 21);
+    font->underline_thickness = (int8_t)gfx_font_lv_bin_u8(bin_base + 22);
+    font->dsc = dsc;
+
+    src_dsc = bin_base + dsc_ofs;
+    glyph_dsc_ofs = gfx_font_lv_bin_u32(src_dsc + 4);
+    dsc->glyph_bitmap = src_dsc + gfx_font_lv_bin_u32(src_dsc);
+    dsc->glyph_dsc = (const lv_font_fmt_txt_glyph_dsc_t *)(src_dsc + glyph_dsc_ofs);
+    dsc->kern_scale = gfx_font_lv_bin_u16(src_dsc + 16);
+
+    packed = gfx_font_lv_bin_u16(src_dsc + 18);
+    dsc->cmap_num = packed & 0x01FFU;
+    dsc->bpp = (packed >> 9) & 0x0FU;
+    dsc->kern_classes = (packed >> 13) & 0x01U;
+    dsc->bitmap_format = (packed >> 14) & 0x03U;
+    dsc->stride = gfx_font_lv_bin_u8(src_dsc + 20);
+
+    if (!gfx_font_lv_parse_cmaps(src_dsc, dsc, gfx_font_lv_bin_u32(src_dsc + 8)) ||
+            !gfx_font_lv_parse_kern(src_dsc, dsc, gfx_font_lv_bin_u32(src_dsc + 12))) {
+        gfx_font_lv_free_runtime_font(font);
+        return NULL;
+    }
+
+#if GFX_HOST_BUILD
+    gfx_font_lv_runtime_t *runtime = calloc(1, sizeof(*runtime));
+    if (runtime == NULL) {
+        gfx_font_lv_free_runtime_font(font);
+        return NULL;
+    }
+
+    runtime->glyph_dsc_bin = (const uint8_t *)dsc->glyph_dsc;
+    runtime->glyph_dsc_stride = glyph_dsc_ofs > gfx_font_lv_bin_u32(src_dsc) &&
+                                glyph_dsc_ofs - gfx_font_lv_bin_u32(src_dsc) > 0xFFFFFU ? 16U : 8U;
+    font->user_data = runtime;
+#endif
+
+    GFX_LOGI(TAG, "load lvgl font: binary line=%d base=%d cmap=%u bpp=%u",
+             (int)font->line_height, (int)font->base_line,
+             (unsigned)dsc->cmap_num, (unsigned)dsc->bpp);
+    return font;
+}
+
 lv_font_t *gfx_font_lv_load_from_binary(uint8_t *bin_addr)
 {
     if (!bin_addr) {
         GFX_LOGE(TAG, "load lvgl font: binary address is NULL");
         return NULL;
     }
-
+#if GFX_HOST_BUILD
+    return gfx_font_lv_parse_binary(bin_addr);
+#else
     lv_font_t *font = malloc_cpy(bin_addr, sizeof(lv_font_t));
     if (!font) {
         return NULL;
@@ -457,6 +679,7 @@ lv_font_t *gfx_font_lv_load_from_binary(uint8_t *bin_addr)
     }
 
     return font;
+#endif
 }
 
 void gfx_font_lv_delete(lv_font_t *font)
@@ -475,5 +698,8 @@ void gfx_font_lv_delete(lv_font_t *font)
         }
         free((void *)dsc);
     }
+#if GFX_HOST_BUILD
+    free(font->user_data);
+#endif
     free((void *)font);
 }

@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_LIST
 #include "common/gfx_log_priv.h"
 
@@ -73,10 +73,10 @@ typedef struct {
 static const char *const TAG = "wheel";
 
 static void gfx_wheel_init_default_state(gfx_wheel_t *wheel);
-static esp_err_t gfx_wheel_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
-static esp_err_t gfx_wheel_update(gfx_object_t *obj);
-static esp_err_t gfx_wheel_delete_impl(gfx_object_t *obj);
-static esp_err_t gfx_wheel_load_impl(gfx_object_t *obj);
+static gfx_err_t gfx_wheel_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
+static gfx_err_t gfx_wheel_update(gfx_object_t *obj);
+static gfx_err_t gfx_wheel_delete_impl(gfx_object_t *obj);
+static gfx_err_t gfx_wheel_load_impl(gfx_object_t *obj);
 static void gfx_wheel_release_impl(gfx_object_t *obj);
 static void gfx_wheel_touch_event(gfx_object_t *obj, const void *event_data);
 
@@ -115,21 +115,21 @@ static void gfx_wheel_init_default_state(gfx_wheel_t *wheel)
     wheel->style.border_width = 1;
 }
 
-static esp_err_t gfx_wheel_dup_text(const char *text, char **out_text)
+static gfx_err_t gfx_wheel_dup_text(const char *text, char **out_text)
 {
     const char *src = text ? text : "";
     size_t len = strlen(src) + 1U;
     char *dup;
 
-    GFX_RETURN_IF_NULL(out_text, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(out_text, GFX_ERR_INVALID_ARG);
 
     dup = malloc(len);
     if (dup == NULL) {
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
     memcpy(dup, src, len);
     *out_text = dup;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static void gfx_wheel_free_items(gfx_wheel_t *wheel)
@@ -321,13 +321,13 @@ static void gfx_wheel_snap(gfx_object_t *obj, gfx_wheel_t *wheel)
         if (wheel->tween == NULL ||
                 gfx_tween_start_i32(wheel->tween, wheel->scroll_y, target_scroll, GFX_WHEEL_TWEEN_MS,
                                     GFX_TWEEN_EASE_OUT_QUAD,
-                                    gfx_wheel_tween_value_cb, NULL, wheel) != ESP_OK) {
+                                    gfx_wheel_tween_value_cb, NULL, wheel) != GFX_OK) {
             gfx_wheel_set_scroll_y(obj, wheel, target_scroll);
         }
     }
 }
 
-static esp_err_t gfx_wheel_call_label_update(gfx_object_t *obj, gfx_wheel_t *wheel,
+static gfx_err_t gfx_wheel_call_label_update(gfx_object_t *obj, gfx_wheel_t *wheel,
         const char *text, const gfx_area_t *text_area)
 {
     wheel->label.text.text = (char *)(text ? text : "");
@@ -341,16 +341,16 @@ static esp_err_t gfx_wheel_call_label_update(gfx_object_t *obj, gfx_wheel_t *whe
     return gfx_label_text_box_update(obj, &wheel->label, text_area);
 }
 
-static esp_err_t gfx_wheel_draw_text(gfx_object_t *obj, gfx_wheel_t *wheel, const gfx_draw_ctx_t *ctx,
+static gfx_err_t gfx_wheel_draw_text(gfx_object_t *obj, gfx_wheel_t *wheel, const gfx_draw_ctx_t *ctx,
                                      const char *text, const gfx_area_t *row_area,
                                      const gfx_area_t *clip_area, gfx_color_t color)
 {
     gfx_area_t text_area;
-    esp_err_t ret;
+    gfx_err_t ret;
 
     if (row_area->x2 <= row_area->x1 || row_area->y2 <= row_area->y1 ||
             clip_area == NULL || clip_area->x2 <= clip_area->x1 || clip_area->y2 <= clip_area->y1) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     text_area.x1 = (gfx_coord_t)(row_area->x1 + GFX_WHEEL_PAD_X);
@@ -362,7 +362,7 @@ static esp_err_t gfx_wheel_draw_text(gfx_object_t *obj, gfx_wheel_t *wheel, cons
     }
 
     ret = gfx_wheel_call_label_update(obj, wheel, text, &text_area);
-    if (ret != ESP_OK) {
+    if (ret != GFX_OK) {
         return ret;
     }
 
@@ -385,7 +385,7 @@ static int32_t gfx_wheel_draw_index_for_slot(const gfx_wheel_t *wheel, int32_t b
     return (index >= 0 && index < (int32_t)wheel->item_count) ? index : -1;
 }
 
-static esp_err_t gfx_wheel_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
+static gfx_err_t gfx_wheel_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 {
     gfx_wheel_t *wheel;
     gfx_area_t obj_area;
@@ -403,17 +403,17 @@ static esp_err_t gfx_wheel_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     };
 
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(ctx, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(ctx, GFX_ERR_INVALID_ARG);
 
     wheel = (gfx_wheel_t *)obj->src;
-    GFX_RETURN_IF_NULL(wheel, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(wheel, GFX_ERR_INVALID_STATE);
 
     if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     if (!gfx_area_intersect_exclusive(&clip_area, &ctx->clip_area, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     gfx_render_surface_fill(obj->disp, &dst_surface, &clip_area, wheel->style.bg_color, 0xFFU);
@@ -442,7 +442,7 @@ static esp_err_t gfx_wheel_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     }
 
     if (wheel->item_count == 0U || wheel->item_height == 0U) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     center_raw_index = gfx_wheel_raw_index_from_scroll(obj, wheel);
@@ -483,23 +483,23 @@ static esp_err_t gfx_wheel_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
         gfx_wheel_draw_text(obj, wheel, ctx, wheel->items[index], &row_area, &row_clip, text_color);
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_wheel_update(gfx_object_t *obj)
+static gfx_err_t gfx_wheel_update(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_WHEEL(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_wheel_delete_impl(gfx_object_t *obj)
+static gfx_err_t gfx_wheel_delete_impl(gfx_object_t *obj)
 {
     gfx_wheel_t *wheel;
 
     CHECK_OBJ_TYPE_WHEEL(obj);
     wheel = (gfx_wheel_t *)obj->src;
     if (wheel == NULL) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     gfx_wheel_free_items(wheel);
@@ -507,10 +507,10 @@ static esp_err_t gfx_wheel_delete_impl(gfx_object_t *obj)
     free(wheel->label.render.mask);
     free(wheel->label.render.color_mask);
     free(wheel);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_wheel_load_impl(gfx_object_t *obj)
+static gfx_err_t gfx_wheel_load_impl(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_WHEEL(obj);
     return gfx_label_load_state(obj, &((gfx_wheel_t *)obj->src)->label);
@@ -618,7 +618,7 @@ gfx_object_t *gfx_wheel_create(gfx_display_t *disp)
 
     if (gfx_object_create_class_instance(disp, &s_gfx_wheel_widget_class,
                                          wheel, GFX_WHEEL_DEFAULT_WIDTH, height,
-                                         "gfx_wheel_create", &obj) != ESP_OK) {
+                                         "gfx_wheel_create", &obj) != GFX_OK) {
         free(wheel);
         GFX_LOGE(TAG, "create wheel: no mem for object");
         return NULL;
@@ -635,10 +635,10 @@ gfx_object_t *gfx_wheel_create(gfx_display_t *disp)
 gfx_err_t gfx_wheel_clear(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     gfx_wheel_free_items((gfx_wheel_t *)obj->src);
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_wheel_add_item(gfx_object_t *obj, const char *text)
@@ -646,53 +646,53 @@ gfx_err_t gfx_wheel_add_item(gfx_object_t *obj, const char *text)
     gfx_wheel_t *wheel;
     char **new_items;
     char *dup_text = NULL;
-    esp_err_t ret;
+    gfx_err_t ret;
 
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     wheel = (gfx_wheel_t *)obj->src;
     ret = gfx_wheel_dup_text(text, &dup_text);
-    if (ret != ESP_OK) {
+    if (ret != GFX_OK) {
         return ret;
     }
 
     new_items = realloc(wheel->items, ((size_t)wheel->item_count + 1U) * sizeof(char *));
     if (new_items == NULL) {
         free(dup_text);
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
 
     wheel->items = new_items;
     wheel->items[wheel->item_count] = dup_text;
     wheel->item_count++;
     gfx_wheel_set_selected_internal(obj, wheel, wheel->selected_index, false);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_wheel_set_items(gfx_object_t *obj, const char *const *items, uint16_t item_count)
 {
     gfx_wheel_t *wheel;
     char **new_items = NULL;
-    esp_err_t ret;
+    gfx_err_t ret;
 
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     if (item_count > 0U) {
-        GFX_RETURN_IF_NULL(items, ESP_ERR_INVALID_ARG);
+        GFX_RETURN_IF_NULL(items, GFX_ERR_INVALID_ARG);
     }
 
     wheel = (gfx_wheel_t *)obj->src;
     if (item_count > 0U) {
         new_items = calloc(item_count, sizeof(char *));
         if (new_items == NULL) {
-            return ESP_ERR_NO_MEM;
+            return GFX_ERR_NO_MEM;
         }
     }
 
     for (uint16_t i = 0; i < item_count; i++) {
         ret = gfx_wheel_dup_text(items[i], &new_items[i]);
-        if (ret != ESP_OK) {
+        if (ret != GFX_OK) {
             for (uint16_t j = 0; j < i; j++) {
                 free(new_items[j]);
             }
@@ -708,7 +708,7 @@ gfx_err_t gfx_wheel_set_items(gfx_object_t *obj, const char *const *items, uint1
     wheel->scroll_y = 0;
     gfx_wheel_set_selected_internal(obj, wheel, wheel->selected_index, false);
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_wheel_set_selected(gfx_object_t *obj, int32_t index)
@@ -716,14 +716,14 @@ gfx_err_t gfx_wheel_set_selected(gfx_object_t *obj, int32_t index)
     gfx_wheel_t *wheel;
 
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     wheel = (gfx_wheel_t *)obj->src;
     if (!wheel->cyclic && (index < 0 || index >= wheel->item_count)) {
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
     gfx_wheel_set_selected_internal(obj, wheel, index, true);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_wheel_confirm(gfx_object_t *obj)
@@ -731,14 +731,14 @@ gfx_err_t gfx_wheel_confirm(gfx_object_t *obj)
     gfx_wheel_t *wheel;
 
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     wheel = (gfx_wheel_t *)obj->src;
     if (wheel->selected_index < 0 || wheel->selected_index >= (int32_t)wheel->item_count) {
-        return ESP_ERR_INVALID_STATE;
+        return GFX_ERR_INVALID_STATE;
     }
     gfx_wheel_emit_confirm(obj, wheel, wheel->selected_index);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 int32_t gfx_wheel_get_selected(gfx_object_t *obj)
@@ -775,7 +775,7 @@ const char *gfx_wheel_get_item_text(gfx_object_t *obj, uint16_t index)
 gfx_err_t gfx_wheel_set_font(gfx_object_t *obj, gfx_font_t font)
 {
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     return gfx_label_set_font_source(obj, &((gfx_wheel_t *)obj->src)->label, font);
 }
 
@@ -784,23 +784,23 @@ gfx_err_t gfx_wheel_set_item_height(gfx_object_t *obj, uint16_t height)
     gfx_wheel_t *wheel;
 
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
-    ESP_RETURN_ON_FALSE(height > 0U, ESP_ERR_INVALID_ARG, TAG, "item height must be > 0");
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
+    GFX_RETURN_ON_FALSE(height > 0U, GFX_ERR_INVALID_ARG, TAG, "item height must be > 0");
 
     wheel = (gfx_wheel_t *)obj->src;
     wheel->item_height = height;
     gfx_wheel_set_selected_internal(obj, wheel, wheel->selected_index, false);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_wheel_set_visible_rows(gfx_object_t *obj, uint8_t rows)
 {
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
-    ESP_RETURN_ON_FALSE(rows > 0U, ESP_ERR_INVALID_ARG, TAG, "visible rows must be > 0");
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
+    GFX_RETURN_ON_FALSE(rows > 0U, GFX_ERR_INVALID_ARG, TAG, "visible rows must be > 0");
     ((gfx_wheel_t *)obj->src)->visible_rows = rows;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_wheel_set_cyclic(gfx_object_t *obj, bool cyclic)
@@ -808,90 +808,90 @@ gfx_err_t gfx_wheel_set_cyclic(gfx_object_t *obj, bool cyclic)
     gfx_wheel_t *wheel;
 
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     wheel = (gfx_wheel_t *)obj->src;
     wheel->cyclic = cyclic;
     gfx_wheel_set_selected_internal(obj, wheel, wheel->selected_index, false);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_wheel_set_drag_threshold(gfx_object_t *obj, uint16_t threshold)
 {
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_wheel_t *)obj->src)->drag_threshold = threshold;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_wheel_set_value_cb(gfx_object_t *obj, gfx_wheel_value_cb_t cb, void *user_data)
 {
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_wheel_t *)obj->src)->value_cb = cb;
     ((gfx_wheel_t *)obj->src)->value_user_data = user_data;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_wheel_set_confirm_cb(gfx_object_t *obj, gfx_wheel_confirm_cb_t cb, void *user_data)
 {
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_wheel_t *)obj->src)->confirm_cb = cb;
     ((gfx_wheel_t *)obj->src)->confirm_user_data = user_data;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_wheel_set_bg_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_wheel_t *)obj->src)->style.bg_color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_wheel_set_text_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_wheel_t *)obj->src)->style.text_color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_wheel_set_center_bg_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_wheel_t *)obj->src)->style.center_bg_color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_wheel_set_center_text_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_wheel_t *)obj->src)->style.center_text_color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_wheel_set_border_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_wheel_t *)obj->src)->style.border_color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_wheel_set_border_width(gfx_object_t *obj, uint16_t width)
 {
     CHECK_OBJ_TYPE_WHEEL(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_wheel_t *)obj->src)->style.border_width = width;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }

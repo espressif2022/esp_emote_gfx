@@ -11,7 +11,6 @@
 #include <inttypes.h>
 #include <stdint.h>
 
-#include "esp_log.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_RENDER
 #include "common/gfx_log_priv.h"
 
@@ -197,7 +196,7 @@ static bool gfx_render_backend_fill(gfx_display_t *disp, const gfx_draw_ctx_t *c
         return false;
     }
 
-    return ops->fill(disp->backend, disp, &dst, area, color, opa) == ESP_OK;
+    return ops->fill(disp->backend, disp, &dst, area, color, opa) == GFX_OK;
 }
 
 static bool gfx_render_backend_draw_glyph(gfx_display_t *disp, const gfx_draw_ctx_t *ctx,
@@ -225,7 +224,7 @@ static bool gfx_render_backend_draw_glyph(gfx_display_t *disp, const gfx_draw_ct
         return false;
     }
 
-    return ops->draw_glyph(backend, disp, &dst, area, mask, mask_stride, color, opa) == ESP_OK;
+    return ops->draw_glyph(backend, disp, &dst, area, mask, mask_stride, color, opa) == GFX_OK;
 }
 
 static void gfx_render_fill_area(gfx_display_t *disp, const gfx_draw_ctx_t *ctx,
@@ -313,7 +312,7 @@ void gfx_render_draw_object_tree(gfx_display_t *disp, gfx_object_t *obj, const g
         return;
     }
 
-    if (gfx_object_load_resource(obj) != ESP_OK) {
+    if (gfx_object_load_resource(obj) != GFX_OK) {
         return;
     }
 
@@ -341,7 +340,7 @@ static void gfx_render_update_object_tree(gfx_object_t *obj)
         return;
     }
 
-    if (gfx_object_load_resource(obj) != ESP_OK) {
+    if (gfx_object_load_resource(obj) != GFX_OK) {
         return;
     }
 
@@ -535,13 +534,13 @@ bool gfx_render_backend_image(gfx_display_t *disp,
         if (ops->blend == NULL) {
             return false;
         }
-        return ops->blend(backend, disp, &dst, area, src, src_x, src_y, opa) == ESP_OK;
+        return ops->blend(backend, disp, &dst, area, src, src_x, src_y, opa) == GFX_OK;
     }
 
     if (ops->blit == NULL) {
         return false;
     }
-    return ops->blit(backend, disp, &dst, area, src, src_x, src_y) == ESP_OK;
+    return ops->blit(backend, disp, &dst, area, src, src_x, src_y) == GFX_OK;
 }
 
 bool gfx_render_surface_blit_image(gfx_display_t *disp,
@@ -684,7 +683,7 @@ bool gfx_render_backend_scale(gfx_display_t *disp,
         return false;
     }
 
-    return ops->scale(backend, disp, &dst, dst_area, src, src_area, opa) == ESP_OK;
+    return ops->scale(backend, disp, &dst, dst_area, src, src_area, opa) == GFX_OK;
 }
 
 bool gfx_render_surface_scale_image(gfx_display_t *disp,
@@ -840,11 +839,11 @@ void gfx_render_part_area(gfx_display_t *disp, gfx_area_t *area, uint8_t area_id
                                        chunk_x2, chunk_y2, dest_stride);
             if (flush_pixels == NULL ||
                     gfx_backend_flush(disp, chunk_x1, chunk_y1, chunk_x2, chunk_y2,
-                                      flush_pixels, dest_stride) != ESP_OK) {
+                                      flush_pixels, dest_stride) != GFX_OK) {
                 GFX_LOGE(TAG, "render area[%d]: backend flush failed", area_idx);
                 return;
             }
-            if (gfx_backend_wait_flush(disp) != ESP_OK) {
+            if (gfx_backend_wait_flush(disp) != GFX_OK) {
                 GFX_LOGE(TAG, "render area[%d]: backend wait failed", area_idx);
                 return;
             }

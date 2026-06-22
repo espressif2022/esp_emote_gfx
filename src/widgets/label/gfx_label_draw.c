@@ -12,9 +12,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include "esp_log.h"
-#include "esp_err.h"
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_LABEL_DRAW
 #include "common/gfx_config_internal.h"
 #include "common/gfx_log_priv.h"
@@ -123,9 +121,9 @@ static size_t gfx_glyph_cache_get_page_capacity(size_t bitmap_size);
 static uint8_t *gfx_glyph_cache_alloc_atlas(gfx_font_glyph_cache_t *cache, size_t bitmap_size,
         gfx_glyph_atlas_page_t **out_page);
 static void gfx_glyph_cache_log_stats(const gfx_font_glyph_cache_t *cache, const char *reason);
-static esp_err_t gfx_glyph_cache_build_placeholder(gfx_font_handle_t font, gfx_font_glyph_cache_t *cache,
+static gfx_err_t gfx_glyph_cache_build_placeholder(gfx_font_handle_t font, gfx_font_glyph_cache_t *cache,
         gfx_label_glyph_cache_entry_t *entry);
-static esp_err_t gfx_get_cached_glyph(gfx_font_handle_t font, uint32_t unicode,
+static gfx_err_t gfx_get_cached_glyph(gfx_font_handle_t font, uint32_t unicode,
                                       gfx_label_glyph_cache_entry_t **out_entry);
 static int gfx_calculate_text_width(gfx_font_handle_t font, const char *text, const char *text_end);
 static bool gfx_label_line_iter_next(gfx_object_t *obj, gfx_font_handle_t font, gfx_label_line_iter_t *iter);
@@ -134,7 +132,7 @@ static inline gfx_font_handle_t gfx_label_get_font_handle(const gfx_label_t *lab
 {
     return (label != NULL) ? label->font.handle : NULL;
 }
-static esp_err_t gfx_render_text_to_mask(gfx_object_t *obj, gfx_opa_t *mask, gfx_color_t *color_mask,
+static gfx_err_t gfx_render_text_to_mask(gfx_object_t *obj, gfx_opa_t *mask, gfx_color_t *color_mask,
         int line_height, int total_line_height);
 
 void gfx_label_clear_glyph_cache(gfx_label_t *label)
@@ -719,11 +717,11 @@ static bool gfx_unicode_needs_placeholder(uint32_t unicode)
            unicode != 0xFEFFU;
 }
 
-static esp_err_t gfx_glyph_cache_build_placeholder(gfx_font_handle_t font, gfx_font_glyph_cache_t *cache,
+static gfx_err_t gfx_glyph_cache_build_placeholder(gfx_font_handle_t font, gfx_font_glyph_cache_t *cache,
         gfx_label_glyph_cache_entry_t *entry)
 {
     if (font == NULL || cache == NULL || entry == NULL || !gfx_unicode_needs_placeholder(entry->unicode)) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     int line_height = font->get_line_height(font);
@@ -746,12 +744,12 @@ static esp_err_t gfx_glyph_cache_build_placeholder(gfx_font_handle_t font, gfx_f
     size_t bitmap_size = (size_t)box_w * (size_t)box_h;
     gfx_glyph_cache_trim(cache, bitmap_size);
     if (cache->allocated_bytes + bitmap_size > GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES) {
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
 
     uint8_t *bitmap = malloc(bitmap_size);
     if (bitmap == NULL) {
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
 
     memset(bitmap, 0, bitmap_size);
@@ -782,17 +780,17 @@ static esp_err_t gfx_glyph_cache_build_placeholder(gfx_font_handle_t font, gfx_f
     cache->glyph_bitmap_bytes += bitmap_size;
     cache->fallback_alloc_count++;
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_get_cached_glyph(gfx_font_handle_t font, uint32_t unicode,
+static gfx_err_t gfx_get_cached_glyph(gfx_font_handle_t font, uint32_t unicode,
                                       gfx_label_glyph_cache_entry_t **out_entry)
 {
     gfx_font_glyph_cache_t *cache = font ? font->glyph_cache : NULL;
     if (cache == NULL) {
         cache = gfx_font_cache_acquire(font);
     }
-    ESP_RETURN_ON_FALSE(cache != NULL, ESP_ERR_NO_MEM, TAG, "no mem for shared glyph cache");
+    GFX_RETURN_ON_FALSE(cache != NULL, GFX_ERR_NO_MEM, TAG, "no mem for shared glyph cache");
 
     gfx_label_glyph_cache_entry_t *prev = NULL;
     gfx_label_glyph_cache_entry_t *entry = cache->glyphs;
@@ -806,7 +804,7 @@ static esp_err_t gfx_get_cached_glyph(gfx_font_handle_t font, uint32_t unicode,
                 gfx_glyph_cache_log_stats(cache, "periodic");
             }
             *out_entry = (prev != NULL) ? cache->glyphs : entry;
-            return ESP_OK;
+            return GFX_OK;
         }
         prev = entry;
         entry = entry->next;
@@ -815,7 +813,7 @@ static esp_err_t gfx_get_cached_glyph(gfx_font_handle_t font, uint32_t unicode,
     cache->miss_count++;
 
     entry = calloc(1, sizeof(*entry));
-    ESP_RETURN_ON_FALSE(entry != NULL, ESP_ERR_NO_MEM, TAG, "no mem for glyph cache entry");
+    GFX_RETURN_ON_FALSE(entry != NULL, GFX_ERR_NO_MEM, TAG, "no mem for glyph cache entry");
 
     entry->unicode = unicode;
     entry->available = font->get_glyph_dsc(font, &entry->glyph_dsc, unicode, 0);
@@ -836,13 +834,13 @@ static esp_err_t gfx_get_cached_glyph(gfx_font_handle_t font, uint32_t unicode,
                 gfx_glyph_cache_trim(cache, bitmap_size);
                 if (cache->allocated_bytes + bitmap_size > GFX_LABEL_GLYPH_CACHE_MAX_BITMAP_BYTES) {
                     free(entry);
-                    return ESP_ERR_NO_MEM;
+                    return GFX_ERR_NO_MEM;
                 }
 
                 entry->alpha_bitmap = malloc(bitmap_size);
                 if (entry->alpha_bitmap == NULL) {
                     free(entry);
-                    return ESP_ERR_NO_MEM;
+                    return GFX_ERR_NO_MEM;
                 }
                 cache->allocated_bytes += bitmap_size;
                 cache->fallback_alloc_count++;
@@ -865,8 +863,8 @@ static esp_err_t gfx_get_cached_glyph(gfx_font_handle_t font, uint32_t unicode,
              ((entry->glyph_dsc.box_w == 0 && entry->glyph_dsc.box_h == 0) ||
               (entry->glyph_dsc.box_w > 0 && entry->glyph_dsc.box_h > 0)) &&
              entry->alpha_bitmap == NULL)) {
-        esp_err_t placeholder_ret = gfx_glyph_cache_build_placeholder(font, cache, entry);
-        if (placeholder_ret != ESP_OK) {
+        gfx_err_t placeholder_ret = gfx_glyph_cache_build_placeholder(font, cache, entry);
+        if (placeholder_ret != GFX_OK) {
             if (entry->alpha_bitmap != NULL && !entry->alpha_in_atlas) {
                 free(entry->alpha_bitmap);
             }
@@ -882,14 +880,14 @@ static esp_err_t gfx_get_cached_glyph(gfx_font_handle_t font, uint32_t unicode,
         gfx_glyph_cache_log_stats(cache, "insert");
     }
     *out_entry = entry;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static int gfx_get_glyph_advance_width(gfx_font_handle_t font, uint32_t unicode)
 {
     gfx_label_glyph_cache_entry_t *entry = NULL;
 
-    if (gfx_get_cached_glyph(font, unicode, &entry) != ESP_OK || entry == NULL || !entry->available) {
+    if (gfx_get_cached_glyph(font, unicode, &entry) != GFX_OK || entry == NULL || !entry->available) {
         return 0;
     }
 
@@ -1054,7 +1052,7 @@ static void gfx_render_glyph_to_mask(gfx_opa_t *mask, gfx_color_t *color_mask, i
     }
 }
 
-static esp_err_t gfx_render_line_to_mask(gfx_object_t *obj, gfx_opa_t *mask, gfx_color_t *color_mask,
+static gfx_err_t gfx_render_line_to_mask(gfx_object_t *obj, gfx_opa_t *mask, gfx_color_t *color_mask,
         const gfx_label_line_iter_t *line, int y_pos)
 {
     gfx_label_t *label = (gfx_label_t *)obj->src;
@@ -1071,7 +1069,7 @@ static esp_err_t gfx_render_line_to_mask(gfx_object_t *obj, gfx_opa_t *mask, gfx
         start_x -= label->render.offset;
     }
 
-    /* For snap mode, find the last complete word that fits in viewport */
+    /* For snap mode, find the last complete word that fits in entryport */
     const char *render_end = NULL;
     if (label->text.long_mode == GFX_LABEL_LONG_SCROLL_SNAP) {
         int scan_x = start_x;
@@ -1093,11 +1091,11 @@ static esp_err_t gfx_render_line_to_mask(gfx_object_t *obj, gfx_opa_t *mask, gfx
 
             uint8_t c = (uint8_t) * p_before;
             gfx_label_glyph_cache_entry_t *glyph_entry = NULL;
-            if (gfx_get_cached_glyph(font, unicode, &glyph_entry) == ESP_OK &&
+            if (gfx_get_cached_glyph(font, unicode, &glyph_entry) == GFX_OK &&
                     glyph_entry != NULL && glyph_entry->available) {
                 int char_width = glyph_entry->advance_width;
 
-                /* Check if this character would go beyond viewport */
+                /* Check if this character would go beyond entryport */
                 if (scan_x + char_width > obj->geometry.width) {
                     /* Use last space position if available, otherwise last complete character */
                     render_end = last_space_ptr ? last_space_ptr : last_valid_ptr;
@@ -1140,7 +1138,7 @@ static esp_err_t gfx_render_line_to_mask(gfx_object_t *obj, gfx_opa_t *mask, gfx
         }
 
         gfx_label_glyph_cache_entry_t *glyph_entry = NULL;
-        if (gfx_get_cached_glyph(font, unicode, &glyph_entry) != ESP_OK ||
+        if (gfx_get_cached_glyph(font, unicode, &glyph_entry) != GFX_OK ||
                 glyph_entry == NULL || !glyph_entry->available) {
             continue;
         }
@@ -1161,10 +1159,10 @@ static esp_err_t gfx_render_line_to_mask(gfx_object_t *obj, gfx_opa_t *mask, gfx
         }
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_render_text_to_mask(gfx_object_t *obj, gfx_opa_t *mask, gfx_color_t *color_mask,
+static gfx_err_t gfx_render_text_to_mask(gfx_object_t *obj, gfx_opa_t *mask, gfx_color_t *color_mask,
         int line_height, int total_line_height)
 {
     gfx_label_t *label = (gfx_label_t *)obj->src;
@@ -1198,7 +1196,7 @@ static esp_err_t gfx_render_text_to_mask(gfx_object_t *obj, gfx_opa_t *mask, gfx
         current_y += total_line_height;
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static gfx_opa_t *gfx_allocate_mask_buffer(gfx_object_t *obj, gfx_color_t **out_color_mask)
@@ -1254,7 +1252,7 @@ static gfx_opa_t *gfx_allocate_mask_buffer(gfx_object_t *obj, gfx_color_t **out_
     return label->render.mask;
 }
 
-static esp_err_t gfx_render_parse(gfx_object_t *obj, gfx_opa_t *mask, gfx_color_t *color_mask)
+static gfx_err_t gfx_render_parse(gfx_object_t *obj, gfx_opa_t *mask, gfx_color_t *color_mask)
 {
     gfx_label_t *label = (gfx_label_t *)obj->src;
     gfx_font_handle_t font = gfx_label_get_font_handle(label);
@@ -1285,29 +1283,29 @@ static void gfx_label_make_text_box_object(gfx_object_t *owner, gfx_label_t *lab
     box->state.dirty = true;
 }
 
-esp_err_t gfx_label_text_box_update(gfx_object_t *owner, gfx_label_t *label, const gfx_area_t *area)
+gfx_err_t gfx_label_text_box_update(gfx_object_t *owner, gfx_label_t *label, const gfx_area_t *area)
 {
     gfx_object_t box;
 
-    GFX_RETURN_IF_NULL(owner, ESP_ERR_INVALID_ARG);
-    GFX_RETURN_IF_NULL(label, ESP_ERR_INVALID_STATE);
-    GFX_RETURN_IF_NULL(area, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(owner, GFX_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(label, GFX_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(area, GFX_ERR_INVALID_ARG);
 
     gfx_label_make_text_box_object(owner, label, area, &box);
     return gfx_label_update_impl(&box);
 }
 
-esp_err_t gfx_label_text_box_draw(gfx_object_t *owner, gfx_label_t *label, const gfx_draw_ctx_t *ctx,
+gfx_err_t gfx_label_text_box_draw(gfx_object_t *owner, gfx_label_t *label, const gfx_draw_ctx_t *ctx,
                                   const gfx_area_t *area, const gfx_area_t *clip)
 {
     gfx_object_t box;
     gfx_draw_ctx_t text_ctx;
 
-    GFX_RETURN_IF_NULL(owner, ESP_ERR_INVALID_ARG);
-    GFX_RETURN_IF_NULL(label, ESP_ERR_INVALID_STATE);
-    GFX_RETURN_IF_NULL(ctx, ESP_ERR_INVALID_ARG);
-    GFX_RETURN_IF_NULL(area, ESP_ERR_INVALID_ARG);
-    GFX_RETURN_IF_NULL(clip, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(owner, GFX_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(label, GFX_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(ctx, GFX_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(area, GFX_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(clip, GFX_ERR_INVALID_ARG);
 
     text_ctx = *ctx;
     text_ctx.clip_area = *clip;
@@ -1316,31 +1314,31 @@ esp_err_t gfx_label_text_box_draw(gfx_object_t *owner, gfx_label_t *label, const
     return gfx_label_draw(&box, &text_ctx);
 }
 
-esp_err_t gfx_label_prepare_glyphs(gfx_object_t *obj)
+gfx_err_t gfx_label_prepare_glyphs(gfx_object_t *obj)
 {
-    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(obj, GFX_ERR_INVALID_ARG);
 
     if (!obj->state.dirty) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
     gfx_font_handle_t font = gfx_label_get_font_handle(label);
     if (font == NULL) {
         GFX_LOGD(TAG, "font adapter is NULL");
-        return ESP_OK;
+        return GFX_OK;
     }
 
     gfx_opa_t *mask_buf = NULL;
     gfx_color_t *color_mask = NULL;
 
     mask_buf = gfx_allocate_mask_buffer(obj, &color_mask);
-    ESP_RETURN_ON_FALSE(mask_buf, ESP_ERR_NO_MEM, TAG, "no mem for mask_buf");
+    GFX_RETURN_ON_FALSE(mask_buf, GFX_ERR_NO_MEM, TAG, "no mem for mask_buf");
 
-    esp_err_t render_ret;
+    gfx_err_t render_ret;
     render_ret = gfx_render_parse(obj, mask_buf, color_mask);
 
-    if (render_ret != ESP_OK) {
+    if (render_ret != GFX_OK) {
         return render_ret;
     }
 
@@ -1349,7 +1347,7 @@ esp_err_t gfx_label_prepare_glyphs(gfx_object_t *obj)
 
     gfx_update_scroll_state(obj);
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
 /**
@@ -1362,7 +1360,7 @@ esp_err_t gfx_label_prepare_glyphs(gfx_object_t *obj)
  * @param y2 Bottom boundary of destination area
  * @param dest_buf Destination buffer for blending
  */
-esp_err_t gfx_label_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
+gfx_err_t gfx_label_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 {
     gfx_render_surface_t dst_surface = {
         .buf = ctx->buf,
@@ -1373,13 +1371,13 @@ esp_err_t gfx_label_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     };
     if (!obj || !ctx) {
         GFX_LOGE(TAG, "invalid handle");
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
     if (label->text.text == NULL) {
         GFX_LOGD(TAG, "text is NULL");
-        return ESP_OK;
+        return GFX_OK;
     }
 
     gfx_area_t render_area = ctx->clip_area;
@@ -1387,11 +1385,11 @@ esp_err_t gfx_label_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     gfx_area_t clip_area;
 
     if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     if (!gfx_area_intersect_exclusive(&clip_area, &render_area, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     if (label->style.bg_enable) {
@@ -1400,7 +1398,7 @@ esp_err_t gfx_label_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     }
 
     if (!label->render.mask) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     gfx_coord_t mask_stride = obj->geometry.width;
@@ -1422,5 +1420,5 @@ esp_err_t gfx_label_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
         gfx_render_surface_draw_mask(obj->disp, &dst_surface, &clip_area,
                                      mask, mask_stride, color, label->style.opa);
     }
-    return ESP_OK;
+    return GFX_OK;
 }

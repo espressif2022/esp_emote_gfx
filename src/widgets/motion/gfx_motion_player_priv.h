@@ -9,7 +9,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "esp_err.h"
 #include "common/gfx_config_internal.h"
 #include "common/gfx_mesh_frac.h"
 #include "core/gfx_obj.h"
@@ -102,19 +101,19 @@ struct gfx_motion_player {
 };
 
 uint8_t gfx_motion_player_ring_segs(float radius);
-esp_err_t gfx_motion_player_apply_capsule(gfx_object_t *obj,
+gfx_err_t gfx_motion_player_apply_capsule(gfx_object_t *obj,
         const gfx_motion_player_screen_point_t *a,
         const gfx_motion_player_screen_point_t *b,
         int32_t thick);
-esp_err_t gfx_motion_player_apply_ring(gfx_object_t *obj,
+gfx_err_t gfx_motion_player_apply_ring(gfx_object_t *obj,
                                        gfx_motion_player_runtime_scratch_t *scratch,
                                        const gfx_motion_player_screen_point_t *c,
                                        int32_t radius, int32_t thick, uint8_t segs);
-esp_err_t gfx_motion_player_apply_bezier(gfx_object_t *obj,
+gfx_err_t gfx_motion_player_apply_bezier(gfx_object_t *obj,
         gfx_motion_player_runtime_scratch_t *scratch,
         const gfx_motion_player_screen_point_t *ctrl,
         uint8_t n, int32_t thick, bool loop);
-esp_err_t gfx_motion_player_apply_bezier_fill(gfx_object_t *obj,
+gfx_err_t gfx_motion_player_apply_bezier_fill(gfx_object_t *obj,
         gfx_motion_player_runtime_scratch_t *scratch,
         const gfx_motion_player_screen_point_t *ctrl,
         uint8_t n);
@@ -126,11 +125,11 @@ gfx_color_t gfx_motion_player_resolve_fill_color(const gfx_motion_player_t *rt,
         const gfx_motion_segment_t *seg);
 bool gfx_motion_player_segment_layer_visible(const gfx_motion_player_t *rt,
         const gfx_motion_segment_t *seg);
-esp_err_t gfx_motion_player_apply_resource_uv(const gfx_motion_player_t *rt, uint8_t seg_idx,
+gfx_err_t gfx_motion_player_apply_resource_uv(const gfx_motion_player_t *rt, uint8_t seg_idx,
         gfx_object_t *obj, uint8_t cols, uint8_t rows);
-esp_err_t gfx_motion_player_bind_segment_style(gfx_motion_player_t *player, uint8_t seg_idx,
+gfx_err_t gfx_motion_player_bind_segment_style(gfx_motion_player_t *player, uint8_t seg_idx,
         gfx_object_t *obj, const gfx_image_src_t *solid_src);
-esp_err_t gfx_motion_player_bind_style_common(gfx_motion_player_t *player,
+gfx_err_t gfx_motion_player_bind_style_common(gfx_motion_player_t *player,
         const gfx_motion_segment_t *seg, gfx_object_t *obj, const gfx_image_src_t *solid_src);
 
 #ifdef __cplusplus

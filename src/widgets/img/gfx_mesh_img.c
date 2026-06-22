@@ -11,8 +11,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "esp_check.h"
-#include "esp_err.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_MESH_IMG
 #define GFX_LOG_TAG    "mesh_img"
 #include "common/gfx_log_priv.h"
@@ -71,14 +70,14 @@ typedef struct {
  *  STATIC PROTOTYPES
  **********************/
 
-static esp_err_t gfx_mesh_img_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
-static esp_err_t gfx_mesh_img_delete_impl(gfx_object_t *obj);
-static esp_err_t gfx_mesh_img_load_impl(gfx_object_t *obj);
+static gfx_err_t gfx_mesh_img_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
+static gfx_err_t gfx_mesh_img_delete_impl(gfx_object_t *obj);
+static gfx_err_t gfx_mesh_img_load_impl(gfx_object_t *obj);
 static void gfx_mesh_img_release_impl(gfx_object_t *obj);
 static void gfx_mesh_img_free_points(gfx_mesh_img_t *mesh);
 static void gfx_mesh_img_free_scratch(gfx_mesh_img_t *mesh);
-static esp_err_t gfx_mesh_img_alloc_points(gfx_mesh_img_t *mesh, uint8_t cols, uint8_t rows);
-static esp_err_t gfx_mesh_img_alloc_scratch(gfx_mesh_img_t *mesh);
+static gfx_err_t gfx_mesh_img_alloc_points(gfx_mesh_img_t *mesh, uint8_t cols, uint8_t rows);
+static gfx_err_t gfx_mesh_img_alloc_scratch(gfx_mesh_img_t *mesh);
 static void gfx_mesh_img_update_bounds(gfx_object_t *obj, gfx_mesh_img_t *mesh);
 static void gfx_mesh_img_reset_rest_points(gfx_mesh_img_t *mesh);
 static void gfx_mesh_img_get_draw_origin_q8(const gfx_area_t *obj_area, const gfx_mesh_img_t *mesh,
@@ -193,43 +192,43 @@ static void gfx_mesh_img_free_scratch(gfx_mesh_img_t *mesh)
     mesh->scanline_capacity = 0U;
 }
 
-static esp_err_t gfx_mesh_img_alloc_scratch(gfx_mesh_img_t *mesh)
+static gfx_err_t gfx_mesh_img_alloc_scratch(gfx_mesh_img_t *mesh)
 {
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_ARG, TAG, "mesh state is NULL");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_ARG, TAG, "mesh state is NULL");
 
     gfx_mesh_img_free_scratch(mesh);
 
     mesh->scanline_vx = calloc(GFX_MESH_IMG_SCANLINE_MAX_VERTS, sizeof(*mesh->scanline_vx));
-    ESP_RETURN_ON_FALSE(mesh->scanline_vx != NULL, ESP_ERR_NO_MEM, TAG, "no mem for scanline vx");
+    GFX_RETURN_ON_FALSE(mesh->scanline_vx != NULL, GFX_ERR_NO_MEM, TAG, "no mem for scanline vx");
 
     mesh->scanline_vy = calloc(GFX_MESH_IMG_SCANLINE_MAX_VERTS, sizeof(*mesh->scanline_vy));
     if (mesh->scanline_vy == NULL) {
         gfx_mesh_img_free_scratch(mesh);
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
 
     mesh->scanline_capacity = GFX_MESH_IMG_SCANLINE_MAX_VERTS;
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_mesh_img_alloc_points(gfx_mesh_img_t *mesh, uint8_t cols, uint8_t rows)
+static gfx_err_t gfx_mesh_img_alloc_points(gfx_mesh_img_t *mesh, uint8_t cols, uint8_t rows)
 {
     size_t point_count;
     gfx_mesh_img_point_q8_t *new_rest_points;
     gfx_mesh_img_point_q8_t *new_points;
 
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_ARG, TAG, "mesh state is NULL");
-    ESP_RETURN_ON_FALSE(cols > 0U && rows > 0U, ESP_ERR_INVALID_ARG, TAG, "grid must be at least 1x1");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_ARG, TAG, "mesh state is NULL");
+    GFX_RETURN_ON_FALSE(cols > 0U && rows > 0U, GFX_ERR_INVALID_ARG, TAG, "grid must be at least 1x1");
 
     point_count = (size_t)(cols + 1U) * (size_t)(rows + 1U);
 
     new_rest_points = calloc(point_count, sizeof(gfx_mesh_img_point_q8_t));
-    ESP_RETURN_ON_FALSE(new_rest_points != NULL, ESP_ERR_NO_MEM, TAG, "no mem for rest points");
+    GFX_RETURN_ON_FALSE(new_rest_points != NULL, GFX_ERR_NO_MEM, TAG, "no mem for rest points");
 
     new_points = calloc(point_count, sizeof(gfx_mesh_img_point_q8_t));
     if (new_points == NULL) {
         free(new_rest_points);
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
 
     gfx_mesh_img_free_points(mesh);
@@ -238,7 +237,7 @@ static esp_err_t gfx_mesh_img_alloc_points(gfx_mesh_img_t *mesh, uint8_t cols, u
     mesh->grid_cols = cols;
     mesh->grid_rows = rows;
     mesh->point_count = point_count;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static void gfx_mesh_img_reset_rest_points(gfx_mesh_img_t *mesh)
@@ -381,7 +380,7 @@ static void gfx_mesh_img_draw_ctrl_points(gfx_object_t *obj, const gfx_draw_ctx_
     }
 }
 
-static esp_err_t gfx_mesh_img_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
+static gfx_err_t gfx_mesh_img_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 {
     gfx_mesh_img_t *mesh;
     gfx_area_t obj_area;
@@ -397,42 +396,42 @@ static esp_err_t gfx_mesh_img_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 
     if (obj == NULL || obj->src == NULL || ctx == NULL) {
         GFX_LOGE("draw mesh image: invalid object or source");
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     if (obj->type != GFX_OBJ_TYPE_MESH_IMAGE) {
         GFX_LOGE("draw mesh image: object type mismatch");
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     mesh = (gfx_mesh_img_t *)obj->src;
     if (mesh->resource.src.data == NULL) {
         GFX_LOGD("draw mesh image: source descriptor has no payload");
-        return ESP_ERR_INVALID_STATE;
+        return GFX_ERR_INVALID_STATE;
     }
     if (mesh->opacity == 0U) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     color_format = gfx_image_resource_format(&mesh->resource);
     if (!gfx_color_format_is_image_supported(color_format)) {
         GFX_LOGW("draw mesh image: unsupported color format %u", color_format);
-        return ESP_ERR_NOT_SUPPORTED;
+        return GFX_ERR_NOT_SUPPORTED;
     }
 
     if (!gfx_image_resource_is_open(&mesh->resource)) {
         GFX_LOGE("draw mesh image: resource is not loaded");
-        return ESP_ERR_INVALID_STATE;
+        return GFX_ERR_INVALID_STATE;
     }
 
     if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     gfx_mesh_img_get_draw_origin_q8(&obj_area, mesh, &origin_x_q8, &origin_y_q8);
 
     if (!gfx_area_intersect_exclusive(&clip_area, &ctx->clip_area, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     uint8_t src_pixel_size = gfx_image_resource_pixel_size(&mesh->resource);
@@ -484,7 +483,7 @@ static esp_err_t gfx_mesh_img_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 
         if (scanline_drawn) {
             gfx_mesh_img_draw_ctrl_points(obj, ctx, mesh);
-            return ESP_OK;
+            return GFX_OK;
         }
     }
 
@@ -745,10 +744,10 @@ static esp_err_t gfx_mesh_img_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     }
 
     gfx_mesh_img_draw_ctrl_points(obj, ctx, mesh);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_mesh_img_delete_impl(gfx_object_t *obj)
+static gfx_err_t gfx_mesh_img_delete_impl(gfx_object_t *obj)
 {
     gfx_mesh_img_t *mesh;
 
@@ -763,18 +762,18 @@ static esp_err_t gfx_mesh_img_delete_impl(gfx_object_t *obj)
         obj->src = NULL;
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_mesh_img_load_impl(gfx_object_t *obj)
+static gfx_err_t gfx_mesh_img_load_impl(gfx_object_t *obj)
 {
     gfx_mesh_img_t *mesh;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "load mesh image: state is NULL");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "load mesh image: state is NULL");
     if (mesh->resource.src.data == NULL) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     return gfx_image_resource_open(&mesh->resource);
@@ -813,13 +812,13 @@ gfx_object_t *gfx_mesh_img_create(gfx_display_t *disp)
     }
     mesh->opacity = 0xFFU;
 
-    if (gfx_mesh_img_alloc_points(mesh, GFX_MESH_IMG_DEFAULT_COLS, GFX_MESH_IMG_DEFAULT_ROWS) != ESP_OK) {
+    if (gfx_mesh_img_alloc_points(mesh, GFX_MESH_IMG_DEFAULT_COLS, GFX_MESH_IMG_DEFAULT_ROWS) != GFX_OK) {
         free(mesh);
         return NULL;
     }
 
     if (gfx_object_create_class_instance(disp, &s_gfx_mesh_img_widget_class,
-                                         mesh, 0, 0, "gfx_mesh_img_create", &obj) != ESP_OK) {
+                                         mesh, 0, 0, "gfx_mesh_img_create", &obj) != GFX_OK) {
         gfx_mesh_img_free_points(mesh);
         gfx_mesh_img_free_scratch(mesh);
         free(mesh);
@@ -830,16 +829,16 @@ gfx_object_t *gfx_mesh_img_create(gfx_display_t *disp)
     return obj;
 }
 
-esp_err_t gfx_mesh_img_set_src_desc(gfx_object_t *obj, const gfx_image_src_t *src)
+gfx_err_t gfx_mesh_img_set_src_desc(gfx_object_t *obj, const gfx_image_src_t *src)
 {
     gfx_mesh_img_t *mesh;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
 
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh image src: state is NULL");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "set mesh image src: state is NULL");
 
-    ESP_RETURN_ON_ERROR(gfx_image_resource_set_source(&mesh->resource, src), TAG, "set mesh image src failed");
+    GFX_RETURN_ON_ERROR(gfx_image_resource_set_source(&mesh->resource, src), TAG, "set mesh image src failed");
 
     gfx_object_invalidate(obj);
 
@@ -851,20 +850,20 @@ esp_err_t gfx_mesh_img_set_src_desc(gfx_object_t *obj, const gfx_image_src_t *sr
 
     GFX_LOGD("set mesh image src: %ux%u grid=%ux%u",
              mesh->resource.header.w, mesh->resource.header.h, mesh->grid_cols, mesh->grid_rows);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_mesh_img_set_source_rect(gfx_object_t *obj, const gfx_image_src_t *src,
+gfx_err_t gfx_mesh_img_set_source_rect(gfx_object_t *obj, const gfx_image_src_t *src,
                                        uint16_t width, uint16_t height)
 {
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
-    ESP_RETURN_ON_ERROR(gfx_mesh_img_set_src_desc(obj, src), TAG, "set mesh source rect: set source failed");
-    ESP_RETURN_ON_ERROR(gfx_mesh_img_set_grid(obj, GFX_MESH_IMG_DEFAULT_COLS, GFX_MESH_IMG_DEFAULT_ROWS),
+    GFX_RETURN_ON_ERROR(gfx_mesh_img_set_src_desc(obj, src), TAG, "set mesh source rect: set source failed");
+    GFX_RETURN_ON_ERROR(gfx_mesh_img_set_grid(obj, GFX_MESH_IMG_DEFAULT_COLS, GFX_MESH_IMG_DEFAULT_ROWS),
                         TAG, "set mesh source rect: set default grid failed");
     return gfx_mesh_img_set_rect(obj, width, height);
 }
 
-esp_err_t gfx_mesh_img_set_image_rect(gfx_object_t *obj, const gfx_image_dsc_t *image,
+gfx_err_t gfx_mesh_img_set_image_rect(gfx_object_t *obj, const gfx_image_dsc_t *image,
                                       uint16_t width, uint16_t height)
 {
     const gfx_image_src_t src = {
@@ -875,23 +874,23 @@ esp_err_t gfx_mesh_img_set_image_rect(gfx_object_t *obj, const gfx_image_dsc_t *
     return gfx_mesh_img_set_source_rect(obj, &src, width, height);
 }
 
-esp_err_t gfx_mesh_img_set_grid(gfx_object_t *obj, uint8_t cols, uint8_t rows)
+gfx_err_t gfx_mesh_img_set_grid(gfx_object_t *obj, uint8_t cols, uint8_t rows)
 {
     gfx_mesh_img_t *mesh;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh grid: state is NULL");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "set mesh grid: state is NULL");
 
     gfx_object_invalidate(obj);
-    ESP_RETURN_ON_ERROR(gfx_mesh_img_alloc_points(mesh, cols, rows), TAG, "set mesh grid: alloc points failed");
+    GFX_RETURN_ON_ERROR(gfx_mesh_img_alloc_points(mesh, cols, rows), TAG, "set mesh grid: alloc points failed");
     gfx_mesh_img_reset_rest_points(mesh);
     gfx_mesh_img_update_bounds(obj, mesh);
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
 
     GFX_LOGD("set mesh grid: %ux%u", cols, rows);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 size_t gfx_mesh_img_get_point_count(gfx_object_t *obj)
@@ -906,23 +905,23 @@ size_t gfx_mesh_img_get_point_count(gfx_object_t *obj)
     return mesh->point_count;
 }
 
-esp_err_t gfx_mesh_img_get_point(gfx_object_t *obj, size_t point_idx, gfx_mesh_img_point_t *point)
+gfx_err_t gfx_mesh_img_get_point(gfx_object_t *obj, size_t point_idx, gfx_mesh_img_point_t *point)
 {
     gfx_mesh_img_t *mesh;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
-    ESP_RETURN_ON_FALSE(point != NULL, ESP_ERR_INVALID_ARG, TAG, "get mesh point: output is NULL");
+    GFX_RETURN_ON_FALSE(point != NULL, GFX_ERR_INVALID_ARG, TAG, "get mesh point: output is NULL");
 
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "get mesh point: state is NULL");
-    ESP_RETURN_ON_FALSE(point_idx < mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "get mesh point: index out of range");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "get mesh point: state is NULL");
+    GFX_RETURN_ON_FALSE(point_idx < mesh->point_count, GFX_ERR_INVALID_ARG, TAG, "get mesh point: index out of range");
 
     point->x = gfx_mesh_img_round_q8_to_coord(mesh->points[point_idx].x_q8);
     point->y = gfx_mesh_img_round_q8_to_coord(mesh->points[point_idx].y_q8);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_mesh_img_get_point_screen(gfx_object_t *obj, size_t point_idx, gfx_coord_t *x, gfx_coord_t *y)
+gfx_err_t gfx_mesh_img_get_point_screen(gfx_object_t *obj, size_t point_idx, gfx_coord_t *x, gfx_coord_t *y)
 {
     gfx_mesh_img_t *mesh;
     gfx_area_t obj_area;
@@ -930,36 +929,36 @@ esp_err_t gfx_mesh_img_get_point_screen(gfx_object_t *obj, size_t point_idx, gfx
     int32_t origin_y_q8;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
-    ESP_RETURN_ON_FALSE(x != NULL && y != NULL, ESP_ERR_INVALID_ARG, TAG, "get mesh point screen: output is NULL");
+    GFX_RETURN_ON_FALSE(x != NULL && y != NULL, GFX_ERR_INVALID_ARG, TAG, "get mesh point screen: output is NULL");
 
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "get mesh point screen: state is NULL");
-    ESP_RETURN_ON_FALSE(point_idx < mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "get mesh point screen: index out of range");
-    ESP_RETURN_ON_FALSE(gfx_object_get_abs_area_exclusive(obj, &obj_area), ESP_ERR_INVALID_STATE,
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "get mesh point screen: state is NULL");
+    GFX_RETURN_ON_FALSE(point_idx < mesh->point_count, GFX_ERR_INVALID_ARG, TAG, "get mesh point screen: index out of range");
+    GFX_RETURN_ON_FALSE(gfx_object_get_abs_area_exclusive(obj, &obj_area), GFX_ERR_INVALID_STATE,
                         TAG, "get mesh point screen: object has no visible absolute area");
 
     gfx_mesh_img_get_draw_origin_q8(&obj_area, mesh, &origin_x_q8, &origin_y_q8);
     *x = gfx_mesh_img_round_q8_to_coord(origin_x_q8 + mesh->points[point_idx].x_q8);
     *y = gfx_mesh_img_round_q8_to_coord(origin_y_q8 + mesh->points[point_idx].y_q8);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_mesh_img_get_point_q8(gfx_object_t *obj, size_t point_idx, gfx_mesh_img_point_q8_t *point)
+gfx_err_t gfx_mesh_img_get_point_q8(gfx_object_t *obj, size_t point_idx, gfx_mesh_img_point_q8_t *point)
 {
     gfx_mesh_img_t *mesh;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
-    ESP_RETURN_ON_FALSE(point != NULL, ESP_ERR_INVALID_ARG, TAG, "get mesh point q8: output is NULL");
+    GFX_RETURN_ON_FALSE(point != NULL, GFX_ERR_INVALID_ARG, TAG, "get mesh point q8: output is NULL");
 
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "get mesh point q8: state is NULL");
-    ESP_RETURN_ON_FALSE(point_idx < mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "get mesh point q8: index out of range");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "get mesh point q8: state is NULL");
+    GFX_RETURN_ON_FALSE(point_idx < mesh->point_count, GFX_ERR_INVALID_ARG, TAG, "get mesh point q8: index out of range");
 
     *point = mesh->points[point_idx];
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_mesh_img_get_point_screen_q8(gfx_object_t *obj, size_t point_idx, int32_t *x_q8, int32_t *y_q8)
+gfx_err_t gfx_mesh_img_get_point_screen_q8(gfx_object_t *obj, size_t point_idx, int32_t *x_q8, int32_t *y_q8)
 {
     gfx_mesh_img_t *mesh;
     gfx_area_t obj_area;
@@ -967,29 +966,29 @@ esp_err_t gfx_mesh_img_get_point_screen_q8(gfx_object_t *obj, size_t point_idx, 
     int32_t origin_y_q8;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
-    ESP_RETURN_ON_FALSE(x_q8 != NULL && y_q8 != NULL, ESP_ERR_INVALID_ARG, TAG, "get mesh point screen q8: output is NULL");
+    GFX_RETURN_ON_FALSE(x_q8 != NULL && y_q8 != NULL, GFX_ERR_INVALID_ARG, TAG, "get mesh point screen q8: output is NULL");
 
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "get mesh point screen q8: state is NULL");
-    ESP_RETURN_ON_FALSE(point_idx < mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "get mesh point screen q8: index out of range");
-    ESP_RETURN_ON_FALSE(gfx_object_get_abs_area_exclusive(obj, &obj_area), ESP_ERR_INVALID_STATE,
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "get mesh point screen q8: state is NULL");
+    GFX_RETURN_ON_FALSE(point_idx < mesh->point_count, GFX_ERR_INVALID_ARG, TAG, "get mesh point screen q8: index out of range");
+    GFX_RETURN_ON_FALSE(gfx_object_get_abs_area_exclusive(obj, &obj_area), GFX_ERR_INVALID_STATE,
                         TAG, "get mesh point screen q8: object has no visible absolute area");
 
     gfx_mesh_img_get_draw_origin_q8(&obj_area, mesh, &origin_x_q8, &origin_y_q8);
     *x_q8 = origin_x_q8 + mesh->points[point_idx].x_q8;
     *y_q8 = origin_y_q8 + mesh->points[point_idx].y_q8;
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_mesh_img_set_point_q8(gfx_object_t *obj, size_t point_idx, int32_t x_q8, int32_t y_q8)
+gfx_err_t gfx_mesh_img_set_point_q8(gfx_object_t *obj, size_t point_idx, int32_t x_q8, int32_t y_q8)
 {
     gfx_mesh_img_t *mesh;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
 
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh point q8: state is NULL");
-    ESP_RETURN_ON_FALSE(point_idx < mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "set mesh point q8: index out of range");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "set mesh point q8: state is NULL");
+    GFX_RETURN_ON_FALSE(point_idx < mesh->point_count, GFX_ERR_INVALID_ARG, TAG, "set mesh point q8: index out of range");
 
     gfx_object_invalidate(obj);
     mesh->points[point_idx].x_q8 = x_q8;
@@ -997,45 +996,45 @@ esp_err_t gfx_mesh_img_set_point_q8(gfx_object_t *obj, size_t point_idx, int32_t
     gfx_mesh_img_update_bounds(obj, mesh);
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_mesh_img_set_point(gfx_object_t *obj, size_t point_idx, gfx_coord_t x, gfx_coord_t y)
+gfx_err_t gfx_mesh_img_set_point(gfx_object_t *obj, size_t point_idx, gfx_coord_t x, gfx_coord_t y)
 {
     return gfx_mesh_img_set_point_q8(obj, point_idx,
                                      (int32_t)x << GFX_MESH_IMG_Q8_SHIFT,
                                      (int32_t)y << GFX_MESH_IMG_Q8_SHIFT);
 }
 
-esp_err_t gfx_mesh_img_set_points_q8(gfx_object_t *obj, const gfx_mesh_img_point_q8_t *points, size_t point_count)
+gfx_err_t gfx_mesh_img_set_points_q8(gfx_object_t *obj, const gfx_mesh_img_point_q8_t *points, size_t point_count)
 {
     gfx_mesh_img_t *mesh;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
-    ESP_RETURN_ON_FALSE(points != NULL, ESP_ERR_INVALID_ARG, TAG, "set mesh points q8: input is NULL");
+    GFX_RETURN_ON_FALSE(points != NULL, GFX_ERR_INVALID_ARG, TAG, "set mesh points q8: input is NULL");
 
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh points q8: state is NULL");
-    ESP_RETURN_ON_FALSE(point_count == mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "set mesh points q8: count mismatch");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "set mesh points q8: state is NULL");
+    GFX_RETURN_ON_FALSE(point_count == mesh->point_count, GFX_ERR_INVALID_ARG, TAG, "set mesh points q8: count mismatch");
 
     gfx_object_invalidate(obj);
     memcpy(mesh->points, points, point_count * sizeof(*points));
     gfx_mesh_img_update_bounds(obj, mesh);
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_mesh_img_set_points(gfx_object_t *obj, const gfx_mesh_img_point_t *points, size_t point_count)
+gfx_err_t gfx_mesh_img_set_points(gfx_object_t *obj, const gfx_mesh_img_point_t *points, size_t point_count)
 {
     gfx_mesh_img_t *mesh;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
-    ESP_RETURN_ON_FALSE(points != NULL, ESP_ERR_INVALID_ARG, TAG, "set mesh points: input is NULL");
+    GFX_RETURN_ON_FALSE(points != NULL, GFX_ERR_INVALID_ARG, TAG, "set mesh points: input is NULL");
 
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh points: state is NULL");
-    ESP_RETURN_ON_FALSE(point_count == mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "set mesh points: count mismatch");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "set mesh points: state is NULL");
+    GFX_RETURN_ON_FALSE(point_count == mesh->point_count, GFX_ERR_INVALID_ARG, TAG, "set mesh points: count mismatch");
 
     gfx_object_invalidate(obj);
     for (size_t i = 0; i < point_count; i++) {
@@ -1045,10 +1044,10 @@ esp_err_t gfx_mesh_img_set_points(gfx_object_t *obj, const gfx_mesh_img_point_t 
     gfx_mesh_img_update_bounds(obj, mesh);
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_mesh_img_set_rect(gfx_object_t *obj, uint16_t width, uint16_t height)
+gfx_err_t gfx_mesh_img_set_rect(gfx_object_t *obj, uint16_t width, uint16_t height)
 {
     gfx_mesh_img_t *mesh;
     int32_t max_x;
@@ -1057,9 +1056,9 @@ esp_err_t gfx_mesh_img_set_rect(gfx_object_t *obj, uint16_t width, uint16_t heig
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh rect: state is NULL");
-    ESP_RETURN_ON_FALSE(mesh->points != NULL && mesh->point_count > 0U,
-                        ESP_ERR_INVALID_STATE, TAG, "set mesh rect: points are not allocated");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "set mesh rect: state is NULL");
+    GFX_RETURN_ON_FALSE(mesh->points != NULL && mesh->point_count > 0U,
+                        GFX_ERR_INVALID_STATE, TAG, "set mesh rect: points are not allocated");
 
     max_x = width > 0U ? (int32_t)width - 1 : 0;
     max_y = height > 0U ? (int32_t)height - 1 : 0;
@@ -1081,36 +1080,36 @@ esp_err_t gfx_mesh_img_set_rect(gfx_object_t *obj, uint16_t width, uint16_t heig
     obj->local_geometry.height = height;
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_mesh_img_set_rest_points_q8(gfx_object_t *obj, const gfx_mesh_img_point_q8_t *points, size_t point_count)
+gfx_err_t gfx_mesh_img_set_rest_points_q8(gfx_object_t *obj, const gfx_mesh_img_point_q8_t *points, size_t point_count)
 {
     gfx_mesh_img_t *mesh;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
-    ESP_RETURN_ON_FALSE(points != NULL, ESP_ERR_INVALID_ARG, TAG, "set mesh rest points q8: input is NULL");
+    GFX_RETURN_ON_FALSE(points != NULL, GFX_ERR_INVALID_ARG, TAG, "set mesh rest points q8: input is NULL");
 
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh rest points q8: state is NULL");
-    ESP_RETURN_ON_FALSE(point_count == mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "set mesh rest points q8: count mismatch");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "set mesh rest points q8: state is NULL");
+    GFX_RETURN_ON_FALSE(point_count == mesh->point_count, GFX_ERR_INVALID_ARG, TAG, "set mesh rest points q8: count mismatch");
 
     gfx_object_invalidate(obj);
     memcpy(mesh->rest_points, points, point_count * sizeof(*points));
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_mesh_img_set_rest_points(gfx_object_t *obj, const gfx_mesh_img_point_t *points, size_t point_count)
+gfx_err_t gfx_mesh_img_set_rest_points(gfx_object_t *obj, const gfx_mesh_img_point_t *points, size_t point_count)
 {
     gfx_mesh_img_t *mesh;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
-    ESP_RETURN_ON_FALSE(points != NULL, ESP_ERR_INVALID_ARG, TAG, "set mesh rest points: input is NULL");
+    GFX_RETURN_ON_FALSE(points != NULL, GFX_ERR_INVALID_ARG, TAG, "set mesh rest points: input is NULL");
 
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh rest points: state is NULL");
-    ESP_RETURN_ON_FALSE(point_count == mesh->point_count, ESP_ERR_INVALID_ARG, TAG, "set mesh rest points: count mismatch");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "set mesh rest points: state is NULL");
+    GFX_RETURN_ON_FALSE(point_count == mesh->point_count, GFX_ERR_INVALID_ARG, TAG, "set mesh rest points: count mismatch");
 
     gfx_object_invalidate(obj);
     for (size_t i = 0; i < point_count; i++) {
@@ -1118,87 +1117,87 @@ esp_err_t gfx_mesh_img_set_rest_points(gfx_object_t *obj, const gfx_mesh_img_poi
         mesh->rest_points[i].y_q8 = (int32_t)points[i].y << GFX_MESH_IMG_Q8_SHIFT;
     }
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_mesh_img_reset_points(gfx_object_t *obj)
+gfx_err_t gfx_mesh_img_reset_points(gfx_object_t *obj)
 {
     gfx_mesh_img_t *mesh;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "reset mesh points: state is NULL");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "reset mesh points: state is NULL");
 
     gfx_object_invalidate(obj);
     gfx_mesh_img_reset_rest_points(mesh);
     gfx_mesh_img_update_bounds(obj, mesh);
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_mesh_img_set_ctrl_points_visible(gfx_object_t *obj, bool visible)
+gfx_err_t gfx_mesh_img_set_ctrl_points_visible(gfx_object_t *obj, bool visible)
 {
     gfx_mesh_img_t *mesh;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh ctrl points visible: state is NULL");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "set mesh ctrl points visible: state is NULL");
 
     mesh->ctrl_points_visible = visible;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_mesh_img_set_opa(gfx_object_t *obj, gfx_opa_t opa)
+gfx_err_t gfx_mesh_img_set_opa(gfx_object_t *obj, gfx_opa_t opa)
 {
     gfx_mesh_img_t *mesh;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh opacity: state is NULL");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "set mesh opacity: state is NULL");
 
     mesh->opacity = opa;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_mesh_img_set_aa_inward(gfx_object_t *obj, bool inward)
+gfx_err_t gfx_mesh_img_set_aa_inward(gfx_object_t *obj, bool inward)
 {
     gfx_mesh_img_t *mesh;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh aa inward: state is NULL");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "set mesh aa inward: state is NULL");
 
     mesh->aa_inward = inward;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_mesh_img_set_wrap_cols(gfx_object_t *obj, bool wrap)
+gfx_err_t gfx_mesh_img_set_wrap_cols(gfx_object_t *obj, bool wrap)
 {
     gfx_mesh_img_t *mesh;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set mesh wrap cols: state is NULL");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "set mesh wrap cols: state is NULL");
 
     mesh->wrap_cols = wrap;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_mesh_img_set_scanline_fill(gfx_object_t *obj, bool enable, gfx_color_t fill_color)
+gfx_err_t gfx_mesh_img_set_scanline_fill(gfx_object_t *obj, bool enable, gfx_color_t fill_color)
 {
     gfx_mesh_img_t *mesh;
 
     CHECK_OBJ_TYPE_MESH_IMAGE(obj);
     mesh = (gfx_mesh_img_t *)obj->src;
-    ESP_RETURN_ON_FALSE(mesh != NULL, ESP_ERR_INVALID_STATE, TAG, "set scanline fill: state is NULL");
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "set scanline fill: state is NULL");
 
     if (enable && (mesh->scanline_vx == NULL || mesh->scanline_vy == NULL)) {
-        ESP_RETURN_ON_ERROR(gfx_mesh_img_alloc_scratch(mesh), TAG, "set scanline fill: alloc scratch failed");
+        GFX_RETURN_ON_ERROR(gfx_mesh_img_alloc_scratch(mesh), TAG, "set scanline fill: alloc scratch failed");
     } else if (!enable) {
         gfx_mesh_img_free_scratch(mesh);
     }
@@ -1206,5 +1205,5 @@ esp_err_t gfx_mesh_img_set_scanline_fill(gfx_object_t *obj, bool enable, gfx_col
     mesh->scanline_fill = enable;
     mesh->scanline_color = fill_color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }

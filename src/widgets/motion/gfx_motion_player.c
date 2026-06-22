@@ -17,7 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_MOTION
 #define GFX_LOG_TAG    "gfx_motion_player"
 #include "common/gfx_log_priv.h"
@@ -79,47 +79,47 @@ static const gfx_motion_action_step_t *gfx_motion_player_active_step(const gfx_m
     return &action->steps[scene->active_step];
 }
 
-static esp_err_t gfx_motion_player_set_grid_array(uint8_t *cols_arr, uint8_t *rows_arr,
+static gfx_err_t gfx_motion_player_set_grid_array(uint8_t *cols_arr, uint8_t *rows_arr,
         uint8_t max_count, uint8_t seg_idx, gfx_object_t *obj, uint8_t cols, uint8_t rows)
 {
-    ESP_RETURN_ON_FALSE(obj != NULL, ESP_ERR_INVALID_ARG, TAG, "grid target is NULL");
+    GFX_RETURN_ON_FALSE(obj != NULL, GFX_ERR_INVALID_ARG, TAG, "grid target is NULL");
 
     if (seg_idx < max_count && cols_arr[seg_idx] == cols && rows_arr[seg_idx] == rows) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
-    ESP_RETURN_ON_ERROR(gfx_mesh_img_set_grid(obj, cols, rows), TAG, "set grid seg[%u]", seg_idx);
+    GFX_RETURN_ON_ERROR(gfx_mesh_img_set_grid(obj, cols, rows), TAG, "set grid seg[%u]", seg_idx);
     if (seg_idx < max_count) {
         cols_arr[seg_idx] = cols;
         rows_arr[seg_idx] = rows;
     }
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_motion_player_set_grid_internal(gfx_motion_player_t *player, uint8_t seg_idx,
+static gfx_err_t gfx_motion_player_set_grid_internal(gfx_motion_player_t *player, uint8_t seg_idx,
         gfx_object_t *obj, uint8_t cols, uint8_t rows)
 {
-    ESP_RETURN_ON_FALSE(player != NULL && obj != NULL, ESP_ERR_INVALID_ARG, TAG, "grid target is NULL");
+    GFX_RETURN_ON_FALSE(player != NULL && obj != NULL, GFX_ERR_INVALID_ARG, TAG, "grid target is NULL");
 
-    ESP_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(player->seg_grid_cols, player->seg_grid_rows,
+    GFX_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(player->seg_grid_cols, player->seg_grid_rows,
                         GFX_MOTION_PLAYER_MAX_SEGMENTS, seg_idx, obj, cols, rows),
                         TAG, "set grid seg[%u]", seg_idx);
     return gfx_motion_player_apply_resource_uv(player, seg_idx, obj, cols, rows);
 }
 
-static esp_err_t gfx_motion_player_configure_mesh_shape(uint8_t *cols_arr, uint8_t *rows_arr,
+static gfx_err_t gfx_motion_player_configure_mesh_shape(uint8_t *cols_arr, uint8_t *rows_arr,
         uint8_t max_count, gfx_object_t *obj, uint8_t seg_idx, const gfx_motion_segment_t *seg)
 {
     switch (seg->kind) {
     case GFX_MOTION_SEG_RING: {
         uint8_t segs = gfx_motion_player_ring_segs((float)(seg->radius_hint > 0 ? seg->radius_hint : 20));
-        ESP_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(cols_arr, rows_arr, max_count, seg_idx, obj, segs, 1U),
+        GFX_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(cols_arr, rows_arr, max_count, seg_idx, obj, segs, 1U),
                             TAG, "set ring grid seg[%u]", seg_idx);
-        ESP_RETURN_ON_ERROR(gfx_mesh_img_set_wrap_cols(obj, true), TAG, "set ring wrap seg[%u]", seg_idx);
+        GFX_RETURN_ON_ERROR(gfx_mesh_img_set_wrap_cols(obj, true), TAG, "set ring wrap seg[%u]", seg_idx);
         break;
     }
     case GFX_MOTION_SEG_CAPSULE:
-        ESP_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(cols_arr, rows_arr, max_count, seg_idx, obj, 1U, 1U),
+        GFX_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(cols_arr, rows_arr, max_count, seg_idx, obj, 1U, 1U),
                             TAG, "set capsule grid seg[%u]", seg_idx);
         break;
     case GFX_MOTION_SEG_BEZIER_LOOP: {
@@ -127,9 +127,9 @@ static esp_err_t gfx_motion_player_configure_mesh_shape(uint8_t *cols_arr, uint8
         uint16_t k = (n - 1U) / 3U;
         uint16_t tcols = k * (uint16_t)MOTION_BEZIER_SEGS_PER_SEG;
         uint8_t gcols = (tcols > 255U) ? 255U : (uint8_t)tcols;
-        ESP_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(cols_arr, rows_arr, max_count, seg_idx, obj, gcols, 1U),
+        GFX_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(cols_arr, rows_arr, max_count, seg_idx, obj, gcols, 1U),
                             TAG, "set bezier loop grid seg[%u]", seg_idx);
-        ESP_RETURN_ON_ERROR(gfx_mesh_img_set_wrap_cols(obj, true),
+        GFX_RETURN_ON_ERROR(gfx_mesh_img_set_wrap_cols(obj, true),
                             TAG, "set bezier loop wrap seg[%u]", seg_idx);
         break;
     }
@@ -138,22 +138,22 @@ static esp_err_t gfx_motion_player_configure_mesh_shape(uint8_t *cols_arr, uint8
         uint16_t kk = (nj - 1U) / 3U;
 
         if (nj == 7U || nj == 13U) {
-            ESP_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(cols_arr, rows_arr, max_count,
+            GFX_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(cols_arr, rows_arr, max_count,
                                 seg_idx, obj, (uint8_t)MOTION_BEZIER_FILL_SEGS, 1U),
                                 TAG, "set bezier fill grid seg[%u]", seg_idx);
-            ESP_RETURN_ON_ERROR(gfx_mesh_img_set_wrap_cols(obj, false),
+            GFX_RETURN_ON_ERROR(gfx_mesh_img_set_wrap_cols(obj, false),
                                 TAG, "set bezier fill wrap seg[%u]", seg_idx);
         } else if (((nj - 1U) % 3U) == 0U) {
             uint16_t tcols = kk * (uint16_t)MOTION_BEZIER_FILL_LOOP_SEGS_PER_SEG;
             uint8_t gcols = (tcols > 255U) ? 255U : (uint8_t)tcols;
-            ESP_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(cols_arr, rows_arr, max_count, seg_idx, obj, gcols, 1U),
+            GFX_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(cols_arr, rows_arr, max_count, seg_idx, obj, gcols, 1U),
                                 TAG, "set bezier fill grid seg[%u]", seg_idx);
-            ESP_RETURN_ON_ERROR(gfx_mesh_img_set_wrap_cols(obj, true),
+            GFX_RETURN_ON_ERROR(gfx_mesh_img_set_wrap_cols(obj, true),
                                 TAG, "set bezier fill wrap seg[%u]", seg_idx);
         } else {
-            ESP_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(cols_arr, rows_arr, max_count, seg_idx, obj, 1U, 1U),
+            GFX_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(cols_arr, rows_arr, max_count, seg_idx, obj, 1U, 1U),
                                 TAG, "set bezier fill fallback grid seg[%u]", seg_idx);
-            ESP_RETURN_ON_ERROR(gfx_mesh_img_set_wrap_cols(obj, false),
+            GFX_RETURN_ON_ERROR(gfx_mesh_img_set_wrap_cols(obj, false),
                                 TAG, "set bezier fill fallback wrap seg[%u]", seg_idx);
         }
         break;
@@ -163,24 +163,24 @@ static esp_err_t gfx_motion_player_configure_mesh_shape(uint8_t *cols_arr, uint8
         uint16_t k = (n - 1U) / 3U;
         uint16_t tcols = k * (uint16_t)MOTION_BEZIER_SEGS_PER_SEG;
         uint8_t gcols = (tcols > 255U) ? 255U : (uint8_t)tcols;
-        ESP_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(cols_arr, rows_arr, max_count, seg_idx, obj, gcols, 1U),
+        GFX_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(cols_arr, rows_arr, max_count, seg_idx, obj, gcols, 1U),
                             TAG, "set bezier strip grid seg[%u]", seg_idx);
         break;
     }
     default:
-        ESP_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(cols_arr, rows_arr, max_count, seg_idx, obj, 1U, 1U),
+        GFX_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(cols_arr, rows_arr, max_count, seg_idx, obj, 1U, 1U),
                             TAG, "set default grid seg[%u]", seg_idx);
         break;
     }
 
     if (seg->kind != GFX_MOTION_SEG_BEZIER_FILL || !MOTION_BEZIER_FILL_USE_SCANLINE) {
-        ESP_RETURN_ON_ERROR(gfx_mesh_img_set_aa_inward(obj, true), TAG, "set aa inward seg[%u]", seg_idx);
+        GFX_RETURN_ON_ERROR(gfx_mesh_img_set_aa_inward(obj, true), TAG, "set aa inward seg[%u]", seg_idx);
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_motion_player_configure_segment_mesh(gfx_motion_player_t *player,
+static gfx_err_t gfx_motion_player_configure_segment_mesh(gfx_motion_player_t *player,
         uint8_t seg_idx,
         gfx_object_t *obj)
 {
@@ -209,7 +209,7 @@ static void gfx_motion_player_init_palette(gfx_motion_player_t *player)
     }
 }
 
-static esp_err_t gfx_motion_player_apply_icon_segment(gfx_motion_player_t *player,
+static gfx_err_t gfx_motion_player_apply_icon_segment(gfx_motion_player_t *player,
         gfx_motion_player_runtime_scratch_t *scratch,
         const gfx_motion_icon_t *icon,
         const gfx_motion_segment_t *seg,
@@ -224,7 +224,7 @@ static esp_err_t gfx_motion_player_apply_icon_segment(gfx_motion_player_t *playe
     float scale = (icon_scale_q8 > 0U) ? ((float)icon_scale_q8 / 256.0f) : 1.0f;
 
     if (player == NULL || scratch == NULL || icon == NULL || seg == NULL || obj == NULL) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     stroke_px = (seg->stroke_width > 0)
@@ -257,7 +257,7 @@ static esp_err_t gfx_motion_player_apply_icon_segment(gfx_motion_player_t *playe
         },
         player->canvas_x, player->canvas_y,
         player->canvas_w, player->canvas_h, &pb);
-        ESP_RETURN_ON_ERROR(gfx_motion_player_apply_capsule(obj, &pa, &pb, stroke_px),
+        GFX_RETURN_ON_ERROR(gfx_motion_player_apply_capsule(obj, &pa, &pb, stroke_px),
                             TAG, "icon capsule");
         break;
     }
@@ -277,10 +277,10 @@ static esp_err_t gfx_motion_player_apply_icon_segment(gfx_motion_player_t *playe
         },
         player->canvas_x, player->canvas_y,
         player->canvas_w, player->canvas_h, &pc);
-        ESP_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(player->icon_grid_cols, player->icon_grid_rows,
+        GFX_RETURN_ON_ERROR(gfx_motion_player_set_grid_array(player->icon_grid_cols, player->icon_grid_rows,
                             GFX_MOTION_PLAYER_MAX_ICON_SEGMENTS, icon_seg_idx, obj, segs, 1U),
                             TAG, "icon ring grid");
-        ESP_RETURN_ON_ERROR(gfx_motion_player_apply_ring(obj, scratch, &pc, radius_px, stroke_px, segs),
+        GFX_RETURN_ON_ERROR(gfx_motion_player_apply_ring(obj, scratch, &pc, radius_px, stroke_px, segs),
                             TAG, "icon ring");
         break;
     }
@@ -289,7 +289,7 @@ static esp_err_t gfx_motion_player_apply_icon_segment(gfx_motion_player_t *playe
     case GFX_MOTION_SEG_BEZIER_FILL: {
         uint16_t n = seg->joint_count;
         if (n > MOTION_BEZIER_MAX_PTS) {
-            return ESP_OK;
+            return GFX_OK;
         }
         for (uint16_t j = 0; j < n; j++) {
             int16_t x = icon->coords[(seg->joint_a + j) * 2U + 0U];
@@ -304,21 +304,21 @@ static esp_err_t gfx_motion_player_apply_icon_segment(gfx_motion_player_t *playe
             &scratch->ctrl_pts[j]);
         }
         if (seg->kind == GFX_MOTION_SEG_BEZIER_FILL) {
-            ESP_RETURN_ON_ERROR(gfx_motion_player_apply_bezier_fill(obj, scratch, scratch->ctrl_pts, (uint8_t)n),
+            GFX_RETURN_ON_ERROR(gfx_motion_player_apply_bezier_fill(obj, scratch, scratch->ctrl_pts, (uint8_t)n),
                                 TAG, "icon fill");
         } else {
-            ESP_RETURN_ON_ERROR(gfx_motion_player_apply_bezier(obj, scratch, scratch->ctrl_pts,
+            GFX_RETURN_ON_ERROR(gfx_motion_player_apply_bezier(obj, scratch, scratch->ctrl_pts,
                                 (uint8_t)n, stroke_px, seg->kind == GFX_MOTION_SEG_BEZIER_LOOP),
                                 TAG, "icon bezier");
         }
         break;
     }
     default:
-        return ESP_OK;
+        return GFX_OK;
     }
 
     gfx_object_set_visible(obj, true);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static bool gfx_motion_player_tick_cb(gfx_motion_t *motion, void *user_data)
@@ -342,7 +342,7 @@ static bool gfx_motion_player_tick_cb(gfx_motion_t *motion, void *user_data)
     return changed || player->scene.dirty || player->mesh_dirty;
 }
 
-static esp_err_t gfx_motion_player_apply_segment(gfx_motion_player_t *player,
+static gfx_err_t gfx_motion_player_apply_segment(gfx_motion_player_t *player,
         gfx_motion_player_runtime_scratch_t *scratch,
         uint8_t seg_idx,
         int32_t def_stroke_px)
@@ -353,11 +353,11 @@ static esp_err_t gfx_motion_player_apply_segment(gfx_motion_player_t *player,
     gfx_object_t *obj = player->seg_objs[seg_idx];
 
     if (obj == NULL) {
-        return ESP_OK;
+        return GFX_OK;
     }
     if (!gfx_motion_player_segment_layer_visible(player, seg)) {
         gfx_object_set_visible(obj, false);
-        return ESP_OK;
+        return GFX_OK;
     }
 
     int32_t stroke_px = (seg->stroke_width > 0)
@@ -373,7 +373,7 @@ static esp_err_t gfx_motion_player_apply_segment(gfx_motion_player_t *player,
         gfx_motion_player_to_screen(asset, &scene->pose_cur[seg->joint_b],
                                     player->canvas_x, player->canvas_y,
                                     player->canvas_w, player->canvas_h, &pb);
-        ESP_RETURN_ON_ERROR(gfx_motion_player_apply_capsule(obj, &pa, &pb, stroke_px),
+        GFX_RETURN_ON_ERROR(gfx_motion_player_apply_capsule(obj, &pa, &pb, stroke_px),
                             TAG, "capsule seg[%u]", seg_idx);
         break;
     }
@@ -387,9 +387,9 @@ static esp_err_t gfx_motion_player_apply_segment(gfx_motion_player_t *player,
                             ? gfx_motion_player_scalar_px(asset, player->canvas_w, player->canvas_h, (float)seg->radius_hint)
                             : stroke_px * 4;
         uint8_t segs = gfx_motion_player_ring_segs((float)radius_px);
-        ESP_RETURN_ON_ERROR(gfx_motion_player_set_grid_internal(player, seg_idx, obj, segs, 1U),
+        GFX_RETURN_ON_ERROR(gfx_motion_player_set_grid_internal(player, seg_idx, obj, segs, 1U),
                             TAG, "ring grid seg[%u]", seg_idx);
-        ESP_RETURN_ON_ERROR(gfx_motion_player_apply_ring(obj, scratch, &pc, radius_px, stroke_px, segs),
+        GFX_RETURN_ON_ERROR(gfx_motion_player_apply_ring(obj, scratch, &pc, radius_px, stroke_px, segs),
                             TAG, "ring seg[%u]", seg_idx);
         break;
     }
@@ -399,7 +399,7 @@ static esp_err_t gfx_motion_player_apply_segment(gfx_motion_player_t *player,
         uint16_t n = seg->joint_count;
         if (n < 2U || n > MOTION_BEZIER_MAX_PTS ||
                 (uint32_t)seg->joint_a + n > asset->joint_count) {
-            return ESP_OK;
+            return GFX_OK;
         }
         for (uint16_t j = 0; j < n; j++) {
             gfx_motion_player_to_screen(asset, &scene->pose_cur[seg->joint_a + j],
@@ -408,7 +408,7 @@ static esp_err_t gfx_motion_player_apply_segment(gfx_motion_player_t *player,
                                         &scratch->ctrl_pts[j]);
         }
         bool loop = (seg->kind == GFX_MOTION_SEG_BEZIER_LOOP);
-        ESP_RETURN_ON_ERROR(gfx_motion_player_apply_bezier(obj, scratch, scratch->ctrl_pts,
+        GFX_RETURN_ON_ERROR(gfx_motion_player_apply_bezier(obj, scratch, scratch->ctrl_pts,
                             (uint8_t)n, stroke_px, loop), TAG, "bezier seg[%u]", seg_idx);
         break;
     }
@@ -417,7 +417,7 @@ static esp_err_t gfx_motion_player_apply_segment(gfx_motion_player_t *player,
         uint16_t n = seg->joint_count;
         if (n < 3U || n > MOTION_BEZIER_MAX_PTS ||
                 (uint32_t)seg->joint_a + n > asset->joint_count) {
-            return ESP_OK;
+            return GFX_OK;
         }
         for (uint16_t j = 0; j < n; j++) {
             gfx_motion_player_to_screen(asset, &scene->pose_cur[seg->joint_a + j],
@@ -425,7 +425,7 @@ static esp_err_t gfx_motion_player_apply_segment(gfx_motion_player_t *player,
                                         player->canvas_w, player->canvas_h,
                                         &scratch->ctrl_pts[j]);
         }
-        ESP_RETURN_ON_ERROR(gfx_motion_player_apply_bezier_fill(obj, scratch, scratch->ctrl_pts, (uint8_t)n),
+        GFX_RETURN_ON_ERROR(gfx_motion_player_apply_bezier_fill(obj, scratch, scratch->ctrl_pts, (uint8_t)n),
                             TAG, "bezier_fill seg[%u]", seg_idx);
         break;
     }
@@ -435,10 +435,10 @@ static esp_err_t gfx_motion_player_apply_segment(gfx_motion_player_t *player,
     }
 
     gfx_object_set_visible(obj, true);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_motion_player_apply_cb(gfx_motion_t *motion, void *user_data, bool force)
+static gfx_err_t gfx_motion_player_apply_cb(gfx_motion_t *motion, void *user_data, bool force)
 {
     gfx_motion_player_t *player = (gfx_motion_player_t *)user_data;
     gfx_motion_player_runtime_scratch_t *scratch;
@@ -448,7 +448,7 @@ static esp_err_t gfx_motion_player_apply_cb(gfx_motion_t *motion, void *user_dat
 
     (void)motion;
     if (player == NULL) {
-        return ESP_OK;
+        return GFX_OK;
     }
     if (!player->visible) {
         for (uint8_t i = 0; i < player->seg_obj_count; i++) {
@@ -463,25 +463,25 @@ static esp_err_t gfx_motion_player_apply_cb(gfx_motion_t *motion, void *user_dat
         }
         player->mesh_dirty = false;
         player->scene.dirty = false;
-        return ESP_OK;
+        return GFX_OK;
     }
     scene = &player->scene;
     if (scene->asset == NULL) {
-        return ESP_OK;
+        return GFX_OK;
     }
     if (!force && !scene->dirty && !player->mesh_dirty) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     asset = scene->asset;
     scratch = (gfx_motion_player_runtime_scratch_t *)player->scratch;
-    ESP_RETURN_ON_FALSE(scratch != NULL, ESP_ERR_INVALID_STATE, TAG, "runtime scratch is NULL");
+    GFX_RETURN_ON_FALSE(scratch != NULL, GFX_ERR_INVALID_STATE, TAG, "runtime scratch is NULL");
 
     def_stroke_px = gfx_motion_player_scalar_px(asset, player->canvas_w, player->canvas_h,
                     (float)asset->layout->stroke_width);
 
     for (uint8_t i = 0; i < player->seg_obj_count && i < asset->segment_count; i++) {
-        ESP_RETURN_ON_ERROR(gfx_motion_player_apply_segment(player, scratch, i, def_stroke_px),
+        GFX_RETURN_ON_ERROR(gfx_motion_player_apply_segment(player, scratch, i, def_stroke_px),
                             TAG, "apply segment[%u]", i);
     }
 
@@ -503,15 +503,15 @@ static esp_err_t gfx_motion_player_apply_cb(gfx_motion_t *motion, void *user_dat
                 .data = &player->solid_img,
             };
             for (uint8_t i = 0; i < max_count; i++) {
-                ESP_RETURN_ON_ERROR(
+                GFX_RETURN_ON_ERROR(
                     gfx_motion_player_configure_mesh_shape(player->icon_grid_cols, player->icon_grid_rows,
                             GFX_MOTION_PLAYER_MAX_ICON_SEGMENTS,
                             player->icon_objs[i], i, &icon->segments[i]),
                     TAG, "configure icon segment[%u]", i);
-                ESP_RETURN_ON_ERROR(
+                GFX_RETURN_ON_ERROR(
                     gfx_motion_player_bind_style_common(player, &icon->segments[i], player->icon_objs[i], &solid_src),
                     TAG, "bind icon segment[%u]", i);
-                ESP_RETURN_ON_ERROR(gfx_motion_player_apply_icon_segment(player, scratch, icon,
+                GFX_RETURN_ON_ERROR(gfx_motion_player_apply_icon_segment(player, scratch, icon,
                                     &icon->segments[i], player->icon_objs[i], i, def_stroke_px,
                                     step->icon_x, step->icon_y, step->icon_scale_q8),
                                     TAG, "apply icon segment[%u]", i);
@@ -521,42 +521,42 @@ static esp_err_t gfx_motion_player_apply_cb(gfx_motion_t *motion, void *user_dat
 
     player->mesh_dirty = false;
     ((gfx_motion_scene_t *)scene)->dirty = false;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 /**********************
  *   PUBLIC FUNCTIONS
  **********************/
 
-static esp_err_t gfx_motion_player_init(gfx_motion_player_t *player,
+static gfx_err_t gfx_motion_player_init(gfx_motion_player_t *player,
                                         gfx_display_t *disp,
                                         const gfx_motion_asset_t *asset)
 {
-    esp_err_t ret = ESP_OK;
+    gfx_err_t ret = GFX_OK;
     gfx_image_src_t solid_src;
     gfx_motion_cfg_t motion_cfg;
 
-    ESP_RETURN_ON_FALSE(player != NULL, ESP_ERR_INVALID_ARG, TAG, "player is NULL");
-    ESP_RETURN_ON_FALSE(disp != NULL, ESP_ERR_INVALID_ARG, TAG, "disp is NULL");
-    ESP_RETURN_ON_FALSE(asset != NULL, ESP_ERR_INVALID_ARG, TAG, "asset is NULL");
+    GFX_RETURN_ON_FALSE(player != NULL, GFX_ERR_INVALID_ARG, TAG, "player is NULL");
+    GFX_RETURN_ON_FALSE(disp != NULL, GFX_ERR_INVALID_ARG, TAG, "disp is NULL");
+    GFX_RETURN_ON_FALSE(asset != NULL, GFX_ERR_INVALID_ARG, TAG, "asset is NULL");
     uint8_t max_icon_segments = 0U;
 
-    ESP_RETURN_ON_FALSE(asset->segment_count <= GFX_MOTION_PLAYER_MAX_SEGMENTS,
-                        ESP_ERR_INVALID_ARG, TAG, "too many segments");
+    GFX_RETURN_ON_FALSE(asset->segment_count <= GFX_MOTION_PLAYER_MAX_SEGMENTS,
+                        GFX_ERR_INVALID_ARG, TAG, "too many segments");
     for (uint16_t i = 0; i < asset->icon_count; i++) {
         if (asset->icons[i].segment_count > max_icon_segments) {
             max_icon_segments = asset->icons[i].segment_count;
         }
     }
-    ESP_RETURN_ON_FALSE(max_icon_segments <= GFX_MOTION_PLAYER_MAX_ICON_SEGMENTS,
-                        ESP_ERR_INVALID_ARG, TAG, "too many icon segments");
+    GFX_RETURN_ON_FALSE(max_icon_segments <= GFX_MOTION_PLAYER_MAX_ICON_SEGMENTS,
+                        GFX_ERR_INVALID_ARG, TAG, "too many icon segments");
 
     memset(player, 0, sizeof(*player));
 
     player->scratch = calloc(1, sizeof(gfx_motion_player_runtime_scratch_t));
-    ESP_GOTO_ON_FALSE(player->scratch != NULL, ESP_ERR_NO_MEM, err, TAG, "alloc runtime scratch failed");
+    GFX_GOTO_ON_FALSE(player->scratch != NULL, GFX_ERR_NO_MEM, err, TAG, "alloc runtime scratch failed");
 
-    ESP_GOTO_ON_ERROR(gfx_motion_scene_init(&player->scene, asset), err, TAG, "scene init failed");
+    GFX_GOTO_ON_ERROR(gfx_motion_scene_init(&player->scene, asset), err, TAG, "scene init failed");
 
     player->stroke_color = GFX_COLOR_HEX(GFX_MOTION_DEFAULT_STROKE_COLOR);
     player->layer_mask = UINT32_MAX;
@@ -583,12 +583,12 @@ static esp_err_t gfx_motion_player_init(gfx_motion_player_t *player,
 
     for (uint8_t i = 0; i < asset->segment_count; i++) {
         gfx_object_t *obj = gfx_mesh_img_create(disp);
-        ESP_GOTO_ON_FALSE(obj != NULL, ESP_ERR_NO_MEM, err, TAG, "mesh_img[%u] failed", i);
+        GFX_GOTO_ON_FALSE(obj != NULL, GFX_ERR_NO_MEM, err, TAG, "mesh_img[%u] failed", i);
         gfx_object_set_visible(obj, false);
 
-        ESP_GOTO_ON_ERROR(gfx_motion_player_configure_segment_mesh(player, i, obj),
+        GFX_GOTO_ON_ERROR(gfx_motion_player_configure_segment_mesh(player, i, obj),
                           err, TAG, "configure segment mesh[%u]", i);
-        ESP_GOTO_ON_ERROR(gfx_motion_player_bind_segment_style(player, i, obj, &solid_src),
+        GFX_GOTO_ON_ERROR(gfx_motion_player_bind_segment_style(player, i, obj, &solid_src),
                           err, TAG, "bind segment style[%u]", i);
 
         gfx_object_set_visible(obj, false);
@@ -598,7 +598,7 @@ static esp_err_t gfx_motion_player_init(gfx_motion_player_t *player,
 
     for (uint8_t i = 0; i < max_icon_segments; i++) {
         gfx_object_t *obj = gfx_mesh_img_create(disp);
-        ESP_GOTO_ON_FALSE(obj != NULL, ESP_ERR_NO_MEM, err, TAG, "icon mesh_img[%u] failed", i);
+        GFX_GOTO_ON_FALSE(obj != NULL, GFX_ERR_NO_MEM, err, TAG, "icon mesh_img[%u] failed", i);
         gfx_object_set_visible(obj, false);
         player->icon_objs[i] = obj;
     }
@@ -609,12 +609,12 @@ static esp_err_t gfx_motion_player_init(gfx_motion_player_t *player,
         const gfx_motion_icon_t *icon = &asset->icons[0];
 
         for (uint8_t i = 0; i < icon->segment_count && i < player->icon_obj_count; i++) {
-            ESP_GOTO_ON_ERROR(
+            GFX_GOTO_ON_ERROR(
                 gfx_motion_player_configure_mesh_shape(player->icon_grid_cols, player->icon_grid_rows,
                         GFX_MOTION_PLAYER_MAX_ICON_SEGMENTS,
                         player->icon_objs[i], i, &icon->segments[i]),
                 err, TAG, "configure icon segment mesh[%u]", i);
-            ESP_GOTO_ON_ERROR(
+            GFX_GOTO_ON_ERROR(
                 gfx_motion_player_bind_style_common(player, &icon->segments[i], player->icon_objs[i], &solid_icon_src),
                 err, TAG, "bind icon segment style[%u]", i);
         }
@@ -626,15 +626,15 @@ static esp_err_t gfx_motion_player_init(gfx_motion_player_t *player,
     {
         gfx_object_t *timer_owner = (player->seg_obj_count > 0U) ? player->seg_objs[0] : player->icon_objs[0];
         if (timer_owner == NULL) {
-            return ESP_OK;
+            return GFX_OK;
         }
-        ESP_GOTO_ON_ERROR(
+        GFX_GOTO_ON_ERROR(
             gfx_motion_init(&player->motion, disp, timer_owner, &motion_cfg,
                             gfx_motion_player_tick_cb, gfx_motion_player_apply_cb, player),
             err, TAG, "motion init failed");
     }
 
-    return ESP_OK;
+    return GFX_OK;
 
 err:
     gfx_motion_player_deinit(player);
@@ -675,7 +675,7 @@ gfx_motion_player_t *gfx_motion_player_create(gfx_display_t *disp, const gfx_mot
         return NULL;
     }
 
-    if (gfx_motion_player_init(player, disp, asset) != ESP_OK) {
+    if (gfx_motion_player_init(player, disp, asset) != GFX_OK) {
         free(player);
         return NULL;
     }
@@ -693,17 +693,17 @@ void gfx_motion_player_delete(gfx_motion_player_t *player)
     free(player);
 }
 
-esp_err_t gfx_motion_player_set_color(gfx_motion_player_t *player, gfx_color_t color)
+gfx_err_t gfx_motion_player_set_color(gfx_motion_player_t *player, gfx_color_t color)
 {
     gfx_image_src_t solid_src;
 
-    ESP_RETURN_ON_FALSE(player != NULL, ESP_ERR_INVALID_ARG, TAG, "player is NULL");
+    GFX_RETURN_ON_FALSE(player != NULL, GFX_ERR_INVALID_ARG, TAG, "player is NULL");
     if (player->seg_obj_count == 0U) {
         player->stroke_color = color;
-        return ESP_OK;
+        return GFX_OK;
     }
-    ESP_RETURN_ON_FALSE(player->seg_objs[0] != NULL && player->seg_objs[0]->disp != NULL,
-                        ESP_ERR_INVALID_STATE, TAG, "display not ready");
+    GFX_RETURN_ON_FALSE(player->seg_objs[0] != NULL && player->seg_objs[0]->disp != NULL,
+                        GFX_ERR_INVALID_STATE, TAG, "display not ready");
 
     player->stroke_color = color;
     player->solid_pixel = color.full;
@@ -719,45 +719,45 @@ esp_err_t gfx_motion_player_set_color(gfx_motion_player_t *player, gfx_color_t c
             }
             if (MOTION_BEZIER_FILL_USE_SCANLINE &&
                     seg->kind == GFX_MOTION_SEG_BEZIER_FILL && seg->resource_idx == 0U) {
-                ESP_RETURN_ON_ERROR(gfx_mesh_img_set_scanline_fill(player->seg_objs[i], true, color),
+                GFX_RETURN_ON_ERROR(gfx_mesh_img_set_scanline_fill(player->seg_objs[i], true, color),
                                     TAG, "set fill color seg[%u]", i);
             }
         }
-        ESP_RETURN_ON_ERROR(gfx_mesh_img_set_src_desc(player->seg_objs[i], &solid_src),
+        GFX_RETURN_ON_ERROR(gfx_mesh_img_set_src_desc(player->seg_objs[i], &solid_src),
                             TAG, "set color seg[%u]", i);
     }
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_motion_player_set_canvas(gfx_motion_player_t *player,
+gfx_err_t gfx_motion_player_set_canvas(gfx_motion_player_t *player,
                                        gfx_coord_t x, gfx_coord_t y,
                                        uint16_t w, uint16_t h)
 {
-    ESP_RETURN_ON_FALSE(player != NULL, ESP_ERR_INVALID_ARG, TAG, "player is NULL");
-    ESP_RETURN_ON_FALSE(w > 0U && h > 0U, ESP_ERR_INVALID_ARG, TAG, "size must be > 0");
+    GFX_RETURN_ON_FALSE(player != NULL, GFX_ERR_INVALID_ARG, TAG, "player is NULL");
+    GFX_RETURN_ON_FALSE(w > 0U && h > 0U, GFX_ERR_INVALID_ARG, TAG, "size must be > 0");
     player->canvas_x = x;
     player->canvas_y = y;
     player->canvas_w = w;
     player->canvas_h = h;
     player->mesh_dirty = true;
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_motion_player_set_layer_mask(gfx_motion_player_t *player, uint32_t layer_mask)
+gfx_err_t gfx_motion_player_set_layer_mask(gfx_motion_player_t *player, uint32_t layer_mask)
 {
-    ESP_RETURN_ON_FALSE(player != NULL, ESP_ERR_INVALID_ARG, TAG, "player is NULL");
+    GFX_RETURN_ON_FALSE(player != NULL, GFX_ERR_INVALID_ARG, TAG, "player is NULL");
     player->layer_mask = layer_mask;
     player->mesh_dirty = true;
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_motion_player_set_visible(gfx_motion_player_t *player, bool visible)
+gfx_err_t gfx_motion_player_set_visible(gfx_motion_player_t *player, bool visible)
 {
     gfx_timer_handle_t timer;
 
-    ESP_RETURN_ON_FALSE(player != NULL, ESP_ERR_INVALID_ARG, TAG, "player is NULL");
+    GFX_RETURN_ON_FALSE(player != NULL, GFX_ERR_INVALID_ARG, TAG, "player is NULL");
     if (player->visible == visible) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     player->visible = visible;
@@ -773,54 +773,54 @@ esp_err_t gfx_motion_player_set_visible(gfx_motion_player_t *player, bool visibl
     return gfx_motion_player_sync(player);
 }
 
-esp_err_t gfx_motion_player_sync(gfx_motion_player_t *player)
+gfx_err_t gfx_motion_player_sync(gfx_motion_player_t *player)
 {
-    ESP_RETURN_ON_FALSE(player != NULL, ESP_ERR_INVALID_ARG, TAG, "player is NULL");
+    GFX_RETURN_ON_FALSE(player != NULL, GFX_ERR_INVALID_ARG, TAG, "player is NULL");
 
     if (player->seg_obj_count == 0U) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     return gfx_motion_apply(&player->motion, true);
 }
 
-esp_err_t gfx_motion_player_reset_timer(gfx_motion_player_t *player)
+gfx_err_t gfx_motion_player_reset_timer(gfx_motion_player_t *player)
 {
     gfx_timer_handle_t timer;
 
-    ESP_RETURN_ON_FALSE(player != NULL, ESP_ERR_INVALID_ARG, TAG, "player is NULL");
+    GFX_RETURN_ON_FALSE(player != NULL, GFX_ERR_INVALID_ARG, TAG, "player is NULL");
 
     timer = gfx_motion_get_timer(&player->motion);
-    ESP_RETURN_ON_FALSE(timer != NULL, ESP_ERR_INVALID_STATE, TAG, "motion timer is NULL");
+    GFX_RETURN_ON_FALSE(timer != NULL, GFX_ERR_INVALID_STATE, TAG, "motion timer is NULL");
 
     gfx_timer_reset(timer);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_motion_player_set_action(gfx_motion_player_t *player, uint16_t action_idx, bool snap)
+gfx_err_t gfx_motion_player_set_action(gfx_motion_player_t *player, uint16_t action_idx, bool snap)
 {
-    ESP_RETURN_ON_FALSE(player != NULL, ESP_ERR_INVALID_ARG, TAG, "player is NULL");
+    GFX_RETURN_ON_FALSE(player != NULL, GFX_ERR_INVALID_ARG, TAG, "player is NULL");
     return gfx_motion_scene_set_action(&player->scene, action_idx, snap);
 }
 
-esp_err_t gfx_motion_player_set_action_end_cb(gfx_motion_player_t *player,
+gfx_err_t gfx_motion_player_set_action_end_cb(gfx_motion_player_t *player,
         gfx_motion_player_action_end_cb_t cb,
         void *user_data)
 {
-    ESP_RETURN_ON_FALSE(player != NULL, ESP_ERR_INVALID_ARG, TAG, "player is NULL");
+    GFX_RETURN_ON_FALSE(player != NULL, GFX_ERR_INVALID_ARG, TAG, "player is NULL");
     player->action_end_cb = cb;
     player->action_end_user_data = user_data;
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_motion_player_set_action_loop(gfx_motion_player_t *player, bool loop)
+gfx_err_t gfx_motion_player_set_action_loop(gfx_motion_player_t *player, bool loop)
 {
-    ESP_RETURN_ON_FALSE(player != NULL, ESP_ERR_INVALID_ARG, TAG, "player is NULL");
+    GFX_RETURN_ON_FALSE(player != NULL, GFX_ERR_INVALID_ARG, TAG, "player is NULL");
     return gfx_motion_scene_set_action_loop(&player->scene, loop);
 }
 
-esp_err_t gfx_motion_player_clear_action_loop_override(gfx_motion_player_t *player)
+gfx_err_t gfx_motion_player_clear_action_loop_override(gfx_motion_player_t *player)
 {
-    ESP_RETURN_ON_FALSE(player != NULL, ESP_ERR_INVALID_ARG, TAG, "player is NULL");
+    GFX_RETURN_ON_FALSE(player != NULL, GFX_ERR_INVALID_ARG, TAG, "player is NULL");
     return gfx_motion_scene_clear_action_loop_override(&player->scene);
 }

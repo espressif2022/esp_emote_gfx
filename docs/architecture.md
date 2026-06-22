@@ -320,7 +320,35 @@ static void s_render_8bit_pixels(...);
 Public GFX APIs return `gfx_err_t`. ESP-IDF error types must stay in ESP-IDF
 adapter code or platform code.
 
-## Migration Order
+### Platform Boundaries
+
+GFX keeps ESP-IDF types and headers out of portable core code:
+
+| Layer | Error / check / log | ESP-IDF headers |
+| --- | --- | --- |
+| `include/` | `gfx_err_t` only | none |
+| `src/` (core, widgets, codecs, render, …) | `gfx_err_t`, `common/gfx_check.h`, `GFX_LOG*` | none |
+| `src/platform/esp_idf/` | convert at boundary via `gfx_err_bridge.h` | real `esp_*` allowed |
+| Host sim (`gfx_host_core`) | same as portable `src/` | none |
+| Host demos / expression | `sim/port/include` (`lvgl.h`, `sdkconfig.h`) only; expression host via `emote_port.h` | host-only shims |
+
+CI runs `scripts/check_no_esp_in_src.sh` to enforce: no `#include "esp_*"` under
+`src/` except `src/platform/esp_idf/`.
+
+### Host Sim and Examples Layout
+
+| Path | Purpose |
+| --- | --- |
+| `sim/host/` | Host executables (`gfx_host_sdl_demo`, `gfx_host_expression_demo`); expression uses `emote_port.h` on host |
+| `sim/port/include/` | Minimal host shims (`lvgl.h`, `sdkconfig.h`) |
+| `examples/format_playground/` | Shared widget/format playground UI (host + ESP board demos) |
+| `examples/assets/` | Demo binary assets |
+| `examples/expression/` | Expression demo assets (`GFX_EXPRESSION_FS_ROOT` default) |
+| `examples/esp/` | ESP-IDF board projects (`format_rgb565`, `format_rgb888`) |
+| `test_apps/main/` | Unity conformance only |
+
+Host SDL builds link playground sources from `examples/`; they must not depend on
+`test_apps/` demo code paths.
 
 1. Add the new public include tree under `include/gfx/`.
 2. Delete old forwarding entry points instead of adding new alternate names.

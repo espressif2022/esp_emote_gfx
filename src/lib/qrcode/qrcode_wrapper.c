@@ -7,8 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <esp_err.h>
-#include <esp_log.h>
 #define GFX_LOG_MODULE GFX_LOG_MODULE_QRCODE_LIB
 #include "common/gfx_log_priv.h"
 #include "qrcodegen.h"
@@ -74,25 +72,25 @@ bool qrcode_wrapper_get_module(qrcode_wrapper_handle_t qrcode, int x, int y)
     return qrcodegen_getModule(qrcode, x, y);
 }
 
-esp_err_t qrcode_wrapper_generate(qrcode_wrapper_config_t *cfg, const char *text)
+gfx_err_t qrcode_wrapper_generate(qrcode_wrapper_config_t *cfg, const char *text)
 {
     enum qrcodegen_Ecc ecc_lvl;
     uint8_t *qrcode, *tempbuf;
-    esp_err_t err = ESP_FAIL;
+    gfx_err_t err = GFX_FAIL;
 
     if (cfg == NULL || text == NULL) {
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     qrcode = calloc(1, qrcodegen_BUFFER_LEN_FOR_VERSION(cfg->max_qrcode_version));
     if (!qrcode) {
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
 
     tempbuf = calloc(1, qrcodegen_BUFFER_LEN_FOR_VERSION(cfg->max_qrcode_version));
     if (!tempbuf) {
         free(qrcode);
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
 
     switch (cfg->qrcode_ecc_level) {
@@ -122,10 +120,10 @@ esp_err_t qrcode_wrapper_generate(qrcode_wrapper_config_t *cfg, const char *text
                                    qrcodegen_Mask_AUTO, true);
     if (ok && cfg->display_func) {
         cfg->display_func((qrcode_wrapper_handle_t)qrcode, cfg->user_data);
-        err = ESP_OK;
+        err = GFX_OK;
     } else if (!ok) {
         GFX_LOGE(TAG, "Failed to encode QR Code");
-        err = ESP_FAIL;
+        err = GFX_FAIL;
     }
 
     free(qrcode);

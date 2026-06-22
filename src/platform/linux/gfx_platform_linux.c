@@ -266,16 +266,16 @@ static void *gfx_linux_task_entry(void *arg)
     return NULL;
 }
 
-esp_err_t gfx_platform_task_create(const gfx_platform_task_config_t *cfg, gfx_platform_task_fn_t fn,
+gfx_err_t gfx_platform_task_create(const gfx_platform_task_config_t *cfg, gfx_platform_task_fn_t fn,
                                    void *arg, gfx_platform_task_t *out_task)
 {
     if (cfg == NULL || fn == NULL) {
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     gfx_linux_task_start_t *start = calloc(1, sizeof(*start));
     if (start == NULL) {
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
     start->fn = fn;
     start->arg = arg;
@@ -283,7 +283,7 @@ esp_err_t gfx_platform_task_create(const gfx_platform_task_config_t *cfg, gfx_pl
     pthread_attr_t attr;
     if (pthread_attr_init(&attr) != 0) {
         free(start);
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
     if (cfg->stack_size > 0) {
         pthread_attr_setstacksize(&attr, cfg->stack_size);
@@ -294,14 +294,14 @@ esp_err_t gfx_platform_task_create(const gfx_platform_task_config_t *cfg, gfx_pl
     pthread_attr_destroy(&attr);
     if (ret != 0) {
         free(start);
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
 
     if (out_task != NULL) {
         pthread_t *task = malloc(sizeof(*task));
         if (task == NULL) {
             pthread_detach(thread);
-            return ESP_ERR_NO_MEM;
+            return GFX_ERR_NO_MEM;
         }
         *task = thread;
         *out_task = task;
@@ -309,7 +309,7 @@ esp_err_t gfx_platform_task_create(const gfx_platform_task_config_t *cfg, gfx_pl
         pthread_detach(thread);
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
 void gfx_platform_task_delete_current(void)
@@ -365,4 +365,9 @@ int64_t gfx_platform_time_us(void)
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (int64_t)ts.tv_sec * 1000000LL + (int64_t)(ts.tv_nsec / 1000L);
+}
+
+bool gfx_platform_psram_dma_capable(void)
+{
+    return true;
 }

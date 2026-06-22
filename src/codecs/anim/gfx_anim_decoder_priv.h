@@ -38,18 +38,18 @@ typedef struct {
 typedef struct gfx_anim_decoder {
     const char *name;
     bool (*probe)(const gfx_anim_src_t *src);
-    esp_err_t (*open)(const gfx_anim_src_t *src, void **out_ctx);
+    gfx_err_t (*open)(const gfx_anim_src_t *src, void **out_ctx);
     void (*close)(void *ctx);
-    esp_err_t (*get_info)(void *ctx, gfx_anim_info_t *info);
+    gfx_err_t (*get_info)(void *ctx, gfx_anim_info_t *info);
     uint32_t (*get_frame_count)(void *ctx);
-    esp_err_t (*read_frame_desc)(void *ctx, uint32_t frame_index, gfx_anim_frame_desc_t *frame_desc);
+    gfx_err_t (*read_frame_desc)(void *ctx, uint32_t frame_index, gfx_anim_frame_desc_t *frame_desc);
     void (*free_frame_desc)(gfx_anim_frame_desc_t *frame_desc);
     const uint8_t *(*get_frame_payload)(void *ctx, uint32_t frame_index);
     size_t (*get_frame_payload_size)(void *ctx, uint32_t frame_index);
     /* decode_frame_block writes RGB565 24-bit blocks as semantic RGB565 values.
      * ctx is the decoder context from open(), letting decoders reuse per-handle
      * scratch across blocks instead of allocating per call. */
-    esp_err_t (*decode_frame_block)(void *ctx, const gfx_anim_frame_desc_t *frame_desc,
+    gfx_err_t (*decode_frame_block)(void *ctx, const gfx_anim_frame_desc_t *frame_desc,
                                     const uint8_t *block_payload, size_t block_payload_size,
                                     uint8_t *decode_buffer);
     /* read_palette_color returns a semantic RGB565 color independent from the target draw path */
@@ -61,7 +61,7 @@ typedef struct gfx_anim_decoder {
  * GLOBAL PROTOTYPES
  **********************/
 
-esp_err_t gfx_anim_decoder_registry_init(void);
+gfx_err_t gfx_anim_decoder_registry_init(void);
 const gfx_anim_decoder_t *gfx_anim_decoder_select(const gfx_anim_src_t *src);
 const gfx_anim_decoder_t *gfx_anim_eaf_decoder_get(void);
 

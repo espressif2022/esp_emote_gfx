@@ -75,6 +75,22 @@ static const uint8_t s_host_font_dot[7] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x0C, 0x0C,
 };
 
+static const uint8_t s_host_font_slash[7] = {
+    0x01, 0x02, 0x02, 0x04, 0x08, 0x08, 0x10,
+};
+
+static const uint8_t s_host_font_colon[7] = {
+    0x00, 0x0C, 0x0C, 0x00, 0x0C, 0x0C, 0x00,
+};
+
+static const uint8_t s_host_font_underscore[7] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1F,
+};
+
+static const uint8_t s_host_font_pipe[7] = {
+    0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04,
+};
+
 static const uint8_t *gfx_host_font_glyph_rows(uint32_t unicode)
 {
     if (unicode >= 'a' && unicode <= 'z') {
@@ -91,6 +107,18 @@ static const uint8_t *gfx_host_font_glyph_rows(uint32_t unicode)
     }
     if (unicode == '.') {
         return s_host_font_dot;
+    }
+    if (unicode == '/') {
+        return s_host_font_slash;
+    }
+    if (unicode == ':') {
+        return s_host_font_colon;
+    }
+    if (unicode == '_') {
+        return s_host_font_underscore;
+    }
+    if (unicode == '|') {
+        return s_host_font_pipe;
     }
     if (unicode == '?') {
         return s_host_font_question;
@@ -207,18 +235,18 @@ void gfx_host_font_init_adapter(gfx_font_handle_t font_adapter, const void *font
     font_adapter->get_advance_width = gfx_host_font_get_advance_width;
 }
 
-esp_err_t gfx_label_font_create(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
+gfx_err_t gfx_label_font_create(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
 {
     (void)cfg;
     if (ret_font == NULL) {
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
     *ret_font = gfx_host_font_default();
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_label_font_delete(gfx_font_t font)
+gfx_err_t gfx_label_font_delete(gfx_font_t font)
 {
     (void)font;
-    return ESP_OK;
+    return GFX_OK;
 }

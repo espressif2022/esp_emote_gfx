@@ -1,8 +1,11 @@
 Examples
 ========
 
-The repository keeps executable examples in ``test_apps/``. This page is a
-guide to those scenarios instead of a second copy of the Quick Start code.
+The repository keeps executable examples under ``examples/`` (demos) and
+``test_apps/`` (Unity conformance). This page is a guide to those scenarios
+instead of a second copy of the Quick Start code.
+
+Host SDL demos live under ``sim/host/``; see ``examples/README.md``.
 
 Test App Menu
 -------------

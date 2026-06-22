@@ -9,7 +9,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "esp_err.h"
 #include "core/gfx_disp.h"
 #include "core/gfx_obj.h"
 #include "core/gfx_timer.h"
@@ -26,7 +25,7 @@ typedef struct {
 typedef struct gfx_motion_t gfx_motion_t;
 
 typedef bool (*gfx_motion_tick_cb_t)(gfx_motion_t *motion, void *user_data);
-typedef esp_err_t (*gfx_motion_apply_cb_t)(gfx_motion_t *motion, void *user_data, bool force_apply);
+typedef gfx_err_t (*gfx_motion_apply_cb_t)(gfx_motion_t *motion, void *user_data, bool force_apply);
 
 struct gfx_motion_t {
     gfx_timer_handle_t timer;
@@ -40,7 +39,7 @@ struct gfx_motion_t {
 
 void gfx_motion_cfg_init(gfx_motion_cfg_t *cfg, uint16_t timer_period_ms, int16_t damping_div);
 
-esp_err_t gfx_motion_init(gfx_motion_t *motion,
+gfx_err_t gfx_motion_init(gfx_motion_t *motion,
                           gfx_display_t *disp,
                           gfx_object_t *anchor,
                           const gfx_motion_cfg_t *cfg,
@@ -49,10 +48,10 @@ esp_err_t gfx_motion_init(gfx_motion_t *motion,
                           void *user_data);
 
 void gfx_motion_deinit(gfx_motion_t *motion);
-esp_err_t gfx_motion_set_period(gfx_motion_t *motion, uint16_t period_ms);
+gfx_err_t gfx_motion_set_period(gfx_motion_t *motion, uint16_t period_ms);
 gfx_timer_handle_t gfx_motion_get_timer(const gfx_motion_t *motion);
-esp_err_t gfx_motion_step(gfx_motion_t *motion, bool force_apply);
-esp_err_t gfx_motion_apply(gfx_motion_t *motion, bool force_apply);
+gfx_err_t gfx_motion_step(gfx_motion_t *motion, bool force_apply);
+gfx_err_t gfx_motion_apply(gfx_motion_t *motion, bool force_apply);
 int16_t gfx_motion_ease_i16(int16_t cur, int16_t tgt, int16_t div);
 
 #ifdef __cplusplus

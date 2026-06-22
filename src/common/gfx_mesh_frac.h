@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "sdkconfig.h"
+#include "common/gfx_config_internal.h"
 
 /**
  * Fractional bits for mesh vertex coordinates (gfx_mesh_img_point_q8_t x_q8/y_q8)

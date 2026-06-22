@@ -24,7 +24,7 @@ gfx_err_t gfx_touch_set_disp(gfx_touch_t *touch, gfx_display_t *disp)
 {
     (void)touch;
     (void)disp;
-    return ESP_ERR_NOT_SUPPORTED;
+    return GFX_ERR_NOT_SUPPORTED;
 }
 
 void gfx_touch_delete(gfx_touch_t *touch)

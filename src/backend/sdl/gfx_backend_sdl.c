@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_DISP
 #include "common/gfx_log_priv.h"
 #include "gfx/backends/sdl.h"
@@ -180,7 +180,7 @@ static void s_handle_mouse_motion(gfx_display_t *disp, int32_t x, int32_t y)
     s_dispatch_touch(disp, GFX_TOUCH_EVENT_MOVE, sx, sy);
 }
 
-static esp_err_t s_flush(gfx_backend_t *backend, gfx_display_t *disp,
+static gfx_err_t s_flush(gfx_backend_t *backend, gfx_display_t *disp,
                          gfx_coord_t x1, gfx_coord_t y1,
                          gfx_coord_t x2, gfx_coord_t y2,
                          const void *pixels, gfx_coord_t stride)
@@ -197,19 +197,19 @@ static esp_err_t s_flush(gfx_backend_t *backend, gfx_display_t *disp,
     uint32_t src_stride;
     size_t src_offset;
 
-    ESP_RETURN_ON_FALSE(sdl != NULL && src != NULL, ESP_ERR_INVALID_ARG, TAG, "flush: invalid args");
-    ESP_RETURN_ON_FALSE(x2 >= x1 && y2 >= y1, ESP_ERR_INVALID_ARG, TAG, "flush: invalid area");
+    GFX_RETURN_ON_FALSE(sdl != NULL && src != NULL, GFX_ERR_INVALID_ARG, TAG, "flush: invalid args");
+    GFX_RETURN_ON_FALSE(x2 >= x1 && y2 >= y1, GFX_ERR_INVALID_ARG, TAG, "flush: invalid area");
 
     gfx_color_format_t src_format = disp != NULL ? disp->format.output_format : GFX_COLOR_FORMAT_RGB565;
     uint8_t src_pixel_size = gfx_color_format_get_size(src_format);
-    ESP_RETURN_ON_FALSE(src_format == GFX_COLOR_FORMAT_RGB565 ||
+    GFX_RETURN_ON_FALSE(src_format == GFX_COLOR_FORMAT_RGB565 ||
                         src_format == GFX_COLOR_FORMAT_RGB565_SWAPPED ||
                         src_format == GFX_COLOR_FORMAT_RGB888 ||
                         src_format == GFX_COLOR_FORMAT_BGR888 ||
                         src_format == GFX_COLOR_FORMAT_XRGB8888 ||
                         src_format == GFX_COLOR_FORMAT_ARGB8888,
-                        ESP_ERR_NOT_SUPPORTED, TAG, "flush: unsupported source format %u", (unsigned)src_format);
-    ESP_RETURN_ON_FALSE(src_pixel_size > 0U, ESP_ERR_NOT_SUPPORTED, TAG, "flush: invalid source pixel size");
+                        GFX_ERR_NOT_SUPPORTED, TAG, "flush: unsupported source format %u", (unsigned)src_format);
+    GFX_RETURN_ON_FALSE(src_pixel_size > 0U, GFX_ERR_NOT_SUPPORTED, TAG, "flush: invalid source pixel size");
     original_w = (uint32_t)(x2 - x1);
 
     clip_x1 = x1 < 0 ? 0 : x1;
@@ -218,7 +218,7 @@ static esp_err_t s_flush(gfx_backend_t *backend, gfx_display_t *disp,
     clip_y2 = ((uint32_t)y2 > sdl->v_res) ? (gfx_coord_t)sdl->v_res : y2;
 
     if (clip_x1 >= clip_x2 || clip_y1 >= clip_y2) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     w = (uint32_t)(clip_x2 - clip_x1);
@@ -249,29 +249,35 @@ static esp_err_t s_flush(gfx_backend_t *backend, gfx_display_t *disp,
         }
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t s_wait_flush(gfx_backend_t *backend, gfx_display_t *disp)
+static gfx_err_t s_wait_flush(gfx_backend_t *backend, gfx_display_t *disp)
 {
     gfx_backend_sdl_t *sdl = (gfx_backend_sdl_t *)backend;
     (void)disp;
 
-    ESP_RETURN_ON_FALSE(sdl != NULL, ESP_ERR_INVALID_ARG, TAG, "wait: invalid backend");
+    GFX_RETURN_ON_FALSE(sdl != NULL, GFX_ERR_INVALID_ARG, TAG, "wait: invalid backend");
 
 #if defined(GFX_SDL_USE_SDL3)
     SDL_UpdateTexture(sdl->texture, NULL, sdl->pixels, (int)(sdl->h_res * sizeof(uint32_t)));
+    if (disp != NULL && !disp->render.flushing_last) {
+        return GFX_OK;
+    }
     SDL_RenderClear(sdl->renderer);
     SDL_RenderTexture(sdl->renderer, sdl->texture, NULL, NULL);
     SDL_RenderPresent(sdl->renderer);
 #else
     SDL_UpdateTexture(sdl->texture, NULL, sdl->pixels, (int)(sdl->h_res * sizeof(uint32_t)));
+    if (disp != NULL && !disp->render.flushing_last) {
+        return GFX_OK;
+    }
     SDL_RenderClear(sdl->renderer);
     SDL_RenderCopy(sdl->renderer, sdl->texture, NULL, NULL);
     SDL_RenderPresent(sdl->renderer);
 #endif
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static void s_destroy(gfx_backend_t *backend)
@@ -303,11 +309,11 @@ static const gfx_backend_vtable_t s_sdl_backend_vtable = {
 
 gfx_backend_t *gfx_backend_sdl_create(const gfx_backend_sdl_config_t *cfg)
 {
-    ESP_RETURN_ON_FALSE(cfg != NULL && cfg->h_res > 0 && cfg->v_res > 0,
+    GFX_RETURN_ON_FALSE(cfg != NULL && cfg->h_res > 0 && cfg->v_res > 0,
                         NULL, TAG, "create: invalid config");
 
     gfx_backend_sdl_t *sdl = calloc(1, sizeof(*sdl));
-    ESP_RETURN_ON_FALSE(sdl != NULL, NULL, TAG, "create: no mem for backend");
+    GFX_RETURN_ON_FALSE(sdl != NULL, NULL, TAG, "create: no mem for backend");
 
     sdl->h_res = cfg->h_res;
     sdl->v_res = cfg->v_res;
@@ -436,7 +442,7 @@ bool gfx_backend_sdl_poll(gfx_display_t *disp)
 #endif
     }
 
-    if (disp != NULL && disp->ctx != NULL) {
+    if (disp != NULL && disp->ctx != NULL && ((gfx_core_context_t *)disp->ctx)->manual_tick) {
         (void)gfx_core_tick((gfx_handle_t)disp->ctx);
     }
 

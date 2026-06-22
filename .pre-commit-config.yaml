@@ -84,6 +84,14 @@ repos:
       #   language: python
       #   pass_filenames: false
       #   always_run: true
+  - repo: local
+    hooks:
+      - id: check-no-esp-in-src
+        name: No ESP-IDF headers in portable src/
+        entry: scripts/check_no_esp_in_src.sh
+        language: script
+        pass_filenames: false
+        always_run: true
   - repo: https://github.com/espressif/conventional-precommit-linter
     rev: v1.8.0
     hooks:

@@ -8,7 +8,6 @@
  *      INCLUDES
  *********************/
 #include <stdlib.h>
-#include "esp_log.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_OBJ
 #include "common/gfx_log_priv.h"
 #include "common/gfx_comm.h"
@@ -135,7 +134,7 @@ static void gfx_object_detach_aligned_dependents(gfx_object_t *obj)
 static gfx_err_t gfx_object_detach_from_parent(gfx_object_t *obj)
 {
     if (obj == NULL) {
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     if (obj->parent != NULL) {
@@ -145,20 +144,20 @@ static gfx_err_t gfx_object_detach_from_parent(gfx_object_t *obj)
     }
 
     if (obj->disp != NULL) {
-        esp_err_t ret = gfx_display_remove_child(obj->disp, obj);
-        if (ret == ESP_ERR_NOT_FOUND) {
-            return ESP_OK;
+        gfx_err_t ret = gfx_display_remove_child(obj->disp, obj);
+        if (ret == GFX_ERR_NOT_FOUND) {
+            return GFX_OK;
         }
         return ret;
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static gfx_err_t gfx_object_delete_children(gfx_object_t *obj)
 {
     if (obj == NULL) {
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     while (obj->child_list != NULL) {
@@ -170,13 +169,13 @@ static gfx_err_t gfx_object_delete_children(gfx_object_t *obj)
             continue;
         }
 
-        esp_err_t ret = gfx_object_delete(child_obj);
-        if (ret != ESP_OK) {
+        gfx_err_t ret = gfx_object_delete(child_obj);
+        if (ret != GFX_OK) {
             return ret;
         }
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static void gfx_object_calc_pos_in_parent_internal(gfx_object_t *obj, uint8_t depth)
@@ -267,7 +266,7 @@ static bool gfx_object_resolve_abs_area_internal(gfx_object_t *obj, gfx_area_t *
 
 gfx_err_t gfx_object_set_pos(gfx_object_t *obj, gfx_coord_t x, gfx_coord_t y)
 {
-    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(obj, GFX_ERR_INVALID_ARG);
 
     //invalidate the old position
     gfx_object_invalidate_tree(obj);
@@ -283,12 +282,12 @@ gfx_err_t gfx_object_set_pos(gfx_object_t *obj, gfx_coord_t x, gfx_coord_t y)
     gfx_object_invalidate_tree(obj);
     gfx_object_notify_aligned_dependents(obj, 0);
     GFX_LOGD(TAG, "Set object position: (%d, %d)", x, y);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_object_set_size(gfx_object_t *obj, uint16_t w, uint16_t h)
 {
-    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(obj, GFX_ERR_INVALID_ARG);
 
     if (obj->type == GFX_OBJ_TYPE_ANIMATION ||
             obj->type == GFX_OBJ_TYPE_IMAGE ||
@@ -311,17 +310,17 @@ gfx_err_t gfx_object_set_size(gfx_object_t *obj, uint16_t w, uint16_t h)
     }
 
     GFX_LOGD(TAG, "Set object size: %dx%d", w, h);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_object_align(gfx_object_t *obj, uint8_t align, gfx_coord_t x_ofs, gfx_coord_t y_ofs)
 {
-    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
-    GFX_RETURN_IF_NULL(obj->disp, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj, GFX_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(obj->disp, GFX_ERR_INVALID_STATE);
 
     if (align > GFX_ALIGN_OUT_BOTTOM_RIGHT) {
         GFX_LOGW(TAG, "Unknown alignment type: %d", align);
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
     // Invalidate old position first
     gfx_object_invalidate_tree(obj);
@@ -337,27 +336,27 @@ gfx_err_t gfx_object_align(gfx_object_t *obj, uint8_t align, gfx_coord_t x_ofs, 
     gfx_object_update_layout(obj);
 
     GFX_LOGD(TAG, "Set object alignment: type=%d, offset=(%d, %d)", align, x_ofs, y_ofs);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_object_align_to(gfx_object_t *obj, gfx_object_t *base, uint8_t align, gfx_coord_t x_ofs, gfx_coord_t y_ofs)
 {
-    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
-    GFX_RETURN_IF_NULL(obj->disp, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj, GFX_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(obj->disp, GFX_ERR_INVALID_STATE);
 
     if (align > GFX_ALIGN_OUT_BOTTOM_RIGHT) {
         GFX_LOGW(TAG, "Unknown alignment type: %d", align);
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     if (base != NULL && base->disp != obj->disp) {
         GFX_LOGW(TAG, "align_to base must be on same display");
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     if (base == obj) {
         GFX_LOGW(TAG, "align_to base cannot be self");
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     gfx_object_invalidate_tree(obj);
@@ -372,15 +371,15 @@ gfx_err_t gfx_object_align_to(gfx_object_t *obj, gfx_object_t *base, uint8_t ali
     gfx_object_invalidate_tree(obj);
 
     GFX_LOGD(TAG, "Set object align_to: base=%p, type=%d, offset=(%d, %d)", base, align, x_ofs, y_ofs);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_object_set_visible(gfx_object_t *obj, bool visible)
 {
-    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(obj, GFX_ERR_INVALID_ARG);
 
     if (obj->state.is_visible == visible) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     gfx_object_invalidate_tree(obj);
@@ -389,7 +388,7 @@ gfx_err_t gfx_object_set_visible(gfx_object_t *obj, bool visible)
     gfx_object_invalidate_tree(obj);
 
     GFX_LOGD(TAG, "Set object visibility: %s", visible ? "visible" : "hidden");
-    return ESP_OK;
+    return GFX_OK;
 }
 
 bool gfx_object_get_visible(gfx_object_t *obj)
@@ -534,9 +533,9 @@ bool gfx_object_resolve_abs_area_unclipped(gfx_object_t *obj, gfx_area_t *area)
 
 gfx_err_t gfx_object_get_pos(gfx_object_t *obj, gfx_coord_t *x, gfx_coord_t *y)
 {
-    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
-    GFX_RETURN_IF_NULL(x, ESP_ERR_INVALID_ARG);
-    GFX_RETURN_IF_NULL(y, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(obj, GFX_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(x, GFX_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(y, GFX_ERR_INVALID_ARG);
 
     gfx_area_t area;
     if (gfx_object_resolve_abs_area_unclipped(obj, &area)) {
@@ -546,36 +545,36 @@ gfx_err_t gfx_object_get_pos(gfx_object_t *obj, gfx_coord_t *x, gfx_coord_t *y)
         *x = obj->local_geometry.x;
         *y = obj->local_geometry.y;
     }
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_object_get_size(gfx_object_t *obj, uint16_t *w, uint16_t *h)
 {
-    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
-    GFX_RETURN_IF_NULL(w, ESP_ERR_INVALID_ARG);
-    GFX_RETURN_IF_NULL(h, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(obj, GFX_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(w, GFX_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(h, GFX_ERR_INVALID_ARG);
 
     *w = obj->geometry.width;
     *h = obj->geometry.height;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_object_child_list_add(gfx_object_child_t **list, gfx_object_t *obj)
 {
     gfx_object_child_t *new_child;
 
-    GFX_RETURN_IF_NULL(list, ESP_ERR_INVALID_ARG);
-    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(list, GFX_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(obj, GFX_ERR_INVALID_ARG);
 
     for (gfx_object_child_t *current = *list; current != NULL; current = current->next) {
         if (current->src == obj) {
-            return ESP_OK;
+            return GFX_OK;
         }
     }
 
     new_child = (gfx_object_child_t *)malloc(sizeof(gfx_object_child_t));
     if (new_child == NULL) {
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
     new_child->src = obj;
     new_child->next = NULL;
@@ -590,7 +589,7 @@ gfx_err_t gfx_object_child_list_add(gfx_object_child_t **list, gfx_object_t *obj
         current->next = new_child;
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_object_child_list_remove(gfx_object_child_t **list, gfx_object_t *obj)
@@ -598,8 +597,8 @@ gfx_err_t gfx_object_child_list_remove(gfx_object_child_t **list, gfx_object_t *
     gfx_object_child_t *current;
     gfx_object_child_t *prev = NULL;
 
-    GFX_RETURN_IF_NULL(list, ESP_ERR_INVALID_ARG);
-    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(list, GFX_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(obj, GFX_ERR_INVALID_ARG);
 
     current = *list;
     while (current != NULL) {
@@ -610,13 +609,13 @@ gfx_err_t gfx_object_child_list_remove(gfx_object_child_t **list, gfx_object_t *
                 prev->next = current->next;
             }
             free(current);
-            return ESP_OK;
+            return GFX_OK;
         }
         prev = current;
         current = current->next;
     }
 
-    return ESP_ERR_NOT_FOUND;
+    return GFX_ERR_NOT_FOUND;
 }
 
 bool gfx_object_child_list_contains(gfx_object_child_t *list, gfx_object_t *obj, uint32_t create_seq)
@@ -663,24 +662,24 @@ void gfx_object_child_list_free_nodes(gfx_object_child_t **list)
 
 gfx_err_t gfx_object_add_child(gfx_object_t *parent, gfx_object_t *child)
 {
-    esp_err_t ret;
+    gfx_err_t ret;
 
-    GFX_RETURN_IF_NULL(parent, ESP_ERR_INVALID_ARG);
-    GFX_RETURN_IF_NULL(child, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(parent, GFX_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(child, GFX_ERR_INVALID_ARG);
 
     if (parent == child) {
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     if (parent->disp == NULL || child->disp == NULL || parent->disp != child->disp) {
         GFX_LOGW(TAG, "add child: parent and child must belong to same display");
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     for (gfx_object_t *ancestor = parent; ancestor != NULL; ancestor = ancestor->parent) {
         if (ancestor == child) {
             GFX_LOGW(TAG, "add child: cycle is not allowed");
-            return ESP_ERR_INVALID_ARG;
+            return GFX_ERR_INVALID_ARG;
         }
     }
 
@@ -689,13 +688,13 @@ gfx_err_t gfx_object_add_child(gfx_object_t *parent, gfx_object_t *child)
 
     if (child->parent != parent) {
         ret = gfx_object_detach_from_parent(child);
-        if (ret != ESP_OK) {
+        if (ret != GFX_OK) {
             return ret;
         }
     }
 
     ret = gfx_object_child_list_add(&parent->child_list, child);
-    if (ret != ESP_OK) {
+    if (ret != GFX_OK) {
         return ret;
     }
 
@@ -705,38 +704,38 @@ gfx_err_t gfx_object_add_child(gfx_object_t *parent, gfx_object_t *child)
 
     gfx_object_invalidate_tree(parent);
     gfx_object_invalidate_tree(child);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_object_remove_child(gfx_object_t *parent, gfx_object_t *child)
 {
-    esp_err_t ret;
+    gfx_err_t ret;
 
-    GFX_RETURN_IF_NULL(parent, ESP_ERR_INVALID_ARG);
-    GFX_RETURN_IF_NULL(child, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(parent, GFX_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(child, GFX_ERR_INVALID_ARG);
 
     if (child->parent != parent) {
-        return ESP_ERR_NOT_FOUND;
+        return GFX_ERR_NOT_FOUND;
     }
 
     gfx_object_invalidate_tree(parent);
     gfx_object_invalidate_tree(child);
 
     ret = gfx_object_child_list_remove(&parent->child_list, child);
-    if (ret != ESP_OK) {
+    if (ret != GFX_OK) {
         return ret;
     }
 
     child->parent = NULL;
     gfx_object_invalidate_abs_area_cache_tree(child);
     ret = gfx_display_add_child(child->disp, child);
-    if (ret != ESP_OK) {
+    if (ret != GFX_OK) {
         return ret;
     }
 
     gfx_object_invalidate_tree(parent);
     gfx_object_invalidate_tree(child);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_object_t *gfx_object_get_parent(gfx_object_t *obj)
@@ -751,10 +750,10 @@ gfx_object_t *gfx_object_get_parent(gfx_object_t *obj)
 
 gfx_err_t gfx_object_set_touch_cb(gfx_object_t *obj, gfx_object_touch_cb_t cb, void *user_data)
 {
-    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(obj, GFX_ERR_INVALID_ARG);
     obj->user_touch_cb = cb;
     obj->user_touch_data = user_data;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 uint32_t gfx_object_get_trace_id(gfx_object_t *obj)
@@ -777,10 +776,10 @@ const char *gfx_object_get_trace_tag(gfx_object_t *obj)
 
 gfx_err_t gfx_object_load_resource(gfx_object_t *obj)
 {
-    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(obj, GFX_ERR_INVALID_ARG);
 
     if (obj->state.resource_loaded && !obj->state.resource_dirty) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     if (obj->state.resource_loaded && obj->state.resource_dirty) {
@@ -790,17 +789,17 @@ gfx_err_t gfx_object_load_resource(gfx_object_t *obj)
     if (obj->vfunc.load == NULL) {
         obj->state.resource_loaded = true;
         obj->state.resource_dirty = false;
-        return ESP_OK;
+        return GFX_OK;
     }
 
-    esp_err_t ret = obj->vfunc.load(obj);
-    if (ret != ESP_OK) {
+    gfx_err_t ret = obj->vfunc.load(obj);
+    if (ret != GFX_OK) {
         return ret;
     }
 
     obj->state.resource_loaded = true;
     obj->state.resource_dirty = false;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 void gfx_object_release_resource(gfx_object_t *obj)
@@ -865,7 +864,7 @@ void gfx_object_set_clip_children(gfx_object_t *obj, bool enable)
 
 gfx_err_t gfx_object_delete(gfx_object_t *obj)
 {
-    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(obj, GFX_ERR_INVALID_ARG);
 
     gfx_object_invalidate_tree(obj);
     (void)gfx_object_delete_children(obj);
@@ -883,5 +882,5 @@ gfx_err_t gfx_object_delete(gfx_object_t *obj)
     }
 
     free(obj);
-    return ESP_OK;
+    return GFX_OK;
 }

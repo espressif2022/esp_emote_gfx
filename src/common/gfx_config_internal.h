@@ -17,6 +17,13 @@
 #define GFX_CONFIG_HAS_SDKCONFIG 0
 #endif
 
+#if !GFX_CONFIG_HAS_SDKCONFIG
+#define CONFIG_GFX_EAF_JPEG_DECODE_SUPPORT 1
+#define CONFIG_GFX_EAF_HEATSHRINK_SUPPORT 1
+#define CONFIG_HEATSHRINK_DYNAMIC_ALLOC 1
+#define CONFIG_HEATSHRINK_USE_INDEX 1
+#endif
+
 /*********************
  *  Software Blend
  *********************/

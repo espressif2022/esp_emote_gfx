@@ -6,7 +6,7 @@
 
 #include <stdlib.h>
 
-#include "esp_check.h"
+#include "common/gfx_check.h"
 
 #define GFX_LOG_MODULE GFX_LOG_MODULE_DISP
 #include "common/gfx_log_priv.h"
@@ -25,36 +25,36 @@ static gfx_err_t gfx_callback_backend_flush(gfx_backend_t *backend, gfx_display_
 {
     gfx_callback_backend_t *cb_backend = (gfx_callback_backend_t *)backend;
 
-    ESP_RETURN_ON_FALSE(cb_backend != NULL && disp != NULL, ESP_ERR_INVALID_ARG,
+    GFX_RETURN_ON_FALSE(cb_backend != NULL && disp != NULL, GFX_ERR_INVALID_ARG,
                         TAG, "callback backend flush: invalid args");
     if (cb_backend->flush_cb == NULL) {
-        return ESP_OK;
+        return GFX_OK;
     }
     gfx_coord_t expected_stride = disp->flags.full_frame ? (gfx_coord_t)disp->res.h_res : (x2 - x1);
-    ESP_RETURN_ON_FALSE(stride == expected_stride, ESP_ERR_NOT_SUPPORTED,
+    GFX_RETURN_ON_FALSE(stride == expected_stride, GFX_ERR_NOT_SUPPORTED,
                         TAG, "callback backend flush: aligned stride is not supported by legacy flush_cb");
-    ESP_RETURN_ON_FALSE(disp->sync.event_group != NULL, ESP_ERR_INVALID_STATE,
+    GFX_RETURN_ON_FALSE(disp->sync.event_group != NULL, GFX_ERR_INVALID_STATE,
                         TAG, "callback backend flush: event group is NULL");
 
     gfx_platform_event_clear(disp->sync.event_group, WAIT_FLUSH_DONE);
     cb_backend->flush_cb(disp, x1, y1, x2, y2, pixels);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static gfx_err_t gfx_callback_backend_wait_flush(gfx_backend_t *backend, gfx_display_t *disp)
 {
     gfx_callback_backend_t *cb_backend = (gfx_callback_backend_t *)backend;
 
-    ESP_RETURN_ON_FALSE(cb_backend != NULL && disp != NULL, ESP_ERR_INVALID_ARG,
+    GFX_RETURN_ON_FALSE(cb_backend != NULL && disp != NULL, GFX_ERR_INVALID_ARG,
                         TAG, "callback backend wait: invalid args");
     if (cb_backend->flush_cb == NULL) {
-        return ESP_OK;
+        return GFX_OK;
     }
-    ESP_RETURN_ON_FALSE(disp->sync.event_group != NULL, ESP_ERR_INVALID_STATE,
+    GFX_RETURN_ON_FALSE(disp->sync.event_group != NULL, GFX_ERR_INVALID_STATE,
                         TAG, "callback backend wait: event group is NULL");
 
     gfx_platform_event_wait(disp->sync.event_group, WAIT_FLUSH_DONE, true, false, GFX_PLATFORM_WAIT_FOREVER);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static void gfx_callback_backend_destroy(gfx_backend_t *backend)
@@ -93,7 +93,7 @@ gfx_err_t gfx_backend_flush(gfx_display_t *disp,
 {
     if (disp == NULL || disp->backend == NULL || disp->backend->vtable == NULL ||
             disp->backend->vtable->flush == NULL) {
-        return ESP_OK;
+        return GFX_OK;
     }
     return disp->backend->vtable->flush(disp->backend, disp, x1, y1, x2, y2, pixels, stride);
 }
@@ -102,7 +102,7 @@ gfx_err_t gfx_backend_wait_flush(gfx_display_t *disp)
 {
     if (disp == NULL || disp->backend == NULL || disp->backend->vtable == NULL ||
             disp->backend->vtable->wait_flush == NULL) {
-        return ESP_OK;
+        return GFX_OK;
     }
     return disp->backend->vtable->wait_flush(disp->backend, disp);
 }

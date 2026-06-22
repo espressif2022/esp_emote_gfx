@@ -9,9 +9,7 @@
  *********************/
 #include <stdlib.h>
 #include <string.h>
-#include "esp_err.h"
-#include "esp_log.h"
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_IMG
 #include "common/gfx_log_priv.h"
 #include "common/gfx_comm.h"
@@ -43,9 +41,9 @@ static const char *const TAG = "img";
 /**********************
  *  STATIC PROTOTYPES
  **********************/
-static esp_err_t gfx_image_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
-static esp_err_t gfx_image_delete_impl(gfx_object_t *obj);
-static esp_err_t gfx_image_load_impl(gfx_object_t *obj);
+static gfx_err_t gfx_image_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
+static gfx_err_t gfx_image_delete_impl(gfx_object_t *obj);
+static gfx_err_t gfx_image_load_impl(gfx_object_t *obj);
 static void gfx_image_release_impl(gfx_object_t *obj);
 
 static const gfx_widget_class_t s_gfx_image_widget_class = {
@@ -63,18 +61,18 @@ static const gfx_widget_class_t s_gfx_image_widget_class = {
  *   STATIC FUNCTIONS
  **********************/
 
-static esp_err_t gfx_image_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
+static gfx_err_t gfx_image_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 {
     gfx_image_t *image;
 
     if (obj == NULL || obj->src == NULL || ctx == NULL) {
         GFX_LOGD(TAG, "draw image: object, state, or draw context is NULL");
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     if (obj->type != GFX_OBJ_TYPE_IMAGE) {
         GFX_LOGW(TAG, "draw image: object type is not image");
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     gfx_render_surface_t dst_surface = {
@@ -88,7 +86,7 @@ static esp_err_t gfx_image_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     image = (gfx_image_t *)obj->src;
     if (image->resource.src.data == NULL) {
         GFX_LOGD(TAG, "draw image: source descriptor has no payload");
-        return ESP_OK;
+        return GFX_OK;
     }
 
     uint16_t image_width = image->resource.header.w;
@@ -96,18 +94,18 @@ static esp_err_t gfx_image_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     gfx_color_format_t color_format = gfx_image_resource_format(&image->resource);
 
     if (image_width == 0U || image_height == 0U) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     if (!gfx_color_format_is_image_supported(color_format)) {
         GFX_LOGW(TAG, "draw image: unsupported color format %u", color_format);
-        return ESP_ERR_NOT_SUPPORTED;
+        return GFX_ERR_NOT_SUPPORTED;
     }
 
     const uint8_t *image_data = gfx_image_resource_pixels(&image->resource);
     if (image_data == NULL) {
         GFX_LOGE(TAG, "draw image: resource is not loaded");
-        return ESP_ERR_INVALID_STATE;
+        return GFX_ERR_INVALID_STATE;
     }
 
     gfx_area_t render_area = ctx->clip_area;
@@ -115,13 +113,13 @@ static esp_err_t gfx_image_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     gfx_area_t clip_area;
 
     if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
     obj_area.x2 = (gfx_coord_t)(obj_area.x1 + image_width);
     obj_area.y2 = (gfx_coord_t)(obj_area.y1 + image_height);
 
     if (!gfx_area_intersect_exclusive(&clip_area, &render_area, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     uint8_t src_pixel_size = gfx_image_resource_pixel_size(&image->resource);
@@ -166,7 +164,7 @@ static esp_err_t gfx_image_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
                                       src_x,
                                       src_y,
                                       0xFFU)) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     gfx_sw_blend_img_draw_fmt(
@@ -182,18 +180,18 @@ static esp_err_t gfx_image_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
         0xFFU
     );
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_image_load_impl(gfx_object_t *obj)
+static gfx_err_t gfx_image_load_impl(gfx_object_t *obj)
 {
     gfx_image_t *image;
 
     CHECK_OBJ_TYPE_IMAGE(obj);
     image = (gfx_image_t *)obj->src;
-    ESP_RETURN_ON_FALSE(image != NULL, ESP_ERR_INVALID_STATE, TAG, "load image: state is NULL");
+    GFX_RETURN_ON_FALSE(image != NULL, GFX_ERR_INVALID_STATE, TAG, "load image: state is NULL");
     if (image->resource.src.data == NULL) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     return gfx_image_resource_open(&image->resource);
@@ -211,7 +209,7 @@ static void gfx_image_release_impl(gfx_object_t *obj)
     gfx_image_resource_close(&image->resource);
 }
 
-static esp_err_t gfx_image_delete_impl(gfx_object_t *obj)
+static gfx_err_t gfx_image_delete_impl(gfx_object_t *obj)
 {
     gfx_image_t *image;
 
@@ -222,7 +220,7 @@ static esp_err_t gfx_image_delete_impl(gfx_object_t *obj)
         obj->src = NULL;
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
 /**********************
@@ -246,7 +244,7 @@ gfx_object_t *gfx_image_create(gfx_display_t *disp)
     }
 
     if (gfx_object_create_class_instance(disp, &s_gfx_image_widget_class,
-                                         image, 0, 0, "gfx_image_create", &obj) != ESP_OK) {
+                                         image, 0, 0, "gfx_image_create", &obj) != GFX_OK) {
         free(image);
         GFX_LOGE(TAG, "create image: no mem for object");
         return NULL;
@@ -256,15 +254,15 @@ gfx_object_t *gfx_image_create(gfx_display_t *disp)
     return obj;
 }
 
-esp_err_t gfx_image_set_source_desc(gfx_object_t *obj, const gfx_image_src_t *src)
+gfx_err_t gfx_image_set_source_desc(gfx_object_t *obj, const gfx_image_src_t *src)
 {
     gfx_image_t *image;
     CHECK_OBJ_TYPE_IMAGE(obj);
 
     image = (gfx_image_t *)obj->src;
-    ESP_RETURN_ON_FALSE(image != NULL, ESP_ERR_INVALID_STATE, TAG, "set image src: state is NULL");
+    GFX_RETURN_ON_FALSE(image != NULL, GFX_ERR_INVALID_STATE, TAG, "set image src: state is NULL");
 
-    ESP_RETURN_ON_ERROR(gfx_image_resource_set_source(&image->resource, src), TAG, "set image src failed");
+    GFX_RETURN_ON_ERROR(gfx_image_resource_set_source(&image->resource, src), TAG, "set image src failed");
 
     gfx_object_invalidate(obj);
 
@@ -277,5 +275,5 @@ esp_err_t gfx_image_set_source_desc(gfx_object_t *obj, const gfx_image_src_t *sr
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
 
-    return ESP_OK;
+    return GFX_OK;
 }

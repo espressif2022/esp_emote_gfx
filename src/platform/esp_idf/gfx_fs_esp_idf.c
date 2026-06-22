@@ -8,63 +8,32 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "esp_heap_caps.h"
 #include "esp_err.h"
 #include "esp_mmap_assets.h"
-#include "esp_partition.h"
 
 #include "core/base/gfx_fs_priv.h"
+#include "platform/esp_idf/gfx_err_bridge.h"
 
 typedef struct {
     mmap_assets_handle_t handle;
     int32_t max_files;
+    bool direct_mem;
 } gfx_fs_mmap_backend_t;
 
 typedef struct {
-    gfx_fs_view_state_base_t base;
-} gfx_fs_mmap_view_t;
+    gfx_fs_entry_state_base_t base;
+    void *owned;
+} gfx_fs_mmap_entry_t;
 
 typedef struct {
     char *root_dir;
-    uint32_t alloc_caps;
 } gfx_fs_vfs_backend_t;
 
 typedef struct {
-    gfx_fs_view_state_base_t base;
+    gfx_fs_entry_state_base_t base;
     char *name;
     void *owned;
-} gfx_fs_vfs_view_t;
-
-typedef struct {
-    const esp_partition_t *partition;
-    gfx_fs_load_mode_t load_mode;
-    uint32_t alloc_caps;
-} gfx_fs_partition_backend_t;
-
-typedef struct {
-    gfx_fs_view_state_base_t base;
-    char *name;
-    void *owned;
-    esp_partition_mmap_handle_t mmap_handle;
-} gfx_fs_partition_view_t;
-
-static gfx_err_t gfx_fs_mmap_err_to_gfx(esp_err_t err)
-{
-    switch (err) {
-    case ESP_OK:
-        return GFX_OK;
-    case ESP_ERR_NO_MEM:
-        return GFX_ERR_NO_MEM;
-    case ESP_ERR_INVALID_ARG:
-        return GFX_ERR_INVALID_ARG;
-    case ESP_ERR_INVALID_SIZE:
-        return GFX_ERR_INVALID_SIZE;
-    case ESP_ERR_NOT_FOUND:
-        return GFX_ERR_NOT_FOUND;
-    default:
-        return GFX_FAIL;
-    }
-}
+} gfx_fs_vfs_entry_t;
 
 static char *gfx_fs_strdup(const char *s)
 {
@@ -78,14 +47,6 @@ static char *gfx_fs_strdup(const char *s)
     }
     memcpy(copy, s, len);
     return copy;
-}
-
-static void *gfx_fs_alloc(size_t size, uint32_t alloc_caps)
-{
-    if (alloc_caps != 0U) {
-        return heap_caps_malloc(size, alloc_caps);
-    }
-    return malloc(size);
 }
 
 static bool gfx_fs_name_is_safe(const char *name)
@@ -125,12 +86,11 @@ static char *gfx_fs_join_path(const char *root, const char *name)
     return path;
 }
 
-static gfx_err_t gfx_fs_mmap_open_id(gfx_fs_t *store, int32_t id, gfx_fs_view_t *out_view)
+static gfx_err_t gfx_fs_mmap_open_id(gfx_fs_t *fs, int32_t id, gfx_fs_entry_t *out_entry)
 {
-    gfx_fs_mmap_backend_t *backend = (gfx_fs_mmap_backend_t *)store->backend_data;
-    gfx_fs_mmap_view_t *state;
+    gfx_fs_mmap_backend_t *backend = (gfx_fs_mmap_backend_t *)fs->backend_data;
+    gfx_fs_mmap_entry_t *state;
     const void *data;
-    const char *name;
     int size;
 
     if (backend == NULL || backend->handle == NULL || id < 0 ||
@@ -140,7 +100,7 @@ static gfx_err_t gfx_fs_mmap_open_id(gfx_fs_t *store, int32_t id, gfx_fs_view_t 
 
     data = mmap_assets_get_mem(backend->handle, (int)id);
     size = mmap_assets_get_size(backend->handle, (int)id);
-    if (data == NULL || size < 0) {
+    if (size <= 0) {
         return GFX_ERR_NOT_FOUND;
     }
 
@@ -148,24 +108,45 @@ static gfx_err_t gfx_fs_mmap_open_id(gfx_fs_t *store, int32_t id, gfx_fs_view_t 
     if (state == NULL) {
         return GFX_ERR_NO_MEM;
     }
-    state->base.store = store;
+    state->base.fs = fs;
 
-    name = mmap_assets_get_name(backend->handle, (int)id);
-    out_view->data = data;
-    out_view->size = (size_t)size;
-    out_view->name = name;
-    out_view->id = id;
-    out_view->is_mapped = true;
-    out_view->flags = GFX_FS_VIEW_FLAG_DIRECT_ADDR |
-                      GFX_FS_VIEW_FLAG_MAPPED |
-                      GFX_FS_VIEW_FLAG_PERSISTENT;
-    out_view->priv = state;
+    out_entry->size = (size_t)size;
+
+    if (backend->direct_mem) {
+        if (data == NULL) {
+            free(state);
+            return GFX_ERR_NOT_FOUND;
+        }
+        out_entry->data = data;
+    } else {
+        size_t copied;
+
+        state->owned = malloc(out_entry->size);
+        if (state->owned == NULL) {
+            free(state);
+            return GFX_ERR_NO_MEM;
+        }
+        if (data == NULL) {
+            free(state->owned);
+            free(state);
+            return GFX_ERR_NOT_FOUND;
+        }
+        copied = mmap_assets_copy_mem(backend->handle, (size_t)data, state->owned, out_entry->size);
+        if (copied != out_entry->size) {
+            free(state->owned);
+            free(state);
+            return GFX_FAIL;
+        }
+        out_entry->data = state->owned;
+    }
+
+    out_entry->priv = state;
     return GFX_OK;
 }
 
-static gfx_err_t gfx_fs_mmap_open_by_name(gfx_fs_t *store, const char *name, gfx_fs_view_t *out_view)
+static gfx_err_t gfx_fs_mmap_open_by_name(gfx_fs_t *fs, const char *name, gfx_fs_entry_t *out_entry)
 {
-    gfx_fs_mmap_backend_t *backend = (gfx_fs_mmap_backend_t *)store->backend_data;
+    gfx_fs_mmap_backend_t *backend = (gfx_fs_mmap_backend_t *)fs->backend_data;
 
     if (backend == NULL || backend->handle == NULL || name == NULL) {
         return GFX_ERR_INVALID_ARG;
@@ -174,71 +155,56 @@ static gfx_err_t gfx_fs_mmap_open_by_name(gfx_fs_t *store, const char *name, gfx
     for (int32_t i = 0; i < backend->max_files; i++) {
         const char *asset_name = mmap_assets_get_name(backend->handle, (int)i);
         if (asset_name != NULL && strcmp(asset_name, name) == 0) {
-            return gfx_fs_mmap_open_id(store, i, out_view);
+            return gfx_fs_mmap_open_id(fs, i, out_entry);
         }
     }
 
     return GFX_ERR_NOT_FOUND;
 }
 
-static gfx_err_t gfx_fs_mmap_open_by_id(gfx_fs_t *store, int32_t id, gfx_fs_view_t *out_view)
+static void gfx_fs_mmap_entry_close(gfx_fs_entry_t *entry)
 {
-    return gfx_fs_mmap_open_id(store, id, out_view);
-}
+    gfx_fs_mmap_entry_t *state;
 
-static gfx_err_t gfx_fs_mmap_get_caps(const gfx_fs_t *store, gfx_fs_caps_t *out_caps)
-{
-    (void)store;
-    if (out_caps == NULL) {
-        return GFX_ERR_INVALID_ARG;
-    }
-    *out_caps = (gfx_fs_caps_t) {
-        .open_by_name = true,
-        .open_by_id = true,
-        .open_region = false,
-        .can_direct_addr = true,
-        .can_owned_copy = false,
-        .can_force_copy = false,
-        .can_force_direct = true,
-    };
-    return GFX_OK;
-}
-
-static void gfx_fs_mmap_view_close(gfx_fs_view_t *view)
-{
-    free(view != NULL ? view->priv : NULL);
-}
-
-static void gfx_fs_mmap_store_close(gfx_fs_t *store)
-{
-    gfx_fs_mmap_backend_t *backend;
-
-    if (store == NULL) {
+    if (entry == NULL) {
         return;
     }
 
-    backend = (gfx_fs_mmap_backend_t *)store->backend_data;
+    state = (gfx_fs_mmap_entry_t *)entry->priv;
+    if (state != NULL) {
+        free(state->owned);
+        free(state);
+    }
+}
+
+static void gfx_fs_mmap_fs_close(gfx_fs_t *fs)
+{
+    gfx_fs_mmap_backend_t *backend;
+
+    if (fs == NULL) {
+        return;
+    }
+
+    backend = (gfx_fs_mmap_backend_t *)fs->backend_data;
     if (backend != NULL) {
         if (backend->handle != NULL) {
             (void)mmap_assets_del(backend->handle);
         }
         free(backend);
     }
-    free(store);
+    free(fs);
 }
 
 static const gfx_fs_vtable_t s_gfx_fs_mmap_vtable = {
     .open_by_name = gfx_fs_mmap_open_by_name,
-    .open_by_id = gfx_fs_mmap_open_by_id,
-    .get_caps = gfx_fs_mmap_get_caps,
-    .view_close = gfx_fs_mmap_view_close,
-    .store_close = gfx_fs_mmap_store_close,
+    .entry_close = gfx_fs_mmap_entry_close,
+    .fs_close = gfx_fs_mmap_fs_close,
 };
 
-static gfx_err_t gfx_fs_vfs_open_by_name(gfx_fs_t *store, const char *name, gfx_fs_view_t *out_view)
+static gfx_err_t gfx_fs_vfs_open_by_name(gfx_fs_t *fs, const char *name, gfx_fs_entry_t *out_entry)
 {
-    gfx_fs_vfs_backend_t *backend = (gfx_fs_vfs_backend_t *)store->backend_data;
-    gfx_fs_vfs_view_t *state = NULL;
+    gfx_fs_vfs_backend_t *backend = (gfx_fs_vfs_backend_t *)fs->backend_data;
+    gfx_fs_vfs_entry_t *state = NULL;
     char *path = NULL;
     FILE *fp = NULL;
     long file_size;
@@ -278,7 +244,7 @@ static gfx_err_t gfx_fs_vfs_open_by_name(gfx_fs_t *store, const char *name, gfx_
         err = GFX_ERR_NO_MEM;
         goto cleanup;
     }
-    state->base.store = store;
+    state->base.fs = fs;
     state->name = gfx_fs_strdup(name);
     if (state->name == NULL) {
         err = GFX_ERR_NO_MEM;
@@ -287,7 +253,7 @@ static gfx_err_t gfx_fs_vfs_open_by_name(gfx_fs_t *store, const char *name, gfx_
 
     size = (size_t)file_size;
     if (size > 0U) {
-        state->owned = gfx_fs_alloc(size, backend->alloc_caps);
+        state->owned = malloc(size);
         if (state->owned == NULL) {
             err = GFX_ERR_NO_MEM;
             goto cleanup;
@@ -296,15 +262,11 @@ static gfx_err_t gfx_fs_vfs_open_by_name(gfx_fs_t *store, const char *name, gfx_
             err = GFX_FAIL;
             goto cleanup;
         }
-        out_view->data = state->owned;
-        out_view->flags = GFX_FS_VIEW_FLAG_OWNED;
+        out_entry->data = state->owned;
     }
 
-    out_view->size = size;
-    out_view->name = state->name;
-    out_view->id = -1;
-    out_view->is_mapped = false;
-    out_view->priv = state;
+    out_entry->size = size;
+    out_entry->priv = state;
     state = NULL;
     err = GFX_OK;
 
@@ -321,35 +283,9 @@ cleanup:
     return err;
 }
 
-static gfx_err_t gfx_fs_vfs_open_by_id(gfx_fs_t *store, int32_t id, gfx_fs_view_t *out_view)
+static void gfx_fs_vfs_entry_close(gfx_fs_entry_t *entry)
 {
-    (void)store;
-    (void)id;
-    (void)out_view;
-    return GFX_ERR_NOT_SUPPORTED;
-}
-
-static gfx_err_t gfx_fs_vfs_get_caps(const gfx_fs_t *store, gfx_fs_caps_t *out_caps)
-{
-    (void)store;
-    if (out_caps == NULL) {
-        return GFX_ERR_INVALID_ARG;
-    }
-    *out_caps = (gfx_fs_caps_t) {
-        .open_by_name = true,
-        .open_by_id = false,
-        .open_region = false,
-        .can_direct_addr = false,
-        .can_owned_copy = true,
-        .can_force_copy = true,
-        .can_force_direct = false,
-    };
-    return GFX_OK;
-}
-
-static void gfx_fs_vfs_view_close(gfx_fs_view_t *view)
-{
-    gfx_fs_vfs_view_t *state = view != NULL ? (gfx_fs_vfs_view_t *)view->priv : NULL;
+    gfx_fs_vfs_entry_t *state = entry != NULL ? (gfx_fs_vfs_entry_t *)entry->priv : NULL;
     if (state == NULL) {
         return;
     }
@@ -358,343 +294,158 @@ static void gfx_fs_vfs_view_close(gfx_fs_view_t *view)
     free(state);
 }
 
-static void gfx_fs_vfs_store_close(gfx_fs_t *store)
+static void gfx_fs_vfs_fs_close(gfx_fs_t *fs)
 {
-    if (store == NULL) {
+    if (fs == NULL) {
         return;
     }
-    gfx_fs_vfs_backend_t *backend = (gfx_fs_vfs_backend_t *)store->backend_data;
+    gfx_fs_vfs_backend_t *backend = (gfx_fs_vfs_backend_t *)fs->backend_data;
     if (backend != NULL) {
         free(backend->root_dir);
         free(backend);
     }
-    free(store);
+    free(fs);
 }
 
 static const gfx_fs_vtable_t s_gfx_fs_vfs_vtable = {
     .open_by_name = gfx_fs_vfs_open_by_name,
-    .open_by_id = gfx_fs_vfs_open_by_id,
-    .get_caps = gfx_fs_vfs_get_caps,
-    .view_close = gfx_fs_vfs_view_close,
-    .store_close = gfx_fs_vfs_store_close,
+    .entry_close = gfx_fs_vfs_entry_close,
+    .fs_close = gfx_fs_vfs_fs_close,
 };
 
-static gfx_err_t gfx_fs_partition_open_region(gfx_fs_t *store,
-        const gfx_fs_region_t *region,
-        gfx_fs_view_t *out_view)
+gfx_err_t gfx_fs_open_partition_port(const char *partition_label, gfx_fs_access_mode_t access_mode,
+                                     gfx_fs_t **out_fs)
 {
-    gfx_fs_partition_backend_t *backend = (gfx_fs_partition_backend_t *)store->backend_data;
-    gfx_fs_partition_view_t *state = NULL;
-    const void *mapped = NULL;
-    esp_err_t ret;
-    gfx_err_t err = GFX_FAIL;
-
-    if (backend == NULL || backend->partition == NULL || region == NULL || region->size == 0U) {
-        return GFX_ERR_INVALID_ARG;
-    }
-    if ((uint64_t)region->offset + region->size > backend->partition->size) {
-        return GFX_ERR_INVALID_SIZE;
-    }
-
-    state = calloc(1, sizeof(*state));
-    if (state == NULL) {
-        return GFX_ERR_NO_MEM;
-    }
-    state->base.store = store;
-    state->mmap_handle = 0;
-    if (region->name != NULL) {
-        state->name = gfx_fs_strdup(region->name);
-        if (state->name == NULL) {
-            err = GFX_ERR_NO_MEM;
-            goto cleanup;
-        }
-    }
-
-    if (backend->load_mode != GFX_FS_LOAD_FORCE_COPY) {
-        ret = esp_partition_mmap(backend->partition,
-                                 region->offset,
-                                 region->size,
-                                 ESP_PARTITION_MMAP_DATA,
-                                 &mapped,
-                                 &state->mmap_handle);
-        if (ret == ESP_OK) {
-            out_view->data = mapped;
-            out_view->flags = GFX_FS_VIEW_FLAG_DIRECT_ADDR | GFX_FS_VIEW_FLAG_MAPPED;
-            out_view->is_mapped = true;
-            err = GFX_OK;
-            goto fill_view;
-        }
-        if (backend->load_mode == GFX_FS_LOAD_FORCE_DIRECT) {
-            err = gfx_fs_mmap_err_to_gfx(ret);
-            goto cleanup;
-        }
-    }
-
-    state->owned = gfx_fs_alloc(region->size, backend->alloc_caps);
-    if (state->owned == NULL) {
-        err = GFX_ERR_NO_MEM;
-        goto cleanup;
-    }
-    ret = esp_partition_read(backend->partition, region->offset, state->owned, region->size);
-    if (ret != ESP_OK) {
-        err = gfx_fs_mmap_err_to_gfx(ret);
-        goto cleanup;
-    }
-    out_view->data = state->owned;
-    out_view->flags = GFX_FS_VIEW_FLAG_OWNED;
-    out_view->is_mapped = false;
-    err = GFX_OK;
-
-fill_view:
-    out_view->size = region->size;
-    out_view->name = state->name != NULL ? state->name : region->name;
-    out_view->id = region->id;
-    out_view->priv = state;
-    state = NULL;
-
-cleanup:
-    if (state != NULL) {
-        if (state->mmap_handle != 0) {
-            esp_partition_munmap(state->mmap_handle);
-        }
-        free(state->owned);
-        free(state->name);
-        free(state);
-    }
-    return err;
-}
-
-static gfx_err_t gfx_fs_partition_open_by_name(gfx_fs_t *store, const char *name, gfx_fs_view_t *out_view)
-{
-    (void)store;
-    (void)name;
-    (void)out_view;
-    return GFX_ERR_NOT_SUPPORTED;
-}
-
-static gfx_err_t gfx_fs_partition_open_by_id(gfx_fs_t *store, int32_t id, gfx_fs_view_t *out_view)
-{
-    (void)store;
-    (void)id;
-    (void)out_view;
-    return GFX_ERR_NOT_SUPPORTED;
-}
-
-static gfx_err_t gfx_fs_partition_get_caps(const gfx_fs_t *store, gfx_fs_caps_t *out_caps)
-{
-    gfx_fs_partition_backend_t *backend = store != NULL ? (gfx_fs_partition_backend_t *)store->backend_data : NULL;
-    if (backend == NULL || out_caps == NULL) {
-        return GFX_ERR_INVALID_ARG;
-    }
-    *out_caps = (gfx_fs_caps_t) {
-        .open_by_name = false,
-        .open_by_id = false,
-        .open_region = true,
-        .can_direct_addr = backend->load_mode != GFX_FS_LOAD_FORCE_COPY,
-        .can_owned_copy = backend->load_mode != GFX_FS_LOAD_FORCE_DIRECT,
-        .can_force_copy = true,
-        .can_force_direct = true,
-    };
-    return GFX_OK;
-}
-
-static void gfx_fs_partition_view_close(gfx_fs_view_t *view)
-{
-    gfx_fs_partition_view_t *state = view != NULL ? (gfx_fs_partition_view_t *)view->priv : NULL;
-    if (state == NULL) {
-        return;
-    }
-    if (state->mmap_handle != 0) {
-        esp_partition_munmap(state->mmap_handle);
-    }
-    free(state->owned);
-    free(state->name);
-    free(state);
-}
-
-static void gfx_fs_partition_store_close(gfx_fs_t *store)
-{
-    if (store == NULL) {
-        return;
-    }
-    free(store->backend_data);
-    free(store);
-}
-
-static const gfx_fs_vtable_t s_gfx_fs_partition_vtable = {
-    .open_by_name = gfx_fs_partition_open_by_name,
-    .open_by_id = gfx_fs_partition_open_by_id,
-    .open_region = gfx_fs_partition_open_region,
-    .get_caps = gfx_fs_partition_get_caps,
-    .view_close = gfx_fs_partition_view_close,
-    .store_close = gfx_fs_partition_store_close,
-};
-
-static gfx_err_t gfx_fs_open_mmap_config(const gfx_fs_config_t *config, gfx_fs_t **out_store)
-{
-    gfx_fs_t *store = NULL;
+    gfx_fs_t *fs = NULL;
     gfx_fs_mmap_backend_t *backend = NULL;
     esp_err_t ret;
+    bool direct_mem = access_mode == GFX_FS_ACCESS_DIRECT;
     const mmap_assets_config_t mmap_config = {
-        .partition_label = config->partition_label,
-        .max_files = (int)config->max_files,
-        .checksum = config->checksum,
+        .partition_label = partition_label,
+        .max_files = 0,
+        .checksum = 0,
         .flags = {
-            .mmap_enable = true,
-            .full_check = config->full_check,
+            .mmap_enable = direct_mem,
+            .full_check = true,
+            .use_fs = false,
         },
     };
 
-    if (config == NULL || out_store == NULL || config->partition_label == NULL) {
+    if (partition_label == NULL || out_fs == NULL) {
         return GFX_ERR_INVALID_ARG;
     }
-    *out_store = NULL;
+    if (access_mode != GFX_FS_ACCESS_DIRECT && access_mode != GFX_FS_ACCESS_COPY) {
+        return GFX_ERR_INVALID_ARG;
+    }
+    *out_fs = NULL;
 
-    store = calloc(1, sizeof(*store));
+    fs = calloc(1, sizeof(*fs));
     backend = calloc(1, sizeof(*backend));
-    if (store == NULL || backend == NULL) {
-        free(store);
+    if (fs == NULL || backend == NULL) {
+        free(fs);
         free(backend);
         return GFX_ERR_NO_MEM;
     }
 
     ret = mmap_assets_new(&mmap_config, &backend->handle);
     if (ret != ESP_OK) {
-        free(store);
+        free(fs);
         free(backend);
-        return gfx_fs_mmap_err_to_gfx(ret);
+        return gfx_err_from_esp(ret);
     }
 
     backend->max_files = mmap_assets_get_stored_files(backend->handle);
     if (backend->max_files <= 0) {
         (void)mmap_assets_del(backend->handle);
-        free(store);
+        free(fs);
         free(backend);
         return GFX_ERR_INVALID_SIZE;
     }
-    store->backend = GFX_FS_BACKEND_MMAP;
-    store->vtable = &s_gfx_fs_mmap_vtable;
-    store->backend_data = backend;
-    *out_store = store;
+    backend->direct_mem = direct_mem;
+    fs->access_mode = access_mode;
+    fs->vtable = &s_gfx_fs_mmap_vtable;
+    fs->backend_data = backend;
+    *out_fs = fs;
     return GFX_OK;
 }
 
-static gfx_err_t gfx_fs_open_vfs_config(const gfx_fs_config_t *config, gfx_fs_t **out_store)
+gfx_err_t gfx_fs_open_pack_file_port(const char *file_path, gfx_fs_t **out_fs)
 {
-    gfx_fs_t *store = NULL;
+    gfx_fs_t *fs = NULL;
+    gfx_fs_mmap_backend_t *backend = NULL;
+    esp_err_t ret;
+    const mmap_assets_config_t mmap_config = {
+        .partition_label = file_path,
+        .max_files = 0,
+        .checksum = 0,
+        .flags = {
+            .mmap_enable = true,
+            .full_check = true,
+            .use_fs = true,
+        },
+    };
+
+    if (file_path == NULL || out_fs == NULL) {
+        return GFX_ERR_INVALID_ARG;
+    }
+    *out_fs = NULL;
+
+    fs = calloc(1, sizeof(*fs));
+    backend = calloc(1, sizeof(*backend));
+    if (fs == NULL || backend == NULL) {
+        free(fs);
+        free(backend);
+        return GFX_ERR_NO_MEM;
+    }
+
+    ret = mmap_assets_new(&mmap_config, &backend->handle);
+    if (ret != ESP_OK) {
+        free(fs);
+        free(backend);
+        return gfx_err_from_esp(ret);
+    }
+
+    backend->max_files = mmap_assets_get_stored_files(backend->handle);
+    if (backend->max_files <= 0) {
+        (void)mmap_assets_del(backend->handle);
+        free(fs);
+        free(backend);
+        return GFX_ERR_INVALID_SIZE;
+    }
+    backend->direct_mem = false;
+    fs->access_mode = GFX_FS_ACCESS_COPY;
+    fs->vtable = &s_gfx_fs_mmap_vtable;
+    fs->backend_data = backend;
+    *out_fs = fs;
+    return GFX_OK;
+}
+
+gfx_err_t gfx_fs_open_dir_port(const char *root_dir, gfx_fs_t **out_fs)
+{
+    gfx_fs_t *fs = NULL;
     gfx_fs_vfs_backend_t *backend = NULL;
 
-    if (config == NULL || out_store == NULL || config->root_dir == NULL) {
+    if (root_dir == NULL || out_fs == NULL) {
         return GFX_ERR_INVALID_ARG;
     }
 
-    store = calloc(1, sizeof(*store));
+    fs = calloc(1, sizeof(*fs));
     backend = calloc(1, sizeof(*backend));
-    if (store == NULL || backend == NULL) {
-        free(store);
+    if (fs == NULL || backend == NULL) {
+        free(fs);
         free(backend);
         return GFX_ERR_NO_MEM;
     }
-    backend->root_dir = gfx_fs_strdup(config->root_dir);
+    backend->root_dir = gfx_fs_strdup(root_dir);
     if (backend->root_dir == NULL) {
-        free(store);
-        free(backend);
-        return GFX_ERR_NO_MEM;
-    }
-    backend->alloc_caps = config->alloc_caps;
-
-    store->backend = GFX_FS_BACKEND_DIR;
-    store->vtable = &s_gfx_fs_vfs_vtable;
-    store->backend_data = backend;
-    *out_store = store;
-    return GFX_OK;
-}
-
-static gfx_err_t gfx_fs_open_partition_config(const gfx_fs_config_t *config, gfx_fs_t **out_store)
-{
-    gfx_fs_t *store = NULL;
-    gfx_fs_partition_backend_t *backend = NULL;
-    const esp_partition_t *partition = NULL;
-
-    if (config == NULL || out_store == NULL || config->partition_label == NULL) {
-        return GFX_ERR_INVALID_ARG;
-    }
-
-    partition = esp_partition_find_first(ESP_PARTITION_TYPE_ANY,
-                                         ESP_PARTITION_SUBTYPE_ANY,
-                                         config->partition_label);
-    if (partition == NULL) {
-        return GFX_ERR_NOT_FOUND;
-    }
-
-    store = calloc(1, sizeof(*store));
-    backend = calloc(1, sizeof(*backend));
-    if (store == NULL || backend == NULL) {
-        free(store);
+        free(fs);
         free(backend);
         return GFX_ERR_NO_MEM;
     }
 
-    backend->partition = partition;
-    backend->load_mode = config->load_mode;
-    backend->alloc_caps = config->alloc_caps;
-    store->backend = GFX_FS_BACKEND_PARTITION;
-    store->vtable = &s_gfx_fs_partition_vtable;
-    store->backend_data = backend;
-    *out_store = store;
+    fs->access_mode = GFX_FS_ACCESS_COPY;
+    fs->vtable = &s_gfx_fs_vfs_vtable;
+    fs->backend_data = backend;
+    *out_fs = fs;
     return GFX_OK;
-}
-
-gfx_err_t gfx_fs_open_config_port(const gfx_fs_config_t *config, gfx_fs_t **out_store)
-{
-    if (config == NULL || out_store == NULL) {
-        return GFX_ERR_INVALID_ARG;
-    }
-    *out_store = NULL;
-
-    switch (config->type) {
-    case GFX_FS_TYPE_AUTO:
-        if (config->partition_label != NULL) {
-            return gfx_fs_open_mmap_config(config, out_store);
-        }
-        if (config->root_dir != NULL) {
-            return gfx_fs_open_vfs_config(config, out_store);
-        }
-        return GFX_ERR_INVALID_ARG;
-    case GFX_FS_TYPE_DIR:
-        return gfx_fs_open_vfs_config(config, out_store);
-    case GFX_FS_TYPE_MMAP_ASSETS:
-        return gfx_fs_open_mmap_config(config, out_store);
-    case GFX_FS_TYPE_PARTITION:
-        return gfx_fs_open_partition_config(config, out_store);
-    case GFX_FS_TYPE_MEMORY_TABLE:
-    default:
-        return GFX_ERR_NOT_SUPPORTED;
-    }
-}
-
-gfx_err_t gfx_fs_open_dir_port(const char *root_dir, gfx_fs_t **out_store)
-{
-    const gfx_fs_config_t config = {
-        .type = GFX_FS_TYPE_DIR,
-        .load_mode = GFX_FS_LOAD_FORCE_COPY,
-        .root_dir = root_dir,
-    };
-    return gfx_fs_open_vfs_config(&config, out_store);
-}
-
-gfx_err_t gfx_fs_open_mmap_port(const gfx_fs_mmap_config_t *config, gfx_fs_t **out_store)
-{
-    const gfx_fs_config_t store_config = {
-        .type = GFX_FS_TYPE_MMAP_ASSETS,
-        .load_mode = GFX_FS_LOAD_PREFER_DIRECT,
-        .partition_label = config != NULL ? config->partition_label : NULL,
-        .max_files = config != NULL ? config->max_files : 0,
-        .checksum = config != NULL ? config->checksum : 0U,
-        .full_check = config != NULL ? config->full_check : false,
-    };
-    if (config == NULL || out_store == NULL) {
-        return GFX_ERR_INVALID_ARG;
-    }
-    return gfx_fs_open_mmap_config(&store_config, out_store);
 }

@@ -7,7 +7,6 @@
 #pragma once
 
 #include <stdint.h>
-#include "esp_err.h"
 #include "gfx/widgets/image.h"
 
 #ifdef __cplusplus
@@ -34,14 +33,15 @@ typedef struct {
     const uint8_t *data;        /**< Decoded/native image pixel data */
     uint32_t data_size;         /**< Size of decoded data */
     void *user_data;            /**< User data for decoder */
+    void *decoder;              /**< Internal decoder owner for close routing */
 } gfx_image_decoder_dsc_t;
 
 typedef struct gfx_image_decoder_t gfx_image_decoder_t;
 
 struct gfx_image_decoder_t {
     const char *name;           /**< Decoder name */
-    esp_err_t (*info_cb)(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc, gfx_image_header_t *header);
-    esp_err_t (*open_cb)(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc);
+    gfx_err_t (*info_cb)(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc, gfx_image_header_t *header);
+    gfx_err_t (*open_cb)(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc);
     void (*close_cb)(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc);
 };
 
@@ -50,13 +50,13 @@ struct gfx_image_decoder_t {
  **********************/
 
 gfx_image_format_t gfx_image_detect_format(const void *src);
-esp_err_t gfx_image_decoder_register(gfx_image_decoder_t *decoder);
-esp_err_t gfx_image_validate_dsc(const gfx_image_dsc_t *image_desc);
-esp_err_t gfx_image_decoder_info(gfx_image_decoder_dsc_t *dsc, gfx_image_header_t *header);
-esp_err_t gfx_image_decoder_open(gfx_image_decoder_dsc_t *dsc);
+gfx_err_t gfx_image_decoder_register(gfx_image_decoder_t *decoder);
+gfx_err_t gfx_image_validate_dsc(const gfx_image_dsc_t *image_desc);
+gfx_err_t gfx_image_decoder_info(gfx_image_decoder_dsc_t *dsc, gfx_image_header_t *header);
+gfx_err_t gfx_image_decoder_open(gfx_image_decoder_dsc_t *dsc);
 void gfx_image_decoder_close(gfx_image_decoder_dsc_t *dsc);
-esp_err_t gfx_image_decoder_init(void);
-esp_err_t gfx_image_decoder_deinit(void);
+gfx_err_t gfx_image_decoder_init(void);
+gfx_err_t gfx_image_decoder_deinit(void);
 
 #ifdef __cplusplus
 }

@@ -8,7 +8,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "esp_err.h"
+#include "core/gfx_err.h"
 #include "core/gfx_types.h"
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
@@ -89,11 +89,11 @@ typedef struct {
 
 bool gfx_is_lvgl_font(const void *font);
 void gfx_font_lv_init_adapter(gfx_font_handle_t font_adapter, const void *font);
-esp_err_t gfx_font_init_adapter(gfx_font_handle_t font_adapter, const void *font);
+gfx_err_t gfx_font_init_adapter(gfx_font_handle_t font_adapter, const void *font);
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
-esp_err_t gfx_ft_lib_create(void);
-esp_err_t gfx_ft_lib_cleanup(void);
+gfx_err_t gfx_ft_lib_create(void);
+gfx_err_t gfx_ft_lib_cleanup(void);
 void gfx_font_ft_init_adapter(gfx_font_handle_t font_adapter, const void *font);
 #endif
 

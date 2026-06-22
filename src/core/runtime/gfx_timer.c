@@ -10,8 +10,6 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
-#include "esp_err.h"
-#include "esp_log.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_TIMER
 #include "common/gfx_log_priv.h"
 #include "platform/gfx_platform.h"

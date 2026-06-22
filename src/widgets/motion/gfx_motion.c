@@ -9,7 +9,7 @@
  *********************/
 #include <string.h>
 
-#include "esp_check.h"
+#include "common/gfx_check.h"
 
 #define GFX_LOG_MODULE GFX_LOG_MODULE_MOTION
 #define GFX_LOG_TAG    "gfx_motion"
@@ -57,7 +57,7 @@ void gfx_motion_cfg_init(gfx_motion_cfg_t *cfg, uint16_t timer_period_ms, int16_
     cfg->damping_div     = damping_div;
 }
 
-esp_err_t gfx_motion_init(gfx_motion_t *motion,
+gfx_err_t gfx_motion_init(gfx_motion_t *motion,
                           gfx_display_t *disp,
                           gfx_object_t *anchor,
                           const gfx_motion_cfg_t *cfg,
@@ -65,12 +65,12 @@ esp_err_t gfx_motion_init(gfx_motion_t *motion,
                           gfx_motion_apply_cb_t apply_cb,
                           void *user_data)
 {
-    ESP_RETURN_ON_FALSE(motion != NULL, ESP_ERR_INVALID_ARG, TAG, "motion is NULL");
-    ESP_RETURN_ON_FALSE(disp != NULL, ESP_ERR_INVALID_ARG, TAG, "disp is NULL");
-    ESP_RETURN_ON_FALSE(anchor != NULL, ESP_ERR_INVALID_ARG, TAG, "anchor is NULL");
-    ESP_RETURN_ON_FALSE(cfg != NULL, ESP_ERR_INVALID_ARG, TAG, "cfg is NULL");
-    ESP_RETURN_ON_FALSE(tick_cb != NULL, ESP_ERR_INVALID_ARG, TAG, "tick_cb is NULL");
-    ESP_RETURN_ON_FALSE(apply_cb != NULL, ESP_ERR_INVALID_ARG, TAG, "apply_cb is NULL");
+    GFX_RETURN_ON_FALSE(motion != NULL, GFX_ERR_INVALID_ARG, TAG, "motion is NULL");
+    GFX_RETURN_ON_FALSE(disp != NULL, GFX_ERR_INVALID_ARG, TAG, "disp is NULL");
+    GFX_RETURN_ON_FALSE(anchor != NULL, GFX_ERR_INVALID_ARG, TAG, "anchor is NULL");
+    GFX_RETURN_ON_FALSE(cfg != NULL, GFX_ERR_INVALID_ARG, TAG, "cfg is NULL");
+    GFX_RETURN_ON_FALSE(tick_cb != NULL, GFX_ERR_INVALID_ARG, TAG, "tick_cb is NULL");
+    GFX_RETURN_ON_FALSE(apply_cb != NULL, GFX_ERR_INVALID_ARG, TAG, "apply_cb is NULL");
 
     memset(motion, 0, sizeof(*motion));
     motion->disp      = disp;
@@ -81,8 +81,8 @@ esp_err_t gfx_motion_init(gfx_motion_t *motion,
     motion->user_data = user_data;
 
     motion->timer = gfx_timer_create(disp->ctx, s_timer_cb, motion->cfg.timer_period_ms, motion);
-    ESP_RETURN_ON_FALSE(motion->timer != NULL, ESP_ERR_NO_MEM, TAG, "create timer failed");
-    return ESP_OK;
+    GFX_RETURN_ON_FALSE(motion->timer != NULL, GFX_ERR_NO_MEM, TAG, "create timer failed");
+    return GFX_OK;
 }
 
 void gfx_motion_deinit(gfx_motion_t *motion)
@@ -96,15 +96,15 @@ void gfx_motion_deinit(gfx_motion_t *motion)
     memset(motion, 0, sizeof(*motion));
 }
 
-esp_err_t gfx_motion_set_period(gfx_motion_t *motion, uint16_t period_ms)
+gfx_err_t gfx_motion_set_period(gfx_motion_t *motion, uint16_t period_ms)
 {
-    ESP_RETURN_ON_FALSE(motion != NULL, ESP_ERR_INVALID_ARG, TAG, "motion is NULL");
-    ESP_RETURN_ON_FALSE(motion->timer != NULL, ESP_ERR_INVALID_STATE, TAG, "timer is NULL");
-    ESP_RETURN_ON_FALSE(period_ms > 0U, ESP_ERR_INVALID_ARG, TAG, "period is 0");
+    GFX_RETURN_ON_FALSE(motion != NULL, GFX_ERR_INVALID_ARG, TAG, "motion is NULL");
+    GFX_RETURN_ON_FALSE(motion->timer != NULL, GFX_ERR_INVALID_STATE, TAG, "timer is NULL");
+    GFX_RETURN_ON_FALSE(period_ms > 0U, GFX_ERR_INVALID_ARG, TAG, "period is 0");
 
     motion->cfg.timer_period_ms = period_ms;
     gfx_timer_set_period(motion->timer, period_ms);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_timer_handle_t gfx_motion_get_timer(const gfx_motion_t *motion)
@@ -112,24 +112,24 @@ gfx_timer_handle_t gfx_motion_get_timer(const gfx_motion_t *motion)
     return (motion != NULL) ? motion->timer : NULL;
 }
 
-esp_err_t gfx_motion_step(gfx_motion_t *motion, bool force_apply)
+gfx_err_t gfx_motion_step(gfx_motion_t *motion, bool force_apply)
 {
     bool changed;
 
-    ESP_RETURN_ON_FALSE(motion != NULL, ESP_ERR_INVALID_ARG, TAG, "motion is NULL");
-    ESP_RETURN_ON_FALSE(motion->tick_cb != NULL && motion->apply_cb != NULL, ESP_ERR_INVALID_STATE, TAG, "callbacks not ready");
+    GFX_RETURN_ON_FALSE(motion != NULL, GFX_ERR_INVALID_ARG, TAG, "motion is NULL");
+    GFX_RETURN_ON_FALSE(motion->tick_cb != NULL && motion->apply_cb != NULL, GFX_ERR_INVALID_STATE, TAG, "callbacks not ready");
 
     changed = motion->tick_cb(motion, motion->user_data);
     if (changed || force_apply) {
         return motion->apply_cb(motion, motion->user_data, force_apply);
     }
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_motion_apply(gfx_motion_t *motion, bool force_apply)
+gfx_err_t gfx_motion_apply(gfx_motion_t *motion, bool force_apply)
 {
-    ESP_RETURN_ON_FALSE(motion != NULL, ESP_ERR_INVALID_ARG, TAG, "motion is NULL");
-    ESP_RETURN_ON_FALSE(motion->apply_cb != NULL, ESP_ERR_INVALID_STATE, TAG, "apply callback not ready");
+    GFX_RETURN_ON_FALSE(motion != NULL, GFX_ERR_INVALID_ARG, TAG, "motion is NULL");
+    GFX_RETURN_ON_FALSE(motion->apply_cb != NULL, GFX_ERR_INVALID_STATE, TAG, "apply callback not ready");
 
     return motion->apply_cb(motion, motion->user_data, force_apply);
 }

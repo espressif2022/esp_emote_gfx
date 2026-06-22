@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_OBJ
 #include "common/gfx_log_priv.h"
 #include "common/gfx_comm.h"
@@ -31,8 +31,8 @@ typedef struct {
 
 static const char *const TAG = "container";
 
-static esp_err_t gfx_container_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
-static esp_err_t gfx_container_delete_impl(gfx_object_t *obj);
+static gfx_err_t gfx_container_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
+static gfx_err_t gfx_container_delete_impl(gfx_object_t *obj);
 
 static const gfx_widget_class_t s_gfx_container_widget_class = {
     .type = GFX_OBJ_TYPE_CONTAINER,
@@ -50,7 +50,7 @@ static void gfx_container_init_default(gfx_container_t *container)
     container->bg_enable = true;
 }
 
-static esp_err_t gfx_container_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
+static gfx_err_t gfx_container_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 {
     gfx_container_t *container;
     gfx_area_t obj_area;
@@ -64,17 +64,17 @@ static esp_err_t gfx_container_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx
     };
 
     CHECK_OBJ_TYPE_CONTAINER(obj);
-    GFX_RETURN_IF_NULL(ctx, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(ctx, GFX_ERR_INVALID_ARG);
 
     container = (gfx_container_t *)obj->src;
-    GFX_RETURN_IF_NULL(container, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(container, GFX_ERR_INVALID_STATE);
 
     if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     if (!gfx_area_intersect_exclusive(&clip_area, &ctx->clip_area, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     if (container->bg_enable) {
@@ -92,15 +92,15 @@ static esp_err_t gfx_container_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx
                                 container->border_color,
                                 0xFF);
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_container_delete_impl(gfx_object_t *obj)
+static gfx_err_t gfx_container_delete_impl(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_CONTAINER(obj);
     free(obj->src);
     obj->src = NULL;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_object_t *gfx_container_create(gfx_display_t *disp)
@@ -122,7 +122,7 @@ gfx_object_t *gfx_container_create(gfx_display_t *disp)
 
     if (gfx_object_create_class_instance(disp, &s_gfx_container_widget_class,
                                          container, GFX_CONTAINER_DEFAULT_WIDTH, GFX_CONTAINER_DEFAULT_HEIGHT,
-                                         "gfx_container_create", &obj) != ESP_OK) {
+                                         "gfx_container_create", &obj) != GFX_OK) {
         free(container);
         return NULL;
     }
@@ -135,11 +135,11 @@ gfx_err_t gfx_container_set_bg_enable(gfx_object_t *obj, bool enable)
     CHECK_OBJ_TYPE_CONTAINER(obj);
 
     gfx_container_t *container = (gfx_container_t *)obj->src;
-    GFX_RETURN_IF_NULL(container, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(container, GFX_ERR_INVALID_STATE);
 
     container->bg_enable = enable;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_container_set_bg_color(gfx_object_t *obj, gfx_color_t color)
@@ -147,11 +147,11 @@ gfx_err_t gfx_container_set_bg_color(gfx_object_t *obj, gfx_color_t color)
     CHECK_OBJ_TYPE_CONTAINER(obj);
 
     gfx_container_t *container = (gfx_container_t *)obj->src;
-    GFX_RETURN_IF_NULL(container, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(container, GFX_ERR_INVALID_STATE);
 
     container->bg_color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_container_set_border_color(gfx_object_t *obj, gfx_color_t color)
@@ -159,11 +159,11 @@ gfx_err_t gfx_container_set_border_color(gfx_object_t *obj, gfx_color_t color)
     CHECK_OBJ_TYPE_CONTAINER(obj);
 
     gfx_container_t *container = (gfx_container_t *)obj->src;
-    GFX_RETURN_IF_NULL(container, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(container, GFX_ERR_INVALID_STATE);
 
     container->border_color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_container_set_border_width(gfx_object_t *obj, uint16_t width)
@@ -171,11 +171,11 @@ gfx_err_t gfx_container_set_border_width(gfx_object_t *obj, uint16_t width)
     CHECK_OBJ_TYPE_CONTAINER(obj);
 
     gfx_container_t *container = (gfx_container_t *)obj->src;
-    GFX_RETURN_IF_NULL(container, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(container, GFX_ERR_INVALID_STATE);
 
     container->border_width = width;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_container_set_clip_children(gfx_object_t *obj, bool enable)
@@ -185,5 +185,5 @@ gfx_err_t gfx_container_set_clip_children(gfx_object_t *obj, bool enable)
     gfx_object_invalidate_tree(obj);
     gfx_object_set_clip_children(obj, enable);
     gfx_object_invalidate_tree(obj);
-    return ESP_OK;
+    return GFX_OK;
 }

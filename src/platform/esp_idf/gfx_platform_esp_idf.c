@@ -8,6 +8,7 @@
 
 #include "esp_heap_caps.h"
 #include "esp_timer.h"
+#include "soc/soc_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "freertos/semphr.h"
@@ -144,11 +145,11 @@ bool gfx_platform_mutex_unlock(gfx_platform_mutex_t mutex)
     return xSemaphoreGiveRecursive((SemaphoreHandle_t)mutex) == pdTRUE;
 }
 
-esp_err_t gfx_platform_task_create(const gfx_platform_task_config_t *cfg, gfx_platform_task_fn_t fn,
+gfx_err_t gfx_platform_task_create(const gfx_platform_task_config_t *cfg, gfx_platform_task_fn_t fn,
                                    void *arg, gfx_platform_task_t *out_task)
 {
     if (cfg == NULL || fn == NULL) {
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     TaskHandle_t task = NULL;
@@ -163,13 +164,13 @@ esp_err_t gfx_platform_task_create(const gfx_platform_task_config_t *cfg, gfx_pl
     }
 
     if (ret != pdPASS) {
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
 
     if (out_task != NULL) {
         *out_task = (gfx_platform_task_t)task;
     }
-    return ESP_OK;
+    return GFX_OK;
 }
 
 void gfx_platform_task_delete_current(void)
@@ -210,4 +211,13 @@ void gfx_platform_free(void *ptr)
 int64_t gfx_platform_time_us(void)
 {
     return esp_timer_get_time();
+}
+
+bool gfx_platform_psram_dma_capable(void)
+{
+#if SOC_PSRAM_DMA_CAPABLE
+    return true;
+#else
+    return false;
+#endif
 }

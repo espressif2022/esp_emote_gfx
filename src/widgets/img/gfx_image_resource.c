@@ -6,7 +6,7 @@
 
 #include <string.h>
 
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_IMG
 #include "common/gfx_log_priv.h"
 #include "common/gfx_types_priv.h"
@@ -28,68 +28,68 @@ static const char *gfx_image_resource_src_type_name(gfx_image_src_type_t type)
     }
 }
 
-static esp_err_t gfx_image_resource_validate_src(const gfx_image_src_t *src)
+static gfx_err_t gfx_image_resource_validate_src(const gfx_image_src_t *src)
 {
-    ESP_RETURN_ON_FALSE(src != NULL, ESP_ERR_INVALID_ARG, TAG, "image source is NULL");
-    ESP_RETURN_ON_FALSE(src->data != NULL, ESP_ERR_INVALID_ARG, TAG, "image source payload is NULL");
+    GFX_RETURN_ON_FALSE(src != NULL, GFX_ERR_INVALID_ARG, TAG, "image source is NULL");
+    GFX_RETURN_ON_FALSE(src->data != NULL, GFX_ERR_INVALID_ARG, TAG, "image source payload is NULL");
 
     switch (src->type) {
     case GFX_IMAGE_SRC_TYPE_IMAGE_DSC:
-        return ESP_OK;
+        return GFX_OK;
     case GFX_IMAGE_SRC_TYPE_MEMORY:
-        ESP_RETURN_ON_FALSE(src->data_len > 0U, ESP_ERR_INVALID_ARG,
+        GFX_RETURN_ON_FALSE(src->data_len > 0U, GFX_ERR_INVALID_ARG,
                             TAG, "image source payload length is zero");
-        return ESP_OK;
+        return GFX_OK;
     case GFX_IMAGE_SRC_TYPE_FILE:
-        return ESP_OK;
+        return GFX_OK;
     default:
-        return ESP_ERR_NOT_SUPPORTED;
+        return GFX_ERR_NOT_SUPPORTED;
     }
 }
 
-esp_err_t gfx_image_resource_set_source(gfx_image_resource_t *resource, const gfx_image_src_t *src)
+gfx_err_t gfx_image_resource_set_source(gfx_image_resource_t *resource, const gfx_image_src_t *src)
 {
     gfx_image_decoder_dsc_t dsc = {0};
     gfx_image_header_t header;
 
-    ESP_RETURN_ON_FALSE(resource != NULL, ESP_ERR_INVALID_ARG, TAG, "image resource is NULL");
-    ESP_RETURN_ON_ERROR(gfx_image_resource_validate_src(src), TAG, "set source: invalid descriptor");
+    GFX_RETURN_ON_FALSE(resource != NULL, GFX_ERR_INVALID_ARG, TAG, "image resource is NULL");
+    GFX_RETURN_ON_ERROR(gfx_image_resource_validate_src(src), TAG, "set source: invalid descriptor");
 
     dsc.src = *src;
-    ESP_RETURN_ON_ERROR(gfx_image_decoder_info(&dsc, &header), TAG, "set source: query header failed");
-    ESP_RETURN_ON_FALSE(gfx_color_format_is_image_supported((gfx_color_format_t)header.cf),
-                        ESP_ERR_NOT_SUPPORTED, TAG, "set source: unsupported color format");
+    GFX_RETURN_ON_ERROR(gfx_image_decoder_info(&dsc, &header), TAG, "set source: query header failed");
+    GFX_RETURN_ON_FALSE(gfx_color_format_is_image_supported((gfx_color_format_t)header.cf),
+                        GFX_ERR_NOT_SUPPORTED, TAG, "set source: unsupported color format");
 
     gfx_image_resource_close(resource);
     resource->src = *src;
     resource->header = header;
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_image_resource_open(gfx_image_resource_t *resource)
+gfx_err_t gfx_image_resource_open(gfx_image_resource_t *resource)
 {
-    ESP_RETURN_ON_FALSE(resource != NULL, ESP_ERR_INVALID_ARG, TAG, "image resource is NULL");
+    GFX_RETURN_ON_FALSE(resource != NULL, GFX_ERR_INVALID_ARG, TAG, "image resource is NULL");
     if (resource->src.data == NULL) {
-        return ESP_OK;
+        return GFX_OK;
     }
     if (resource->decoder.data != NULL) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     resource->decoder = (gfx_image_decoder_dsc_t) {
         .src = resource->src,
         .header = resource->header,
     };
-    GFX_LOGI(TAG, "open image resource: src=%s payload=%p size=%zu header=%ux%u cf=%u",
+    GFX_LOGD(TAG, "open image resource: src=%s payload=%p size=%zu header=%ux%u cf=%u",
              gfx_image_resource_src_type_name(resource->src.type), resource->src.data,
              resource->src.data_len, (unsigned)resource->header.w, (unsigned)resource->header.h,
              (unsigned)resource->header.cf);
-    ESP_RETURN_ON_ERROR(gfx_image_decoder_open(&resource->decoder), TAG, "open decoder failed");
-    ESP_RETURN_ON_FALSE(resource->decoder.data != NULL, ESP_ERR_INVALID_STATE,
+    GFX_RETURN_ON_ERROR(gfx_image_decoder_open(&resource->decoder), TAG, "open decoder failed");
+    GFX_RETURN_ON_FALSE(resource->decoder.data != NULL, GFX_ERR_INVALID_STATE,
                         TAG, "decoder returned no data");
-    GFX_LOGI(TAG, "opened image resource: pixels=%p bytes=%zu",
+    GFX_LOGD(TAG, "opened image resource: pixels=%p bytes=%zu",
              resource->decoder.data, resource->decoder.data_size);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 void gfx_image_resource_close(gfx_image_resource_t *resource)
@@ -99,7 +99,7 @@ void gfx_image_resource_close(gfx_image_resource_t *resource)
     }
 
     if (resource->decoder.data != NULL || resource->decoder.user_data != NULL) {
-        GFX_LOGI(TAG, "close image resource: src=%s payload=%p pixels=%p bytes=%zu",
+        GFX_LOGD(TAG, "close image resource: src=%s payload=%p pixels=%p bytes=%zu",
                  gfx_image_resource_src_type_name(resource->src.type), resource->src.data,
                  resource->decoder.data, resource->decoder.data_size);
         gfx_image_decoder_close(&resource->decoder);

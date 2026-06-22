@@ -6,19 +6,19 @@
 
 #include <stdlib.h>
 
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_MOTION
 #define GFX_LOG_TAG    "gfx_motion_style"
 #include "common/gfx_log_priv.h"
 #include "widgets/motion/gfx_motion_player_priv.h"
 
-esp_err_t gfx_motion_player_bind_style_common(gfx_motion_player_t *player,
+gfx_err_t gfx_motion_player_bind_style_common(gfx_motion_player_t *player,
         const gfx_motion_segment_t *seg, gfx_object_t *obj, const gfx_image_src_t *solid_src)
 {
-    ESP_RETURN_ON_FALSE(player != NULL && seg != NULL && obj != NULL && solid_src != NULL,
-                        ESP_ERR_INVALID_ARG, TAG, "style target is NULL");
+    GFX_RETURN_ON_FALSE(player != NULL && seg != NULL && obj != NULL && solid_src != NULL,
+                        GFX_ERR_INVALID_ARG, TAG, "style target is NULL");
 
-    ESP_RETURN_ON_ERROR(
+    GFX_RETURN_ON_ERROR(
         gfx_mesh_img_set_scanline_fill(obj, false, gfx_motion_player_resolve_fill_color(player, seg)),
         TAG, "clear scanline fill");
 
@@ -31,27 +31,27 @@ esp_err_t gfx_motion_player_bind_style_common(gfx_motion_player_t *player,
             .type = GFX_IMAGE_SRC_TYPE_IMAGE_DSC,
             .data = (const void *)player->scene.asset->resources[seg->resource_idx - 1U].image,
         };
-        ESP_RETURN_ON_ERROR(gfx_mesh_img_set_src_desc(obj, &res_src), TAG, "set resource src");
+        GFX_RETURN_ON_ERROR(gfx_mesh_img_set_src_desc(obj, &res_src), TAG, "set resource src");
     } else if (seg->color_idx > 0U && seg->color_idx <= GFX_MOTION_PALETTE_MAX) {
         gfx_image_src_t pal_src = {
             .type = GFX_IMAGE_SRC_TYPE_IMAGE_DSC,
             .data = &player->palette_imgs[seg->color_idx - 1U],
         };
-        ESP_RETURN_ON_ERROR(gfx_mesh_img_set_src_desc(obj, &pal_src), TAG, "set palette src");
+        GFX_RETURN_ON_ERROR(gfx_mesh_img_set_src_desc(obj, &pal_src), TAG, "set palette src");
     } else {
-        ESP_RETURN_ON_ERROR(gfx_mesh_img_set_src_desc(obj, solid_src), TAG, "set solid src");
+        GFX_RETURN_ON_ERROR(gfx_mesh_img_set_src_desc(obj, solid_src), TAG, "set solid src");
     }
 
-    ESP_RETURN_ON_ERROR(gfx_mesh_img_set_opa(obj, gfx_motion_player_segment_opacity(seg)),
+    GFX_RETURN_ON_ERROR(gfx_mesh_img_set_opa(obj, gfx_motion_player_segment_opacity(seg)),
                         TAG, "set opacity");
     if (MOTION_BEZIER_FILL_USE_SCANLINE &&
             seg->kind == GFX_MOTION_SEG_BEZIER_FILL && seg->resource_idx == 0U) {
-        ESP_RETURN_ON_ERROR(
+        GFX_RETURN_ON_ERROR(
             gfx_mesh_img_set_scanline_fill(obj, true, gfx_motion_player_resolve_fill_color(player, seg)),
             TAG, "set scanline fill");
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
 uint16_t gfx_motion_player_layout_timer_period_ms(const gfx_motion_layout_t *layout)
@@ -99,7 +99,7 @@ bool gfx_motion_player_segment_layer_visible(const gfx_motion_player_t *rt,
     return (rt->layer_mask & (1UL << (seg->layer_bit - 1U))) != 0U;
 }
 
-esp_err_t gfx_motion_player_apply_resource_uv(const gfx_motion_player_t *rt, uint8_t seg_idx,
+gfx_err_t gfx_motion_player_apply_resource_uv(const gfx_motion_player_t *rt, uint8_t seg_idx,
         gfx_object_t *obj, uint8_t cols, uint8_t rows)
 {
     const gfx_motion_segment_t *seg;
@@ -115,15 +115,15 @@ esp_err_t gfx_motion_player_apply_resource_uv(const gfx_motion_player_t *rt, uin
     uint32_t bottom_q8;
     size_t point_count;
     size_t idx = 0U;
-    esp_err_t ret;
+    gfx_err_t ret;
 
     if (rt == NULL || rt->scene.asset == NULL || seg_idx >= rt->scene.asset->segment_count) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     seg = &rt->scene.asset->segments[seg_idx];
     if (seg->resource_idx == 0U) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     res = &rt->scene.asset->resources[seg->resource_idx - 1U];
@@ -138,7 +138,7 @@ esp_err_t gfx_motion_player_apply_resource_uv(const gfx_motion_player_t *rt, uin
     point_count = (size_t)(cols + 1U) * (size_t)(rows + 1U);
 
     points = calloc(point_count, sizeof(*points));
-    ESP_RETURN_ON_FALSE(points != NULL, ESP_ERR_NO_MEM, TAG, "alloc resource uv points failed");
+    GFX_RETURN_ON_FALSE(points != NULL, GFX_ERR_NO_MEM, TAG, "alloc resource uv points failed");
 
     for (uint8_t row = 0U; row <= rows; row++) {
         uint32_t y_q8 = ((crop_y << GFX_MESH_FRAC_SHIFT) * (uint32_t)(rows - row) +
@@ -157,31 +157,31 @@ esp_err_t gfx_motion_player_apply_resource_uv(const gfx_motion_player_t *rt, uin
     return ret;
 }
 
-esp_err_t gfx_motion_player_bind_segment_style(gfx_motion_player_t *player, uint8_t seg_idx,
+gfx_err_t gfx_motion_player_bind_segment_style(gfx_motion_player_t *player, uint8_t seg_idx,
         gfx_object_t *obj, const gfx_image_src_t *solid_src)
 {
     const gfx_motion_asset_t *asset;
     const gfx_motion_segment_t *seg;
 
-    ESP_RETURN_ON_FALSE(player != NULL && obj != NULL && solid_src != NULL,
-                        ESP_ERR_INVALID_ARG, TAG, "style target is NULL");
+    GFX_RETURN_ON_FALSE(player != NULL && obj != NULL && solid_src != NULL,
+                        GFX_ERR_INVALID_ARG, TAG, "style target is NULL");
     asset = player->scene.asset;
-    ESP_RETURN_ON_FALSE(asset != NULL && seg_idx < asset->segment_count,
-                        ESP_ERR_INVALID_ARG, TAG, "style segment index out of range");
+    GFX_RETURN_ON_FALSE(asset != NULL && seg_idx < asset->segment_count,
+                        GFX_ERR_INVALID_ARG, TAG, "style segment index out of range");
 
     seg = &asset->segments[seg_idx];
-    ESP_RETURN_ON_ERROR(gfx_motion_player_bind_style_common(player, seg, obj, solid_src),
+    GFX_RETURN_ON_ERROR(gfx_motion_player_bind_style_common(player, seg, obj, solid_src),
                         TAG, "bind common style seg[%u]", seg_idx);
     if (seg->resource_idx > 0U &&
             asset->resources != NULL &&
             (uint8_t)(seg->resource_idx - 1U) < asset->resource_count &&
             asset->resources[seg->resource_idx - 1U].image != NULL) {
-        ESP_RETURN_ON_ERROR(
+        GFX_RETURN_ON_ERROR(
             gfx_motion_player_apply_resource_uv(player, seg_idx, obj,
                                                 player->seg_grid_cols[seg_idx],
                                                 player->seg_grid_rows[seg_idx]),
             TAG, "set resource uv seg[%u]", seg_idx);
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }

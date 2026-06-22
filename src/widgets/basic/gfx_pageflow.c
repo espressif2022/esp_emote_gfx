@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_LIST
 #include "common/gfx_log_priv.h"
 
@@ -67,10 +67,10 @@ typedef struct {
 
 static const char *const TAG = "pageflow";
 
-static esp_err_t gfx_pageflow_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
-static esp_err_t gfx_pageflow_update(gfx_object_t *obj);
-static esp_err_t gfx_pageflow_delete_impl(gfx_object_t *obj);
-static esp_err_t gfx_pageflow_load_impl(gfx_object_t *obj);
+static gfx_err_t gfx_pageflow_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
+static gfx_err_t gfx_pageflow_update(gfx_object_t *obj);
+static gfx_err_t gfx_pageflow_delete_impl(gfx_object_t *obj);
+static gfx_err_t gfx_pageflow_load_impl(gfx_object_t *obj);
 static void gfx_pageflow_release_impl(gfx_object_t *obj);
 static void gfx_pageflow_touch_event(gfx_object_t *obj, const void *event_data);
 
@@ -102,20 +102,20 @@ static void gfx_pageflow_init_default_state(gfx_pageflow_t *flow)
     flow->style.border_width = 1;
 }
 
-static esp_err_t gfx_pageflow_dup_text(const char *text, char **out_text)
+static gfx_err_t gfx_pageflow_dup_text(const char *text, char **out_text)
 {
     const char *src = text ? text : "";
     size_t len = strlen(src) + 1U;
     char *dup;
 
-    GFX_RETURN_IF_NULL(out_text, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(out_text, GFX_ERR_INVALID_ARG);
     dup = malloc(len);
     if (dup == NULL) {
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
     memcpy(dup, src, len);
     *out_text = dup;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static void gfx_pageflow_free_pages(gfx_pageflow_t *flow)
@@ -222,13 +222,13 @@ static void gfx_pageflow_start_tween(gfx_object_t *obj, gfx_pageflow_t *flow, in
     if (flow->tween == NULL ||
             gfx_tween_start_i32(flow->tween, start_offset, 0, GFX_PAGEFLOW_TWEEN_MS,
                                 GFX_TWEEN_EASE_OUT_QUAD,
-                                gfx_pageflow_tween_value_cb, NULL, flow) != ESP_OK) {
+                                gfx_pageflow_tween_value_cb, NULL, flow) != GFX_OK) {
         flow->drag_offset = 0;
         gfx_object_invalidate(obj);
     }
 }
 
-static esp_err_t gfx_pageflow_call_label_draw(gfx_object_t *obj, gfx_pageflow_t *flow,
+static gfx_err_t gfx_pageflow_call_label_draw(gfx_object_t *obj, gfx_pageflow_t *flow,
         const gfx_draw_ctx_t *ctx, const char *text, const gfx_area_t *area, const gfx_area_t *clip)
 {
     gfx_area_t text_area = {
@@ -237,7 +237,7 @@ static esp_err_t gfx_pageflow_call_label_draw(gfx_object_t *obj, gfx_pageflow_t 
         .x2 = (gfx_coord_t)(area->x2 - GFX_PAGEFLOW_PAD_X),
         .y2 = (gfx_coord_t)(area->y2 - GFX_PAGEFLOW_PAD_Y),
     };
-    esp_err_t ret;
+    gfx_err_t ret;
 
     if (text_area.x2 <= text_area.x1 || text_area.y2 <= text_area.y1) {
         text_area = *area;
@@ -254,7 +254,7 @@ static esp_err_t gfx_pageflow_call_label_draw(gfx_object_t *obj, gfx_pageflow_t 
     flow->label.style.bg_enable = false;
 
     ret = gfx_label_text_box_update(obj, &flow->label, &text_area);
-    if (ret == ESP_OK) {
+    if (ret == GFX_OK) {
         ret = gfx_label_text_box_draw(obj, &flow->label, ctx, &text_area, clip);
     }
     return ret;
@@ -398,7 +398,7 @@ static void gfx_pageflow_draw_one(gfx_object_t *obj, gfx_pageflow_t *flow, const
     }
 }
 
-static esp_err_t gfx_pageflow_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
+static gfx_err_t gfx_pageflow_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 {
     gfx_pageflow_t *flow;
     gfx_area_t obj_area;
@@ -412,66 +412,66 @@ static esp_err_t gfx_pageflow_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     };
 
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
-    GFX_RETURN_IF_NULL(ctx, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(ctx, GFX_ERR_INVALID_ARG);
     flow = (gfx_pageflow_t *)obj->src;
-    GFX_RETURN_IF_NULL(flow, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(flow, GFX_ERR_INVALID_STATE);
 
     if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
     if (!gfx_area_intersect_exclusive(&clip, &ctx->clip_area, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     gfx_render_surface_fill(obj->disp, &dst_surface, &clip, flow->style.bg_color, 0xFFU);
 
     if (flow->page_count == 0U) {
-        return ESP_OK;
+        return GFX_OK;
     }
     gfx_pageflow_draw_one(obj, flow, ctx, &obj_area, flow->page_index - 1, -1);
     gfx_pageflow_draw_one(obj, flow, ctx, &obj_area, flow->page_index, 0);
     gfx_pageflow_draw_one(obj, flow, ctx, &obj_area, flow->page_index + 1, 1);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_pageflow_update(gfx_object_t *obj)
+static gfx_err_t gfx_pageflow_update(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_pageflow_delete_impl(gfx_object_t *obj)
+static gfx_err_t gfx_pageflow_delete_impl(gfx_object_t *obj)
 {
     gfx_pageflow_t *flow;
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
     flow = (gfx_pageflow_t *)obj->src;
     if (flow == NULL) {
-        return ESP_OK;
+        return GFX_OK;
     }
     gfx_pageflow_free_pages(flow);
     gfx_tween_delete(flow->tween);
     free(flow->label.render.mask);
     free(flow->label.render.color_mask);
     free(flow);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_pageflow_load_impl(gfx_object_t *obj)
+static gfx_err_t gfx_pageflow_load_impl(gfx_object_t *obj)
 {
     gfx_pageflow_t *flow;
 
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
     flow = (gfx_pageflow_t *)obj->src;
-    ESP_RETURN_ON_FALSE(flow != NULL, ESP_ERR_INVALID_STATE, TAG, "load: state is NULL");
+    GFX_RETURN_ON_FALSE(flow != NULL, GFX_ERR_INVALID_STATE, TAG, "load: state is NULL");
 
-    ESP_RETURN_ON_ERROR(gfx_label_load_state(obj, &flow->label), TAG, "load label failed");
+    GFX_RETURN_ON_ERROR(gfx_label_load_state(obj, &flow->label), TAG, "load label failed");
     if (flow->use_images && flow->image_resources != NULL) {
         for (uint16_t i = 0; i < flow->page_count; i++) {
-            ESP_RETURN_ON_ERROR(gfx_image_resource_open(&flow->image_resources[i]),
+            GFX_RETURN_ON_ERROR(gfx_image_resource_open(&flow->image_resources[i]),
                                 TAG, "load image resource failed");
         }
     }
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static void gfx_pageflow_release_impl(gfx_object_t *obj)
@@ -564,7 +564,7 @@ gfx_object_t *gfx_pageflow_create(gfx_display_t *disp)
     gfx_pageflow_init_default_state(flow);
     if (gfx_object_create_class_instance(disp, &s_gfx_pageflow_widget_class,
                                          flow, GFX_PAGEFLOW_DEFAULT_WIDTH, GFX_PAGEFLOW_DEFAULT_HEIGHT,
-                                         "gfx_pageflow_create", &obj) != ESP_OK) {
+                                         "gfx_pageflow_create", &obj) != GFX_OK) {
         free(flow);
         return NULL;
     }
@@ -579,10 +579,10 @@ gfx_object_t *gfx_pageflow_create(gfx_display_t *disp)
 gfx_err_t gfx_pageflow_clear(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     gfx_pageflow_free_pages((gfx_pageflow_t *)obj->src);
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_pageflow_add_page(gfx_object_t *obj, const char *text)
@@ -590,41 +590,41 @@ gfx_err_t gfx_pageflow_add_page(gfx_object_t *obj, const char *text)
     gfx_pageflow_t *flow;
     char **new_pages;
     char *dup_text = NULL;
-    esp_err_t ret;
+    gfx_err_t ret;
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     flow = (gfx_pageflow_t *)obj->src;
     if (flow->use_images) {
         gfx_pageflow_free_pages(flow);
     }
     ret = gfx_pageflow_dup_text(text, &dup_text);
-    if (ret != ESP_OK) {
+    if (ret != GFX_OK) {
         return ret;
     }
     new_pages = realloc(flow->pages, ((size_t)flow->page_count + 1U) * sizeof(char *));
     if (new_pages == NULL) {
         free(dup_text);
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
     flow->pages = new_pages;
     flow->pages[flow->page_count++] = dup_text;
     flow->images = NULL;
     flow->use_images = false;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_pageflow_set_pages(gfx_object_t *obj, const char *const *pages, uint16_t page_count)
 {
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
-    ESP_RETURN_ON_FALSE(page_count == 0U || pages != NULL, ESP_ERR_INVALID_ARG, TAG, "pages is NULL");
-    ESP_RETURN_ON_ERROR(gfx_pageflow_clear(obj), TAG, "clear failed");
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
+    GFX_RETURN_ON_FALSE(page_count == 0U || pages != NULL, GFX_ERR_INVALID_ARG, TAG, "pages is NULL");
+    GFX_RETURN_ON_ERROR(gfx_pageflow_clear(obj), TAG, "clear failed");
     for (uint16_t i = 0; i < page_count; i++) {
-        ESP_RETURN_ON_ERROR(gfx_pageflow_add_page(obj, pages[i]), TAG, "add page failed");
+        GFX_RETURN_ON_ERROR(gfx_pageflow_add_page(obj, pages[i]), TAG, "add page failed");
     }
     ((gfx_pageflow_t *)obj->src)->page_index = page_count > 0U ? 0 : -1;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_pageflow_set_image_pages(gfx_object_t *obj, const gfx_image_dsc_t *const *images,
@@ -634,12 +634,12 @@ gfx_err_t gfx_pageflow_set_image_pages(gfx_object_t *obj, const gfx_image_dsc_t 
     gfx_err_t ret;
 
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
-    ESP_RETURN_ON_FALSE(page_count == 0U || images != NULL, ESP_ERR_INVALID_ARG, TAG, "images is NULL");
+    GFX_RETURN_ON_FALSE(page_count == 0U || images != NULL, GFX_ERR_INVALID_ARG, TAG, "images is NULL");
 
     if (page_count > 0U) {
         sources = calloc(page_count, sizeof(sources[0]));
         if (sources == NULL) {
-            return ESP_ERR_NO_MEM;
+            return GFX_ERR_NO_MEM;
         }
         for (uint16_t i = 0; i < page_count; i++) {
             sources[i] = (gfx_image_src_t) {
@@ -662,22 +662,22 @@ gfx_err_t gfx_pageflow_set_image_sources(gfx_object_t *obj, const gfx_image_src_
     gfx_image_resource_t *resource_copy = NULL;
 
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
-    ESP_RETURN_ON_FALSE(page_count == 0U || sources != NULL, ESP_ERR_INVALID_ARG, TAG, "image sources is NULL");
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
+    GFX_RETURN_ON_FALSE(page_count == 0U || sources != NULL, GFX_ERR_INVALID_ARG, TAG, "image sources is NULL");
 
     if (page_count > 0U) {
         image_copy = calloc(page_count, sizeof(image_copy[0]));
         if (image_copy == NULL) {
-            return ESP_ERR_NO_MEM;
+            return GFX_ERR_NO_MEM;
         }
         resource_copy = calloc(page_count, sizeof(resource_copy[0]));
         if (resource_copy == NULL) {
             free(image_copy);
-            return ESP_ERR_NO_MEM;
+            return GFX_ERR_NO_MEM;
         }
         for (uint16_t i = 0; i < page_count; i++) {
-            esp_err_t ret = gfx_image_resource_set_source(&resource_copy[i], &sources[i]);
-            if (ret != ESP_OK) {
+            gfx_err_t ret = gfx_image_resource_set_source(&resource_copy[i], &sources[i]);
+            if (ret != GFX_OK) {
                 for (uint16_t j = 0; j < i; j++) {
                     gfx_image_resource_close(&resource_copy[j]);
                 }
@@ -700,15 +700,15 @@ gfx_err_t gfx_pageflow_set_image_sources(gfx_object_t *obj, const gfx_image_src_
     flow->use_images = true;
     gfx_object_mark_resource_dirty(obj);
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_pageflow_set_page(gfx_object_t *obj, int32_t page_index)
 {
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     gfx_pageflow_set_page_internal(obj, (gfx_pageflow_t *)obj->src, page_index, true);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 int32_t gfx_pageflow_get_page(gfx_object_t *obj)
@@ -730,52 +730,52 @@ uint16_t gfx_pageflow_get_page_count(gfx_object_t *obj)
 gfx_err_t gfx_pageflow_set_font(gfx_object_t *obj, gfx_font_t font)
 {
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     return gfx_label_set_font_source(obj, &((gfx_pageflow_t *)obj->src)->label, font);
 }
 
 gfx_err_t gfx_pageflow_set_direction(gfx_object_t *obj, gfx_pageflow_dir_t dir)
 {
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_pageflow_t *)obj->src)->dir = dir;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_pageflow_set_drag_threshold(gfx_object_t *obj, uint16_t threshold)
 {
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_pageflow_t *)obj->src)->drag_threshold = threshold;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_pageflow_set_page_threshold(gfx_object_t *obj, uint16_t threshold)
 {
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_pageflow_t *)obj->src)->page_threshold = threshold;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_pageflow_set_changed_cb(gfx_object_t *obj, gfx_pageflow_changed_cb_t cb, void *user_data)
 {
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_pageflow_t *)obj->src)->changed_cb = cb;
     ((gfx_pageflow_t *)obj->src)->changed_user_data = user_data;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 #define GFX_PAGEFLOW_SET_STYLE_FIELD(fn_name, field_name) \
     gfx_err_t fn_name(gfx_object_t *obj, gfx_color_t color) \
     { \
         CHECK_OBJ_TYPE_PAGEFLOW(obj); \
-        GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE); \
+        GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE); \
         ((gfx_pageflow_t *)obj->src)->style.field_name = color; \
         gfx_object_invalidate(obj); \
-        return ESP_OK; \
+        return GFX_OK; \
     }
 
 GFX_PAGEFLOW_SET_STYLE_FIELD(gfx_pageflow_set_bg_color, bg_color)
@@ -786,8 +786,8 @@ GFX_PAGEFLOW_SET_STYLE_FIELD(gfx_pageflow_set_border_color, border_color)
 gfx_err_t gfx_pageflow_set_border_width(gfx_object_t *obj, uint16_t width)
 {
     CHECK_OBJ_TYPE_PAGEFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_pageflow_t *)obj->src)->style.border_width = width;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }

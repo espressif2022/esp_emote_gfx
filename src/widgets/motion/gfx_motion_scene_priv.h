@@ -9,7 +9,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "esp_err.h"
 #include "gfx/widgets/motion.h"
 
 #ifdef __cplusplus
@@ -52,10 +51,10 @@ typedef struct {
     bool dirty;
 } gfx_motion_scene_t;
 
-esp_err_t gfx_motion_scene_init(gfx_motion_scene_t *scene, const gfx_motion_asset_t *asset);
-esp_err_t gfx_motion_scene_set_action(gfx_motion_scene_t *scene, uint16_t action_index, bool snap_now);
-esp_err_t gfx_motion_scene_set_action_loop(gfx_motion_scene_t *scene, bool loop);
-esp_err_t gfx_motion_scene_clear_action_loop_override(gfx_motion_scene_t *scene);
+gfx_err_t gfx_motion_scene_init(gfx_motion_scene_t *scene, const gfx_motion_asset_t *asset);
+gfx_err_t gfx_motion_scene_set_action(gfx_motion_scene_t *scene, uint16_t action_index, bool snap_now);
+gfx_err_t gfx_motion_scene_set_action_loop(gfx_motion_scene_t *scene, bool loop);
+gfx_err_t gfx_motion_scene_clear_action_loop_override(gfx_motion_scene_t *scene);
 bool gfx_motion_scene_tick(gfx_motion_scene_t *scene);
 bool gfx_motion_scene_advance(gfx_motion_scene_t *scene);
 void gfx_motion_scene_log_active_step(const gfx_motion_scene_t *scene, const char *reason);

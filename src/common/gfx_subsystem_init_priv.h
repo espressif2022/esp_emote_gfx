@@ -6,23 +6,23 @@
 
 #pragma once
 
-#include "esp_err.h"
+#include "core/gfx_err.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-esp_err_t gfx_subsystem_image_decoder_init(void);
-esp_err_t gfx_subsystem_image_decoder_deinit(void);
+gfx_err_t gfx_subsystem_image_decoder_init(void);
+gfx_err_t gfx_subsystem_image_decoder_deinit(void);
 
-esp_err_t gfx_subsystem_font_init(void);
-esp_err_t gfx_subsystem_font_deinit(void);
+gfx_err_t gfx_subsystem_font_init(void);
+gfx_err_t gfx_subsystem_font_deinit(void);
 
-esp_err_t gfx_subsystem_accel_init(void);
-esp_err_t gfx_subsystem_accel_deinit(void);
+gfx_err_t gfx_subsystem_accel_init(void);
+gfx_err_t gfx_subsystem_accel_deinit(void);
 
-esp_err_t gfx_subsystem_jpeg_init(void);
-esp_err_t gfx_subsystem_jpeg_deinit(void);
+gfx_err_t gfx_subsystem_jpeg_init(void);
+gfx_err_t gfx_subsystem_jpeg_deinit(void);
 
 #ifdef __cplusplus
 }

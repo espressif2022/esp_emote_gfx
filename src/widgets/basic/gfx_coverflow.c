@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_LIST
 #include "common/gfx_log_priv.h"
 
@@ -101,10 +101,10 @@ typedef struct {
 
 static const char *const TAG = "coverflow";
 
-static esp_err_t gfx_coverflow_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
-static esp_err_t gfx_coverflow_update(gfx_object_t *obj);
-static esp_err_t gfx_coverflow_delete_impl(gfx_object_t *obj);
-static esp_err_t gfx_coverflow_load_impl(gfx_object_t *obj);
+static gfx_err_t gfx_coverflow_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
+static gfx_err_t gfx_coverflow_update(gfx_object_t *obj);
+static gfx_err_t gfx_coverflow_delete_impl(gfx_object_t *obj);
+static gfx_err_t gfx_coverflow_load_impl(gfx_object_t *obj);
 static void gfx_coverflow_release_impl(gfx_object_t *obj);
 static void gfx_coverflow_touch_event(gfx_object_t *obj, const void *event_data);
 static void gfx_coverflow_layout_cards(gfx_object_t *obj, gfx_coverflow_t *flow);
@@ -141,19 +141,19 @@ static void gfx_coverflow_init_default_state(gfx_coverflow_t *flow)
     flow->style.side_dim_opa = GFX_COVERFLOW_DEFAULT_SIDE_DIM_OPA;
 }
 
-static esp_err_t gfx_coverflow_dup_text(const char *text, char **out_text)
+static gfx_err_t gfx_coverflow_dup_text(const char *text, char **out_text)
 {
     const char *src = text ? text : "";
     size_t len = strlen(src) + 1U;
     char *dup;
-    GFX_RETURN_IF_NULL(out_text, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(out_text, GFX_ERR_INVALID_ARG);
     dup = malloc(len);
     if (dup == NULL) {
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
     memcpy(dup, src, len);
     *out_text = dup;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static void gfx_coverflow_free_items(gfx_coverflow_t *flow)
@@ -229,7 +229,12 @@ static void gfx_coverflow_set_selected_internal(gfx_object_t *obj, gfx_coverflow
             flow->changed_cb(obj, next, flow->changed_user_data);
         }
     }
-    gfx_object_invalidate(obj);
+    if (flow->use_cards) {
+        gfx_coverflow_layout_cards(obj, flow);
+        gfx_object_invalidate_tree(obj);
+    } else {
+        gfx_object_invalidate(obj);
+    }
 }
 
 static void gfx_coverflow_tween_value_cb(gfx_tween_t *tween, gfx_object_t *obj, int32_t value, void *user_data)
@@ -312,7 +317,7 @@ static void gfx_coverflow_start_tween(gfx_object_t *obj, gfx_coverflow_t *flow, 
     if (flow->tween == NULL ||
             gfx_tween_start_i32(flow->tween, start_offset, end_offset, GFX_COVERFLOW_TWEEN_MS,
                                 GFX_TWEEN_EASE_OUT_QUAD,
-                                gfx_coverflow_tween_value_cb, gfx_coverflow_tween_done_cb, flow) != ESP_OK) {
+                                gfx_coverflow_tween_value_cb, gfx_coverflow_tween_done_cb, flow) != GFX_OK) {
         if (flow->tween_commit_pending) {
             flow->selected_index = flow->tween_target_index;
             flow->tween_commit_pending = false;
@@ -351,7 +356,7 @@ static gfx_object_t *gfx_coverflow_card_root(const gfx_coverflow_t *flow, int32_
     return flow->cards[index].card;
 }
 
-static esp_err_t gfx_coverflow_draw_text(gfx_object_t *obj, gfx_coverflow_t *flow,
+static gfx_err_t gfx_coverflow_draw_text(gfx_object_t *obj, gfx_coverflow_t *flow,
         const gfx_draw_ctx_t *ctx, const char *text, const gfx_area_t *area, const gfx_area_t *clip)
 {
     gfx_area_t text_area = {
@@ -360,7 +365,7 @@ static esp_err_t gfx_coverflow_draw_text(gfx_object_t *obj, gfx_coverflow_t *flo
         .x2 = (gfx_coord_t)(area->x2 - 10),
         .y2 = (gfx_coord_t)(area->y2 - 8),
     };
-    esp_err_t ret;
+    gfx_err_t ret;
 
     flow->label.text.text = (char *)(text ? text : "");
     flow->label.text.text_width = 0;
@@ -373,7 +378,7 @@ static esp_err_t gfx_coverflow_draw_text(gfx_object_t *obj, gfx_coverflow_t *flo
     flow->label.style.bg_enable = false;
 
     ret = gfx_label_text_box_update(obj, &flow->label, &text_area);
-    if (ret == ESP_OK) {
+    if (ret == GFX_OK) {
         ret = gfx_label_text_box_draw(obj, &flow->label, ctx, &text_area, clip);
     }
     return ret;
@@ -829,7 +834,7 @@ static void gfx_coverflow_layout_cards(gfx_object_t *obj, gfx_coverflow_t *flow)
     }
 }
 
-static esp_err_t gfx_coverflow_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
+static gfx_err_t gfx_coverflow_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 {
     gfx_coverflow_t *flow;
     gfx_area_t clip;
@@ -840,15 +845,15 @@ static esp_err_t gfx_coverflow_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx
     gfx_render_surface_t dst_surface;
 
     CHECK_OBJ_TYPE_COVERFLOW(obj);
-    GFX_RETURN_IF_NULL(ctx, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(ctx, GFX_ERR_INVALID_ARG);
     flow = (gfx_coverflow_t *)obj->src;
-    GFX_RETURN_IF_NULL(flow, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(flow, GFX_ERR_INVALID_STATE);
 
     if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
     if (!gfx_area_intersect_exclusive(&clip, &ctx->clip_area, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     clipped_ctx = *ctx;
@@ -864,7 +869,11 @@ static esp_err_t gfx_coverflow_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx
     gfx_render_surface_fill(obj->disp, &dst_surface, &clip, flow->style.bg_color, 0xFFU);
 
     if (flow->item_count == 0U) {
-        return ESP_OK;
+        return GFX_OK;
+    }
+
+    if (flow->use_cards) {
+        gfx_coverflow_layout_cards(obj, flow);
     }
 
     card_count = gfx_coverflow_collect_card_states(obj, flow, &obj_area, cards,
@@ -884,10 +893,10 @@ static esp_err_t gfx_coverflow_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx
             gfx_coverflow_draw_card_state(obj, flow, &clipped_ctx, &cards[i]);
         }
     }
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_coverflow_update(gfx_object_t *obj)
+static gfx_err_t gfx_coverflow_update(gfx_object_t *obj)
 {
     gfx_coverflow_t *flow;
 
@@ -896,41 +905,41 @@ static esp_err_t gfx_coverflow_update(gfx_object_t *obj)
     if (flow != NULL) {
         gfx_coverflow_layout_cards(obj, flow);
     }
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_coverflow_delete_impl(gfx_object_t *obj)
+static gfx_err_t gfx_coverflow_delete_impl(gfx_object_t *obj)
 {
     gfx_coverflow_t *flow;
     CHECK_OBJ_TYPE_COVERFLOW(obj);
     flow = (gfx_coverflow_t *)obj->src;
     if (flow == NULL) {
-        return ESP_OK;
+        return GFX_OK;
     }
     gfx_coverflow_free_items(flow);
     gfx_tween_delete(flow->tween);
     free(flow->label.render.mask);
     free(flow->label.render.color_mask);
     free(flow);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_coverflow_load_impl(gfx_object_t *obj)
+static gfx_err_t gfx_coverflow_load_impl(gfx_object_t *obj)
 {
     gfx_coverflow_t *flow;
 
     CHECK_OBJ_TYPE_COVERFLOW(obj);
     flow = (gfx_coverflow_t *)obj->src;
-    ESP_RETURN_ON_FALSE(flow != NULL, ESP_ERR_INVALID_STATE, TAG, "load: state is NULL");
+    GFX_RETURN_ON_FALSE(flow != NULL, GFX_ERR_INVALID_STATE, TAG, "load: state is NULL");
 
-    ESP_RETURN_ON_ERROR(gfx_label_load_state(obj, &flow->label), TAG, "load label failed");
+    GFX_RETURN_ON_ERROR(gfx_label_load_state(obj, &flow->label), TAG, "load label failed");
     if (flow->use_images && flow->image_resources != NULL) {
         for (uint16_t i = 0; i < flow->item_count; i++) {
-            ESP_RETURN_ON_ERROR(gfx_image_resource_open(&flow->image_resources[i]),
+            GFX_RETURN_ON_ERROR(gfx_image_resource_open(&flow->image_resources[i]),
                                 TAG, "load image resource failed");
         }
     }
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static void gfx_coverflow_release_impl(gfx_object_t *obj)
@@ -1023,7 +1032,7 @@ gfx_object_t *gfx_coverflow_create(gfx_display_t *disp)
     gfx_coverflow_init_default_state(flow);
     if (gfx_object_create_class_instance(disp, &s_gfx_coverflow_widget_class,
                                          flow, GFX_COVERFLOW_DEFAULT_WIDTH, GFX_COVERFLOW_DEFAULT_HEIGHT,
-                                         "gfx_coverflow_create", &obj) != ESP_OK) {
+                                         "gfx_coverflow_create", &obj) != GFX_OK) {
         free(flow);
         return NULL;
     }
@@ -1038,11 +1047,11 @@ gfx_object_t *gfx_coverflow_create(gfx_display_t *disp)
 gfx_err_t gfx_coverflow_clear(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_COVERFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     gfx_coverflow_free_items((gfx_coverflow_t *)obj->src);
     gfx_object_set_manual_child_draw(obj, false);
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_coverflow_add_item(gfx_object_t *obj, const char *text)
@@ -1050,22 +1059,22 @@ gfx_err_t gfx_coverflow_add_item(gfx_object_t *obj, const char *text)
     gfx_coverflow_t *flow;
     char **new_items;
     char *dup_text = NULL;
-    esp_err_t ret;
+    gfx_err_t ret;
     CHECK_OBJ_TYPE_COVERFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     flow = (gfx_coverflow_t *)obj->src;
     if (flow->use_images || flow->use_cards) {
         gfx_coverflow_free_items(flow);
         gfx_object_set_manual_child_draw(obj, false);
     }
     ret = gfx_coverflow_dup_text(text, &dup_text);
-    if (ret != ESP_OK) {
+    if (ret != GFX_OK) {
         return ret;
     }
     new_items = realloc(flow->items, ((size_t)flow->item_count + 1U) * sizeof(char *));
     if (new_items == NULL) {
         free(dup_text);
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
     flow->items = new_items;
     flow->items[flow->item_count++] = dup_text;
@@ -1075,22 +1084,22 @@ gfx_err_t gfx_coverflow_add_item(gfx_object_t *obj, const char *text)
     flow->use_images = false;
     flow->use_cards = false;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_coverflow_set_items(gfx_object_t *obj, const char *const *items, uint16_t item_count)
 {
     CHECK_OBJ_TYPE_COVERFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
-    ESP_RETURN_ON_FALSE(item_count == 0U || items != NULL, ESP_ERR_INVALID_ARG, TAG, "items is NULL");
-    ESP_RETURN_ON_ERROR(gfx_coverflow_clear(obj), TAG, "clear failed");
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
+    GFX_RETURN_ON_FALSE(item_count == 0U || items != NULL, GFX_ERR_INVALID_ARG, TAG, "items is NULL");
+    GFX_RETURN_ON_ERROR(gfx_coverflow_clear(obj), TAG, "clear failed");
     for (uint16_t i = 0; i < item_count; i++) {
-        ESP_RETURN_ON_ERROR(gfx_coverflow_add_item(obj, items[i]), TAG, "add item failed");
+        GFX_RETURN_ON_ERROR(gfx_coverflow_add_item(obj, items[i]), TAG, "add item failed");
     }
     ((gfx_coverflow_t *)obj->src)->selected_index = item_count > 0U ? 0 : -1;
     ((gfx_coverflow_t *)obj->src)->tween_target_index = item_count > 0U ? 0 : -1;
     ((gfx_coverflow_t *)obj->src)->tween_commit_pending = false;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_coverflow_set_image_items(gfx_object_t *obj, const gfx_image_dsc_t *const *images,
@@ -1100,12 +1109,12 @@ gfx_err_t gfx_coverflow_set_image_items(gfx_object_t *obj, const gfx_image_dsc_t
     gfx_err_t ret;
 
     CHECK_OBJ_TYPE_COVERFLOW(obj);
-    ESP_RETURN_ON_FALSE(item_count == 0U || images != NULL, ESP_ERR_INVALID_ARG, TAG, "images is NULL");
+    GFX_RETURN_ON_FALSE(item_count == 0U || images != NULL, GFX_ERR_INVALID_ARG, TAG, "images is NULL");
 
     if (item_count > 0U) {
         sources = calloc(item_count, sizeof(sources[0]));
         if (sources == NULL) {
-            return ESP_ERR_NO_MEM;
+            return GFX_ERR_NO_MEM;
         }
         for (uint16_t i = 0; i < item_count; i++) {
             sources[i] = (gfx_image_src_t) {
@@ -1128,22 +1137,22 @@ gfx_err_t gfx_coverflow_set_image_sources(gfx_object_t *obj, const gfx_image_src
     gfx_image_resource_t *resource_copy = NULL;
 
     CHECK_OBJ_TYPE_COVERFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
-    ESP_RETURN_ON_FALSE(item_count == 0U || sources != NULL, ESP_ERR_INVALID_ARG, TAG, "image sources is NULL");
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
+    GFX_RETURN_ON_FALSE(item_count == 0U || sources != NULL, GFX_ERR_INVALID_ARG, TAG, "image sources is NULL");
 
     if (item_count > 0U) {
         image_copy = calloc(item_count, sizeof(image_copy[0]));
         if (image_copy == NULL) {
-            return ESP_ERR_NO_MEM;
+            return GFX_ERR_NO_MEM;
         }
         resource_copy = calloc(item_count, sizeof(resource_copy[0]));
         if (resource_copy == NULL) {
             free(image_copy);
-            return ESP_ERR_NO_MEM;
+            return GFX_ERR_NO_MEM;
         }
         for (uint16_t i = 0; i < item_count; i++) {
-            esp_err_t ret = gfx_image_resource_set_source(&resource_copy[i], &sources[i]);
-            if (ret != ESP_OK) {
+            gfx_err_t ret = gfx_image_resource_set_source(&resource_copy[i], &sources[i]);
+            if (ret != GFX_OK) {
                 for (uint16_t j = 0; j < i; j++) {
                     gfx_image_resource_close(&resource_copy[j]);
                 }
@@ -1170,7 +1179,7 @@ gfx_err_t gfx_coverflow_set_image_sources(gfx_object_t *obj, const gfx_image_src
     gfx_object_set_manual_child_draw(obj, false);
     gfx_object_mark_resource_dirty(obj);
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_coverflow_set_card_descriptors(gfx_object_t *obj, const gfx_coverflow_card_dsc_t *cards,
@@ -1180,13 +1189,13 @@ gfx_err_t gfx_coverflow_set_card_descriptors(gfx_object_t *obj, const gfx_coverf
     gfx_coverflow_card_dsc_t *card_copy = NULL;
 
     CHECK_OBJ_TYPE_COVERFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
-    ESP_RETURN_ON_FALSE(item_count == 0U || cards != NULL, ESP_ERR_INVALID_ARG, TAG, "cards is NULL");
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
+    GFX_RETURN_ON_FALSE(item_count == 0U || cards != NULL, GFX_ERR_INVALID_ARG, TAG, "cards is NULL");
 
     if (item_count > 0U) {
         card_copy = calloc(item_count, sizeof(card_copy[0]));
         if (card_copy == NULL) {
-            return ESP_ERR_NO_MEM;
+            return GFX_ERR_NO_MEM;
         }
         memcpy(card_copy, cards, (size_t)item_count * sizeof(card_copy[0]));
     }
@@ -1213,14 +1222,15 @@ gfx_err_t gfx_coverflow_set_card_descriptors(gfx_object_t *obj, const gfx_coverf
             flow->cards[i].title_slot = gfx_coverflow_card_nth_child(card, 1);
         }
         if (gfx_object_get_parent(card) != obj) {
-            ESP_RETURN_ON_ERROR(gfx_object_add_child(obj, card), TAG, "add card child failed");
+            GFX_RETURN_ON_ERROR(gfx_object_add_child(obj, card), TAG, "add card child failed");
         }
         gfx_object_set_input_passthrough_tree(card, true);
         (void)gfx_object_set_visible(card, false);
     }
 
+    gfx_coverflow_layout_cards(obj, flow);
     gfx_object_invalidate_tree(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_coverflow_set_card_items(gfx_object_t *obj, gfx_object_t *const *cards, uint16_t item_count)
@@ -1228,11 +1238,11 @@ gfx_err_t gfx_coverflow_set_card_items(gfx_object_t *obj, gfx_object_t *const *c
     gfx_coverflow_card_dsc_t *descriptors = NULL;
     gfx_err_t ret;
 
-    ESP_RETURN_ON_FALSE(item_count == 0U || cards != NULL, ESP_ERR_INVALID_ARG, TAG, "cards is NULL");
+    GFX_RETURN_ON_FALSE(item_count == 0U || cards != NULL, GFX_ERR_INVALID_ARG, TAG, "cards is NULL");
     if (item_count > 0U) {
         descriptors = calloc(item_count, sizeof(descriptors[0]));
         if (descriptors == NULL) {
-            return ESP_ERR_NO_MEM;
+            return GFX_ERR_NO_MEM;
         }
         for (uint16_t i = 0; i < item_count; i++) {
             descriptors[i].card = cards[i];
@@ -1247,9 +1257,9 @@ gfx_err_t gfx_coverflow_set_card_items(gfx_object_t *obj, gfx_object_t *const *c
 gfx_err_t gfx_coverflow_set_selected(gfx_object_t *obj, int32_t index)
 {
     CHECK_OBJ_TYPE_COVERFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     gfx_coverflow_set_selected_internal(obj, (gfx_coverflow_t *)obj->src, index, true);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 int32_t gfx_coverflow_get_selected(gfx_object_t *obj)
@@ -1271,43 +1281,43 @@ uint16_t gfx_coverflow_get_item_count(gfx_object_t *obj)
 gfx_err_t gfx_coverflow_set_font(gfx_object_t *obj, gfx_font_t font)
 {
     CHECK_OBJ_TYPE_COVERFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     return gfx_label_set_font_source(obj, &((gfx_coverflow_t *)obj->src)->label, font);
 }
 
 gfx_err_t gfx_coverflow_set_drag_threshold(gfx_object_t *obj, uint16_t threshold)
 {
     CHECK_OBJ_TYPE_COVERFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_coverflow_t *)obj->src)->drag_threshold = threshold;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_coverflow_set_page_threshold(gfx_object_t *obj, uint16_t threshold)
 {
     CHECK_OBJ_TYPE_COVERFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_coverflow_t *)obj->src)->page_threshold = threshold;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_coverflow_set_changed_cb(gfx_object_t *obj, gfx_coverflow_changed_cb_t cb, void *user_data)
 {
     CHECK_OBJ_TYPE_COVERFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_coverflow_t *)obj->src)->changed_cb = cb;
     ((gfx_coverflow_t *)obj->src)->changed_user_data = user_data;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 #define GFX_COVERFLOW_SET_STYLE_FIELD(fn_name, field_name) \
     gfx_err_t fn_name(gfx_object_t *obj, gfx_color_t color) \
     { \
         CHECK_OBJ_TYPE_COVERFLOW(obj); \
-        GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE); \
+        GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE); \
         ((gfx_coverflow_t *)obj->src)->style.field_name = color; \
         gfx_object_invalidate(obj); \
-        return ESP_OK; \
+        return GFX_OK; \
     }
 
 GFX_COVERFLOW_SET_STYLE_FIELD(gfx_coverflow_set_bg_color, bg_color)
@@ -1319,10 +1329,10 @@ GFX_COVERFLOW_SET_STYLE_FIELD(gfx_coverflow_set_border_color, border_color)
 gfx_err_t gfx_coverflow_set_border_width(gfx_object_t *obj, uint16_t width)
 {
     CHECK_OBJ_TYPE_COVERFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_coverflow_t *)obj->src)->style.border_width = width;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_coverflow_set_zoom(gfx_object_t *obj, uint16_t center_zoom, uint16_t side_zoom)
@@ -1330,34 +1340,34 @@ gfx_err_t gfx_coverflow_set_zoom(gfx_object_t *obj, uint16_t center_zoom, uint16
     gfx_coverflow_t *flow;
 
     CHECK_OBJ_TYPE_COVERFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
-    ESP_RETURN_ON_FALSE(center_zoom > 0U && side_zoom > 0U && center_zoom >= side_zoom,
-                        ESP_ERR_INVALID_ARG, TAG, "invalid zoom");
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
+    GFX_RETURN_ON_FALSE(center_zoom > 0U && side_zoom > 0U && center_zoom >= side_zoom,
+                        GFX_ERR_INVALID_ARG, TAG, "invalid zoom");
 
     flow = (gfx_coverflow_t *)obj->src;
     flow->style.center_zoom = center_zoom;
     flow->style.side_zoom = side_zoom;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_coverflow_set_spacing(gfx_object_t *obj, uint16_t spacing_pct)
 {
     CHECK_OBJ_TYPE_COVERFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
-    ESP_RETURN_ON_FALSE(spacing_pct > 0U, ESP_ERR_INVALID_ARG, TAG, "invalid spacing");
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
+    GFX_RETURN_ON_FALSE(spacing_pct > 0U, GFX_ERR_INVALID_ARG, TAG, "invalid spacing");
 
     ((gfx_coverflow_t *)obj->src)->style.spacing_pct = spacing_pct;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_coverflow_set_side_dim(gfx_object_t *obj, gfx_opa_t opa)
 {
     CHECK_OBJ_TYPE_COVERFLOW(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     ((gfx_coverflow_t *)obj->src)->style.side_dim_opa = opa;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }

@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <esp_err.h>
+#include "core/gfx_err.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -49,11 +49,11 @@ enum {
   * @param  text  String to encode into a QR Code.
   *
   * @return
-  *    - ESP_OK: succeed
-  *    - ESP_FAIL: Failed to encode string into a QR Code
-  *    - ESP_ERR_NO_MEM: Failed to allocate buffer for given max_qrcode_version
+  *    - GFX_OK: succeed
+  *    - GFX_FAIL: Failed to encode string into a QR Code
+  *    - GFX_ERR_NO_MEM: Failed to allocate buffer for given max_qrcode_version
   */
-esp_err_t qrcode_wrapper_generate(qrcode_wrapper_config_t *cfg, const char *text);
+gfx_err_t qrcode_wrapper_generate(qrcode_wrapper_config_t *cfg, const char *text);
 
 /**
   * @brief  Displays QR Code on the console

@@ -35,7 +35,7 @@ extern "C" {
 /** Passed to gfx_core_init(); add displays with gfx_display_add() after init */
 typedef struct {
     uint32_t fps;                               /**< Target FPS (frames per second) */
-    bool manual_tick;                           /**< True when caller drives gfx_core_tick() */
+    bool manual_tick;                           /**< Device: caller-owned tick mode. Host: ignored (always manual). */
     struct {
         uint32_t task_priority;                  /**< Render task priority (1-20) */
         uint32_t task_stack;                     /**< Render task stack size (bytes) */

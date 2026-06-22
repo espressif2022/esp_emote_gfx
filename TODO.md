@@ -9,7 +9,15 @@
 
 ## 顶层 TODO
 
-- [ ] Asset store 文件读取 V1：按 `docs/asset_store_file_loading_design.md` 实现统一 store/open/read/load 合同。
+- [ ] 下一阶段主线（2026-06-22 重排）
+  - [ ] P0 `gfx_fs` 主线收尾：完成 JPEG FILE 源去重 load、隐藏 backend view/caps、迁移 `test_anim.c` / `test_anim_emote_gen.c` 到 `gfx_fs_t + FILE`、补 ESP/host 三后端 FILE 路径回归、更新 README/设计文档环境变量说明。
+  - [ ] P1 decoded image cache V1：先落 image decoder/file source 的 decoded cache，不急着碰 anim；补 budget/LRU/refcount/stats。
+  - [ ] P2 widget/resource 收尾：继续迁移 anim/motion 到统一 load/release 生命周期，并把 expression / host font binary 兼容链路彻底稳定下来。
+  - [ ] P3 host SDL runner：抽 `gfx_host_run()`，把 event pump / tick / sleep / headless 验证从 demo 主循环中收出去。
+  - [ ] P4 EAF 健壮性：优先修 Huffman/RLE 短解码尾部未初始化，再评估 prefetch / frame bounce 双缓冲。
+  - [ ] P5 demo 清理：format demo 资源 catalog/loader 拆层，motion 资源边界收口。
+
+- [x] Asset store 文件读取 V1：按 `docs/asset_store_file_loading_design.md` 实现统一 store/open/read/load 合同。(done: 2026-06-22)
   - [x] 新增 `gfx_asset_store_open()` 统一配置入口，并保留 `gfx_asset_store_open_dir()` / `gfx_asset_store_open_mmap()` 兼容 wrapper。(done: 2026-06-18)
   - [x] 将 `gfx_asset_view_t` 扩展为 flags 语义，区分 direct mapped address、owned copy、mapped view、persistent view。(done: 2026-06-18)
   - [x] 保留 ESP-IDF `esp_mmap_assets` backend 的零拷贝 direct-address 行为，不降级为普通文件读取。(done: 2026-06-18)
@@ -17,8 +25,9 @@
   - [x] ESP-IDF 增加 raw partition backend，支持 `esp_partition_mmap` direct view 与 `esp_partition_read` owned copy 两种加载方式。(done: 2026-06-18)
   - [x] Linux directory backend 接入新 flags/caps，保持 POSIX `mmap` 优先、read fallback。(done: 2026-06-18)
   - [x] 新增 store capability 查询 API，明确 backend 是否支持 direct address、owned copy、open by name、open region。(done: 2026-06-18)
-  - [ ] 将直接依赖 `esp_mmap_assets` 的示例/播放器迁移到 `gfx_asset_store_t`，资源层不解析 `index.json` 或业务内容。
-  - [x] 增加 host 与 ESP-IDF smoke，覆盖 open/read/load/view close 生命周期。(done: 2026-06-18)
+  - [LEGACY] 将直接依赖 `esp_mmap_assets` 的示例/播放器（`test_anim.c`、`test_anim_emote_gen.c` 等）迁移到 `gfx_fs_t` + FILE 路径，资源层不解析 `index.json` 或业务内容。
+    说明：该项已转移到下方 `Host SDL demo / test app 验证` 的统一 FILE 语义迁移任务，避免同一件事在顶层重复追踪。
+  - [x] 增加 ESP-IDF Unity smoke（`test_fs_store.c`，backend view API）；host public API smoke 待恢复。(done: 2026-06-18，host 部分待 follow-up)
 
 - [ ] 资源加载接口收敛 V2：参考 `esp_lv_fs.c` 的 file-driver 思路，把 mmap assets / 普通文件统一到 `gfx_fs_*` 文件语义。
   目标：mmap/direct-address 只是 backend 能力，业务层、widget、decoder 只使用“路径 + 文件操作”或“一次性 blob load”；不再在上层区分 mmap 接口和普通 `fopen` 接口。
@@ -28,9 +37,9 @@
   - [x] 迁移 demo：删除 format demo 中 `gfx_fs_fopen_from() + gfx_fs_fdata()` 手动转 MEMORY 的分支，image/anim/pageflow/coverflow 统一传 FILE path。(done: 2026-06-22)
   - [x] 迁移 decoder：JPEG/EAF 不再直接依赖 `gfx_fs_source_*` 私有 helper；改用 public `gfx_fs_file_t` / `gfx_fs_load()`，并删除 `gfx_fs_source.h` 旧私有接口声明。(done: 2026-06-22)
   - [ ] JPEG decoder 去重 load：当前 `info()` 与 `open()` 对 FILE 源会重复加载同一 JPG；收敛后用 file handle/header probe 或 decoded/open context 避免 SPIFFS/fread 路径重复分配与重复读。
-  - [x] EAF/AAF decoder 统一 file-like 入口：`gfx_fs_fdata()` 非空时零拷贝 `eaf_dec_init()`；否则走 reader callback + `gfx_fs_fread/fseek`，streaming flag 只决定 resident/reader 策略，不决定 backend 类型。(done: 2026-06-22)
+  - [x] EAF/AAF decoder 统一 file-like 入口：`gfx_fs_fdata()` 非空时零拷贝 `eaf_dec_init()`；否则走 reader callback + `gfx_fs_fread/fseek`，streaming flag 只决定 copy/stream 策略，不决定 backend 类型。(done: 2026-06-22)
   - [ ] 隐藏 backend view/caps：`gfx_fs_view_open_by_name/id/region` 仅供 backend 与 conformance test 使用，应用和 decoder 不再直接碰 view/flags/caps。
-  - [ ] 补回归：host `gfx_host_fs_smoke` 覆盖 default-store 命中、filesystem fallback、`fdata()` direct 与 streamed read；ESP 覆盖 mmap assets + SPIFFS 同一 widget/decoder 路径；补同名资源解析顺序测试。
+  - [x] 补回归：host `gfx_host_fs_smoke` + ctest 8/8（public `gfx_fs_*` API）；ESP 覆盖 mmap + SPIFFS/VFS 与 host 目录下同一 widget/decoder FILE 路径待补。(done: 2026-06-22，ESP 部分仍 open)
 
 ## 架构和命名整理
 
@@ -137,7 +146,7 @@
   - [ ] 扩展 host/ESP 测试：验证 RGB565、RGB565_SWAPPED、RGB888 flush 数据字节序、stride、full-frame double-buffer sync。
     - [x] ESP-IDF/Unity 已覆盖 RGB565、RGB565_SWAPPED、RGB888 的 flush 字节序、screen stride 和 full-frame double-buffer sync。(done: 2026-06-17)
     - [ ] host 侧补等价 full-frame double-buffer sync 覆盖，和 memory backend smoke 对齐。
-- [ ] Surface / decoded resource cache(参考 `docs/itu_reference_design.md` 的 decoded-resource cache 落地形态，不抄 LVGL/ITU“万物皆可缓存 surface”模型)。
+  - [ ] Surface / decoded resource cache(参考 `docs/itu_reference_design.md` 的 decoded-resource cache 落地形态，不抄 LVGL/ITU“万物皆可缓存 surface”模型)。
   设计约束：保持 `gfx_asset_view_t`(只读字节) / image-font-anim descriptor(格式元数据) / render buffer(可写像素) 三者分离；缓存只接管“decoded surface entry”这一层，按 `asset bytes -> decoder -> decoded entry -> ref/release` 生命周期；先做 metadata + budget plumbing，再缓存真正的 decoded pixels。
   - [ ] 定义 decoded cache entry：source key、format、width/height/stride、decoded bytes、refcount、last_use tick。
   - [ ] image decoder 接入 decoded cache：当前 `GFX_IMAGE_SRC_TYPE_FILE` 每个 `gfx_image_resource` 实例都会独立 open/decode/alloc，同一 JPG 在 Image/Pageflow/Coverflow 间会重复解码；后续按 file name/asset id 做 key 共享 decoded buffer，并在 resource close 时 refcount release。
@@ -150,7 +159,7 @@
   - [x] P1 收敛 label 文本绘制复用，去掉伪装成 label object 的模式。(done: 2026-06-18)
     - [x] 抽出内部 `gfx_label_text_box_draw()` / `gfx_label_text_box_update()` helper，输入 label state、area、clip、draw ctx，不再要求调用方临时改写 `obj->type/src/geometry/align`。(done: 2026-06-18)
     - [x] 将 `gfx_button.c`、`gfx_list.c`、`gfx_wheel.c`、`gfx_pageflow.c`、`gfx_coverflow.c` 的 `call_label_draw/update` 伪装调用迁移到新 helper，删除各自保存/还原 object 现场的代码。(done: 2026-06-18)
-  - [ ] P2 统一 image / mesh image 资源入口，对齐 widget load/release 生命周期。
+  - [x] P2 统一 image / mesh image 资源入口，对齐 widget load/release 生命周期。(done: 2026-06-22)
     - [x] 抽出 `gfx_image_resource` 内部 helper，统一 image source 校验、header 查询、decoder open/close、data/stride/format 输出。(done: 2026-06-18)
     - [x] 将 `gfx_mesh_img` 从 draw 阶段自行 prepare/open/close decoder 迁移到 load/release + 共享 helper，和 `gfx_img` 对齐。(done: 2026-06-18)
     - [x] pageflow image、coverflow image 路径接入共享 image resource helper，为后续 decoded cache 预留统一入口；coverflow card image 当前经 child `gfx_mesh_img` 已共享同一 helper 生命周期。(done: 2026-06-18)
@@ -315,7 +324,38 @@
 - [ ] ESP-IDF 相关适配只保留在 platform/adapter 层，不在 public API 暴露旧式入口。
 - [ ] 同步更新 host build、ESP-IDF build 和 API 文档。
 
+- [x] **src/ 平台层抽离：去除 `sim/port/include` 对 ESP-IDF 桩的依赖** (done: 2026-06-22)
+  现状：`include/` 已用 `gfx_err_t`，`src/` 已迁移到 `gfx_check` / `GFX_LOG` / `gfx_err_t`；host `gfx_host_core` 不再依赖 `sim/port/include/esp_*.h`。
+  目标：`src/` 除 `platform/esp_idf/` 外零 ESP 头依赖；host 编译 `gfx_host_core` 不再依赖 `sim/port/include/esp_err.h`、`esp_check.h`、`esp_log.h`。
+  验收：`rg '#include "esp_' src/ --glob '!src/platform/esp_idf/**'` 无匹配；`sim/port/include/` 仅保留 `lvgl.h`、`sdkconfig.h`。
+  - [x] **Phase 1 — 公共 check 宏（优先）** (done: 2026-06-22)
+    - [x] 新增 `src/common/gfx_check.h`：`GFX_RETURN_ON_FALSE` / `GFX_RETURN_ON_ERROR` / `GFX_GOTO_ON_FALSE` / `GFX_GOTO_ON_ERROR`，基于 `gfx_err_t`，语义对齐 `esp_check.h` 但 tag/format 参数可 `(void)` 忽略。
+    - [x] 将 `gfx_comm.h` 的 `CHECK_OBJ_TYPE` 改为依赖 `gfx_check.h` + `GFX_ERR_*`，不再 include `esp_check.h`。
+    - [x] 批量迁移 `src/`（core/widgets/codecs/render/fonts/backend）：`#include "esp_check.h"` → `"common/gfx_check.h"`，`ESP_ERR_*` → `GFX_ERR_*`，`ESP_OK` → `GFX_OK`。
+    - [x] 仅在 `platform/esp_idf/*.c` 保留 `esp_err_to_gfx()` / `gfx_err_to_esp()` 边界转换 helper（`src/platform/esp_idf/gfx_err_bridge.h`）。
+  - [x] **Phase 2 — 日志统一到 GFX_LOG 宏** (done: 2026-06-22)
+    - [x] 清点仍用 `ESP_LOGI/W/E/D/V` 的文件（如 `gfx_object.c`、`gfx_render.c`、`gfx_blend.c`、`gfx_timer.c`、`gfx_img.c`、`gfx_font_*.c` 等）。
+    - [x] 统一改为 `GFX_LOG_MODULE` + `gfx_log_priv.h` 的 `GFX_LOGI()` 形式；删除 `src/` 对 `esp_log.h` 的 include。
+    - [x] host 侧重定向 `gfx_log_write()` 到 stderr/stdout（已有 `gfx_log.c`），不依赖 ESP log stub。
+  - [x] **Phase 3 — 内部 API 返回类型统一 `gfx_err_t`** (done: 2026-06-22)
+    - [x] `src/platform/gfx_platform.h`：`gfx_platform_task_create()` 等返回 `gfx_err_t`，移除 `#include "esp_err.h"`。
+    - [x] priv vtable 迁移：`gfx_anim_decoder_priv.h`、`gfx_image_decoder_priv.h`、`gfx_platform_jpeg_priv.h`、motion/label priv headers。
+    - [x] `src/lib/eaf/gfx_eaf_dec.h`：公开 API 从 `esp_err_t` 改为 `gfx_err_t`（或独立 `eaf_err_t` 再在 anim decoder 边界转换一次）。
+    - [x] 删除 decoder 内手工 `gfx_*_fs_err()` / 重复 esp↔gfx 转换，收敛到 platform 边界单一转换层。
+  - [x] **Phase 4 — 清理 `sim/port/include`** (done: 2026-06-22)
+    - [x] 删除不再被 `src/` 引用的桩：`esp_err.h`、`esp_check.h`、`esp_log.h`、`esp_heap_caps.h`（heap 走 `gfx_platform_malloc(caps)` + `GFX_PLATFORM_HEAP_*`）。
+    - [x] expression host 桩删除：`emote_port.h` 替代 `sim/host/stubs/`（目录已移除）。
+    - [x] `freertos/*` 已删除；expression 统一使用 `gfx_platform_event`（host: pthread，IDF: EventGroup）。
+    - [x] demo 专用 ESP 桩（`esp_spiffs.h`、`esp_lcd_touch.h`、`driver/gpio.h`、`soc/*`、`esp_attr.h`）已删除；`sim/port/freertos/*` 已删除，expression 改用 `gfx_platform_event`。
+    - [x] 更新 `CMakeLists.txt`：`gfx_host_core` PUBLIC include 去掉 `sim/port/include`；`gfx_host_sdl_demo` 加 `src` include。
+  - [x] **Phase 5 — CI 护栏 + 文档** (done: 2026-06-22)
+    - [x] pre-commit/CI：`scripts/check_no_esp_in_src.sh`；`src/` 除 `platform/esp_idf/**` 外禁止 `#include "esp_*"` / `#include <esp_*>`。
+    - [x] 更新 `docs/architecture.md`：明确 platform 边界规则。
+    - [x] expression host 通过 `components/esp_emote_expression/include/expression_emote/emote_port.h` 适配，不再使用独立 stub 目录。
+
 ## FS / Asset 兼容层
+
+说明：本节保留为从 `gfx_asset_*` 过渡到 `gfx_fs_*` 的历史收敛记录。新的主线判断以本文顶部“下一阶段主线”和 `资源加载接口收敛 V2` 为准；与 `gfx_fs FILE` 合同不一致的开放项应优先标 `LEGACY`，避免重复推进。
 
 目标：让 `test_anim.c` 这类依赖 flash/mmap 资源的用例，也能在 host SDL 仿真里直接加载同一批 `.aaf/.eaf/.bin/.ttf` 文件。应用层不直接关心资源来自 ESP flash 分区、mmap assets，还是 Linux 文件系统。
 
@@ -333,7 +373,7 @@
   - [x] `gfx_asset_open_by_name()` 内部遍历 `mmap_assets_get_name()` 并复用 id open 路径。(done: 2026-06-18)
   - [x] 新增 ESP-IDF Unity asset store smoke，覆盖 mmap-assets id/name 打开路径。(done: 2026-06-18)
 
-- [ ] Host/Linux 后端：从普通目录加载资源。
+- [x] Host/Linux 后端：从普通目录加载资源。(done: 2026-06-22，剩余按 ID / Windows 事项均转为 LEGACY)
   - [x] 新增 `src/platform/linux/gfx_asset_fs_linux.c`。(done: 2026-06-12)
   - [x] `gfx_asset_store_open_dir(root_dir)` 指向一个 host 资源根目录。(done: 2026-06-12)
   - [x] `gfx_asset_open_by_name()` 使用 `open/stat/mmap`，失败时 fallback 到 `fread + malloc`。(done: 2026-06-12)
@@ -345,7 +385,7 @@
   - [ ] [LEGACY] 为 host 生成或维护 `assets_manifest.json`，记录 `id -> filename -> size -> optional checksum`。
   - [ ] [LEGACY] 兼容 ESP 生成头里的 ID，例如 `MMAP_ASSETS_TEST_MI_1_EYE_24BIT_AAF`。
   - [ ] [LEGACY] CMake host target 可选择读取 `test_apps/main/mmap_generate_assets_test.h` 或生成一个 host manifest header。
-  - [ ] 明确资源根目录来源：优先 `GFX_ASSET_ROOT` 环境变量，其次 CMake 配置路径，最后默认 `test_apps/assets_test` / `test_apps/assets_gen`。
+  - [ ] 明确资源根目录来源：优先 `GFX_FS_ROOT` 环境变量，其次 CMake 配置路径，最后默认 `examples/assets/format` / `test_apps/assets_gen`。
 
 - [ ] anim/eaf 资源入口与 image 对齐(主线优先，先于 streaming/cache)。
   现状诊断：`gfx_image` 侧已收敛——`gfx_image_resource_t`(set_source/open/close/load/release) + `gfx_image_decoder_open_file_source()`(default store `open_by_name` + `fread` fallback，覆盖 mmap / VFS / partition)。`gfx_anim_decoder_eaf.c` 的 `gfx_anim_eaf_open_file_source()` 是更薄且不完整的副本：只走 `gfx_asset_get_default_store()` + `open_by_name`，无 `fread` fallback，且 `gfx_anim_src_get_data_size/peek_data` 与 import/export frame_desc 搬运偏重。
@@ -357,9 +397,12 @@
   - [ ] P4 anim 与 image 接口一致性：
     - [x] src 描述符与 FILE 解析对齐：`gfx_anim_src_t {type,data,data_len}` 已与 `gfx_image_src_t` 对齐，FILE 路径统一走 P2 公共 `gfx_asset_source` loader。(done: 2026-06-18)
     - [ ] (延后)anim widget 的 lazy `load`/`release` 生命周期迁移：当前 anim 在 `set_src_desc` 即 eager open decoder 并常驻，符合 P1“一次性 load 并保持”的取向；image 的 lazy load/release 主要服务 decoded cache 的按需释放。按 decoded cache“image 先接、anim 后接”的顺序，anim 的 load/release 迁移与下方“Widget 资源生命周期 → 继续迁移 anim、motion”合并推进，暂不新增冗余的 `gfx_anim_resource_t` 包一层。
-  - [ ] image/font 同样提供 helper：`gfx_image_src_from_asset()`、`gfx_font_cfg_from_asset()`，与 anim 共用资源 view 语义。
-  - [ ] 保持 decoder 只依赖内存视图，不让 decoder 直接打开文件，边界更清晰。
-  - [ ] 明确资源 view 在 widget 使用期间必须保持有效，或者由 widget 复制必要数据。
+  - [LEGACY] image/font 同样提供 helper：`gfx_image_src_from_asset()`、`gfx_font_cfg_from_asset()`，与 anim 共用资源 view 语义。
+    说明：当前主线已统一到 `*_SRC_TYPE_FILE + path` 与 public `gfx_fs_*` 文件语义，不再继续扩“asset view helper”路线。
+  - [LEGACY] 保持 decoder 只依赖内存视图，不让 decoder 直接打开文件，边界更清晰。
+    说明：当前 decoder 主线是 public `gfx_fs_file_t` / `gfx_fs_load()`，不是“只吃 memory view”模型。
+  - [LEGACY] 明确资源 view 在 widget 使用期间必须保持有效，或者由 widget 复制必要数据。
+    说明：该约束属于旧 `gfx_asset_view_t` 设计；当前 widget/decoder 以 `gfx_fs` 文件语义和各自资源生命周期为准。
 
 - [ ] EAF/AAF 解码层优化(`src/lib/eaf/gfx_eaf_dec.c`)。
   风险提示：以下都在 decode 热路径上，逐项小步改、每步跑 host anim smoke + SDL dummy smoke 回归(同一 `.eaf/.aaf` 解码输出字节应保持一致)；先做低风险性能项，再碰正确性项，流式重构留最后。
@@ -369,22 +412,29 @@
   - [x] (中风险)`decode_huffman_rle` 中间 buffer：`*out_size`(已等于 `width*block_height`) `*2` 保留为可证明的最坏上界(RLE pair 2 字节→≥1 字节输出)，加注释说明非魔法系数；buffer 改为复用 handle scratch。(done: 2026-06-18)
   - [x] (中风险)`eaf_dec_init` 补长度校验：NULL/最小头/`stored_len` 校验区间/`total_frames` 与 frame table 容量(防溢出)/逐帧 `frame_base+offset+size <= data_len` 与 `frame_size>=EAF_MAGIC_LEN`；`entries` malloc null 检查。截断/损坏文件不越界。(done: 2026-06-18)
   - [x] (小项)4bit 矛盾收口：`eaf_dec_get_frame_info`/`probe` 早拒 4bit(decode 未实现)，仅放行 8/24bit；并补 frame payload 大小 guard。(done: 2026-06-18)
-  - [x] (高风险/大改)fread 流式 reader 抽象 —— 按帧 streaming 基座落地：在解码核之上加只读访问层 `eaf_dec_reader_t {io_ctx,size,read}`；新增 `eaf_dec_init_reader()` 只在 open 时读 header + frame table(整数化拷贝到 ctx)，decode 时把每帧 payload 按需 `read` 进复用 `frame_buf`(按 index 缓存，同帧不重读)，把“整文件常驻”降到“单帧常驻”。decode 核(`get_frame_info`/`decode_block`)与 widget 完全不改：streaming 时 `eaf_dec_get_frame_data()` 返回复用帧缓冲，resident `eaf_dec_init()` 路径原样保留(两种并存模式，opt-in)。(done: 2026-06-18)
+  - [x] (高风险/大改)fread 流式 reader 抽象 —— 按帧 streaming 基座落地：在解码核之上加只读访问层 `eaf_dec_reader_t {io_ctx,size,read}`；新增 `eaf_dec_init_reader()` 只在 open 时读 header + frame table(整数化拷贝到 ctx)，decode 时把每帧 payload 按需 `read` 进复用 `frame_buf`(按 index 缓存，同帧不重读)，把“整文件 copy”降到“单帧缓冲”。decode 核(`get_frame_info`/`decode_block`)与 widget 完全不改：streaming 时 `eaf_dec_get_frame_data()` 返回复用帧缓冲，copy/direct `eaf_dec_init()` 路径原样保留(两种并存模式，opt-in)。(done: 2026-06-18)
     - asset 层新增 `gfx_asset_source_open_stream/stream_read/close_stream`(`gfx_asset_stream_t`)：fopen 优先(SPIFFS/FATFS/SD/host-dir 真流式，仅请求字节常驻)，否则回退默认 store 的 mapped/direct view 零拷贝；decoder 不直接开文件，由 `gfx_anim_decoder_eaf.c` 把 stream 桥到 reader，边界清晰。
-    - opt-in：`gfx_anim_src_t.flags` 新增 `GFX_ANIM_SRC_FLAG_STREAMING`(默认 0 = resident P1)，仅对 FILE 源生效；mapped/direct 源即使请求 streaming 也走零拷贝 resident(streaming mmap 无收益)。host demo 经 `GFX_DEMO_ANIM_STREAM` 跑 FILE+streaming。
+    - opt-in：`gfx_anim_src_t.flags` 新增 `GFX_ANIM_SRC_FLAG_STREAMING`(默认 0 = copy P1)，仅对 FILE 源生效；direct 源即使请求 streaming 也走零拷贝 direct(streaming mmap 无收益)。host demo 经 `GFX_DEMO_ANIM_STREAM` 跑 FILE+streaming。
     - 决策落定：granularity 选“按帧”而非“按块”——正常整帧播放时按帧只 1 次顺序 `read`(syscall 最少)，且与 widget `frame_payload + block_offsets[i]` 常驻指针契约零冲突；prefetch task 暂不引入(见下方 follow-up)。
-    - 校验：payload 字节 resident≡streaming 完全一致(`payload_diff=0`)；整套帧解码 streaming 与 fresh resident handle 在 8bit.eaf/24bit.aaf 全帧 0 mismatch，huff.aaf 的 41/62 差异为 **streaming 无关**(resident-vs-resident 同样 41 帧、同一帧集)。host ctest 8/8 通过。
+    - 校验：payload 字节 copy≡streaming 完全一致(`payload_diff=0`)；整套帧解码 streaming 与 fresh copy handle 在 8bit.eaf/24bit.aaf 全帧 0 mismatch，huff.aaf 的 41/62 差异为 **streaming 无关**(copy-vs-copy 同样 41 帧、同一帧集)。host ctest 8/8 通过。
   - [ ] (follow-up，需决策)frame-level bounce 双缓冲 + prefetch：当前按帧 streaming 串行(读帧 N → 解帧 N)，要真正“两块交互”需在显示帧 N 时预读帧 N+1 到第二缓冲——同步 fread 下必须借独立 prefetch task 才有真重叠(render 由 timer 驱动，非自由解码循环)，是本项最高风险部分，建议落到目标板按真实 I/O 时序决定 task 形态后再做。
   - [ ] (新发现，streaming 无关，pre-existing)Huffman/RLE 块短解码尾部未初始化：部分 huff 块 decode 返回 OK 但 `out_size < width*block_height`，`eaf_dec_decode_frame`/widget 的 per-frame temp/decode_buffer 尾部保留旧值/未初始化即被渲染(复用 buffer 时为上一块残留)。表现为两 handle 解同一 huff 文件确定性地差 41/62 帧。建议：decode_block 成功后对未覆盖区清零，或对短解码块按错误处理。属解码健壮性，独立小步评估。
 
 - [ ] Host SDL demo / test app 验证。
-  - [x] 给 host SDL demo 增加一个 animation panel，从 host 文件系统加载 `.aaf/.eaf`。(done: 2026-06-12)
-  - [ ] 将 `test_anim.c` 的 `mmap_assets_handle_t` 访问迁移到 `gfx_asset_store_t`，ESP 与 host 共享主流程。
-  - [x] 增加 host 专用 asset smoke：打开 store，加载一个文件并验证 view 生命周期。(done: 2026-06-12)
-  - [ ] 保留 ESP-IDF Unity 用例，确保 flash/mmap 分区路径没有回归。
+  - [x] demo/examples 目录重组：`examples/format_playground`、`examples/assets/format`、`examples/esp/format_rgb565|888`；`test_apps/` 仅 Unity；`sim/host` 不再依赖 `test_apps/` demo 源码。(done: 2026-06-22)
+  - [x] host 主 demo 为 `gfx_host_sdl_demo` + 内嵌 `examples/format_playground`：image/anim 等 widget 经 `gfx_fs_fopen` + 相对路径加载；资源根目录由 `GFX_FS_ROOT` 指定（默认 `examples/assets/format`）。(done: 2026-06-22)
+  - [x] EAF/AAF decoder 与 image decoder 在 host 上只依赖 public `gfx_fs_file_t` / `gfx_fs_load()`，不再走已删除的 `gfx_fs_source_*` 或上层 asset view 私有 helper。(done: 2026-06-22)
+  - [x] 恢复 host `gfx_host_fs_smoke`（public `gfx_fs_open_dir` + `gfx_fs_fopen/fread/fseek/fclose`）；恢复 widget/alignment/tween smokes + CI `ctest`。(done: 2026-06-22)
+  - [ ] 将 `test_apps/main/test_anim.c`、`test_anim_emote_gen.c` 从 `mmap_assets_handle_t` 迁移到 `gfx_fs_t` + FILE 路径 / `gfx_fs_load`；与 format demo、decoder 主路径对齐，ESP Unity 与 host 共用同一套 file 语义。
+  - [x] ESP-IDF Unity `test_fs_store.c` 保留 mmap backend 的 view open-by-id/name smoke（backend 内部 API）。(done: 2026-06-18)
+  - [ ] 扩展 ESP / host 回归：mmap partition、SPIFFS/VFS、host 目录三种 backend 下，image/anim widget + decoder 的 FILE 路径解析无回归；`test_fs_store.c` 补 public `gfx_fs_fopen/fread/fclose` 路径。
 
 - [ ] CMake / 文档。
-  - [x] host target 显式编入 Linux FS 后端，ESP-IDF target 显式编入 mmap/unsupported adapter 后端。(done: 2026-06-12)
-  - [ ] 文档补充资源目录布局、环境变量、常见调试命令。
-  - [ ] [LEGACY] 文档补充 manifest 格式；当前主线不引入 host manifest。
-  - [ ] 记录“资源 API 只提供只读字节视图，格式解释仍归 image/font/anim decoder”的设计约束。
+  - [x] host `gfx_host_core` 编入 `gfx_fs_linux.c` + `gfx_platform_linux.c`；ESP-IDF component 排除 `platform/linux/`、`platform/host/`、`backend/sdl/`。(done: 2026-06-12)
+  - [x] host heatshrink 路径：`GFX_HEATSHRINK_ROOT` 自动解析 `test_apps/managed_components` 或根 `managed_components`。(done: 2026-06-22)
+  - [x] `esp_emote_expression` 设备仓同步 `emote_port.h` 与源文件 include（host 仍用 gfx 仓内已迁 GFX API 的 `components/esp_emote_expression`）。(done: 2026-06-22)
+  - [x] CI：`scripts/check_no_esp_in_src.sh` + GitHub Actions host SDL 构建。(done: 2026-06-22)
+  - [x] `docs/architecture.md` 补充 platform 边界与 host/sim 桩收敛规则。(done: 2026-06-22)
+  - [ ] 文档对齐 V2 命名：更新 `docs/asset_store_file_loading_design.md`（仍写 `gfx_asset_store_*`）与 README；说明 `GFX_FS_ROOT`（format demo）、`GFX_EXPRESSION_FS_ROOT`（expression demo）、`examples/` 布局与常见 host 调试命令。
+  - [ ] [LEGACY] 文档补充 manifest 格式；当前主线按文件名打开资源，不引入 host manifest。
+  - [x] 设计约束：`gfx_fs` 只提供只读字节/文件访问，格式解析归 decoder；widget 侧统一 `*_SRC_TYPE_FILE + path`，`*_SRC_TYPE_MEMORY` 仅表示调用方已有裸 buffer。(done: 2026-06-22)

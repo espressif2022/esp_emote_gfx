@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_OBJ
 #include "common/gfx_log_priv.h"
 
@@ -25,19 +25,19 @@ gfx_err_t gfx_widget_class_register(const gfx_widget_class_t *klass)
 {
     const gfx_widget_class_t *existing;
 
-    ESP_RETURN_ON_FALSE(klass != NULL, ESP_ERR_INVALID_ARG, TAG, "class is NULL");
+    GFX_RETURN_ON_FALSE(klass != NULL, GFX_ERR_INVALID_ARG, TAG, "class is NULL");
 
     existing = s_widget_classes[klass->type];
     if (existing == NULL) {
         s_widget_classes[klass->type] = klass;
-        return ESP_OK;
+        return GFX_OK;
     }
 
-    ESP_RETURN_ON_FALSE(existing == klass, ESP_ERR_INVALID_STATE, TAG,
+    GFX_RETURN_ON_FALSE(existing == klass, GFX_ERR_INVALID_STATE, TAG,
                         "class type %u already registered by %s",
                         (unsigned int)klass->type,
                         existing->name ? existing->name : "unknown");
-    return ESP_OK;
+    return GFX_OK;
 }
 
 const gfx_widget_class_t *gfx_widget_class_get(uint8_t type)
@@ -47,11 +47,11 @@ const gfx_widget_class_t *gfx_widget_class_get(uint8_t type)
 
 gfx_err_t gfx_object_init_class_instance(gfx_object_t *obj, gfx_display_t *disp, const gfx_widget_class_t *klass, void *src)
 {
-    ESP_RETURN_ON_FALSE(obj != NULL, ESP_ERR_INVALID_ARG, TAG, "object is NULL");
-    ESP_RETURN_ON_FALSE(disp != NULL, ESP_ERR_INVALID_ARG, TAG, "display is NULL");
-    ESP_RETURN_ON_FALSE(klass != NULL, ESP_ERR_INVALID_ARG, TAG, "class is NULL");
+    GFX_RETURN_ON_FALSE(obj != NULL, GFX_ERR_INVALID_ARG, TAG, "object is NULL");
+    GFX_RETURN_ON_FALSE(disp != NULL, GFX_ERR_INVALID_ARG, TAG, "display is NULL");
+    GFX_RETURN_ON_FALSE(klass != NULL, GFX_ERR_INVALID_ARG, TAG, "class is NULL");
 
-    ESP_RETURN_ON_ERROR(gfx_widget_class_register(klass), TAG, "register class failed");
+    GFX_RETURN_ON_ERROR(gfx_widget_class_register(klass), TAG, "register class failed");
 
     memset(obj, 0, sizeof(*obj));
     obj->type = klass->type;
@@ -71,7 +71,7 @@ gfx_err_t gfx_object_init_class_instance(gfx_object_t *obj, gfx_display_t *disp,
     obj->trace.create_tag = obj->trace.class_name;
 
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_object_create_class_instance(gfx_display_t *disp, const gfx_widget_class_t *klass,
@@ -79,18 +79,18 @@ gfx_err_t gfx_object_create_class_instance(gfx_display_t *disp, const gfx_widget
         const char *create_tag, gfx_object_t **out_obj)
 {
     gfx_object_t *obj;
-    esp_err_t ret;
+    gfx_err_t ret;
 
-    ESP_RETURN_ON_FALSE(disp != NULL, ESP_ERR_INVALID_ARG, TAG, "display is NULL");
-    ESP_RETURN_ON_FALSE(klass != NULL, ESP_ERR_INVALID_ARG, TAG, "class is NULL");
-    ESP_RETURN_ON_FALSE(out_obj != NULL, ESP_ERR_INVALID_ARG, TAG, "output object is NULL");
+    GFX_RETURN_ON_FALSE(disp != NULL, GFX_ERR_INVALID_ARG, TAG, "display is NULL");
+    GFX_RETURN_ON_FALSE(klass != NULL, GFX_ERR_INVALID_ARG, TAG, "class is NULL");
+    GFX_RETURN_ON_FALSE(out_obj != NULL, GFX_ERR_INVALID_ARG, TAG, "output object is NULL");
 
     *out_obj = NULL;
     obj = calloc(1, sizeof(*obj));
-    ESP_RETURN_ON_FALSE(obj != NULL, ESP_ERR_NO_MEM, TAG, "no memory for object");
+    GFX_RETURN_ON_FALSE(obj != NULL, GFX_ERR_NO_MEM, TAG, "no memory for object");
 
     ret = gfx_object_init_class_instance(obj, disp, klass, src);
-    if (ret != ESP_OK) {
+    if (ret != GFX_OK) {
         free(obj);
         return ret;
     }
@@ -105,7 +105,7 @@ gfx_err_t gfx_object_create_class_instance(gfx_display_t *disp, const gfx_widget
     }
 
     ret = gfx_display_add_child(disp, obj);
-    if (ret != ESP_OK) {
+    if (ret != GFX_OK) {
         free(obj);
         return ret;
     }
@@ -115,5 +115,5 @@ gfx_err_t gfx_object_create_class_instance(gfx_display_t *disp, const gfx_widget
              obj->trace.class_name ? obj->trace.class_name : "unknown",
              obj->trace.create_tag ? obj->trace.create_tag : "unknown");
     *out_obj = obj;
-    return ESP_OK;
+    return GFX_OK;
 }

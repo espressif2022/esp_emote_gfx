@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include "esp_err.h"
 
 #include "core/display/gfx_backend_priv.h"
 
@@ -14,7 +13,7 @@
 extern "C" {
 #endif
 
-esp_err_t gfx_platform_accel_init(void);
+gfx_err_t gfx_platform_accel_init(void);
 void gfx_platform_accel_deinit(void);
 
 const gfx_draw_ops_t *gfx_platform_accel_get_draw_ops(void);

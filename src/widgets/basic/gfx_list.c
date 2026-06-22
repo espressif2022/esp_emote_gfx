@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_LIST
 #include "common/gfx_log_priv.h"
 
@@ -110,17 +110,17 @@ static const char *const TAG = "list";
  **********************/
 
 static void gfx_list_init_default_state(gfx_list_t *list);
-static esp_err_t gfx_list_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
-static esp_err_t gfx_list_update(gfx_object_t *obj);
-static esp_err_t gfx_list_delete_impl(gfx_object_t *obj);
-static esp_err_t gfx_list_load_impl(gfx_object_t *obj);
+static gfx_err_t gfx_list_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
+static gfx_err_t gfx_list_update(gfx_object_t *obj);
+static gfx_err_t gfx_list_delete_impl(gfx_object_t *obj);
+static gfx_err_t gfx_list_load_impl(gfx_object_t *obj);
 static void gfx_list_release_impl(gfx_object_t *obj);
 static void gfx_list_touch_event(gfx_object_t *obj, const void *event_data);
-static esp_err_t gfx_list_draw_text(gfx_object_t *obj, gfx_list_t *list, const gfx_draw_ctx_t *ctx,
+static gfx_err_t gfx_list_draw_text(gfx_object_t *obj, gfx_list_t *list, const gfx_draw_ctx_t *ctx,
                                     const char *text, const gfx_area_t *row_area,
                                     const gfx_area_t *clip_area, gfx_color_t color);
 static void gfx_list_free_items(gfx_list_t *list);
-static esp_err_t gfx_list_dup_text(const char *text, char **out_text);
+static gfx_err_t gfx_list_dup_text(const char *text, char **out_text);
 static int32_t gfx_list_max_scroll_y(const gfx_object_t *obj, const gfx_list_t *list);
 static int32_t gfx_list_clamp_scroll_y(const gfx_object_t *obj, const gfx_list_t *list, int32_t scroll_y);
 static void gfx_list_set_scroll_y(gfx_object_t *obj, gfx_list_t *list, int32_t scroll_y);
@@ -180,21 +180,21 @@ static void gfx_list_init_default_state(gfx_list_t *list)
     list->style.border_width = 1;
 }
 
-static esp_err_t gfx_list_dup_text(const char *text, char **out_text)
+static gfx_err_t gfx_list_dup_text(const char *text, char **out_text)
 {
     const char *src = text ? text : "";
     size_t len = strlen(src) + 1U;
     char *dup;
 
-    GFX_RETURN_IF_NULL(out_text, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(out_text, GFX_ERR_INVALID_ARG);
 
     dup = malloc(len);
     if (dup == NULL) {
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
     memcpy(dup, src, len);
     *out_text = dup;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static void gfx_list_free_items(gfx_list_t *list)
@@ -550,7 +550,7 @@ static int32_t gfx_list_index_from_point(const gfx_area_t *obj_area, const gfx_l
     return (index >= 0 && index < (int32_t)list->item_count) ? index : -1;
 }
 
-static esp_err_t gfx_list_call_label_update(gfx_object_t *obj, gfx_list_t *list,
+static gfx_err_t gfx_list_call_label_update(gfx_object_t *obj, gfx_list_t *list,
         const char *text, const gfx_area_t *text_area)
 {
     list->label.text.text = (char *)(text ? text : "");
@@ -564,16 +564,16 @@ static esp_err_t gfx_list_call_label_update(gfx_object_t *obj, gfx_list_t *list,
     return gfx_label_text_box_update(obj, &list->label, text_area);
 }
 
-static esp_err_t gfx_list_draw_text(gfx_object_t *obj, gfx_list_t *list, const gfx_draw_ctx_t *ctx,
+static gfx_err_t gfx_list_draw_text(gfx_object_t *obj, gfx_list_t *list, const gfx_draw_ctx_t *ctx,
                                     const char *text, const gfx_area_t *row_area,
                                     const gfx_area_t *clip_area, gfx_color_t color)
 {
     gfx_area_t text_area;
-    esp_err_t ret;
+    gfx_err_t ret;
 
     if (row_area->x2 <= row_area->x1 || row_area->y2 <= row_area->y1 ||
             clip_area == NULL || clip_area->x2 <= clip_area->x1 || clip_area->y2 <= clip_area->y1) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     text_area.x1 = (gfx_coord_t)(row_area->x1 + (gfx_coord_t)list->pad_x);
@@ -585,7 +585,7 @@ static esp_err_t gfx_list_draw_text(gfx_object_t *obj, gfx_list_t *list, const g
     }
 
     ret = gfx_list_call_label_update(obj, list, text, &text_area);
-    if (ret != ESP_OK) {
+    if (ret != GFX_OK) {
         return ret;
     }
 
@@ -595,7 +595,7 @@ static esp_err_t gfx_list_draw_text(gfx_object_t *obj, gfx_list_t *list, const g
     return gfx_label_text_box_draw(obj, &list->label, ctx, &text_area, clip_area);
 }
 
-static esp_err_t gfx_list_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
+static gfx_err_t gfx_list_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 {
     gfx_list_t *list;
     gfx_area_t obj_area;
@@ -608,17 +608,17 @@ static esp_err_t gfx_list_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
         .format = ctx->format,
     };
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(ctx, ESP_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(ctx, GFX_ERR_INVALID_ARG);
 
     list = (gfx_list_t *)obj->src;
-    GFX_RETURN_IF_NULL(list, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(list, GFX_ERR_INVALID_STATE);
 
     if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     if (!gfx_area_intersect_exclusive(&clip_area, &ctx->clip_area, &obj_area)) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     gfx_render_surface_fill(obj->disp, &dst_surface, &clip_area, list->style.bg_color, 0xFFU);
@@ -687,10 +687,10 @@ static esp_err_t gfx_list_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
         gfx_list_draw_text(obj, list, ctx, list->items[i], &row_area, &row_clip, text_color);
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_list_update(gfx_object_t *obj)
+static gfx_err_t gfx_list_update(gfx_object_t *obj)
 {
     gfx_list_t *list;
 
@@ -699,10 +699,10 @@ static esp_err_t gfx_list_update(gfx_object_t *obj)
     if (list != NULL) {
         (void)gfx_list_anim_step(obj, list);
     }
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_list_delete_impl(gfx_object_t *obj)
+static gfx_err_t gfx_list_delete_impl(gfx_object_t *obj)
 {
     gfx_list_t *list;
 
@@ -710,17 +710,17 @@ static esp_err_t gfx_list_delete_impl(gfx_object_t *obj)
 
     list = (gfx_list_t *)obj->src;
     if (list == NULL) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     gfx_list_free_items(list);
     free(list->label.render.mask);
     free(list->label.render.color_mask);
     free(list);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_list_load_impl(gfx_object_t *obj)
+static gfx_err_t gfx_list_load_impl(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_LIST(obj);
     return gfx_label_load_state(obj, &((gfx_list_t *)obj->src)->label);
@@ -880,7 +880,7 @@ gfx_object_t *gfx_list_create(gfx_display_t *disp)
 
     if (gfx_object_create_class_instance(disp, &s_gfx_list_widget_class,
                                          list, GFX_LIST_DEFAULT_WIDTH, GFX_LIST_DEFAULT_HEIGHT,
-                                         "gfx_list_create", &obj) != ESP_OK) {
+                                         "gfx_list_create", &obj) != GFX_OK) {
         free(list);
         GFX_LOGE(TAG, "create list: no mem for object");
         return NULL;
@@ -889,36 +889,36 @@ gfx_object_t *gfx_list_create(gfx_display_t *disp)
     return obj;
 }
 
-esp_err_t gfx_list_clear(gfx_object_t *obj)
+gfx_err_t gfx_list_clear(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     gfx_list_free_items((gfx_list_t *)obj->src);
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_add_item(gfx_object_t *obj, const char *text)
+gfx_err_t gfx_list_add_item(gfx_object_t *obj, const char *text)
 {
     gfx_list_t *list;
     char **new_items;
     char *dup_text = NULL;
-    esp_err_t ret;
+    gfx_err_t ret;
 
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     list = (gfx_list_t *)obj->src;
     ret = gfx_list_dup_text(text, &dup_text);
-    if (ret != ESP_OK) {
+    if (ret != GFX_OK) {
         return ret;
     }
 
     new_items = realloc(list->items, ((size_t)list->item_count + 1U) * sizeof(char *));
     if (new_items == NULL) {
         free(dup_text);
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
 
     list->items = new_items;
@@ -930,32 +930,32 @@ esp_err_t gfx_list_add_item(gfx_object_t *obj, const char *text)
     gfx_list_set_scroll_y(obj, list, list->scroll_y);
 
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_items(gfx_object_t *obj, const char *const *items, uint16_t item_count)
+gfx_err_t gfx_list_set_items(gfx_object_t *obj, const char *const *items, uint16_t item_count)
 {
     gfx_list_t *list;
     char **new_items = NULL;
-    esp_err_t ret;
+    gfx_err_t ret;
 
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     if (item_count > 0U) {
-        GFX_RETURN_IF_NULL(items, ESP_ERR_INVALID_ARG);
+        GFX_RETURN_IF_NULL(items, GFX_ERR_INVALID_ARG);
     }
 
     list = (gfx_list_t *)obj->src;
     if (item_count > 0U) {
         new_items = calloc(item_count, sizeof(char *));
         if (new_items == NULL) {
-            return ESP_ERR_NO_MEM;
+            return GFX_ERR_NO_MEM;
         }
     }
 
     for (uint16_t i = 0; i < item_count; i++) {
         ret = gfx_list_dup_text(items[i], &new_items[i]);
-        if (ret != ESP_OK) {
+        if (ret != GFX_OK) {
             for (uint16_t j = 0; j < i; j++) {
                 free(new_items[j]);
             }
@@ -976,19 +976,19 @@ esp_err_t gfx_list_set_items(gfx_object_t *obj, const char *const *items, uint16
     memset(&list->touch, 0, sizeof(list->touch));
 
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_focus(gfx_object_t *obj, int32_t index)
+gfx_err_t gfx_list_set_focus(gfx_object_t *obj, int32_t index)
 {
     gfx_list_t *list;
 
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     list = (gfx_list_t *)obj->src;
     if (index < -1 || index >= list->item_count) {
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     if (list->focused_index != index) {
@@ -1008,7 +1008,7 @@ esp_err_t gfx_list_set_focus(gfx_object_t *obj, int32_t index)
             list->focus_cb(obj, index, list->focus_user_data);
         }
     }
-    return ESP_OK;
+    return GFX_OK;
 }
 
 int32_t gfx_list_get_focus(gfx_object_t *obj)
@@ -1020,13 +1020,13 @@ int32_t gfx_list_get_focus(gfx_object_t *obj)
     return ((gfx_list_t *)obj->src)->focused_index;
 }
 
-esp_err_t gfx_list_set_top_index(gfx_object_t *obj, uint16_t index)
+gfx_err_t gfx_list_set_top_index(gfx_object_t *obj, uint16_t index)
 {
     gfx_list_t *list;
     uint16_t max_top;
 
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     list = (gfx_list_t *)obj->src;
     max_top = gfx_list_max_top_index(obj, list);
@@ -1034,7 +1034,7 @@ esp_err_t gfx_list_set_top_index(gfx_object_t *obj, uint16_t index)
         index = max_top;
     }
     gfx_list_set_scroll_y(obj, list, (int32_t)index * (int32_t)list->item_height);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 uint16_t gfx_list_get_top_index(gfx_object_t *obj)
@@ -1045,13 +1045,13 @@ uint16_t gfx_list_get_top_index(gfx_object_t *obj)
     return ((gfx_list_t *)obj->src)->top_index;
 }
 
-esp_err_t gfx_list_set_scroll_offset(gfx_object_t *obj, int32_t scroll_y)
+gfx_err_t gfx_list_set_scroll_offset(gfx_object_t *obj, int32_t scroll_y)
 {
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     gfx_list_set_scroll_y(obj, (gfx_list_t *)obj->src, scroll_y);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 int32_t gfx_list_get_scroll_offset(gfx_object_t *obj)
@@ -1062,20 +1062,20 @@ int32_t gfx_list_get_scroll_offset(gfx_object_t *obj)
     return ((gfx_list_t *)obj->src)->scroll_y;
 }
 
-esp_err_t gfx_list_set_selected(gfx_object_t *obj, int32_t index)
+gfx_err_t gfx_list_set_selected(gfx_object_t *obj, int32_t index)
 {
     gfx_list_t *list;
 
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     list = (gfx_list_t *)obj->src;
     if (index < -1 || index >= list->item_count) {
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     gfx_list_set_selected_internal(obj, list, index, false);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 int32_t gfx_list_get_selected(gfx_object_t *obj)
@@ -1086,35 +1086,35 @@ int32_t gfx_list_get_selected(gfx_object_t *obj)
     return ((gfx_list_t *)obj->src)->selected_index;
 }
 
-esp_err_t gfx_list_confirm(gfx_object_t *obj)
+gfx_err_t gfx_list_confirm(gfx_object_t *obj)
 {
     gfx_list_t *list;
     int32_t index;
 
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     list = (gfx_list_t *)obj->src;
     index = list->selected_index >= 0 ? list->selected_index : list->focused_index;
     if (index < 0 || index >= list->item_count) {
-        return ESP_ERR_INVALID_STATE;
+        return GFX_ERR_INVALID_STATE;
     }
 
     gfx_list_set_selected_internal(obj, list, index, true);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_items_per_page(gfx_object_t *obj, uint16_t items_per_page)
+gfx_err_t gfx_list_set_items_per_page(gfx_object_t *obj, uint16_t items_per_page)
 {
     gfx_list_t *list;
 
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     list = (gfx_list_t *)obj->src;
     list->items_per_page = items_per_page;
     gfx_list_sync_page_index(obj, list, false);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 uint16_t gfx_list_get_items_per_page(gfx_object_t *obj)
@@ -1125,7 +1125,7 @@ uint16_t gfx_list_get_items_per_page(gfx_object_t *obj)
     return gfx_list_effective_items_per_page(obj, (gfx_list_t *)obj->src);
 }
 
-esp_err_t gfx_list_set_page(gfx_object_t *obj, uint16_t page_index)
+gfx_err_t gfx_list_set_page(gfx_object_t *obj, uint16_t page_index)
 {
     gfx_list_t *list;
     uint16_t per_page;
@@ -1133,12 +1133,12 @@ esp_err_t gfx_list_set_page(gfx_object_t *obj, uint16_t page_index)
     uint16_t first_item;
 
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     list = (gfx_list_t *)obj->src;
     page_count = gfx_list_page_count(obj, list);
     if (page_count == 0U) {
-        return page_index == 0U ? ESP_OK : ESP_ERR_INVALID_ARG;
+        return page_index == 0U ? GFX_OK : GFX_ERR_INVALID_ARG;
     }
     if (page_index >= page_count) {
         page_index = (uint16_t)(page_count - 1U);
@@ -1161,30 +1161,30 @@ esp_err_t gfx_list_set_page(gfx_object_t *obj, uint16_t page_index)
             }
         }
     }
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_prev_page(gfx_object_t *obj)
+gfx_err_t gfx_list_prev_page(gfx_object_t *obj)
 {
     if (obj == NULL || obj->type != GFX_OBJ_TYPE_LIST || obj->src == NULL) {
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
     gfx_list_t *list = (gfx_list_t *)obj->src;
     return gfx_list_set_page(obj, list->page_index > 0U ? (uint16_t)(list->page_index - 1U) : 0U);
 }
 
-esp_err_t gfx_list_next_page(gfx_object_t *obj)
+gfx_err_t gfx_list_next_page(gfx_object_t *obj)
 {
     gfx_list_t *list;
     uint16_t page_count;
 
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     list = (gfx_list_t *)obj->src;
     page_count = gfx_list_page_count(obj, list);
     if (page_count == 0U) {
-        return ESP_OK;
+        return GFX_OK;
     }
     return gfx_list_set_page(obj, list->page_index + 1U < page_count ?
                              (uint16_t)(list->page_index + 1U) : (uint16_t)(page_count - 1U));
@@ -1231,188 +1231,188 @@ const char *gfx_list_get_item_text(gfx_object_t *obj, uint16_t index)
     return list->items[index];
 }
 
-esp_err_t gfx_list_set_font(gfx_object_t *obj, gfx_font_t font)
+gfx_err_t gfx_list_set_font(gfx_object_t *obj, gfx_font_t font)
 {
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     return gfx_label_set_font_source(obj, &((gfx_list_t *)obj->src)->label, font);
 }
 
-esp_err_t gfx_list_set_item_height(gfx_object_t *obj, uint16_t height)
+gfx_err_t gfx_list_set_item_height(gfx_object_t *obj, uint16_t height)
 {
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
-    ESP_RETURN_ON_FALSE(height > 0U, ESP_ERR_INVALID_ARG, TAG, "item height must be > 0");
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
+    GFX_RETURN_ON_FALSE(height > 0U, GFX_ERR_INVALID_ARG, TAG, "item height must be > 0");
 
     ((gfx_list_t *)obj->src)->item_height = height;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_text_pad(gfx_object_t *obj, uint16_t pad_x, uint16_t pad_y)
+gfx_err_t gfx_list_set_text_pad(gfx_object_t *obj, uint16_t pad_x, uint16_t pad_y)
 {
     gfx_list_t *list;
 
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     list = (gfx_list_t *)obj->src;
     list->pad_x = pad_x;
     list->pad_y = pad_y;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_snap_to_item(gfx_object_t *obj, bool enable)
+gfx_err_t gfx_list_set_snap_to_item(gfx_object_t *obj, bool enable)
 {
     gfx_list_t *list;
 
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     list = (gfx_list_t *)obj->src;
     list->behavior.snap_to_item = enable;
     if (enable) {
         gfx_list_snap_scroll(obj, list);
     }
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_drag_threshold(gfx_object_t *obj, uint16_t threshold)
+gfx_err_t gfx_list_set_drag_threshold(gfx_object_t *obj, uint16_t threshold)
 {
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     ((gfx_list_t *)obj->src)->behavior.drag_threshold = threshold;
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_focus_cb(gfx_object_t *obj, gfx_list_focus_cb_t cb, void *user_data)
+gfx_err_t gfx_list_set_focus_cb(gfx_object_t *obj, gfx_list_focus_cb_t cb, void *user_data)
 {
     gfx_list_t *list;
 
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     list = (gfx_list_t *)obj->src;
     list->focus_cb = cb;
     list->focus_user_data = user_data;
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_select_cb(gfx_object_t *obj, gfx_list_select_cb_t cb, void *user_data)
+gfx_err_t gfx_list_set_select_cb(gfx_object_t *obj, gfx_list_select_cb_t cb, void *user_data)
 {
     gfx_list_t *list;
 
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     list = (gfx_list_t *)obj->src;
     list->select_cb = cb;
     list->select_user_data = user_data;
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_page_load_cb(gfx_object_t *obj, gfx_list_page_load_cb_t cb, void *user_data)
+gfx_err_t gfx_list_set_page_load_cb(gfx_object_t *obj, gfx_list_page_load_cb_t cb, void *user_data)
 {
     gfx_list_t *list;
 
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     list = (gfx_list_t *)obj->src;
     list->page_load_cb = cb;
     list->page_load_user_data = user_data;
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_bg_color(gfx_object_t *obj, gfx_color_t color)
+gfx_err_t gfx_list_set_bg_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_list_t *)obj->src)->style.bg_color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_focus_bg_color(gfx_object_t *obj, gfx_color_t color)
+gfx_err_t gfx_list_set_focus_bg_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_list_t *)obj->src)->style.focus_bg_color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_selected_bg_color(gfx_object_t *obj, gfx_color_t color)
+gfx_err_t gfx_list_set_selected_bg_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_list_t *)obj->src)->style.selected_bg_color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_pressed_bg_color(gfx_object_t *obj, gfx_color_t color)
+gfx_err_t gfx_list_set_pressed_bg_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_list_t *)obj->src)->style.pressed_bg_color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_text_color(gfx_object_t *obj, gfx_color_t color)
+gfx_err_t gfx_list_set_text_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_list_t *)obj->src)->style.text_color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_focus_text_color(gfx_object_t *obj, gfx_color_t color)
+gfx_err_t gfx_list_set_focus_text_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_list_t *)obj->src)->style.focus_text_color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_selected_text_color(gfx_object_t *obj, gfx_color_t color)
+gfx_err_t gfx_list_set_selected_text_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_list_t *)obj->src)->style.selected_text_color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_pressed_text_color(gfx_object_t *obj, gfx_color_t color)
+gfx_err_t gfx_list_set_pressed_text_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_list_t *)obj->src)->style.pressed_text_color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_border_color(gfx_object_t *obj, gfx_color_t color)
+gfx_err_t gfx_list_set_border_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_list_t *)obj->src)->style.border_color = color;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_list_set_border_width(gfx_object_t *obj, uint16_t width)
+gfx_err_t gfx_list_set_border_width(gfx_object_t *obj, uint16_t width)
 {
     CHECK_OBJ_TYPE_LIST(obj);
-    GFX_RETURN_IF_NULL(obj->src, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
     ((gfx_list_t *)obj->src)->style.border_width = width;
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }

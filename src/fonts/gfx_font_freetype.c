@@ -9,8 +9,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdint.h>
-#include "esp_log.h"
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_FONT_FREETYPE
 #include "common/gfx_log_priv.h"
 #include "gfx/widgets/label.h"
@@ -44,15 +43,15 @@ static gfx_ft_lib_handle_t s_font_lib = NULL;
  *   STATIC PROTOTYPES
  **********************/
 
-static esp_err_t gfx_font_ft_lib_create_internal(void);
-static esp_err_t gfx_font_ft_lib_cleanup_internal(void);
-static esp_err_t gfx_font_ft_new_internal(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font);
-static esp_err_t gfx_font_ft_delete_internal(gfx_font_t font);
+static gfx_err_t gfx_font_ft_lib_create_internal(void);
+static gfx_err_t gfx_font_ft_lib_cleanup_internal(void);
+static gfx_err_t gfx_font_ft_new_internal(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font);
+static gfx_err_t gfx_font_ft_delete_internal(gfx_font_t font);
 
 static int gfx_font_ft_get_bitmap_size_px(const FT_Bitmap_Size *bitmap_size);
 static int gfx_font_ft_select_fixed_size_index(FT_Face face, int requested_size);
-static esp_err_t gfx_font_ft_activate_size(gfx_font_ft_t *ft_font);
-static esp_err_t gfx_font_ft_update_metrics(gfx_font_ft_t *ft_font);
+static gfx_err_t gfx_font_ft_activate_size(gfx_font_ft_t *ft_font);
+static gfx_err_t gfx_font_ft_update_metrics(gfx_font_ft_t *ft_font);
 static bool gfx_font_ft_get_glyph_dsc(gfx_font_handle_t font_adapter, void *glyph_dsc, uint32_t unicode, uint32_t unicode_next);
 static const uint8_t *gfx_font_ft_get_glyph_bitmap(gfx_font_handle_t font_adapter, uint32_t unicode, void *glyph_dsc);
 static int gfx_font_ft_get_glyph_width(gfx_font_handle_t font_adapter, uint32_t unicode);
@@ -66,12 +65,12 @@ static int gfx_font_ft_get_advance_width(gfx_font_handle_t font_adapter, void *g
  *   STATIC FUNCTIONS
  **********************/
 
-static esp_err_t gfx_font_ft_lib_create_internal(void)
+static gfx_err_t gfx_font_ft_lib_create_internal(void)
 {
     FT_Error error;
 
     gfx_ft_lib_t *lib = (gfx_ft_lib_t *)calloc(1, sizeof(gfx_ft_lib_t));
-    ESP_RETURN_ON_FALSE(lib, ESP_ERR_NO_MEM, TAG, "no mem for FT library");
+    GFX_RETURN_ON_FALSE(lib, GFX_ERR_NO_MEM, TAG, "no mem for FT library");
 
     lib->ft_face_head = NULL;
 
@@ -79,20 +78,20 @@ static esp_err_t gfx_font_ft_lib_create_internal(void)
     if (error) {
         GFX_LOGE(TAG, "init freetype library: error=%d", error);
         free(lib);
-        return ESP_ERR_INVALID_STATE;
+        return GFX_ERR_INVALID_STATE;
     }
 
     lib->ft_library = s_library;
     lib->ft_face_head = NULL;
     s_font_lib = lib;
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_font_ft_lib_cleanup_internal(void)
+static gfx_err_t gfx_font_ft_lib_cleanup_internal(void)
 {
     gfx_ft_lib_t *lib = (gfx_ft_lib_t *)s_font_lib;
     if (!lib) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     gfx_ft_face_entry_t *entry = lib->ft_face_head;
@@ -113,7 +112,7 @@ static esp_err_t gfx_font_ft_lib_cleanup_internal(void)
     free(lib);
     s_font_lib = NULL;
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static int gfx_font_ft_get_bitmap_size_px(const FT_Bitmap_Size *bitmap_size)
@@ -155,13 +154,13 @@ static int gfx_font_ft_select_fixed_size_index(FT_Face face, int requested_size)
     return best_index;
 }
 
-static esp_err_t gfx_font_ft_activate_size(gfx_font_ft_t *ft_font)
+static gfx_err_t gfx_font_ft_activate_size(gfx_font_ft_t *ft_font)
 {
-    ESP_RETURN_ON_FALSE(ft_font != NULL && ft_font->face != NULL && ft_font->ft_size != NULL,
-                        ESP_ERR_INVALID_ARG, TAG, "font size is invalid");
+    GFX_RETURN_ON_FALSE(ft_font != NULL && ft_font->face != NULL && ft_font->ft_size != NULL,
+                        GFX_ERR_INVALID_ARG, TAG, "font size is invalid");
 
     FT_Error error = FT_Activate_Size(ft_font->ft_size);
-    ESP_RETURN_ON_FALSE(!error, ESP_ERR_INVALID_STATE, TAG, "activate font size failed: error=%d", error);
+    GFX_RETURN_ON_FALSE(!error, GFX_ERR_INVALID_STATE, TAG, "activate font size failed: error=%d", error);
 
     if (ft_font->fixed_size_index >= 0) {
         error = FT_Select_Size(ft_font->face, ft_font->fixed_size_index);
@@ -169,13 +168,13 @@ static esp_err_t gfx_font_ft_activate_size(gfx_font_ft_t *ft_font)
         error = FT_Set_Pixel_Sizes(ft_font->face, 0, (FT_UInt)ft_font->size);
     }
 
-    ESP_RETURN_ON_FALSE(!error, ESP_ERR_INVALID_STATE, TAG, "select font size failed: error=%d", error);
-    return ESP_OK;
+    GFX_RETURN_ON_FALSE(!error, GFX_ERR_INVALID_STATE, TAG, "select font size failed: error=%d", error);
+    return GFX_OK;
 }
 
-static esp_err_t gfx_font_ft_update_metrics(gfx_font_ft_t *ft_font)
+static gfx_err_t gfx_font_ft_update_metrics(gfx_font_ft_t *ft_font)
 {
-    ESP_RETURN_ON_ERROR(gfx_font_ft_activate_size(ft_font), TAG, "update metrics: activate size failed");
+    GFX_RETURN_ON_ERROR(gfx_font_ft_activate_size(ft_font), TAG, "update metrics: activate size failed");
 
     ft_font->line_height = (int)(ft_font->face->size->metrics.height >> 6);
     ft_font->base_line = -(int)(ft_font->face->size->metrics.descender >> 6);
@@ -185,21 +184,21 @@ static esp_err_t gfx_font_ft_update_metrics(gfx_font_ft_t *ft_font)
     ft_font->underline_position = FT_MulFix(scale, ft_font->face->underline_position) >> 6;
     ft_font->underline_thickness = thickness < 1 ? 1 : thickness;
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_font_ft_new_internal(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
+static gfx_err_t gfx_font_ft_new_internal(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
 {
-    ESP_RETURN_ON_FALSE(cfg != NULL && ret_font != NULL, ESP_ERR_INVALID_ARG, TAG, "invalid output");
-    ESP_RETURN_ON_FALSE(cfg->mem && cfg->mem_size, ESP_ERR_INVALID_ARG, TAG, "invalid memory input");
-    ESP_RETURN_ON_FALSE(cfg->font_size > 0, ESP_ERR_INVALID_ARG, TAG, "font size must be greater than zero");
+    GFX_RETURN_ON_FALSE(cfg != NULL && ret_font != NULL, GFX_ERR_INVALID_ARG, TAG, "invalid output");
+    GFX_RETURN_ON_FALSE(cfg->mem && cfg->mem_size, GFX_ERR_INVALID_ARG, TAG, "invalid memory input");
+    GFX_RETURN_ON_FALSE(cfg->font_size > 0, GFX_ERR_INVALID_ARG, TAG, "font size must be greater than zero");
 
     FT_Face face = NULL;
     FT_Error error;
-    esp_err_t ret = ESP_OK;
+    gfx_err_t ret = GFX_OK;
 
     gfx_ft_lib_t *lib = s_font_lib;
-    ESP_RETURN_ON_FALSE(lib, ESP_ERR_INVALID_STATE, TAG, "font library is NULL");
+    GFX_RETURN_ON_FALSE(lib, GFX_ERR_INVALID_STATE, TAG, "font library is NULL");
 
     gfx_ft_face_entry_t *entry = lib->ft_face_head;
     while (entry != NULL) {
@@ -212,12 +211,12 @@ static esp_err_t gfx_font_ft_new_internal(const gfx_label_cfg_t *cfg, gfx_font_t
 
     if (!face) {
         error = FT_New_Memory_Face((FT_Library)lib->ft_library, cfg->mem, cfg->mem_size, 0, &face);
-        ESP_RETURN_ON_FALSE(!error, ESP_ERR_INVALID_ARG, TAG, "error loading font");
+        GFX_RETURN_ON_FALSE(!error, GFX_ERR_INVALID_ARG, TAG, "error loading font");
 
         gfx_ft_face_entry_t *new_face_entry = (gfx_ft_face_entry_t *)calloc(1, sizeof(gfx_ft_face_entry_t));
         if (new_face_entry == NULL) {
             FT_Done_Face(face);
-            return ESP_ERR_NO_MEM;
+            return GFX_ERR_NO_MEM;
         }
 
         new_face_entry->face = face;
@@ -227,7 +226,7 @@ static esp_err_t gfx_font_ft_new_internal(const gfx_label_cfg_t *cfg, gfx_font_t
     }
 
     gfx_font_ft_t *ft_font = (gfx_font_ft_t *)calloc(1, sizeof(gfx_font_ft_t));
-    ESP_RETURN_ON_FALSE(ft_font, ESP_ERR_NO_MEM, TAG, "no mem for ft_font");
+    GFX_RETURN_ON_FALSE(ft_font, GFX_ERR_NO_MEM, TAG, "no mem for ft_font");
 
     ft_font->face = face;
     ft_font->size = cfg->font_size;
@@ -238,25 +237,25 @@ static esp_err_t gfx_font_ft_new_internal(const gfx_label_cfg_t *cfg, gfx_font_t
     if (error) {
         free(ft_font);
         GFX_LOGE(TAG, "new freetype size failed: error=%d", error);
-        return ESP_ERR_INVALID_STATE;
+        return GFX_ERR_INVALID_STATE;
     }
     ft_font->ft_size = size;
     FT_Reference_Face(face);
 
     if (!(face->face_flags & FT_FACE_FLAG_SCALABLE) && face->num_fixed_sizes > 0) {
         ft_font->fixed_size_index = gfx_font_ft_select_fixed_size_index(face, cfg->font_size);
-        ESP_GOTO_ON_FALSE(ft_font->fixed_size_index >= 0, ESP_ERR_NOT_FOUND, err, TAG,
+        GFX_GOTO_ON_FALSE(ft_font->fixed_size_index >= 0, GFX_ERR_NOT_FOUND, err, TAG,
                           "no usable fixed font size");
         ft_font->size = gfx_font_ft_get_bitmap_size_px(&face->available_sizes[ft_font->fixed_size_index]);
         GFX_LOGD(TAG, "fallback fixed font size: requested=%u selected=%d index=%d",
                  cfg->font_size, ft_font->size, ft_font->fixed_size_index);
     }
 
-    ESP_GOTO_ON_ERROR(gfx_font_ft_update_metrics(ft_font), err, TAG, "set font size failed");
+    GFX_GOTO_ON_ERROR(gfx_font_ft_update_metrics(ft_font), err, TAG, "set font size failed");
 
     *ret_font = (gfx_font_t)ft_font;
 
-    return ESP_OK;
+    return GFX_OK;
 
 err:
     if (ft_font->ft_size != NULL) {
@@ -267,12 +266,12 @@ err:
     return ret;
 }
 
-static esp_err_t gfx_font_ft_delete_internal(gfx_font_t font)
+static gfx_err_t gfx_font_ft_delete_internal(gfx_font_t font)
 {
-    ESP_RETURN_ON_FALSE(font, ESP_ERR_INVALID_ARG, TAG, "font is NULL");
+    GFX_RETURN_ON_FALSE(font, GFX_ERR_INVALID_ARG, TAG, "font is NULL");
 
     if (gfx_is_lvgl_font(font)) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     gfx_font_ft_t *ft_font = (gfx_font_ft_t *)font;
@@ -284,7 +283,7 @@ static esp_err_t gfx_font_ft_delete_internal(gfx_font_t font)
     }
     free(ft_font);
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static bool gfx_font_ft_get_glyph_dsc(gfx_font_handle_t font_adapter, void *glyph_dsc, uint32_t unicode, uint32_t unicode_next)
@@ -305,7 +304,7 @@ static bool gfx_font_ft_get_glyph_dsc(gfx_font_handle_t font_adapter, void *glyp
     FT_Error error;
     FT_Face face = ft_font->face;
 
-    if (gfx_font_ft_activate_size(ft_font) != ESP_OK) {
+    if (gfx_font_ft_activate_size(ft_font) != GFX_OK) {
         return false;
     }
 
@@ -337,7 +336,7 @@ static const uint8_t *gfx_font_ft_get_glyph_bitmap(gfx_font_handle_t font_adapte
     gfx_font_ft_t *ft_font = (gfx_font_ft_t *)font_adapter->font;
     FT_Face face = ft_font->face;
 
-    if (gfx_font_ft_activate_size(ft_font) != ESP_OK) {
+    if (gfx_font_ft_activate_size(ft_font) != GFX_OK) {
         return NULL;
     }
 
@@ -433,22 +432,22 @@ static int gfx_font_ft_get_advance_width(gfx_font_handle_t font_adapter, void *g
  *   PUBLIC FUNCTIONS
  **********************/
 
-esp_err_t gfx_ft_lib_create(void)
+gfx_err_t gfx_ft_lib_create(void)
 {
     return gfx_font_ft_lib_create_internal();
 }
 
-esp_err_t gfx_ft_lib_cleanup(void)
+gfx_err_t gfx_ft_lib_cleanup(void)
 {
     return gfx_font_ft_lib_cleanup_internal();
 }
 
-esp_err_t gfx_label_font_create(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
+gfx_err_t gfx_label_font_create(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
 {
     return gfx_font_ft_new_internal(cfg, ret_font);
 }
 
-esp_err_t gfx_label_font_delete(gfx_font_t font)
+gfx_err_t gfx_label_font_delete(gfx_font_t font)
 {
     return gfx_font_ft_delete_internal(font);
 }
@@ -468,17 +467,17 @@ void gfx_font_ft_init_adapter(gfx_font_handle_t font_adapter, const void *font)
 
 #else
 
-esp_err_t gfx_label_font_create(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
+gfx_err_t gfx_label_font_create(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
 {
     (void)cfg;
     (void)ret_font;
-    return ESP_ERR_NOT_SUPPORTED;
+    return GFX_ERR_NOT_SUPPORTED;
 }
 
-esp_err_t gfx_label_font_delete(gfx_font_t font)
+gfx_err_t gfx_label_font_delete(gfx_font_t font)
 {
     (void)font;
-    return ESP_ERR_NOT_SUPPORTED;
+    return GFX_ERR_NOT_SUPPORTED;
 }
 
 #endif /* CONFIG_GFX_FONT_FREETYPE_SUPPORT */

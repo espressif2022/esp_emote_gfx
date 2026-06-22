@@ -6,9 +6,9 @@
 
 #include "platform/gfx_platform_accel_priv.h"
 
-esp_err_t gfx_platform_accel_init(void)
+gfx_err_t gfx_platform_accel_init(void)
 {
-    return ESP_OK;
+    return GFX_OK;
 }
 
 void gfx_platform_accel_deinit(void)

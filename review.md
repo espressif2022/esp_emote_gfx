@@ -72,7 +72,7 @@ header pulls a `src/` private header (verified).
 
 ## Pass 4 — Memory safety & ownership
 
-- **[FIXED] HIGH** — `eaf_dec_get_frame_data()` / `eaf_dec_get_frame_size()` resident
+- **[FIXED] HIGH** — `eaf_dec_get_frame_data()` / `eaf_dec_get_frame_size()` copy/direct
   paths used `total_frames > index`, accepting negative indices → out-of-bounds access
   before the array base. Now bounded `index >= 0 && index < total_frames`
   (matching the streaming path).
@@ -170,7 +170,7 @@ header pulls a `src/` private header (verified).
 
 ## Pass 10 — Determinism / reproducibility (deep dive)
 
-A standalone harness decoded every EAF/AAF asset twice with independent resident
+A standalone harness decoded every EAF/AAF asset twice with independent copy
 handles and compared pixel output. Initial state: the Huffman AAF showed 41 differing
 frames (reported in a prior session as a suspected decoder bug).
 
@@ -198,7 +198,7 @@ All changes are on `feat/sdl_support`, host-built and tested.
 | Module layout | `src/core/gfx_types_priv.h` → `src/common/gfx_types_priv.h` | Relocated shared internal header; updated 11 includers |
 | EAF security | `src/lib/eaf/gfx_eaf_dec.c` | Huffman output-capacity bound; padding-bits underflow guard |
 | EAF security | `src/lib/eaf/gfx_eaf_dec.c` | `eaf_dec_decode_block()` arg/`block_len` validation |
-| EAF safety | `src/lib/eaf/gfx_eaf_dec.c` | Resident `get_frame_data`/`get_frame_size` negative-index guards |
+| EAF safety | `src/lib/eaf/gfx_eaf_dec.c` | Copy/direct `get_frame_data`/`get_frame_size` negative-index guards |
 | EAF determinism | `src/lib/eaf/gfx_eaf_dec.c` | Palette transparent entry sets `result->full = 0` (root cause) |
 | EAF determinism | `src/lib/eaf/gfx_eaf_dec.c` | Block short-decode tail zero-fill; single-color huffman zero-length; `calloc` block buffer |
 | Core crash | `src/core/runtime/gfx_core.c` | Guard `disp_ctx != NULL` in `gfx_core_init` error path |
@@ -210,7 +210,7 @@ All changes are on `feat/sdl_support`, host-built and tested.
 - Host build (`build_host`): clean, no warnings.
 - `ctest` (`build_host`): 8/8 passing.
 - Decode determinism harness across all 12 EAF/AAF assets: 0 mismatches
-  (independent resident handles produce byte-identical output).
+  (independent copy handles produce byte-identical output).
 - ESP-IDF build was not run in this environment; the ESP-only fixes
   (duplicate-symbol deletion, `heap_caps` note, QR allocator) are mechanical and
   reasoned, and should be confirmed with `idf.py build` on a target board config.

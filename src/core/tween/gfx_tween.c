@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_CORE
 #include "common/gfx_log_priv.h"
 #include "gfx/tween.h"
@@ -145,8 +145,8 @@ gfx_err_t gfx_tween_start_i32(gfx_tween_t *tween,
                               gfx_tween_done_cb_t done_cb,
                               void *user_data)
 {
-    ESP_RETURN_ON_FALSE(tween != NULL, ESP_ERR_INVALID_ARG, TAG, "tween is NULL");
-    ESP_RETURN_ON_FALSE(value_cb != NULL, ESP_ERR_INVALID_ARG, TAG, "value callback is NULL");
+    GFX_RETURN_ON_FALSE(tween != NULL, GFX_ERR_INVALID_ARG, TAG, "tween is NULL");
+    GFX_RETURN_ON_FALSE(value_cb != NULL, GFX_ERR_INVALID_ARG, TAG, "value callback is NULL");
 
     tween->active = false;
     tween->i32.from = from;
@@ -165,11 +165,11 @@ gfx_err_t gfx_tween_start_i32(gfx_tween_t *tween,
         if (done_cb != NULL) {
             done_cb(tween, tween->obj, user_data);
         }
-        return ESP_OK;
+        return GFX_OK;
     }
 
     tween->active = true;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 void gfx_tween_stop(gfx_tween_t *tween, bool complete)

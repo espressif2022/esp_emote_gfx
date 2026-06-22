@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "esp_check.h"
+#include "common/gfx_check.h"
 
 #define GFX_LOG_MODULE GFX_LOG_MODULE_DISP
 #include "common/gfx_log_priv.h"
@@ -107,7 +107,7 @@ static void gfx_memory_backend_write_pixel(uint8_t *dst, gfx_color_format_t form
     gfx_color_write_rgb565_bytes(dst, format, rgb565);
 }
 
-static esp_err_t gfx_memory_backend_flush_impl(gfx_backend_t *backend, gfx_display_t *disp,
+static gfx_err_t gfx_memory_backend_flush_impl(gfx_backend_t *backend, gfx_display_t *disp,
         gfx_coord_t x1, gfx_coord_t y1,
         gfx_coord_t x2, gfx_coord_t y2,
         const void *pixels, gfx_coord_t stride)
@@ -115,11 +115,11 @@ static esp_err_t gfx_memory_backend_flush_impl(gfx_backend_t *backend, gfx_displ
     gfx_memory_backend_t *mem = (gfx_memory_backend_t *)backend;
     const uint8_t *src = (const uint8_t *)pixels;
 
-    ESP_RETURN_ON_FALSE(mem != NULL && src != NULL, ESP_ERR_INVALID_ARG, TAG, "flush: invalid args");
-    ESP_RETURN_ON_FALSE(x1 >= 0 && y1 >= 0 && x2 >= x1 && y2 >= y1,
-                        ESP_ERR_INVALID_ARG, TAG, "flush: invalid area");
-    ESP_RETURN_ON_FALSE((uint32_t)x2 <= mem->h_res && (uint32_t)y2 <= mem->v_res,
-                        ESP_ERR_INVALID_ARG, TAG, "flush: area out of range");
+    GFX_RETURN_ON_FALSE(mem != NULL && src != NULL, GFX_ERR_INVALID_ARG, TAG, "flush: invalid args");
+    GFX_RETURN_ON_FALSE(x1 >= 0 && y1 >= 0 && x2 >= x1 && y2 >= y1,
+                        GFX_ERR_INVALID_ARG, TAG, "flush: invalid area");
+    GFX_RETURN_ON_FALSE((uint32_t)x2 <= mem->h_res && (uint32_t)y2 <= mem->v_res,
+                        GFX_ERR_INVALID_ARG, TAG, "flush: area out of range");
 
     uint32_t w = (uint32_t)(x2 - x1);
     uint32_t h = (uint32_t)(y2 - y1);
@@ -128,7 +128,7 @@ static esp_err_t gfx_memory_backend_flush_impl(gfx_backend_t *backend, gfx_displ
     gfx_color_format_t src_format = disp != NULL ? disp->format.output_format : GFX_COLOR_FORMAT_RGB565;
     uint8_t src_pixel_size = gfx_color_format_get_size(src_format);
 
-    ESP_RETURN_ON_FALSE(src_pixel_size > 0U, ESP_ERR_NOT_SUPPORTED, TAG, "flush: unsupported source format");
+    GFX_RETURN_ON_FALSE(src_pixel_size > 0U, GFX_ERR_NOT_SUPPORTED, TAG, "flush: unsupported source format");
 
     if (disp != NULL && disp->flags.full_frame) {
         src_stride = disp->res.h_res;
@@ -148,14 +148,14 @@ static esp_err_t gfx_memory_backend_flush_impl(gfx_backend_t *backend, gfx_displ
             gfx_memory_backend_write_pixel(dst_row + (size_t)x * mem->pixel_size, mem->format, semantic);
         }
     }
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_memory_backend_wait_flush_impl(gfx_backend_t *backend, gfx_display_t *disp)
+static gfx_err_t gfx_memory_backend_wait_flush_impl(gfx_backend_t *backend, gfx_display_t *disp)
 {
     (void)backend;
     (void)disp;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static void gfx_memory_backend_destroy_impl(gfx_backend_t *backend)
@@ -178,25 +178,25 @@ static const gfx_backend_vtable_t s_memory_backend_vtable = {
 
 gfx_backend_t *gfx_memory_backend_create(const gfx_memory_backend_config_t *cfg)
 {
-    ESP_RETURN_ON_FALSE(cfg != NULL && cfg->h_res > 0 && cfg->v_res > 0,
+    GFX_RETURN_ON_FALSE(cfg != NULL && cfg->h_res > 0 && cfg->v_res > 0,
                         NULL, TAG, "create: invalid config");
 
     size_t pixels = (size_t)cfg->h_res * cfg->v_res;
     gfx_color_format_t format = gfx_memory_backend_resolve_format(cfg);
     uint8_t pixel_size = gfx_color_format_get_size(format);
-    ESP_RETURN_ON_FALSE(format == GFX_COLOR_FORMAT_RGB565 ||
+    GFX_RETURN_ON_FALSE(format == GFX_COLOR_FORMAT_RGB565 ||
                         format == GFX_COLOR_FORMAT_RGB565_SWAPPED ||
                         format == GFX_COLOR_FORMAT_RGB888 ||
                         format == GFX_COLOR_FORMAT_BGR888 ||
                         format == GFX_COLOR_FORMAT_XRGB8888 ||
                         format == GFX_COLOR_FORMAT_ARGB8888,
                         NULL, TAG, "create: unsupported format %u", (unsigned)format);
-    ESP_RETURN_ON_FALSE(pixel_size > 0U, NULL, TAG, "create: invalid pixel size");
+    GFX_RETURN_ON_FALSE(pixel_size > 0U, NULL, TAG, "create: invalid pixel size");
 
     gfx_memory_backend_t *mem = calloc(1, sizeof(*mem));
     const gfx_draw_ops_t *draw_ops = gfx_platform_accel_get_draw_ops();
     uint32_t draw_caps = gfx_platform_accel_get_caps();
-    ESP_RETURN_ON_FALSE(mem != NULL, NULL, TAG, "create: no mem for backend");
+    GFX_RETURN_ON_FALSE(mem != NULL, NULL, TAG, "create: no mem for backend");
 
     mem->base.vtable = &s_memory_backend_vtable;
     mem->base.draw_ops = draw_ops;
@@ -267,11 +267,11 @@ size_t gfx_memory_backend_get_buffer_bytes(const gfx_backend_t *backend)
 gfx_err_t gfx_memory_backend_clear(gfx_backend_t *backend, gfx_color_t color)
 {
     gfx_memory_backend_t *mem = (gfx_memory_backend_t *)backend;
-    ESP_RETURN_ON_FALSE(mem != NULL && mem->buffer != NULL, ESP_ERR_INVALID_ARG, TAG, "clear: invalid backend");
+    GFX_RETURN_ON_FALSE(mem != NULL && mem->buffer != NULL, GFX_ERR_INVALID_ARG, TAG, "clear: invalid backend");
 
     size_t pixels = (size_t)mem->h_res * mem->v_res;
     for (size_t i = 0; i < pixels; i++) {
         gfx_memory_backend_write_pixel(mem->buffer + i * mem->pixel_size, mem->format, color.full);
     }
-    return ESP_OK;
+    return GFX_OK;
 }

@@ -18,8 +18,8 @@ typedef struct {
     gfx_image_decoder_dsc_t decoder;
 } gfx_image_resource_t;
 
-esp_err_t gfx_image_resource_set_source(gfx_image_resource_t *resource, const gfx_image_src_t *src);
-esp_err_t gfx_image_resource_open(gfx_image_resource_t *resource);
+gfx_err_t gfx_image_resource_set_source(gfx_image_resource_t *resource, const gfx_image_src_t *src);
+gfx_err_t gfx_image_resource_open(gfx_image_resource_t *resource);
 void gfx_image_resource_close(gfx_image_resource_t *resource);
 bool gfx_image_resource_is_open(const gfx_image_resource_t *resource);
 uint8_t gfx_image_resource_pixel_size(const gfx_image_resource_t *resource);

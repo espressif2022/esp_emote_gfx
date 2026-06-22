@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_CORE
 #include "common/gfx_log_priv.h"
 
@@ -131,7 +131,7 @@ static gfx_err_t gfx_core_tick_locked(gfx_core_context_t *ctx, bool force_refres
     bool tween_refresh = false;
 
     if (ctx == NULL) {
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     (void)gfx_timer_handler(&ctx->timer_mgr, &timer_refresh);
@@ -140,7 +140,7 @@ static gfx_err_t gfx_core_tick_locked(gfx_core_context_t *ctx, bool force_refres
         gfx_do_refr_now_impl(ctx);
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
 /**********************
@@ -149,7 +149,7 @@ static gfx_err_t gfx_core_tick_locked(gfx_core_context_t *ctx, bool force_refres
 
 gfx_handle_t gfx_core_init(const gfx_core_config_t *cfg)
 {
-    esp_err_t ret = ESP_OK;
+    gfx_err_t ret = GFX_OK;
     gfx_core_context_t *disp_ctx = NULL;
     bool lifecycle_events_created = false;
     bool mutex_created = false;
@@ -157,44 +157,48 @@ gfx_handle_t gfx_core_init(const gfx_core_config_t *cfg)
     bool font_lib_created = false;
     bool jpeg_inited = false;
 
-    ESP_GOTO_ON_FALSE(cfg, ESP_ERR_INVALID_ARG, err, TAG, "Invalid configuration");
+    GFX_GOTO_ON_FALSE(cfg, GFX_ERR_INVALID_ARG, err, TAG, "Invalid configuration");
 
     disp_ctx = malloc(sizeof(gfx_core_context_t));
-    ESP_GOTO_ON_FALSE(disp_ctx, ESP_ERR_NO_MEM, err, TAG, "Failed to allocate player context");
+    GFX_GOTO_ON_FALSE(disp_ctx, GFX_ERR_NO_MEM, err, TAG, "Failed to allocate player context");
 
     memset(disp_ctx, 0, sizeof(gfx_core_context_t));
+#if defined(GFX_HOST_BUILD)
+    disp_ctx->manual_tick = true;
+#else
     disp_ctx->manual_tick = cfg->manual_tick;
+#endif
 
     disp_ctx->sync.lifecycle_events = gfx_platform_event_create();
-    ESP_GOTO_ON_FALSE(disp_ctx->sync.lifecycle_events, ESP_ERR_NO_MEM, err, TAG, "Failed to create event group");
+    GFX_GOTO_ON_FALSE(disp_ctx->sync.lifecycle_events, GFX_ERR_NO_MEM, err, TAG, "Failed to create event group");
     lifecycle_events_created = true;
 
     disp_ctx->sync.render_events = gfx_platform_event_create();
-    ESP_GOTO_ON_FALSE(disp_ctx->sync.render_events, ESP_ERR_NO_MEM, err, TAG, "Failed to create render event group");
+    GFX_GOTO_ON_FALSE(disp_ctx->sync.render_events, GFX_ERR_NO_MEM, err, TAG, "Failed to create render event group");
 
     disp_ctx->sync.render_mutex = gfx_platform_mutex_create_recursive();
-    ESP_GOTO_ON_FALSE(disp_ctx->sync.render_mutex, ESP_ERR_NO_MEM, err, TAG, "Failed to create recursive render mutex");
+    GFX_GOTO_ON_FALSE(disp_ctx->sync.render_mutex, GFX_ERR_NO_MEM, err, TAG, "Failed to create recursive render mutex");
     mutex_created = true;
 
     ret = gfx_subsystem_font_init();
-    ESP_GOTO_ON_ERROR(ret, err, TAG, "Failed to create font library");
+    GFX_GOTO_ON_ERROR(ret, err, TAG, "Failed to create font library");
     font_lib_created = true;
 
     gfx_timer_mgr_init(&disp_ctx->timer_mgr, cfg->fps);
 
     ret = gfx_subsystem_image_decoder_init();
-    ESP_GOTO_ON_ERROR(ret, err, TAG, "Failed to initialize image decoder");
+    GFX_GOTO_ON_ERROR(ret, err, TAG, "Failed to initialize image decoder");
     decoder_inited = true;
 
     ret = gfx_subsystem_jpeg_init();
-    if (ret != ESP_OK) {
+    if (ret != GFX_OK) {
         GFX_LOGW(TAG, "platform jpeg decoder unavailable (%d), JPEG EAF blocks disabled", ret);
     } else {
         jpeg_inited = true;
     }
 
     ret = gfx_subsystem_accel_init();
-    if (ret != ESP_OK) {
+    if (ret != GFX_OK) {
         GFX_LOGW(TAG, "platform acceleration disabled (%d), falling back to software", ret);
     }
 
@@ -206,7 +210,7 @@ gfx_handle_t gfx_core_init(const gfx_core_config_t *cfg)
             .affinity = cfg->task.task_affinity,
             .stack_caps = cfg->task.task_stack_caps,
         }, gfx_render_loop_task, disp_ctx, NULL);
-        ESP_GOTO_ON_ERROR(ret, err, TAG, "Failed to create render task");
+        GFX_GOTO_ON_ERROR(ret, err, TAG, "Failed to create render task");
     }
 
     return (gfx_handle_t)disp_ctx;
@@ -290,22 +294,22 @@ gfx_err_t gfx_core_refresh_now(gfx_handle_t handle)
     gfx_platform_mutex_t mutex = ctx ? ctx->sync.render_mutex : NULL;
     if (ctx == NULL || mutex == NULL) {
         GFX_LOGE(TAG, "refresh now: context or mutex is NULL");
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     if (!gfx_platform_mutex_lock(mutex, GFX_PLATFORM_WAIT_FOREVER)) {
         GFX_LOGE(TAG, "refresh now: acquire mutex failed");
-        return ESP_ERR_TIMEOUT;
+        return GFX_ERR_TIMEOUT;
     }
 
     gfx_do_refr_now_impl(ctx);
 
     if (!gfx_platform_mutex_unlock(mutex)) {
         GFX_LOGE(TAG, "refresh now: release mutex failed");
-        return ESP_ERR_INVALID_STATE;
+        return GFX_ERR_INVALID_STATE;
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_core_tick(gfx_handle_t handle)
@@ -317,14 +321,14 @@ gfx_err_t gfx_core_tick(gfx_handle_t handle)
 
     if (ctx == NULL || mutex == NULL) {
         GFX_LOGE(TAG, "tick graphics: context or mutex is NULL");
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     if (ctx->sync.lifecycle_events != NULL) {
         gfx_platform_event_bits_t life = gfx_platform_event_wait(ctx->sync.lifecycle_events, NEED_DELETE,
                                          false, false, 0);
         if (life & NEED_DELETE) {
-            return ESP_ERR_INVALID_STATE;
+            return GFX_ERR_INVALID_STATE;
         }
     }
 
@@ -335,14 +339,14 @@ gfx_err_t gfx_core_tick(gfx_handle_t handle)
 
     if (!gfx_platform_mutex_lock(mutex, GFX_PLATFORM_WAIT_FOREVER)) {
         GFX_LOGE(TAG, "tick graphics: acquire mutex failed");
-        return ESP_ERR_TIMEOUT;
+        return GFX_ERR_TIMEOUT;
     }
 
     ret = gfx_core_tick_locked(ctx, pending_events != 0);
 
     if (!gfx_platform_mutex_unlock(mutex)) {
         GFX_LOGE(TAG, "tick graphics: release mutex failed");
-        return ESP_ERR_INVALID_STATE;
+        return GFX_ERR_INVALID_STATE;
     }
 
     return ret;
@@ -354,15 +358,15 @@ gfx_err_t gfx_core_lock(gfx_handle_t handle)
     gfx_platform_mutex_t mutex = ctx ? ctx->sync.render_mutex : NULL;
     if (ctx == NULL || mutex == NULL) {
         GFX_LOGE(TAG, "lock graphics: context or mutex is NULL");
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     if (!gfx_platform_mutex_lock(mutex, GFX_PLATFORM_WAIT_FOREVER)) {
         GFX_LOGE(TAG, "lock graphics: acquire mutex failed");
-        return ESP_ERR_TIMEOUT;
+        return GFX_ERR_TIMEOUT;
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_core_unlock(gfx_handle_t handle)
@@ -371,13 +375,13 @@ gfx_err_t gfx_core_unlock(gfx_handle_t handle)
     gfx_platform_mutex_t mutex = ctx ? ctx->sync.render_mutex : NULL;
     if (ctx == NULL || mutex == NULL) {
         GFX_LOGE(TAG, "unlock graphics: context or mutex is NULL");
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     if (!gfx_platform_mutex_unlock(mutex)) {
         GFX_LOGE(TAG, "unlock graphics: release mutex failed");
-        return ESP_ERR_INVALID_STATE;
+        return GFX_ERR_INVALID_STATE;
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }

@@ -12,7 +12,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "esp_log.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_TOUCH
 #include "common/gfx_log_priv.h"
 
@@ -72,7 +71,7 @@ struct gfx_touch {
  **********************/
 
 static void gfx_touch_poll_cb(void *user_data);
-static esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *cfg);
+static gfx_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *cfg);
 
 /**********************
  *   STATIC FUNCTIONS
@@ -229,15 +228,15 @@ static void gfx_touch_irq_cb(void *driver_handle, void *user_data)
     touch->irq_pending = true;
 }
 
-static esp_err_t gfx_touch_enable_interrupt(gfx_touch_t *touch)
+static gfx_err_t gfx_touch_enable_interrupt(gfx_touch_t *touch)
 {
     if (!touch || !touch->driver_handle || touch->int_gpio_num == GFX_TOUCH_PORT_GPIO_NONE) {
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
-    esp_err_t ret = gfx_touch_port_register_interrupt(touch->driver_handle, gfx_touch_irq_cb,
+    gfx_err_t ret = gfx_touch_port_register_interrupt(touch->driver_handle, gfx_touch_irq_cb,
                     touch, &touch->irq_cookie);
-    if (ret != ESP_OK) {
+    if (ret != GFX_OK) {
         touch->irq_cookie = NULL;
         return ret;
     }
@@ -245,7 +244,7 @@ static esp_err_t gfx_touch_enable_interrupt(gfx_touch_t *touch)
     touch->irq_enabled = true;
     touch->irq_pending = false;
     GFX_LOGI(TAG, "init touch: interrupt enabled on gpio %d", touch->int_gpio_num);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static void gfx_touch_disable_interrupt(gfx_touch_t *touch)
@@ -255,8 +254,8 @@ static void gfx_touch_disable_interrupt(gfx_touch_t *touch)
     }
 
     if (touch->irq_enabled && gfx_touch_port_is_valid_gpio(touch->int_gpio_num)) {
-        esp_err_t gpio_ret = gfx_touch_port_disable_gpio_intr(touch->int_gpio_num);
-        if (gpio_ret != ESP_OK) {
+        gfx_err_t gpio_ret = gfx_touch_port_disable_gpio_intr(touch->int_gpio_num);
+        if (gpio_ret != GFX_OK) {
             GFX_LOGW(TAG, "delete touch: disable gpio interrupt failed on pin %d (%d)", touch->int_gpio_num, gpio_ret);
         }
     }
@@ -284,8 +283,8 @@ static void gfx_touch_poll_cb(void *user_data)
         touch->irq_pending = false;
     }
 
-    esp_err_t ret = gfx_touch_port_read(touch->driver_handle);
-    if (ret != ESP_OK) {
+    gfx_err_t ret = gfx_touch_port_read(touch->driver_handle);
+    if (ret != GFX_OK) {
         GFX_LOGW(TAG, "poll touch: read failed (%d)", ret);
         return;
     }
@@ -294,7 +293,7 @@ static void gfx_touch_poll_cb(void *user_data)
     uint8_t count = 0;
 
     ret = gfx_touch_port_get_points(touch->driver_handle, points, &count, 1);
-    if (ret != ESP_OK) {
+    if (ret != GFX_OK) {
         GFX_LOGW(TAG, "poll touch: get data failed (%d)", ret);
         return;
     }
@@ -328,14 +327,14 @@ static void gfx_touch_poll_cb(void *user_data)
  *   PUBLIC FUNCTIONS
  **********************/
 
-static esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *cfg)
+static gfx_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *cfg)
 {
     if (!touch || !touch->ctx || !cfg) {
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     if (!cfg->driver_handle) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     touch->driver_handle = cfg->driver_handle;
@@ -351,7 +350,7 @@ static esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *c
     int selected_gpio = GFX_TOUCH_PORT_GPIO_NONE;
 
     int int_gpio = GFX_TOUCH_PORT_GPIO_NONE;
-    if (gfx_touch_port_get_int_gpio(touch->driver_handle, &int_gpio) == ESP_OK &&
+    if (gfx_touch_port_get_int_gpio(touch->driver_handle, &int_gpio) == GFX_OK &&
             gfx_touch_port_is_valid_gpio(int_gpio)) {
         selected_gpio = int_gpio;
     }
@@ -375,8 +374,8 @@ static esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *c
     touch->pressed_id = 0;
 
     if (irq_requested) {
-        esp_err_t irq_ret = gfx_touch_enable_interrupt(touch);
-        if (irq_ret != ESP_OK) {
+        gfx_err_t irq_ret = gfx_touch_enable_interrupt(touch);
+        if (irq_ret != GFX_OK) {
             GFX_LOGW(TAG, "init touch: enable gpio interrupt failed on %d (%d), using polling mode", touch->int_gpio_num, irq_ret);
             touch->int_gpio_num = GFX_TOUCH_PORT_GPIO_NONE;
             touch->irq_enabled = false;
@@ -393,11 +392,11 @@ static esp_err_t gfx_touch_start(gfx_touch_t *touch, const gfx_touch_config_t *c
         if (touch->irq_enabled || touch->irq_cookie != NULL) {
             gfx_touch_disable_interrupt(touch);
         }
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
 
     GFX_LOGD(TAG, "init touch: polling started (%"PRIu32" ms)", touch->poll_ms);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 void gfx_touch_delete_all(gfx_core_context_t *ctx)
@@ -467,7 +466,7 @@ gfx_touch_t *gfx_touch_add(gfx_handle_t handle, const gfx_touch_config_t *cfg)
     memset(new_touch, 0, sizeof(gfx_touch_t));
     new_touch->ctx = ctx;
 
-    if (gfx_touch_start(new_touch, cfg) != ESP_OK) {
+    if (gfx_touch_start(new_touch, cfg) != GFX_OK) {
         free(new_touch);
         return NULL;
     }
@@ -488,33 +487,33 @@ gfx_touch_t *gfx_touch_add(gfx_handle_t handle, const gfx_touch_config_t *cfg)
 gfx_err_t gfx_touch_set_disp(gfx_touch_t *touch, gfx_display_t *disp)
 {
     if (!touch || !disp) {
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     touch->disp = disp;
-    return ESP_OK;
+    return GFX_OK;
 }
 
 gfx_err_t gfx_touch_inject(gfx_display_t *disp, const gfx_touch_event_t *event)
 {
     if (disp == NULL || event == NULL || disp->ctx == NULL) {
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     gfx_core_context_t *ctx = (gfx_core_context_t *)disp->ctx;
     if (ctx->sync.render_mutex == NULL) {
-        return ESP_ERR_INVALID_STATE;
+        return GFX_ERR_INVALID_STATE;
     }
 
     if (!gfx_platform_mutex_lock(ctx->sync.render_mutex, GFX_PLATFORM_WAIT_FOREVER)) {
-        return ESP_ERR_TIMEOUT;
+        return GFX_ERR_TIMEOUT;
     }
 
     gfx_touch_dispatch_injected_event(disp, event);
 
     if (!gfx_platform_mutex_unlock(ctx->sync.render_mutex)) {
-        return ESP_ERR_INVALID_STATE;
+        return GFX_ERR_INVALID_STATE;
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }

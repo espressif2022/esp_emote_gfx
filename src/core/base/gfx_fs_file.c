@@ -12,7 +12,7 @@
 #include "platform/gfx_platform.h"
 
 struct gfx_fs_file {
-    gfx_fs_view_t view;
+    gfx_fs_entry_t entry;
     FILE *fp;
     const uint8_t *data;
     size_t size;
@@ -29,12 +29,12 @@ static gfx_fs_file_t *gfx_fs_file_alloc(void)
     return calloc(1, sizeof(gfx_fs_file_t));
 }
 
-static gfx_fs_file_t *gfx_fs_file_open_store(gfx_fs_t *store, const char *name)
+static gfx_fs_file_t *gfx_fs_file_open_fs(gfx_fs_t *fs, const char *name)
 {
     gfx_fs_file_t *file;
     gfx_err_t err;
 
-    if (store == NULL || name == NULL) {
+    if (fs == NULL || name == NULL) {
         return NULL;
     }
 
@@ -43,15 +43,15 @@ static gfx_fs_file_t *gfx_fs_file_open_store(gfx_fs_t *store, const char *name)
         return NULL;
     }
 
-    err = gfx_fs_view_open_by_name(store, name, &file->view);
-    if (err != GFX_OK || file->view.data == NULL || file->view.size == 0U) {
-        gfx_fs_view_close(&file->view);
+    err = gfx_fs_entry_open_by_name(fs, name, &file->entry);
+    if (err != GFX_OK || file->entry.data == NULL || file->entry.size == 0U) {
+        gfx_fs_entry_close(&file->entry);
         free(file);
         return NULL;
     }
 
-    file->data = (const uint8_t *)file->view.data;
-    file->size = file->view.size;
+    file->data = (const uint8_t *)file->entry.data;
+    file->size = file->entry.size;
     return file;
 }
 
@@ -85,12 +85,60 @@ static gfx_fs_file_t *gfx_fs_file_open_stdio(const char *name)
     return file;
 }
 
-gfx_err_t gfx_fs_load(const char *name, gfx_fs_blob_t *out_blob)
+gfx_err_t gfx_fs_blob_take_file(gfx_fs_file_t *file, gfx_fs_blob_t *out_blob)
 {
     gfx_fs_blob_holder_t *holder;
-    gfx_fs_file_t *file;
     const void *direct;
     size_t size;
+
+    if (out_blob != NULL) {
+        memset(out_blob, 0, sizeof(*out_blob));
+    }
+    if (file == NULL || out_blob == NULL) {
+        return GFX_ERR_INVALID_ARG;
+    }
+
+    size = gfx_fs_fsize(file);
+    if (size == 0U) {
+        return GFX_ERR_INVALID_SIZE;
+    }
+
+    holder = calloc(1, sizeof(*holder));
+    if (holder == NULL) {
+        return GFX_ERR_NO_MEM;
+    }
+
+    direct = gfx_fs_fdata(file);
+    if (direct != NULL) {
+        holder->file = file;
+        out_blob->data = direct;
+        out_blob->size = size;
+        out_blob->_holder = holder;
+        return GFX_OK;
+    }
+
+    holder->owned = gfx_platform_aligned_alloc(16, size, GFX_PLATFORM_HEAP_DEFAULT);
+    if (holder->owned == NULL) {
+        free(holder);
+        return GFX_ERR_NO_MEM;
+    }
+    if (gfx_fs_fread(file, holder->owned, size) != size) {
+        gfx_platform_free(holder->owned);
+        free(holder);
+        return GFX_FAIL;
+    }
+
+    gfx_fs_fclose(file);
+    out_blob->data = holder->owned;
+    out_blob->size = size;
+    out_blob->_holder = holder;
+    return GFX_OK;
+}
+
+gfx_err_t gfx_fs_load(const char *name, gfx_fs_blob_t *out_blob)
+{
+    gfx_fs_file_t *file;
+    gfx_err_t err;
 
     if (out_blob != NULL) {
         memset(out_blob, 0, sizeof(*out_blob));
@@ -104,40 +152,11 @@ gfx_err_t gfx_fs_load(const char *name, gfx_fs_blob_t *out_blob)
         return GFX_ERR_NOT_FOUND;
     }
 
-    holder = calloc(1, sizeof(*holder));
-    if (holder == NULL) {
+    err = gfx_fs_blob_take_file(file, out_blob);
+    if (err != GFX_OK) {
         gfx_fs_fclose(file);
-        return GFX_ERR_NO_MEM;
     }
-
-    size = gfx_fs_fsize(file);
-    direct = gfx_fs_fdata(file);
-    if (direct != NULL) {
-        holder->file = file;
-        out_blob->data = direct;
-        out_blob->size = size;
-        out_blob->_holder = holder;
-        return GFX_OK;
-    }
-
-    holder->owned = gfx_platform_aligned_alloc(16, size, GFX_PLATFORM_HEAP_DEFAULT);
-    if (holder->owned == NULL) {
-        gfx_fs_fclose(file);
-        free(holder);
-        return GFX_ERR_NO_MEM;
-    }
-    if (gfx_fs_fread(file, holder->owned, size) != size) {
-        gfx_platform_free(holder->owned);
-        gfx_fs_fclose(file);
-        free(holder);
-        return GFX_FAIL;
-    }
-
-    gfx_fs_fclose(file);
-    out_blob->data = holder->owned;
-    out_blob->size = size;
-    out_blob->_holder = holder;
-    return GFX_OK;
+    return err;
 }
 
 void gfx_fs_unload(gfx_fs_blob_t *blob)
@@ -160,14 +179,14 @@ void gfx_fs_unload(gfx_fs_blob_t *blob)
 gfx_fs_file_t *gfx_fs_fopen(const char *name)
 {
     gfx_fs_file_t *file;
-    gfx_fs_t *store;
+    gfx_fs_t *fs;
 
     if (name == NULL) {
         return NULL;
     }
 
-    store = gfx_fs_get_default();
-    file = gfx_fs_file_open_store(store, name);
+    fs = gfx_fs_get_default();
+    file = gfx_fs_file_open_fs(fs, name);
     if (file != NULL) {
         return file;
     }
@@ -175,9 +194,9 @@ gfx_fs_file_t *gfx_fs_fopen(const char *name)
     return gfx_fs_file_open_stdio(name);
 }
 
-gfx_fs_file_t *gfx_fs_fopen_from(gfx_fs_t *store, const char *name)
+gfx_fs_file_t *gfx_fs_fopen_from(gfx_fs_t *fs, const char *name)
 {
-    return gfx_fs_file_open_store(store, name);
+    return gfx_fs_file_open_fs(fs, name);
 }
 
 void gfx_fs_fclose(gfx_fs_file_t *file)
@@ -188,7 +207,7 @@ void gfx_fs_fclose(gfx_fs_file_t *file)
     if (file->fp != NULL) {
         fclose(file->fp);
     }
-    gfx_fs_view_close(&file->view);
+    gfx_fs_entry_close(&file->entry);
     free(file);
 }
 

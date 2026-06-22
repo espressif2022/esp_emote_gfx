@@ -12,8 +12,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <inttypes.h>
-#include "esp_err.h"
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_LABEL
 #include "common/gfx_log_priv.h"
 #include "common/gfx_comm.h"
@@ -38,14 +37,14 @@ static const char *const TAG = "label";
  *   PUBLIC FUNCTIONS
  **********************/
 
-esp_err_t gfx_label_set_font(gfx_object_t *obj, gfx_font_t font)
+gfx_err_t gfx_label_set_font(gfx_object_t *obj, gfx_font_t font)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
     gfx_label_t *label = (gfx_label_t *)obj->src;
     return gfx_label_set_font_source(obj, label, font);
 }
 
-esp_err_t gfx_label_set_text(gfx_object_t *obj, const char *text)
+gfx_err_t gfx_label_set_text(gfx_object_t *obj, const char *text)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
 
@@ -60,7 +59,7 @@ esp_err_t gfx_label_set_text(gfx_object_t *obj, const char *text)
         size_t len = strlen(new_text) + 1;
         char *dup_text = malloc(len);
         if (dup_text == NULL) {
-            return ESP_ERR_NO_MEM;
+            return GFX_ERR_NO_MEM;
         }
         memcpy(dup_text, new_text, len);
 
@@ -91,16 +90,16 @@ esp_err_t gfx_label_set_text(gfx_object_t *obj, const char *text)
 
     gfx_object_invalidate(obj);
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_label_set_text_fmt(gfx_object_t *obj, const char *fmt, ...)
+gfx_err_t gfx_label_set_text_fmt(gfx_object_t *obj, const char *fmt, ...)
 {
     char *new_text;
     int len;
 
     CHECK_OBJ_TYPE_LABEL(obj);
-    ESP_RETURN_ON_FALSE(fmt, ESP_ERR_INVALID_ARG, TAG, "Format string is NULL");
+    GFX_RETURN_ON_FALSE(fmt, GFX_ERR_INVALID_ARG, TAG, "Format string is NULL");
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
 
@@ -114,13 +113,13 @@ esp_err_t gfx_label_set_text_fmt(gfx_object_t *obj, const char *fmt, ...)
     va_end(args_copy);
     if (len < 0) {
         va_end(args);
-        return ESP_FAIL;
+        return GFX_FAIL;
     }
 
     new_text = malloc((size_t)len + 1U);
     if (new_text == NULL) {
         va_end(args);
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
     new_text[len] = '\0';
 
@@ -128,7 +127,7 @@ esp_err_t gfx_label_set_text_fmt(gfx_object_t *obj, const char *fmt, ...)
     va_end(args);
     if (len < 0) {
         free(new_text);
-        return ESP_FAIL;
+        return GFX_FAIL;
     }
 
     free(label->text.text);
@@ -140,10 +139,10 @@ esp_err_t gfx_label_set_text_fmt(gfx_object_t *obj, const char *fmt, ...)
 
     gfx_object_invalidate(obj);
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_label_set_opa(gfx_object_t *obj, gfx_opa_t opa)
+gfx_err_t gfx_label_set_opa(gfx_object_t *obj, gfx_opa_t opa)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
 
@@ -152,10 +151,10 @@ esp_err_t gfx_label_set_opa(gfx_object_t *obj, gfx_opa_t opa)
     gfx_object_invalidate(obj);
     GFX_LOGD(TAG, "set font opa: %d", label->style.opa);
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_label_set_color(gfx_object_t *obj, gfx_color_t color)
+gfx_err_t gfx_label_set_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
 
@@ -163,10 +162,10 @@ esp_err_t gfx_label_set_color(gfx_object_t *obj, gfx_color_t color)
     label->style.color = color;
     GFX_LOGD(TAG, "set font color: %d", label->style.color.full);
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_label_set_bg_color(gfx_object_t *obj, gfx_color_t bg_color)
+gfx_err_t gfx_label_set_bg_color(gfx_object_t *obj, gfx_color_t bg_color)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
 
@@ -174,10 +173,10 @@ esp_err_t gfx_label_set_bg_color(gfx_object_t *obj, gfx_color_t bg_color)
     label->style.bg_color = bg_color;
     GFX_LOGD(TAG, "set background color: %d", label->style.bg_color.full);
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_label_set_bg_enable(gfx_object_t *obj, bool enable)
+gfx_err_t gfx_label_set_bg_enable(gfx_object_t *obj, bool enable)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
 
@@ -186,10 +185,10 @@ esp_err_t gfx_label_set_bg_enable(gfx_object_t *obj, bool enable)
     gfx_object_invalidate(obj);
     GFX_LOGD(TAG, "set background enable: %s", enable ? "enabled" : "disabled");
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_label_set_text_align(gfx_object_t *obj, gfx_text_align_t align)
+gfx_err_t gfx_label_set_text_align(gfx_object_t *obj, gfx_text_align_t align)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
 
@@ -198,15 +197,15 @@ esp_err_t gfx_label_set_text_align(gfx_object_t *obj, gfx_text_align_t align)
     gfx_object_invalidate(obj);
     GFX_LOGD(TAG, "set text align: %d", align);
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_label_set_long_mode(gfx_object_t *obj, gfx_label_long_mode_t long_mode)
+gfx_err_t gfx_label_set_long_mode(gfx_object_t *obj, gfx_label_long_mode_t long_mode)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
-    ESP_RETURN_ON_FALSE(label, ESP_ERR_INVALID_STATE, TAG, "label property is NULL");
+    GFX_RETURN_ON_FALSE(label, GFX_ERR_INVALID_STATE, TAG, "label property is NULL");
 
     gfx_label_long_mode_t old_mode = label->text.long_mode;
     label->text.long_mode = long_mode;
@@ -260,10 +259,10 @@ esp_err_t gfx_label_set_long_mode(gfx_object_t *obj, gfx_label_long_mode_t long_
     }
 
     GFX_LOGD(TAG, "set long mode: %d", long_mode);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_label_set_line_spacing(gfx_object_t *obj, uint16_t spacing)
+gfx_err_t gfx_label_set_line_spacing(gfx_object_t *obj, uint16_t spacing)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
 
@@ -272,16 +271,16 @@ esp_err_t gfx_label_set_line_spacing(gfx_object_t *obj, uint16_t spacing)
     gfx_object_invalidate(obj);
     GFX_LOGD(TAG, "set line spacing: %d", spacing);
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_label_set_scroll_speed(gfx_object_t *obj, uint32_t speed_ms)
+gfx_err_t gfx_label_set_scroll_speed(gfx_object_t *obj, uint32_t speed_ms)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
-    ESP_RETURN_ON_FALSE(speed_ms > 0, ESP_ERR_INVALID_ARG, TAG, "invalid speed");
+    GFX_RETURN_ON_FALSE(speed_ms > 0, GFX_ERR_INVALID_ARG, TAG, "invalid speed");
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
-    ESP_RETURN_ON_FALSE(label, ESP_ERR_INVALID_STATE, TAG, "label property is NULL");
+    GFX_RETURN_ON_FALSE(label, GFX_ERR_INVALID_STATE, TAG, "label property is NULL");
 
     label->scroll.speed = speed_ms;
 
@@ -290,42 +289,42 @@ esp_err_t gfx_label_set_scroll_speed(gfx_object_t *obj, uint32_t speed_ms)
     }
 
     GFX_LOGD(TAG, "set scroll speed: %"PRIu32" ms", speed_ms);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_label_set_scroll_loop(gfx_object_t *obj, bool loop)
+gfx_err_t gfx_label_set_scroll_loop(gfx_object_t *obj, bool loop)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
-    ESP_RETURN_ON_FALSE(label, ESP_ERR_INVALID_STATE, TAG, "label property is NULL");
+    GFX_RETURN_ON_FALSE(label, GFX_ERR_INVALID_STATE, TAG, "label property is NULL");
 
     label->scroll.loop = loop;
     GFX_LOGD(TAG, "set scroll loop: %s", loop ? "enabled" : "disabled");
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_label_set_scroll_step(gfx_object_t *obj, int32_t step)
+gfx_err_t gfx_label_set_scroll_step(gfx_object_t *obj, int32_t step)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
-    ESP_RETURN_ON_FALSE(label, ESP_ERR_INVALID_STATE, TAG, "label property is NULL");
-    ESP_RETURN_ON_FALSE(step != 0, ESP_ERR_INVALID_ARG, TAG, "scroll step cannot be zero");
+    GFX_RETURN_ON_FALSE(label, GFX_ERR_INVALID_STATE, TAG, "label property is NULL");
+    GFX_RETURN_ON_FALSE(step != 0, GFX_ERR_INVALID_ARG, TAG, "scroll step cannot be zero");
 
     label->scroll.step = step;
     GFX_LOGD(TAG, "set scroll step: %"PRId32, step);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_label_set_snap_interval(gfx_object_t *obj, uint32_t interval_ms)
+gfx_err_t gfx_label_set_snap_interval(gfx_object_t *obj, uint32_t interval_ms)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
-    ESP_RETURN_ON_FALSE(interval_ms > 0, ESP_ERR_INVALID_ARG, TAG, "invalid snap interval");
+    GFX_RETURN_ON_FALSE(interval_ms > 0, GFX_ERR_INVALID_ARG, TAG, "invalid snap interval");
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
-    ESP_RETURN_ON_FALSE(label, ESP_ERR_INVALID_STATE, TAG, "label property is NULL");
+    GFX_RETURN_ON_FALSE(label, GFX_ERR_INVALID_STATE, TAG, "label property is NULL");
 
     label->snap.interval = interval_ms;
 
@@ -334,18 +333,18 @@ esp_err_t gfx_label_set_snap_interval(gfx_object_t *obj, uint32_t interval_ms)
     }
 
     GFX_LOGD(TAG, "set snap interval: %"PRIu32" ms", interval_ms);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_label_set_snap_loop(gfx_object_t *obj, bool loop)
+gfx_err_t gfx_label_set_snap_loop(gfx_object_t *obj, bool loop)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
-    ESP_RETURN_ON_FALSE(label, ESP_ERR_INVALID_STATE, TAG, "label property is NULL");
+    GFX_RETURN_ON_FALSE(label, GFX_ERR_INVALID_STATE, TAG, "label property is NULL");
 
     label->snap.loop = loop;
     GFX_LOGD(TAG, "set snap loop: %s", loop ? "enabled" : "disabled");
 
-    return ESP_OK;
+    return GFX_OK;
 }

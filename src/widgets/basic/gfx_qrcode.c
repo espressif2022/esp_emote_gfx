@@ -9,9 +9,7 @@
  *********************/
 #include <string.h>
 #include <stdlib.h>
-#include "esp_err.h"
-#include "esp_log.h"
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_QRCODE
 #include "common/gfx_log_priv.h"
 #include "lib/qrcode/qrcode_wrapper.h"
@@ -58,10 +56,10 @@ static const char *const TAG = "qrcode";
  *  STATIC PROTOTYPES
  **********************/
 
-static esp_err_t gfx_qrcode_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
-static esp_err_t gfx_qrcode_delete_impl(gfx_object_t *obj);
+static gfx_err_t gfx_qrcode_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx);
+static gfx_err_t gfx_qrcode_delete_impl(gfx_object_t *obj);
 static void gfx_qrcode_generate_callback(qrcode_wrapper_handle_t qrcode, void *user_data);
-static esp_err_t gfx_qrcode_generate(gfx_object_t *obj);
+static gfx_err_t gfx_qrcode_generate(gfx_object_t *obj);
 static void gfx_qrcode_blend(gfx_object_t *obj, gfx_qrcode_t *qrcode, const gfx_draw_ctx_t *ctx);
 static void gfx_qrcode_init_default_state(gfx_qrcode_t *qrcode);
 
@@ -167,12 +165,12 @@ static void gfx_qrcode_generate_callback(qrcode_wrapper_handle_t qrcode, void *u
     GFX_LOGD(TAG, "generate qrcode: buffer generated");
 }
 
-static esp_err_t gfx_qrcode_generate(gfx_object_t *obj)
+static gfx_err_t gfx_qrcode_generate(gfx_object_t *obj)
 {
     gfx_qrcode_t *qrcode = (gfx_qrcode_t *)obj->src;
 
     if (!qrcode->text || qrcode->text_len == 0) {
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     int ecc_level = QRCODE_WRAPPER_ECC_LOW;
@@ -204,7 +202,7 @@ static esp_err_t gfx_qrcode_generate(gfx_object_t *obj)
     qrcode_wrapper_generate(&cfg, qrcode->text);
 
     GFX_LOGD(TAG, "generate qrcode: size=%d", qrcode->qr_size);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 static void gfx_qrcode_blend(gfx_object_t *obj, gfx_qrcode_t *qrcode, const gfx_draw_ctx_t *ctx)
@@ -270,23 +268,23 @@ static void gfx_qrcode_blend(gfx_object_t *obj, gfx_qrcode_t *qrcode, const gfx_
     );
 }
 
-static esp_err_t gfx_qrcode_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
+static gfx_err_t gfx_qrcode_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 {
     if (obj == NULL || obj->src == NULL || ctx == NULL) {
         GFX_LOGD(TAG, "draw qrcode: object, state, or draw context is NULL");
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     if (obj->type != GFX_OBJ_TYPE_QRCODE) {
         GFX_LOGW(TAG, "draw qrcode: object type is not qrcode");
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     gfx_qrcode_t *qrcode = (gfx_qrcode_t *)obj->src;
 
     if (qrcode->needs_update) {
-        esp_err_t ret = gfx_qrcode_generate(obj);
-        if (ret != ESP_OK) {
+        gfx_err_t ret = gfx_qrcode_generate(obj);
+        if (ret != GFX_OK) {
             return ret;
         }
         qrcode->needs_update = false;
@@ -294,14 +292,14 @@ static esp_err_t gfx_qrcode_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 
     if (!qrcode->qr_modules) {
         GFX_LOGW(TAG, "draw qrcode: no generated data available");
-        return ESP_ERR_INVALID_STATE;
+        return GFX_ERR_INVALID_STATE;
     }
 
     gfx_qrcode_blend(obj, qrcode, ctx);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-static esp_err_t gfx_qrcode_delete_impl(gfx_object_t *obj)
+static gfx_err_t gfx_qrcode_delete_impl(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_QRCODE(obj);
 
@@ -316,7 +314,7 @@ static esp_err_t gfx_qrcode_delete_impl(gfx_object_t *obj)
         free(qrcode);
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
 /**********************
@@ -341,7 +339,7 @@ gfx_object_t *gfx_qrcode_create(gfx_display_t *disp)
     gfx_qrcode_init_default_state(qrcode);
     if (gfx_object_create_class_instance(disp, &s_gfx_qrcode_widget_class,
                                          qrcode, qrcode->display_size, qrcode->display_size,
-                                         "gfx_qrcode_create", &obj) != ESP_OK) {
+                                         "gfx_qrcode_create", &obj) != GFX_OK) {
         free(qrcode);
         GFX_LOGE(TAG, "create qrcode: no mem for object");
         return NULL;
@@ -351,19 +349,19 @@ gfx_object_t *gfx_qrcode_create(gfx_display_t *disp)
     return obj;
 }
 
-esp_err_t gfx_qrcode_set_data(gfx_object_t *obj, const char *text)
+gfx_err_t gfx_qrcode_set_data(gfx_object_t *obj, const char *text)
 {
     CHECK_OBJ_TYPE_QRCODE(obj);
 
     if (text == NULL) {
         GFX_LOGE(TAG, "set qrcode data: text is NULL");
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     size_t text_len = strlen(text);
     if (text_len == 0) {
         GFX_LOGE(TAG, "set qrcode data: text is empty");
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     gfx_qrcode_t *qrcode = (gfx_qrcode_t *)obj->src;
@@ -375,7 +373,7 @@ esp_err_t gfx_qrcode_set_data(gfx_object_t *obj, const char *text)
     qrcode->text = (char *)malloc(text_len + 1);
     if (!qrcode->text) {
         GFX_LOGE(TAG, "set qrcode data: allocate text buffer failed");
-        return ESP_ERR_NO_MEM;
+        return GFX_ERR_NO_MEM;
     }
 
     memcpy(qrcode->text, text, text_len);
@@ -386,16 +384,16 @@ esp_err_t gfx_qrcode_set_data(gfx_object_t *obj, const char *text)
     gfx_object_invalidate(obj);
 
     GFX_LOGD(TAG, "set qrcode data: text length=%zu", qrcode->text_len);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_qrcode_set_size(gfx_object_t *obj, uint16_t size)
+gfx_err_t gfx_qrcode_set_size(gfx_object_t *obj, uint16_t size)
 {
     CHECK_OBJ_TYPE_QRCODE(obj);
 
     if (size == 0) {
         GFX_LOGE(TAG, "set qrcode size: size is zero");
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     gfx_qrcode_t *qrcode = (gfx_qrcode_t *)obj->src;
@@ -411,10 +409,10 @@ esp_err_t gfx_qrcode_set_size(gfx_object_t *obj, uint16_t size)
     gfx_object_invalidate(obj);
 
     GFX_LOGD(TAG, "set qrcode size: %u", size);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_qrcode_set_ecc(gfx_object_t *obj, gfx_qrcode_ecc_t ecc)
+gfx_err_t gfx_qrcode_set_ecc(gfx_object_t *obj, gfx_qrcode_ecc_t ecc)
 {
     CHECK_OBJ_TYPE_QRCODE(obj);
 
@@ -425,10 +423,10 @@ esp_err_t gfx_qrcode_set_ecc(gfx_object_t *obj, gfx_qrcode_ecc_t ecc)
     gfx_object_invalidate(obj);
 
     GFX_LOGD(TAG, "set qrcode ecc: %d", ecc);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_qrcode_set_color(gfx_object_t *obj, gfx_color_t color)
+gfx_err_t gfx_qrcode_set_color(gfx_object_t *obj, gfx_color_t color)
 {
     CHECK_OBJ_TYPE_QRCODE(obj);
 
@@ -439,10 +437,10 @@ esp_err_t gfx_qrcode_set_color(gfx_object_t *obj, gfx_color_t color)
     gfx_object_invalidate(obj);
 
     GFX_LOGD(TAG, "set qrcode color: 0x%04X", color.full);
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_qrcode_set_bg_color(gfx_object_t *obj, gfx_color_t bg_color)
+gfx_err_t gfx_qrcode_set_bg_color(gfx_object_t *obj, gfx_color_t bg_color)
 {
     CHECK_OBJ_TYPE_QRCODE(obj);
 
@@ -453,5 +451,5 @@ esp_err_t gfx_qrcode_set_bg_color(gfx_object_t *obj, gfx_color_t bg_color)
     gfx_object_invalidate(obj);
 
     GFX_LOGD(TAG, "set qrcode background color: 0x%04X", bg_color.full);
-    return ESP_OK;
+    return GFX_OK;
 }

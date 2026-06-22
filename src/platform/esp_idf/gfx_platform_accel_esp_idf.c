@@ -12,7 +12,8 @@
 
 #include "driver/ppa.h"
 #include "hal/color_types.h"
-#include "esp_check.h"
+#include "common/gfx_check.h"
+#include "platform/esp_idf/gfx_err_bridge.h"
 
 #define GFX_LOG_MODULE GFX_LOG_MODULE_DISP
 #include "common/gfx_log_priv.h"
@@ -218,7 +219,7 @@ static size_t gfx_platform_ppa_surface_bytes(const gfx_backend_surface_t *surfac
     return (size_t)stride_bytes * h;
 }
 
-static esp_err_t gfx_platform_ppa_fill(gfx_backend_t *backend, gfx_display_t *disp,
+static gfx_err_t gfx_platform_ppa_fill(gfx_backend_t *backend, gfx_display_t *disp,
                                        const gfx_backend_surface_t *dst, const gfx_area_t *area,
                                        gfx_color_t color, gfx_opa_t opa)
 {
@@ -233,14 +234,14 @@ static esp_err_t gfx_platform_ppa_fill(gfx_backend_t *backend, gfx_display_t *di
             gfx_platform_ppa_log_reject_once("fill", dst->format, GFX_COLOR_FORMAT_UNKNOWN, opa,
                                              "unsupported dst/opa/state");
         }
-        return ESP_ERR_NOT_SUPPORTED;
+        return GFX_ERR_NOT_SUPPORTED;
     }
 
     color_pixel_argb8888_data_t fill_color;
     if (!gfx_platform_ppa_make_fill_color(dst->format, color, &fill_color)) {
         gfx_platform_ppa_log_reject_once("fill", dst->format, GFX_COLOR_FORMAT_UNKNOWN, opa,
                                          "fill color conversion");
-        return ESP_ERR_NOT_SUPPORTED;
+        return GFX_ERR_NOT_SUPPORTED;
     }
 
     ppa_fill_oper_config_t cfg = {
@@ -260,7 +261,7 @@ static esp_err_t gfx_platform_ppa_fill(gfx_backend_t *backend, gfx_display_t *di
     return ppa_do_fill(s_ppa.fill_client, &cfg);
 }
 
-static esp_err_t gfx_platform_ppa_blit(gfx_backend_t *backend, gfx_display_t *disp,
+static gfx_err_t gfx_platform_ppa_blit(gfx_backend_t *backend, gfx_display_t *disp,
                                        const gfx_backend_surface_t *dst, const gfx_area_t *dst_area,
                                        const gfx_backend_image_t *src, gfx_coord_t src_x, gfx_coord_t src_y)
 {
@@ -278,7 +279,7 @@ static esp_err_t gfx_platform_ppa_blit(gfx_backend_t *backend, gfx_display_t *di
             gfx_platform_ppa_log_reject_once("blit", dst->format, src->format, 0xffU,
                                              "unsupported fmt/coords/state");
         }
-        return ESP_ERR_NOT_SUPPORTED;
+        return GFX_ERR_NOT_SUPPORTED;
     }
 
     uint32_t w = (uint32_t)(dst_area->x2 - dst_area->x1);
@@ -310,7 +311,7 @@ static esp_err_t gfx_platform_ppa_blit(gfx_backend_t *backend, gfx_display_t *di
     return ppa_do_scale_rotate_mirror(s_ppa.srm_client, &cfg);
 }
 
-static esp_err_t gfx_platform_ppa_scale(gfx_backend_t *backend, gfx_display_t *disp,
+static gfx_err_t gfx_platform_ppa_scale(gfx_backend_t *backend, gfx_display_t *disp,
                                         const gfx_backend_surface_t *dst, const gfx_area_t *dst_area,
                                         const gfx_backend_image_t *src, const gfx_area_t *src_area,
                                         gfx_opa_t opa)
@@ -328,7 +329,7 @@ static esp_err_t gfx_platform_ppa_scale(gfx_backend_t *backend, gfx_display_t *d
             gfx_platform_ppa_log_reject_once("scale", dst->format, src->format, opa,
                                              "unsupported fmt/opa/state");
         }
-        return ESP_ERR_NOT_SUPPORTED;
+        return GFX_ERR_NOT_SUPPORTED;
     }
 
     uint32_t src_w = (uint32_t)(src_area->x2 - src_area->x1);
@@ -337,7 +338,7 @@ static esp_err_t gfx_platform_ppa_scale(gfx_backend_t *backend, gfx_display_t *d
     uint32_t dst_h = (uint32_t)(dst_area->y2 - dst_area->y1);
     if (src_w == 0U || src_h == 0U || dst_w == 0U || dst_h == 0U) {
         gfx_platform_ppa_log_reject_once("scale", dst->format, src->format, opa, "empty area");
-        return ESP_ERR_INVALID_ARG;
+        return GFX_ERR_INVALID_ARG;
     }
 
     ppa_srm_oper_config_t cfg = {
@@ -372,10 +373,10 @@ static const gfx_draw_ops_t s_platform_ppa_ops = {
     .scale = gfx_platform_ppa_scale,
 };
 
-esp_err_t gfx_platform_accel_init(void)
+gfx_err_t gfx_platform_accel_init(void)
 {
     if (s_ppa.inited) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     ppa_client_config_t fill_cfg = {
@@ -390,7 +391,7 @@ esp_err_t gfx_platform_accel_init(void)
     esp_err_t ret = ppa_register_client(&fill_cfg, &s_ppa.fill_client);
     if (ret != ESP_OK) {
         GFX_LOGW(TAG, "ppa fill unavailable: %s", esp_err_to_name(ret));
-        return ret;
+        return gfx_err_from_esp(ret);
     }
 
     ret = ppa_register_client(&srm_cfg, &s_ppa.srm_client);
@@ -398,12 +399,12 @@ esp_err_t gfx_platform_accel_init(void)
         GFX_LOGW(TAG, "ppa srm unavailable: %s", esp_err_to_name(ret));
         ppa_unregister_client(s_ppa.fill_client);
         s_ppa.fill_client = NULL;
-        return ret;
+        return gfx_err_from_esp(ret);
     }
 
     s_ppa.inited = true;
     gfx_platform_ppa_log_capability_summary();
-    return ESP_OK;
+    return GFX_OK;
 }
 
 void gfx_platform_accel_deinit(void)
@@ -449,10 +450,10 @@ gfx_render_alignment_t gfx_platform_accel_get_alignment(void)
 
 static const char *const TAG = "plat_accel";
 
-esp_err_t gfx_platform_accel_init(void)
+gfx_err_t gfx_platform_accel_init(void)
 {
     GFX_LOGI(TAG, "PPA acceleration unavailable on current IDF/target, using software fallback");
-    return ESP_OK;
+    return GFX_OK;
 }
 
 void gfx_platform_accel_deinit(void)

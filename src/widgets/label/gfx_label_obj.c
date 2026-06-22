@@ -9,7 +9,7 @@
  *********************/
 #include <stdlib.h>
 #include <string.h>
-#include "esp_check.h"
+#include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_LABEL_OBJ
 #include "common/gfx_log_priv.h"
 #include "common/gfx_comm.h"
@@ -104,7 +104,7 @@ gfx_object_t *gfx_label_create(gfx_display_t *disp)
     }
 
     if (gfx_object_create_class_instance(disp, &s_gfx_label_widget_class,
-                                         label, 0, 0, "gfx_label_create", &obj) != ESP_OK) {
+                                         label, 0, 0, "gfx_label_create", &obj) != GFX_OK) {
         free(label);
         GFX_LOGE(TAG, "create label: no mem for object");
         return NULL;
@@ -116,21 +116,21 @@ gfx_object_t *gfx_label_create(gfx_display_t *disp)
     return obj;
 }
 
-esp_err_t gfx_label_load_state(gfx_object_t *owner, gfx_label_t *label)
+gfx_err_t gfx_label_load_state(gfx_object_t *owner, gfx_label_t *label)
 {
     gfx_font_handle_t font_handle;
 
-    ESP_RETURN_ON_FALSE(label != NULL, ESP_ERR_INVALID_STATE, TAG, "load label: state is NULL");
+    GFX_RETURN_ON_FALSE(label != NULL, GFX_ERR_INVALID_STATE, TAG, "load label: state is NULL");
 
     if (label->font.source == NULL) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     font_handle = calloc(1, sizeof(gfx_font_adapter_t));
-    ESP_RETURN_ON_FALSE(font_handle != NULL, ESP_ERR_NO_MEM, TAG, "load label: no mem for font adapter");
+    GFX_RETURN_ON_FALSE(font_handle != NULL, GFX_ERR_NO_MEM, TAG, "load label: no mem for font adapter");
 
-    esp_err_t ret = gfx_font_init_adapter(font_handle, label->font.source);
-    if (ret != ESP_OK) {
+    gfx_err_t ret = gfx_font_init_adapter(font_handle, label->font.source);
+    if (ret != GFX_OK) {
         free(font_handle);
         return ret;
     }
@@ -138,10 +138,10 @@ esp_err_t gfx_label_load_state(gfx_object_t *owner, gfx_label_t *label)
     label->font.handle = font_handle;
     label->text.text_width = 0;
     (void)owner;
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_label_load_impl(gfx_object_t *obj)
+gfx_err_t gfx_label_load_impl(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
     return gfx_label_load_state(obj, (gfx_label_t *)obj->src);
@@ -168,16 +168,16 @@ void gfx_label_release_impl(gfx_object_t *obj)
     gfx_label_release_state((gfx_label_t *)obj->src);
 }
 
-esp_err_t gfx_label_set_font_source(gfx_object_t *obj, gfx_label_t *label, gfx_font_t font)
+gfx_err_t gfx_label_set_font_source(gfx_object_t *obj, gfx_label_t *label, gfx_font_t font)
 {
-    GFX_RETURN_IF_NULL(obj, ESP_ERR_INVALID_ARG);
-    GFX_RETURN_IF_NULL(label, ESP_ERR_INVALID_STATE);
+    GFX_RETURN_IF_NULL(obj, GFX_ERR_INVALID_ARG);
+    GFX_RETURN_IF_NULL(label, GFX_ERR_INVALID_STATE);
 
     label->font.source = font;
     label->text.text_width = 0;
     gfx_object_mark_resource_dirty(obj);
     gfx_object_invalidate(obj);
-    return ESP_OK;
+    return GFX_OK;
 }
 
 void gfx_label_delete_state(gfx_object_t *owner, gfx_label_t *label)
@@ -204,7 +204,7 @@ void gfx_label_delete_state(gfx_object_t *owner, gfx_label_t *label)
     label->render.inline_color = false;
 }
 
-esp_err_t gfx_label_delete_impl(gfx_object_t *obj)
+gfx_err_t gfx_label_delete_impl(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
 
@@ -212,18 +212,18 @@ esp_err_t gfx_label_delete_impl(gfx_object_t *obj)
     gfx_label_delete_state(obj, label);
     free(label);
 
-    return ESP_OK;
+    return GFX_OK;
 }
 
-esp_err_t gfx_label_update_impl(gfx_object_t *obj)
+gfx_err_t gfx_label_update_impl(gfx_object_t *obj)
 {
     CHECK_OBJ_TYPE_LABEL(obj);
 
     gfx_label_t *label = (gfx_label_t *)obj->src;
-    ESP_RETURN_ON_FALSE(label, ESP_ERR_INVALID_STATE, TAG, "label is NULL");
+    GFX_RETURN_ON_FALSE(label, GFX_ERR_INVALID_STATE, TAG, "label is NULL");
 
     if (label->text.text == NULL) {
-        return ESP_OK;
+        return GFX_OK;
     }
 
     switch (label->text.long_mode) {
@@ -238,10 +238,10 @@ esp_err_t gfx_label_update_impl(gfx_object_t *obj)
         break;
     }
 
-    esp_err_t ret = gfx_label_prepare_glyphs(obj);
-    if (ret != ESP_OK || !label->render.mask) {
-        return ESP_FAIL;
+    gfx_err_t ret = gfx_label_prepare_glyphs(obj);
+    if (ret != GFX_OK || !label->render.mask) {
+        return GFX_FAIL;
     }
 
-    return ESP_OK;
+    return GFX_OK;
 }

@@ -8,6 +8,8 @@
 
 #include <stddef.h>
 
+#include "common/gfx_check.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -46,8 +48,8 @@ extern "C" {
 /* Generic object type checking macro */
 #define CHECK_OBJ_TYPE(obj, expected_type, tag) \
     do { \
-        ESP_RETURN_ON_FALSE(obj, ESP_ERR_INVALID_ARG, tag, "Object is NULL"); \
-        ESP_RETURN_ON_FALSE((obj)->type == (expected_type), ESP_ERR_INVALID_ARG, tag, \
+        GFX_RETURN_ON_FALSE(obj, GFX_ERR_INVALID_ARG, tag, "Object is NULL"); \
+        GFX_RETURN_ON_FALSE((obj)->type == (expected_type), GFX_ERR_INVALID_ARG, tag, \
                            "Object type mismatch (expected=%d, actual=%d)", (expected_type), (obj)->type); \
     } while(0)
 

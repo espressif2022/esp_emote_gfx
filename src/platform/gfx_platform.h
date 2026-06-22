@@ -10,7 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "esp_err.h"
+#include "core/gfx_err.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,7 +56,7 @@ void gfx_platform_mutex_delete(gfx_platform_mutex_t mutex);
 bool gfx_platform_mutex_lock(gfx_platform_mutex_t mutex, uint32_t timeout_ms);
 bool gfx_platform_mutex_unlock(gfx_platform_mutex_t mutex);
 
-esp_err_t gfx_platform_task_create(const gfx_platform_task_config_t *cfg, gfx_platform_task_fn_t fn,
+gfx_err_t gfx_platform_task_create(const gfx_platform_task_config_t *cfg, gfx_platform_task_fn_t fn,
                                    void *arg, gfx_platform_task_t *out_task);
 void gfx_platform_task_delete_current(void);
 void gfx_platform_delay_ms(uint32_t ms);
@@ -68,6 +68,8 @@ void *gfx_platform_aligned_alloc(size_t alignment, size_t size, uint32_t caps);
 void gfx_platform_free(void *ptr);
 
 int64_t gfx_platform_time_us(void);
+
+bool gfx_platform_psram_dma_capable(void);
 
 #ifdef __cplusplus
 }

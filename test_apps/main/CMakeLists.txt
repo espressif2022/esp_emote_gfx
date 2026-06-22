@@ -4,9 +4,10 @@ idf_component_register(
     INCLUDE_DIRS "."
     PRIV_INCLUDE_DIRS
         "${CMAKE_CURRENT_LIST_DIR}/../../src"
+        "${CMAKE_CURRENT_LIST_DIR}/../../examples/motion"
     WHOLE_ARCHIVE)
 
-set(DIR_TEST "${PROJECT_DIR}/assets_test")
+set(DIR_TEST "${CMAKE_CURRENT_LIST_DIR}/../../examples/assets/format")
 
 spiffs_create_partition_assets(
     assets_test

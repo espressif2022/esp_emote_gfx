@@ -10,8 +10,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include "esp_log.h"
-#include "esp_err.h"
 
 #include "common/gfx_comm.h"
 #include "common/gfx_config_internal.h"
