@@ -10,7 +10,7 @@
 
 TEST_CASE("fs: mmap-assets fs returns direct views", "[fs]")
 {
-    gfx_fs_t *fs = NULL;
+    gfx_asset_source_t *fs = NULL;
     gfx_fs_entry_t entry;
     gfx_fs_file_t *file = NULL;
 
@@ -37,7 +37,7 @@ TEST_CASE("fs: mmap-assets fs returns direct views", "[fs]")
 
 TEST_CASE("fs: VFS dir fs reports copy access", "[fs]")
 {
-    gfx_fs_t *fs = NULL;
+    gfx_asset_source_t *fs = NULL;
     gfx_fs_entry_t entry;
 
     TEST_ASSERT_EQUAL(GFX_OK, gfx_fs_open_dir("/", &fs));

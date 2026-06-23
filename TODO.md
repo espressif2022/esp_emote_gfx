@@ -435,6 +435,6 @@
   - [x] `esp_emote_expression` 设备仓同步 `emote_port.h` 与源文件 include（host 仍用 gfx 仓内已迁 GFX API 的 `components/esp_emote_expression`）。(done: 2026-06-22)
   - [x] CI：`scripts/check_no_esp_in_src.sh` + GitHub Actions host SDL 构建。(done: 2026-06-22)
   - [x] `docs/architecture.md` 补充 platform 边界与 host/sim 桩收敛规则。(done: 2026-06-22)
-  - [ ] 文档对齐 V2 命名：更新 `docs/asset_store_file_loading_design.md`（仍写 `gfx_asset_store_*`）与 README；说明 `GFX_FS_ROOT`（format demo）、`GFX_EXPRESSION_FS_ROOT`（expression demo）、`examples/` 布局与常见 host 调试命令。
+  - [ ] 文档对齐 V2 命名：更新 `docs/asset_store_file_loading_design.md`（仍写 `gfx_asset_store_*`）与 README；说明 `GFX_FS_ROOT`（format demo）、`examples/` 布局与常见 host 调试命令。Expression 资源与 SDL 入口由 `esp_emote_expression` 仓库维护。
   - [ ] [LEGACY] 文档补充 manifest 格式；当前主线按文件名打开资源，不引入 host manifest。
   - [x] 设计约束：`gfx_fs` 只提供只读字节/文件访问，格式解析归 decoder；widget 侧统一 `*_SRC_TYPE_FILE + path`，`*_SRC_TYPE_MEMORY` 仅表示调用方已有裸 buffer。(done: 2026-06-22)

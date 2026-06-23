@@ -8,8 +8,8 @@ Runnable demos and shared assets. Host SDL entry points live under `simulation/h
 | --- | --- |
 | `format_playground/` | Format / widget playground (host SDL + ESP RGB boards) |
 | `assets/format/` | Binary assets for format playground (`GFX_FS_ROOT` default) |
+| `assets/fonts/` | Font fixtures used by host smoke tests |
 | `motion/` | Generated motion scene data (`claw_motion.inc`) |
-| `expression/assets/` | Expression sample resources; the runnable expression SDL demo lives in `esp_emote_expression` |
 | `esp/format_rgb565/` | ESP-IDF RGB565 HMI board demo |
 | `esp/format_rgb888/` | ESP-IDF BGR888 HMI board demo |
 

@@ -164,7 +164,7 @@ static gfx_err_t gfx_fs_read_file(int fd, size_t size, void **out_data)
     return GFX_OK;
 }
 
-static gfx_err_t gfx_fs_dir_open_by_name(gfx_fs_t *fs, const char *name, gfx_fs_entry_t *out_entry)
+static gfx_err_t gfx_fs_dir_open_by_name(gfx_asset_source_t *fs, const char *name, gfx_fs_entry_t *out_entry)
 {
     gfx_fs_dir_backend_t *backend = (gfx_fs_dir_backend_t *)fs->backend_data;
     gfx_fs_dir_entry_t *state = NULL;
@@ -252,7 +252,7 @@ static void gfx_fs_dir_entry_close(gfx_fs_entry_t *entry)
     free(state);
 }
 
-static void gfx_fs_dir_fs_close(gfx_fs_t *fs)
+static void gfx_fs_dir_fs_close(gfx_asset_source_t *fs)
 {
     if (fs == NULL) {
         return;
@@ -272,7 +272,7 @@ static const gfx_fs_vtable_t s_gfx_fs_dir_vtable = {
     .fs_close = gfx_fs_dir_fs_close,
 };
 
-static gfx_err_t gfx_fs_pack_open_by_name(gfx_fs_t *fs, const char *name, gfx_fs_entry_t *out_entry)
+static gfx_err_t gfx_fs_pack_open_by_name(gfx_asset_source_t *fs, const char *name, gfx_fs_entry_t *out_entry)
 {
     gfx_fs_pack_backend_t *backend = (gfx_fs_pack_backend_t *)fs->backend_data;
     gfx_fs_pack_entry_t *state;
@@ -306,7 +306,7 @@ static void gfx_fs_pack_entry_close(gfx_fs_entry_t *entry)
     free(state);
 }
 
-static void gfx_fs_pack_fs_close(gfx_fs_t *fs)
+static void gfx_fs_pack_fs_close(gfx_asset_source_t *fs)
 {
     gfx_fs_pack_backend_t *backend;
 
@@ -332,9 +332,9 @@ static const gfx_fs_vtable_t s_gfx_fs_pack_vtable = {
     .fs_close = gfx_fs_pack_fs_close,
 };
 
-gfx_err_t gfx_fs_open_dir_port(const char *root_dir, gfx_fs_t **out_fs)
+gfx_err_t gfx_fs_open_dir_port(const char *root_dir, gfx_asset_source_t **out_fs)
 {
-    gfx_fs_t *fs = NULL;
+    gfx_asset_source_t *fs = NULL;
     gfx_fs_dir_backend_t *backend = NULL;
     struct stat st;
 
@@ -367,9 +367,9 @@ gfx_err_t gfx_fs_open_dir_port(const char *root_dir, gfx_fs_t **out_fs)
     return GFX_OK;
 }
 
-gfx_err_t gfx_fs_open_pack_file_port(const char *file_path, gfx_fs_t **out_fs)
+gfx_err_t gfx_fs_open_pack_file_port(const char *file_path, gfx_asset_source_t **out_fs)
 {
-    gfx_fs_t *fs = NULL;
+    gfx_asset_source_t *fs = NULL;
     gfx_fs_pack_backend_t *backend = NULL;
     gfx_fs_pack_item_t *items = NULL;
     int fd = -1;

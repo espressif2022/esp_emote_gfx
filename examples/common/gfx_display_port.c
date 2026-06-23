@@ -12,49 +12,18 @@
 #include "gfx/backends/sdl.h"
 #endif
 
-static gfx_err_t display_port_open_fs(const gfx_display_port_config_t *cfg, gfx_fs_t **out_fs)
+static gfx_err_t display_port_open_fs(const gfx_display_port_config_t *cfg, gfx_asset_source_t **out_fs)
 {
-    gfx_fs_open_config_t fs_cfg;
-
     if (out_fs == NULL) {
         return GFX_ERR_INVALID_ARG;
     }
     *out_fs = NULL;
 
-    if (cfg->fs.type == GFX_DISPLAY_PORT_FS_NONE) {
+    if (cfg->fs.path_or_label == NULL) {
         return GFX_OK;
     }
-    if (cfg->fs.path_or_label == NULL) {
-        return GFX_ERR_INVALID_ARG;
-    }
 
-    switch (cfg->fs.type) {
-    case GFX_DISPLAY_PORT_FS_DIR:
-        return gfx_fs_open_dir(cfg->fs.path_or_label, out_fs);
-    case GFX_DISPLAY_PORT_FS_PARTITION_DIRECT:
-        fs_cfg = (gfx_fs_open_config_t) {
-            .source_type = GFX_FS_SOURCE_PARTITION,
-            .access_mode = GFX_FS_ACCESS_DIRECT,
-            .path_or_label = cfg->fs.path_or_label,
-        };
-        return gfx_fs_open(&fs_cfg, out_fs);
-    case GFX_DISPLAY_PORT_FS_PARTITION_COPY:
-        fs_cfg = (gfx_fs_open_config_t) {
-            .source_type = GFX_FS_SOURCE_PARTITION,
-            .access_mode = GFX_FS_ACCESS_COPY,
-            .path_or_label = cfg->fs.path_or_label,
-        };
-        return gfx_fs_open(&fs_cfg, out_fs);
-    case GFX_DISPLAY_PORT_FS_PACK_FILE:
-        fs_cfg = (gfx_fs_open_config_t) {
-            .source_type = GFX_FS_SOURCE_PACK_FILE,
-            .access_mode = GFX_FS_ACCESS_COPY,
-            .path_or_label = cfg->fs.path_or_label,
-        };
-        return gfx_fs_open(&fs_cfg, out_fs);
-    default:
-        return GFX_ERR_INVALID_ARG;
-    }
+    return gfx_fs_open(&cfg->fs, out_fs);
 }
 
 static gfx_backend_t *display_port_create_backend(const gfx_display_port_config_t *cfg)
@@ -122,9 +91,6 @@ gfx_err_t gfx_display_port_open(const gfx_display_port_config_t *cfg,
     if (err != GFX_OK) {
         return err;
     }
-    if (cfg->fs.set_default && port.fs != NULL) {
-        gfx_fs_set_default(port.fs);
-    }
 
     port.backend = display_port_create_backend(cfg);
     if (port.backend == NULL) {
@@ -183,9 +149,6 @@ void gfx_display_port_close(gfx_display_port_t *port)
         port->disp = NULL;
     }
     if (port->fs != NULL) {
-        if (gfx_fs_get_default() == port->fs) {
-            gfx_fs_set_default(NULL);
-        }
         gfx_fs_close(port->fs);
         port->fs = NULL;
     }

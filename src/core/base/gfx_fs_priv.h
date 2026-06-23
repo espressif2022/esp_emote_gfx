@@ -28,31 +28,52 @@ typedef struct {
 } gfx_fs_entry_t;
 
 typedef struct {
-    gfx_err_t (*open_by_name)(gfx_fs_t *fs, const char *name, gfx_fs_entry_t *out_entry);
+    gfx_err_t (*open_by_name)(gfx_asset_source_t *fs, const char *name, gfx_fs_entry_t *out_entry);
     void (*entry_close)(gfx_fs_entry_t *entry);
-    void (*fs_close)(gfx_fs_t *fs);
+    void (*fs_close)(gfx_asset_source_t *fs);
 } gfx_fs_vtable_t;
 
-struct gfx_fs {
+struct gfx_asset_source {
     gfx_fs_access_mode_t access_mode;
     const gfx_fs_vtable_t *vtable;
     void *backend_data;
 };
 
 typedef struct {
-    gfx_fs_t *fs;
+    gfx_asset_source_t *fs;
 } gfx_fs_entry_state_base_t;
 
+#ifndef GFX_FS_MOUNT_MAX
+#define GFX_FS_MOUNT_MAX 4
+#endif
+#ifndef GFX_FS_MOUNT_PREFIX_MAX
+#define GFX_FS_MOUNT_PREFIX_MAX 64
+#endif
+
+typedef struct {
+    char prefix[GFX_FS_MOUNT_PREFIX_MAX];
+    gfx_asset_source_t *fs;
+} gfx_fs_mount_t;
+
+/**
+ * @brief Resolve @p name against the global mount table.
+ *
+ * On success, @p out_fs and @p out_subname are filled for backend lookup.
+ * @p out_subname points into @p name or @p name itself; it is valid only while
+ * @p name remains alive.
+ */
+bool gfx_fs_resolve_mount(const char *name, gfx_asset_source_t **out_fs, const char **out_subname);
+
 /* Backend constructors implemented per platform. */
-gfx_err_t gfx_fs_open_dir_port(const char *root_dir, gfx_fs_t **out_fs);
+gfx_err_t gfx_fs_open_dir_port(const char *root_dir, gfx_asset_source_t **out_fs);
 
 gfx_err_t gfx_fs_open_partition_port(const char *partition_label, gfx_fs_access_mode_t access_mode,
-                                     gfx_fs_t **out_fs);
-gfx_err_t gfx_fs_open_pack_file_port(const char *file_path, gfx_fs_t **out_fs);
+                                     gfx_asset_source_t **out_fs);
+gfx_err_t gfx_fs_open_pack_file_port(const char *file_path, gfx_asset_source_t **out_fs);
 
 /* Internal entry access used by the file/source layer. Applications should use
  * the public gfx_fs_fopen()/load() API. */
-gfx_err_t gfx_fs_entry_open_by_name(gfx_fs_t *fs, const char *name, gfx_fs_entry_t *out_entry);
+gfx_err_t gfx_fs_entry_open_by_name(gfx_asset_source_t *fs, const char *name, gfx_fs_entry_t *out_entry);
 void gfx_fs_entry_close(gfx_fs_entry_t *entry);
 
 /**

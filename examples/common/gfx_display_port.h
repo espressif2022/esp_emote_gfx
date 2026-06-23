@@ -22,14 +22,6 @@ typedef enum {
     GFX_DISPLAY_PORT_BACKEND_HOST_SDL,
 } gfx_display_port_backend_type_t;
 
-typedef enum {
-    GFX_DISPLAY_PORT_FS_NONE = 0,
-    GFX_DISPLAY_PORT_FS_DIR,
-    GFX_DISPLAY_PORT_FS_PARTITION_DIRECT,
-    GFX_DISPLAY_PORT_FS_PARTITION_COPY,
-    GFX_DISPLAY_PORT_FS_PACK_FILE,
-} gfx_display_port_fs_type_t;
-
 typedef struct {
     uint32_t h_res;
     uint32_t v_res;
@@ -59,18 +51,19 @@ typedef struct {
         size_t buf_pixels;
     } display;
 
-    struct {
-        gfx_display_port_fs_type_t type;
-        const char *path_or_label;
-        bool set_default;
-    } fs;
+    /**
+     * Optional asset filesystem opened by gfx_display_port_open().
+     * Leave zeroed (.source_type == GFX_FS_SOURCE_DIR with path_or_label == NULL)
+     * to skip fs initialisation; port.fs will be NULL.
+     */
+    gfx_fs_open_config_t fs;
 } gfx_display_port_config_t;
 
 typedef struct {
     gfx_handle_t gfx;
     gfx_display_t *disp;
     gfx_backend_t *backend;
-    gfx_fs_t *fs;
+    gfx_asset_source_t *fs;
 } gfx_display_port_t;
 
 gfx_err_t gfx_display_port_open(const gfx_display_port_config_t *cfg,

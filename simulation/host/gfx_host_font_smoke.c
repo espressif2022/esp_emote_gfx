@@ -84,7 +84,7 @@ static int check_glyph(gfx_font_handle_t adapter, uint32_t unicode)
 
 int main(void)
 {
-    static const char *font_path = "examples/expression/assets/font_puhui_common_20_4.bin";
+    static const char *font_path = "examples/assets/fonts/font_puhui_common_20_4.bin";
     static const uint32_t glyphs[] = {
         'A',
         '3',

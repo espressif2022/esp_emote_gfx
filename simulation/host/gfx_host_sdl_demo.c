@@ -74,7 +74,8 @@ static int host_demo_open_port(host_demo_t *demo)
             .double_buffer = true,
         },
         .fs = {
-            .type = GFX_DISPLAY_PORT_FS_DIR,
+            .source_type = GFX_FS_SOURCE_DIR,
+            .access_mode = GFX_FS_ACCESS_COPY,
             .path_or_label = asset_root,
         },
     }, &demo->port);
@@ -87,6 +88,10 @@ static int host_demo_open_port(host_demo_t *demo)
         fprintf(stderr, "format demo asset fs setup failed\n");
         gfx_display_port_close(&demo->port);
         return 1;
+    }
+
+    if (gfx_format_demo_mount_loose_assets() != GFX_OK) {
+        fprintf(stderr, "format demo loose assets mount failed; SPIFFS clips will be skipped\n");
     }
 
     return 0;

@@ -6,6 +6,16 @@
 
 #pragma once
 
+/*
+ * Include convention
+ * ------------------
+ * Application and example code:  #include "gfx/fs.h"
+ * Library internals (src/):      #include "core/gfx_fs.h"
+ *
+ * Both paths resolve to the same declarations.  The gfx/ prefix is the stable
+ * public surface; core/ is the canonical location used by library internals.
+ */
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -17,15 +27,22 @@ extern "C" {
 #endif
 
 /* =========================================================================
- * Filesystem source (mount point)
+ * Asset source handle
  *
- * A gfx_fs_t is an opened asset filesystem source (an mmap-assets partition or
- * a host/VFS directory). It plays the same role as a registered
- * filesystem driver: open it once, optionally make it the process default,
- * then access files by name through the file API below.
+ * gfx_asset_source_t is an opened asset source — a single, already-mounted
+ * resource origin such as a flash partition (mmap-assets pack), a pack file
+ * on a filesystem, or a host/VFS directory.  It is NOT a filesystem type or
+ * driver; think of it as a file-descriptor-like handle to one particular
+ * collection of assets.
+ *
+ * Typical lifecycle:
+ *   gfx_fs_open_partition("assets", &src);   // open the source
+ *   gfx_fs_mount("", src);                   // register under a path prefix
+ *   ...                                      // widgets resolve assets by name
+ *   gfx_fs_close(src);                       // release (also unmounts)
  * ========================================================================= */
 
-typedef struct gfx_fs gfx_fs_t;
+typedef struct gfx_asset_source gfx_asset_source_t;
 
 typedef enum {
     GFX_FS_SOURCE_DIR = 0,       /**< Loose asset files under a host/VFS directory. */
@@ -57,20 +74,59 @@ typedef struct {
  * @param out_fs Output filesystem source handle.
  * @return GFX_OK on success, or a GFX_ERR_* code.
  */
-gfx_err_t gfx_fs_open(const gfx_fs_open_config_t *config, gfx_fs_t **out_fs);
+gfx_err_t gfx_fs_open(const gfx_fs_open_config_t *config, gfx_asset_source_t **out_fs);
 
 /**
- * @brief Open a host directory as a filesystem source.
+ * @brief Open a directory as a filesystem source (host and VFS paths).
  *
- * Names passed to the file API are resolved relative to @p root_dir. Available
- * on host/Linux builds; ESP-IDF builds can use gfx_fs_open() with
- * GFX_FS_SOURCE_PACK_FILE or GFX_FS_SOURCE_PARTITION.
+ * Names passed to the file API are resolved relative to @p root_dir.
+ * Works on host builds and any platform that exposes a POSIX-compatible
+ * filesystem path (e.g. SPIFFS or LittleFS mounted via ESP-IDF VFS).
  *
  * @param root_dir  Directory that contains asset files.
  * @param out_fs Output filesystem source handle.
  * @return GFX_OK on success, or a GFX_ERR_* code.
  */
-gfx_err_t gfx_fs_open_dir(const char *root_dir, gfx_fs_t **out_fs);
+gfx_err_t gfx_fs_open_dir(const char *root_dir, gfx_asset_source_t **out_fs);
+
+/**
+ * @brief Open a mmap-assets pack file as a filesystem source.
+ *
+ * Convenience wrapper for gfx_fs_open() with GFX_FS_SOURCE_PACK_FILE /
+ * GFX_FS_ACCESS_COPY.  Works anywhere the pack file is accessible as a
+ * filesystem path (host, SPIFFS, FATFS, SD ...).
+ *
+ * @param file_path  Filesystem path to the .bin pack file.
+ * @param out_fs     Output filesystem source handle.
+ * @return GFX_OK on success, or a GFX_ERR_* code.
+ */
+gfx_err_t gfx_fs_open_pack(const char *file_path, gfx_asset_source_t **out_fs);
+
+/**
+ * @brief Open a flash partition as a filesystem source (direct / zero-copy).
+ *
+ * Convenience wrapper for gfx_fs_open() with GFX_FS_SOURCE_PARTITION /
+ * GFX_FS_ACCESS_DIRECT.  Assets are served directly from flash via mmap;
+ * no heap copy is made per file.  ESP-IDF target only.
+ *
+ * @param label  Partition label (must match the partition table entry).
+ * @param out_fs Output filesystem source handle.
+ * @return GFX_OK on success, or a GFX_ERR_* code.
+ */
+gfx_err_t gfx_fs_open_partition(const char *label, gfx_asset_source_t **out_fs);
+
+/**
+ * @brief Open a flash partition as a filesystem source (copy / heap-backed).
+ *
+ * Like gfx_fs_open_partition() but uses GFX_FS_ACCESS_COPY: each asset is
+ * copied into a heap buffer on open.  Useful when the caller needs a
+ * writable or cache-friendly copy of each asset.  ESP-IDF target only.
+ *
+ * @param label  Partition label.
+ * @param out_fs Output filesystem source handle.
+ * @return GFX_OK on success, or a GFX_ERR_* code.
+ */
+gfx_err_t gfx_fs_open_partition_copy(const char *label, gfx_asset_source_t **out_fs);
 
 /**
  * @brief Get the source-level access strategy of an opened fs.
@@ -78,30 +134,34 @@ gfx_err_t gfx_fs_open_dir(const char *root_dir, gfx_fs_t **out_fs);
  * @param fs Filesystem source handle.
  * @return Configured source access mode; GFX_FS_ACCESS_COPY for NULL.
  */
-gfx_fs_access_mode_t gfx_fs_get_access_mode(const gfx_fs_t *fs);
+gfx_fs_access_mode_t gfx_fs_get_access_mode(const gfx_asset_source_t *fs);
 
 /**
- * @brief Set the process-wide default fs.
+ * @brief Mount an fs at a path prefix for gfx_fs_fopen()/gfx_fs_load() routing.
  *
- * Decoders, widgets, and gfx_fs_fopen()/gfx_fs_load() use this fs to
- * resolve name/path based sources. The caller owns the fs lifetime and must
- * keep it valid while it is set.
+ * Prefix "" is the default asset namespace: all bare asset names (e.g.
+ * "icon.bin") resolve through it. Longer prefixes such as "/spiffs" take
+ * precedence for matching paths.
  *
- * @param fs Default fs; NULL clears it.
+ * @param prefix Path prefix without a trailing '/'.
+ * @param fs Opened fs handle; caller owns lifetime until gfx_fs_close().
+ * @return GFX_OK, GFX_ERR_NO_MEM if the mount table is full, or GFX_ERR_INVALID_ARG.
  */
-void gfx_fs_set_default(gfx_fs_t *fs);
+gfx_err_t gfx_fs_mount(const char *prefix, gfx_asset_source_t *fs);
 
 /**
- * @brief Get the process-wide default fs.
- * @return Current default fs, or NULL if not set.
+ * @brief Unmount a path prefix without closing the fs handle.
+ *
+ * @param prefix Prefix passed to gfx_fs_mount().
+ * @return GFX_OK or GFX_ERR_NOT_FOUND.
  */
-gfx_fs_t *gfx_fs_get_default(void);
+gfx_err_t gfx_fs_unmount(const char *prefix);
 
 /**
  * @brief Close a filesystem source and release backend state.
  * @param fs FS returned by gfx_fs_open_*(); NULL is allowed.
  */
-void gfx_fs_close(gfx_fs_t *fs);
+void gfx_fs_close(gfx_asset_source_t *fs);
 
 /* =========================================================================
  * Asset file (stdio-style access)
@@ -118,7 +178,7 @@ typedef struct gfx_fs_file gfx_fs_file_t;
  * @brief Open an asset by name/path using the default fs.
  *
  * Resolution order:
- * 1. The process-wide default fs.
+ * 1. Longest matching mount-table prefix (including "" as the default namespace).
  * 2. A plain filesystem fopen() fallback for SPIFFS/FATFS/SD or host paths.
  *
  * @param name Resource name or filesystem path.
@@ -138,7 +198,7 @@ gfx_fs_file_t *gfx_fs_fopen(const char *name);
  * @param name  Resource name.
  * @return Open file handle, or NULL on failure. Release with gfx_fs_fclose().
  */
-gfx_fs_file_t *gfx_fs_fopen_from(gfx_fs_t *fs, const char *name);
+gfx_fs_file_t *gfx_fs_fopen_from(gfx_asset_source_t *fs, const char *name);
 
 /**
  * @brief Close a file handle opened by gfx_fs_fopen()/gfx_fs_fopen_from().
@@ -195,29 +255,34 @@ int gfx_fs_fseek(gfx_fs_file_t *file, long offset, int whence);
 long gfx_fs_ftell(const gfx_fs_file_t *file);
 
 /* =========================================================================
- * One-shot blob load (whole-file copy convenience)
+ * One-shot blob load
+ *
+ * Use gfx_fs_load() when you need the entire file in memory at once
+ * (e.g. to feed a decoder that expects a contiguous byte range).
+ * Use gfx_fs_fopen() when you need streaming / seek access or want to
+ * avoid a heap copy for mmap-backed sources.
  * ========================================================================= */
 
 /**
- * @brief Loaded read-only asset blob produced by gfx_fs_load().
+ * @brief Read-only whole-file buffer produced by gfx_fs_load().
  *
- * Callers only read @ref data and @ref size; @ref _holder is internal
- * ownership state and must not be touched. Release with gfx_fs_unload().
+ * Only @ref data and @ref size are meaningful to callers.  @ref _priv is
+ * reserved for internal ownership tracking and must not be read or written
+ * by application code.  Release the blob with gfx_fs_unload().
  */
 typedef struct {
     const void *data;            /**< Read-only bytes, valid until gfx_fs_unload(). */
     size_t size;                 /**< Size in bytes. */
-    void *_holder;               /**< Internal: owned source state. */
+    void *_priv[2];              /**< Internal: [0] open file handle, [1] heap buffer. */
 } gfx_fs_blob_t;
 
 /**
  * @brief Load an asset by name/path into a read-only whole-file blob.
  *
- * This is the simplest entry for "give me the whole file"; it hides backend
- * selection entirely. Resolution order:
- * 1. The process-wide default fs, configured via gfx_fs_set_default().
- * 2. A plain filesystem fopen()/fread() fallback into an owned heap buffer,
- *    covering SPIFFS/FATFS/SD or host paths when no default fs is set.
+ * Resolution order follows gfx_fs_fopen(): longest mount-table prefix
+ * first, then a plain fopen() filesystem fallback.  For mmap-backed
+ * sources the blob points directly into mapped flash; for copy-backed
+ * sources the content is copied into a heap buffer.
  *
  * @param name     Resource name or filesystem path.
  * @param out_blob Output blob; release with gfx_fs_unload().

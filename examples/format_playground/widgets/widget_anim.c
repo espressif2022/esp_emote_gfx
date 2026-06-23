@@ -9,21 +9,6 @@
 #include <stdio.h>
 
 #include "common/gfx_check.h"
-#ifndef GFX_HOST_BUILD
-#define GFX_LOG_MODULE GFX_LOG_MODULE_CORE
-#include "common/gfx_log_priv.h"
-#include "esp_spiffs.h"
-#endif
-
-#define DEMO_SPIFFS_ANIM_PARTITION "storage"
-#define DEMO_SPIFFS_ANIM_MOUNT     "/spiffs"
-#ifdef GFX_HOST_BUILD
-#define DEMO_FILE_ANIM_MOUNT       "examples/esp/format_rgb565/spiffs_anim"
-#else
-#define DEMO_FILE_ANIM_MOUNT       DEMO_SPIFFS_ANIM_MOUNT
-#endif
-
-static const char *const TAG_ANIM = "anim";
 
 typedef struct {
     const char *name;
@@ -34,9 +19,7 @@ typedef struct {
 
 /*
  * Anim clips for the preview. Plain names resolve through the default mmap
- * asset fs; "/spiffs/..." paths fall back to normal filesystem reads.
- * The list intentionally covers AAF/EAF, compressed variants, transparent
- * frames, and mmap/SPIFFS loading through the same FILE source path.
+ * asset fs; "/spiffs/..." paths resolve through the loose-asset mount.
  */
 static const demo_anim_clip_t s_anim_clips[] = {
     { .name = "AAF 24-bit",      .path = "mi_1_eye_24bit.aaf", .mode = "mmap AAF" },
@@ -45,8 +28,8 @@ static const demo_anim_clip_t s_anim_clips[] = {
     { .name = "AAF Huff 8-bit",  .path = "mi_1_eye_8bit_huff.aaf", .mode = "mmap AAF" },
     { .name = "EAF Huff 8-bit",  .path = "mi_1_eye_8bit_huff.eaf", .mode = "mmap EAF" },
     { .name = "Transparent EAF", .path = "transparent.eaf", .mode = "mmap EAF" },
-    { .name = "File AAF",        .path = DEMO_FILE_ANIM_MOUNT "/mi_1_eye_24bit.aaf", .mode = "file AAF copy" },
-    { .name = "File EAF",        .path = DEMO_FILE_ANIM_MOUNT "/mi_1_eye_8bit.eaf", .mode = "file EAF stream", .flags = GFX_ANIM_SRC_FLAG_STREAMING },
+    { .name = "File AAF",        .path = "/spiffs/mi_1_eye_24bit.aaf", .mode = "file AAF copy" },
+    { .name = "File EAF",        .path = "/spiffs/mi_1_eye_8bit.eaf", .mode = "file EAF stream", .flags = GFX_ANIM_SRC_FLAG_STREAMING },
 };
 
 #define DEMO_ANIM_COUNT (sizeof(s_anim_clips) / sizeof(s_anim_clips[0]))
@@ -78,27 +61,6 @@ const char *gfx_format_demo_anim_clip_note(void)
         demo_update_anim_note(s_anim_index);
     }
     return s_anim_note;
-}
-
-static void demo_mount_spiffs_assets(void)
-{
-#ifndef GFX_HOST_BUILD
-    /* The image widget mounts the same partition too; skip if already mounted. */
-    if (esp_spiffs_mounted(DEMO_SPIFFS_ANIM_PARTITION)) {
-        return;
-    }
-    const esp_vfs_spiffs_conf_t spiffs_conf = {
-        .base_path = DEMO_SPIFFS_ANIM_MOUNT,
-        .partition_label = DEMO_SPIFFS_ANIM_PARTITION,
-        .max_files = 4,
-        .format_if_mount_failed = false,
-    };
-    gfx_err_t err = esp_vfs_spiffs_register(&spiffs_conf);
-    if (err != GFX_OK) {
-        GFX_LOGW(TAG_ANIM, "spiffs mount failed: %s; SPIFFS clips will be skipped",
-                 "(err)");
-    }
-#endif
 }
 
 static gfx_err_t demo_load_anim_clip(format_playground_scene_t *scene, size_t index)
@@ -143,8 +105,6 @@ gfx_err_t gfx_format_demo_next_anim_clip(format_playground_scene_t *scene)
 gfx_err_t gfx_format_demo_build_anim_demo(format_playground_scene_t *scene)
 {
     gfx_object_t *obj;
-
-    demo_mount_spiffs_assets();
 
     obj = gfx_anim_create(scene->disp);
     GFX_RETURN_ON_FALSE(obj != NULL, GFX_ERR_INVALID_ARG, "playground", "create anim demo failed");

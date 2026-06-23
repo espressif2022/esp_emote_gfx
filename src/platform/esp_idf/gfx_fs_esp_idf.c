@@ -86,7 +86,7 @@ static char *gfx_fs_join_path(const char *root, const char *name)
     return path;
 }
 
-static gfx_err_t gfx_fs_mmap_open_id(gfx_fs_t *fs, int32_t id, gfx_fs_entry_t *out_entry)
+static gfx_err_t gfx_fs_mmap_open_id(gfx_asset_source_t *fs, int32_t id, gfx_fs_entry_t *out_entry)
 {
     gfx_fs_mmap_backend_t *backend = (gfx_fs_mmap_backend_t *)fs->backend_data;
     gfx_fs_mmap_entry_t *state;
@@ -144,7 +144,7 @@ static gfx_err_t gfx_fs_mmap_open_id(gfx_fs_t *fs, int32_t id, gfx_fs_entry_t *o
     return GFX_OK;
 }
 
-static gfx_err_t gfx_fs_mmap_open_by_name(gfx_fs_t *fs, const char *name, gfx_fs_entry_t *out_entry)
+static gfx_err_t gfx_fs_mmap_open_by_name(gfx_asset_source_t *fs, const char *name, gfx_fs_entry_t *out_entry)
 {
     gfx_fs_mmap_backend_t *backend = (gfx_fs_mmap_backend_t *)fs->backend_data;
 
@@ -177,7 +177,7 @@ static void gfx_fs_mmap_entry_close(gfx_fs_entry_t *entry)
     }
 }
 
-static void gfx_fs_mmap_fs_close(gfx_fs_t *fs)
+static void gfx_fs_mmap_fs_close(gfx_asset_source_t *fs)
 {
     gfx_fs_mmap_backend_t *backend;
 
@@ -201,7 +201,7 @@ static const gfx_fs_vtable_t s_gfx_fs_mmap_vtable = {
     .fs_close = gfx_fs_mmap_fs_close,
 };
 
-static gfx_err_t gfx_fs_vfs_open_by_name(gfx_fs_t *fs, const char *name, gfx_fs_entry_t *out_entry)
+static gfx_err_t gfx_fs_vfs_open_by_name(gfx_asset_source_t *fs, const char *name, gfx_fs_entry_t *out_entry)
 {
     gfx_fs_vfs_backend_t *backend = (gfx_fs_vfs_backend_t *)fs->backend_data;
     gfx_fs_vfs_entry_t *state = NULL;
@@ -294,7 +294,7 @@ static void gfx_fs_vfs_entry_close(gfx_fs_entry_t *entry)
     free(state);
 }
 
-static void gfx_fs_vfs_fs_close(gfx_fs_t *fs)
+static void gfx_fs_vfs_fs_close(gfx_asset_source_t *fs)
 {
     if (fs == NULL) {
         return;
@@ -314,9 +314,9 @@ static const gfx_fs_vtable_t s_gfx_fs_vfs_vtable = {
 };
 
 gfx_err_t gfx_fs_open_partition_port(const char *partition_label, gfx_fs_access_mode_t access_mode,
-                                     gfx_fs_t **out_fs)
+                                     gfx_asset_source_t **out_fs)
 {
-    gfx_fs_t *fs = NULL;
+    gfx_asset_source_t *fs = NULL;
     gfx_fs_mmap_backend_t *backend = NULL;
     esp_err_t ret;
     bool direct_mem = access_mode == GFX_FS_ACCESS_DIRECT;
@@ -369,9 +369,9 @@ gfx_err_t gfx_fs_open_partition_port(const char *partition_label, gfx_fs_access_
     return GFX_OK;
 }
 
-gfx_err_t gfx_fs_open_pack_file_port(const char *file_path, gfx_fs_t **out_fs)
+gfx_err_t gfx_fs_open_pack_file_port(const char *file_path, gfx_asset_source_t **out_fs)
 {
-    gfx_fs_t *fs = NULL;
+    gfx_asset_source_t *fs = NULL;
     gfx_fs_mmap_backend_t *backend = NULL;
     esp_err_t ret;
     const mmap_assets_config_t mmap_config = {
@@ -420,9 +420,9 @@ gfx_err_t gfx_fs_open_pack_file_port(const char *file_path, gfx_fs_t **out_fs)
     return GFX_OK;
 }
 
-gfx_err_t gfx_fs_open_dir_port(const char *root_dir, gfx_fs_t **out_fs)
+gfx_err_t gfx_fs_open_dir_port(const char *root_dir, gfx_asset_source_t **out_fs)
 {
-    gfx_fs_t *fs = NULL;
+    gfx_asset_source_t *fs = NULL;
     gfx_fs_vfs_backend_t *backend = NULL;
 
     if (root_dir == NULL || out_fs == NULL) {

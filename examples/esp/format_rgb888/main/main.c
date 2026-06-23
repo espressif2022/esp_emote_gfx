@@ -12,21 +12,25 @@
 
 static const char *const TAG = "gfx888";
 
-static gfx_fs_t *s_assets_fs;
+static gfx_asset_source_t *s_assets_fs;
 
 static void init_format_demo_assets(void)
 {
-    gfx_err_t err = gfx_fs_open(&(gfx_fs_open_config_t) {
-        .source_type = GFX_FS_SOURCE_PARTITION,
-        .access_mode = GFX_FS_ACCESS_DIRECT,
-        .path_or_label = "assets_test",
-    }, &s_assets_fs);
+    gfx_err_t err = gfx_fs_open_partition("assets_test", &s_assets_fs);
     if (err != GFX_OK) {
         ESP_LOGW(TAG, "assets_test open failed: %d; flash full project including assets_test.bin", err);
         return;
     }
 
     ESP_ERROR_CHECK(gfx_format_demo_set_asset_fs(s_assets_fs));
+}
+
+static void init_loose_assets(void)
+{
+    gfx_err_t err = gfx_format_demo_mount_loose_assets();
+    if (err != GFX_OK) {
+        ESP_LOGW(TAG, "loose assets mount failed: %d; SPIFFS clips will be skipped", err);
+    }
 }
 
 void app_main(void)
@@ -40,5 +44,6 @@ void app_main(void)
     };
 
     init_format_demo_assets();
+    init_loose_assets();
     ESP_ERROR_CHECK(gfx_format_demo_app_run(&config));
 }

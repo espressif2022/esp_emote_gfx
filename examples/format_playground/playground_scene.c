@@ -14,6 +14,14 @@
 #include "playground_scene.h"
 #include "playground_scene_priv.h"
 
+#define GFX_FORMAT_DEMO_LOOSE_MOUNT_PREFIX  "/spiffs"
+#define GFX_FORMAT_DEMO_LOOSE_HOST_ROOT     "examples/esp/format_rgb565/spiffs_anim"
+#define GFX_FORMAT_DEMO_SPIFFS_PARTITION    "storage"
+
+#ifndef GFX_HOST_BUILD
+#include "esp_spiffs.h"
+#endif
+
 #define DEMO_PREVIEW_X              276
 #define DEMO_PREVIEW_BUTTON_W       190
 #define DEMO_PREVIEW_BUTTON_H        42
@@ -24,15 +32,53 @@ extern const lv_font_t font_puhui_16_4;
 
 static format_playground_scene_t s_scene;
 
-static gfx_fs_t *s_demo_asset_fs;
+static gfx_asset_source_t *s_demo_asset_fs;
+static gfx_asset_source_t *s_demo_loose_fs;
 
-gfx_err_t gfx_format_demo_set_asset_fs(gfx_fs_t *fs)
+gfx_err_t gfx_format_demo_set_asset_fs(gfx_asset_source_t *fs)
 {
     if (fs != s_demo_asset_fs) {
         s_demo_asset_fs = fs;
-        gfx_fs_set_default(fs);
+        (void)gfx_fs_mount("", fs);
     }
     return GFX_OK;
+}
+
+gfx_err_t gfx_format_demo_mount_loose_assets(void)
+{
+    gfx_err_t err;
+
+    if (s_demo_loose_fs != NULL) {
+        return GFX_OK;
+    }
+
+#ifndef GFX_HOST_BUILD
+    if (!esp_spiffs_mounted(GFX_FORMAT_DEMO_SPIFFS_PARTITION)) {
+        const esp_vfs_spiffs_conf_t spiffs_conf = {
+            .base_path = GFX_FORMAT_DEMO_LOOSE_MOUNT_PREFIX,
+            .partition_label = GFX_FORMAT_DEMO_SPIFFS_PARTITION,
+            .max_files = 4,
+            .format_if_mount_failed = false,
+        };
+        esp_err_t esp_err = esp_vfs_spiffs_register(&spiffs_conf);
+        if (esp_err != ESP_OK) {
+            return GFX_FAIL;
+        }
+    }
+    err = gfx_fs_open_dir(GFX_FORMAT_DEMO_LOOSE_MOUNT_PREFIX, &s_demo_loose_fs);
+#else
+    err = gfx_fs_open_dir(GFX_FORMAT_DEMO_LOOSE_HOST_ROOT, &s_demo_loose_fs);
+#endif
+    if (err != GFX_OK) {
+        return err;
+    }
+
+    err = gfx_fs_mount(GFX_FORMAT_DEMO_LOOSE_MOUNT_PREFIX, s_demo_loose_fs);
+    if (err != GFX_OK) {
+        gfx_fs_close(s_demo_loose_fs);
+        s_demo_loose_fs = NULL;
+    }
+    return err;
 }
 
 static gfx_err_t demo_apply(gfx_err_t err)

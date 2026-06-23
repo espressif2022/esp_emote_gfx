@@ -19,17 +19,12 @@ struct gfx_fs_file {
     size_t pos;
 };
 
-typedef struct {
-    gfx_fs_file_t *file;
-    uint8_t *owned;
-} gfx_fs_blob_holder_t;
-
 static gfx_fs_file_t *gfx_fs_file_alloc(void)
 {
     return calloc(1, sizeof(gfx_fs_file_t));
 }
 
-static gfx_fs_file_t *gfx_fs_file_open_fs(gfx_fs_t *fs, const char *name)
+static gfx_fs_file_t *gfx_fs_file_open_fs(gfx_asset_source_t *fs, const char *name)
 {
     gfx_fs_file_t *file;
     gfx_err_t err;
@@ -44,7 +39,7 @@ static gfx_fs_file_t *gfx_fs_file_open_fs(gfx_fs_t *fs, const char *name)
     }
 
     err = gfx_fs_entry_open_by_name(fs, name, &file->entry);
-    if (err != GFX_OK || file->entry.data == NULL || file->entry.size == 0U) {
+    if (err != GFX_OK || file->entry.data == NULL) {
         gfx_fs_entry_close(&file->entry);
         free(file);
         return NULL;
@@ -87,9 +82,9 @@ static gfx_fs_file_t *gfx_fs_file_open_stdio(const char *name)
 
 gfx_err_t gfx_fs_blob_take_file(gfx_fs_file_t *file, gfx_fs_blob_t *out_blob)
 {
-    gfx_fs_blob_holder_t *holder;
     const void *direct;
     size_t size;
+    uint8_t *owned;
 
     if (out_blob != NULL) {
         memset(out_blob, 0, sizeof(*out_blob));
@@ -103,35 +98,31 @@ gfx_err_t gfx_fs_blob_take_file(gfx_fs_file_t *file, gfx_fs_blob_t *out_blob)
         return GFX_ERR_INVALID_SIZE;
     }
 
-    holder = calloc(1, sizeof(*holder));
-    if (holder == NULL) {
-        return GFX_ERR_NO_MEM;
-    }
-
     direct = gfx_fs_fdata(file);
     if (direct != NULL) {
-        holder->file = file;
-        out_blob->data = direct;
-        out_blob->size = size;
-        out_blob->_holder = holder;
+        /* Zero-copy path: keep file open and serve data directly from it. */
+        out_blob->data     = direct;
+        out_blob->size     = size;
+        out_blob->_priv[0] = file;  /* file handle kept alive */
+        out_blob->_priv[1] = NULL;
         return GFX_OK;
     }
 
-    holder->owned = gfx_platform_aligned_alloc(16, size, GFX_PLATFORM_HEAP_DEFAULT);
-    if (holder->owned == NULL) {
-        free(holder);
+    /* Copy path: read into an aligned heap buffer, then release the file. */
+    owned = gfx_platform_aligned_alloc(16, size, GFX_PLATFORM_HEAP_DEFAULT);
+    if (owned == NULL) {
         return GFX_ERR_NO_MEM;
     }
-    if (gfx_fs_fread(file, holder->owned, size) != size) {
-        gfx_platform_free(holder->owned);
-        free(holder);
+    if (gfx_fs_fread(file, owned, size) != size) {
+        gfx_platform_free(owned);
         return GFX_FAIL;
     }
 
     gfx_fs_fclose(file);
-    out_blob->data = holder->owned;
-    out_blob->size = size;
-    out_blob->_holder = holder;
+    out_blob->data     = owned;
+    out_blob->size     = size;
+    out_blob->_priv[0] = NULL;
+    out_blob->_priv[1] = owned;  /* owned heap buffer */
     return GFX_OK;
 }
 
@@ -161,40 +152,36 @@ gfx_err_t gfx_fs_load(const char *name, gfx_fs_blob_t *out_blob)
 
 void gfx_fs_unload(gfx_fs_blob_t *blob)
 {
-    gfx_fs_blob_holder_t *holder;
-
     if (blob == NULL) {
         return;
     }
 
-    holder = (gfx_fs_blob_holder_t *)blob->_holder;
-    if (holder != NULL) {
-        gfx_fs_fclose(holder->file);
-        gfx_platform_free(holder->owned);
-        free(holder);
-    }
+    gfx_fs_fclose((gfx_fs_file_t *)blob->_priv[0]);  /* NULL-safe */
+    gfx_platform_free(blob->_priv[1]);                /* NULL-safe */
     memset(blob, 0, sizeof(*blob));
 }
 
 gfx_fs_file_t *gfx_fs_fopen(const char *name)
 {
     gfx_fs_file_t *file;
-    gfx_fs_t *fs;
+    gfx_asset_source_t *fs;
+    const char *subname;
 
     if (name == NULL) {
         return NULL;
     }
 
-    fs = gfx_fs_get_default();
-    file = gfx_fs_file_open_fs(fs, name);
-    if (file != NULL) {
-        return file;
+    if (gfx_fs_resolve_mount(name, &fs, &subname)) {
+        file = gfx_fs_file_open_fs(fs, subname);
+        if (file != NULL) {
+            return file;
+        }
     }
 
     return gfx_fs_file_open_stdio(name);
 }
 
-gfx_fs_file_t *gfx_fs_fopen_from(gfx_fs_t *fs, const char *name)
+gfx_fs_file_t *gfx_fs_fopen_from(gfx_asset_source_t *fs, const char *name)
 {
     return gfx_fs_file_open_fs(fs, name);
 }

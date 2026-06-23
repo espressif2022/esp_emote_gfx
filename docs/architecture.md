@@ -335,15 +335,15 @@ GFX keeps ESP-IDF types and headers out of portable core code:
 CI runs `scripts/check_no_esp_in_src.sh` to enforce: no `#include "esp_*"` under
 `src/` except `src/platform/esp_idf/`.
 
-### Host Sim and Examples Layout
+### Host Simulation and Examples Layout
 
 | Path | Purpose |
 | --- | --- |
-| `simulation/host/` | Host executables (`gfx_host_sdl_demo`, `gfx_host_expression_demo`); expression uses `emote_port.h` on host |
+| `simulation/host/` | Host executables and smoke tests (`gfx_host_sdl_demo`, `gfx_host_*_smoke`) |
 | `simulation/port/include/` | Minimal host shims (`lvgl.h`, `sdkconfig.h`) |
 | `examples/format_playground/` | Shared widget/format playground UI (host + ESP board demos) |
-| `examples/assets/` | Demo binary assets |
-| `examples/expression/` | Expression demo assets (`GFX_EXPRESSION_FS_ROOT` default) |
+| `examples/assets/format/` | Format playground binary assets |
+| `examples/assets/fonts/` | Font fixtures used by host smoke tests |
 | `examples/esp/` | ESP-IDF board projects (`format_rgb565`, `format_rgb888`) |
 | `test_apps/main/` | Unity conformance only |
 

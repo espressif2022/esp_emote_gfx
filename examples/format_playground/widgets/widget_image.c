@@ -9,21 +9,6 @@
 #include <stdio.h>
 
 #include "common/gfx_check.h"
-#ifndef GFX_HOST_BUILD
-#define GFX_LOG_MODULE GFX_LOG_MODULE_CORE
-#include "common/gfx_log_priv.h"
-#include "esp_spiffs.h"
-#endif
-
-#define DEMO_SPIFFS_IMAGE_PARTITION "storage"
-#define DEMO_SPIFFS_IMAGE_MOUNT     "/spiffs"
-#ifdef GFX_HOST_BUILD
-#define DEMO_FILE_IMAGE_MOUNT       "examples/esp/format_rgb565/spiffs_anim"
-#else
-#define DEMO_FILE_IMAGE_MOUNT       DEMO_SPIFFS_IMAGE_MOUNT
-#endif
-
-static const char *const TAG_IMAGE = "image";
 
 const char *const gfx_format_demo_flow_image_names[DEMO_CARD_COUNT] = {
     "flow_misty_ridge.jpg",
@@ -41,14 +26,13 @@ typedef struct {
 
 /*
  * Image clips for the preview. Plain names resolve through the default mmap
- * asset fs; "/spiffs/..." paths fall back to normal filesystem reads.
- * Switching index just updates the file source path.
+ * asset fs; "/spiffs/..." paths resolve through the loose-asset mount.
  */
 static const demo_image_clip_t s_image_clips[] = {
     { .name = "Format Probe", .path = "flow_format_probe.jpg", .mode = "mmap JPEG" },
     { .name = "Warm Harbor",  .path = "flow_warm_harbor.jpg", .mode = "mmap JPEG" },
     { .name = "Night Lake",   .path = "flow_night_lake.jpg", .mode = "mmap JPEG" },
-    { .name = "File Trail",   .path = DEMO_FILE_IMAGE_MOUNT "/flow_quiet_trail.jpg", .mode = "file JPEG" },
+    { .name = "File Trail",   .path = "/spiffs/flow_quiet_trail.jpg", .mode = "file JPEG" },
 };
 
 #define DEMO_IMAGE_CLIP_COUNT (sizeof(s_image_clips) / sizeof(s_image_clips[0]))
@@ -80,27 +64,6 @@ const char *gfx_format_demo_image_clip_note(void)
         demo_update_image_note(s_image_index);
     }
     return s_image_note;
-}
-
-static void demo_mount_spiffs_assets(void)
-{
-#ifndef GFX_HOST_BUILD
-    /* The anim widget mounts the same partition too; skip if already mounted. */
-    if (esp_spiffs_mounted(DEMO_SPIFFS_IMAGE_PARTITION)) {
-        return;
-    }
-    const esp_vfs_spiffs_conf_t spiffs_conf = {
-        .base_path = DEMO_SPIFFS_IMAGE_MOUNT,
-        .partition_label = DEMO_SPIFFS_IMAGE_PARTITION,
-        .max_files = 4,
-        .format_if_mount_failed = false,
-    };
-    gfx_err_t err = esp_vfs_spiffs_register(&spiffs_conf);
-    if (err != GFX_OK) {
-        GFX_LOGW(TAG_IMAGE, "spiffs mount failed: %s; SPIFFS clip will be skipped",
-                 "(err)");
-    }
-#endif
 }
 
 static gfx_err_t demo_load_image_clip(format_playground_scene_t *scene, size_t index)
@@ -140,8 +103,6 @@ gfx_err_t gfx_format_demo_next_image_clip(format_playground_scene_t *scene)
 gfx_err_t gfx_format_demo_build_image_demo(format_playground_scene_t *scene)
 {
     gfx_object_t *obj;
-
-    demo_mount_spiffs_assets();
 
     obj = gfx_image_create(scene->disp);
     GFX_RETURN_ON_FALSE(obj != NULL, GFX_ERR_INVALID_ARG, "playground", "create image demo failed");
