@@ -62,7 +62,7 @@ static void gfx_callback_backend_destroy(gfx_backend_t *backend)
     free(backend);
 }
 
-static const gfx_backend_vtable_t s_callback_backend_vtable = {
+static const gfx_backend_ops_t s_callback_backend_ops = {
     .flush = gfx_callback_backend_flush,
     .wait_flush = gfx_callback_backend_wait_flush,
     .destroy = gfx_callback_backend_destroy,
@@ -91,20 +91,20 @@ gfx_err_t gfx_backend_flush(gfx_display_t *disp,
                             gfx_coord_t x2, gfx_coord_t y2,
                             const void *pixels, gfx_coord_t stride)
 {
-    if (disp == NULL || disp->backend == NULL || disp->backend->vtable == NULL ||
-            disp->backend->vtable->flush == NULL) {
+    if (disp == NULL || disp->backend == NULL || disp->backend->ops == NULL ||
+            disp->backend->ops->flush == NULL) {
         return GFX_OK;
     }
-    return disp->backend->vtable->flush(disp->backend, disp, x1, y1, x2, y2, pixels, stride);
+    return disp->backend->ops->flush(disp->backend, disp, x1, y1, x2, y2, pixels, stride);
 }
 
 gfx_err_t gfx_backend_wait_flush(gfx_display_t *disp)
 {
-    if (disp == NULL || disp->backend == NULL || disp->backend->vtable == NULL ||
-            disp->backend->vtable->wait_flush == NULL) {
+    if (disp == NULL || disp->backend == NULL || disp->backend->ops == NULL ||
+            disp->backend->ops->wait_flush == NULL) {
         return GFX_OK;
     }
-    return disp->backend->vtable->wait_flush(disp->backend, disp);
+    return disp->backend->ops->wait_flush(disp->backend, disp);
 }
 
 void gfx_backend_destroy(gfx_backend_t *backend)
@@ -112,8 +112,8 @@ void gfx_backend_destroy(gfx_backend_t *backend)
     if (backend == NULL) {
         return;
     }
-    if (backend->vtable != NULL && backend->vtable->destroy != NULL) {
-        backend->vtable->destroy(backend);
+    if (backend->ops != NULL && backend->ops->destroy != NULL) {
+        backend->ops->destroy(backend);
         return;
     }
     free(backend);
@@ -167,7 +167,7 @@ gfx_render_alignment_t gfx_backend_get_alignment(const gfx_backend_t *backend)
     return alignment;
 }
 
-gfx_backend_t *gfx_backend_create_custom(const gfx_backend_vtable_t *vtable,
+gfx_backend_t *gfx_backend_create_custom(const gfx_backend_ops_t *ops,
         const gfx_draw_ops_t *draw_ops,
         gfx_render_alignment_t alignment,
         uint32_t caps,
@@ -175,8 +175,8 @@ gfx_backend_t *gfx_backend_create_custom(const gfx_backend_vtable_t *vtable,
 {
     gfx_backend_t *backend;
 
-    if (vtable == NULL && draw_ops == NULL) {
-        GFX_LOGE(TAG, "custom backend create: vtable and draw_ops are NULL");
+    if (ops == NULL && draw_ops == NULL) {
+        GFX_LOGE(TAG, "custom backend create: ops and draw_ops are NULL");
         return NULL;
     }
 
@@ -186,7 +186,7 @@ gfx_backend_t *gfx_backend_create_custom(const gfx_backend_vtable_t *vtable,
         return NULL;
     }
 
-    backend->vtable = vtable;
+    backend->ops = ops;
     backend->draw_ops = draw_ops;
     backend->alignment = gfx_backend_get_alignment(&(gfx_backend_t) {
         .alignment = alignment,
@@ -208,7 +208,7 @@ gfx_backend_t *gfx_callback_backend_create(gfx_display_flush_cb_t flush_cb,
         return NULL;
     }
 
-    backend->base.vtable = &s_callback_backend_vtable;
+    backend->base.ops = &s_callback_backend_ops;
     backend->base.draw_ops = draw_ops;
     backend->base.caps = GFX_BACKEND_CAP_FLUSH | draw_caps;
     backend->base.alignment = gfx_backend_merge_alignment(gfx_backend_get_alignment(NULL),

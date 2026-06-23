@@ -8,12 +8,7 @@
 
 #include "common/gfx_check.h"
 #include "gfx.h"
-
-#if GFX_HOST_BUILD
-#include "gfx_host_font.h"
-#else
 #include "lvgl.h"
-#endif
 
 #include "claw_motion.inc"
 #include "playground_scene.h"
@@ -25,9 +20,7 @@
 #define DEMO_PREVIEW_BOTTOM_MARGIN   22
 #define DEMO_PREVIEW_FPS_W          150
 
-#if !GFX_HOST_BUILD
 extern const lv_font_t font_puhui_16_4;
-#endif
 
 static format_playground_scene_t s_scene;
 
@@ -315,11 +308,7 @@ gfx_err_t gfx_format_demo_build_playground_scene(gfx_display_t *disp, const char
 
     memset(&s_scene, 0, sizeof(s_scene));
     s_scene.disp = disp;
-#if GFX_HOST_BUILD
-    s_scene.font = gfx_host_font_default();
-#else
     s_scene.font = (gfx_font_t)&font_puhui_16_4;
-#endif
     s_scene.format_tag = format_tag;
 
     hres = gfx_display_get_h_res(disp);

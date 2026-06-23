@@ -20,6 +20,7 @@ if(COMMAND idf_component_register)
     )
 
     set(GFX_IDF_REQUIRES
+        esp_lcd
         esp_partition
         esp_timer
     )
@@ -58,7 +59,10 @@ if(NOT EXISTS "${GFX_HEATSHRINK_ROOT}/heatshrink_decoder.c")
     set(GFX_HEATSHRINK_ROOT "${CMAKE_CURRENT_LIST_DIR}/managed_components/laride__heatshrink")
 endif()
 if(NOT EXISTS "${GFX_HEATSHRINK_ROOT}/heatshrink_decoder.c")
-    message(FATAL_ERROR "heatshrink not found; run idf.py in test_apps/ to fetch managed_components")
+    set(GFX_HEATSHRINK_ROOT "${CMAKE_CURRENT_LIST_DIR}/examples/esp/format_rgb565/managed_components/laride__heatshrink")
+endif()
+if(NOT EXISTS "${GFX_HEATSHRINK_ROOT}/heatshrink_decoder.c")
+    message(FATAL_ERROR "heatshrink not found; build an ESP example first to fetch managed_components")
 endif()
 
 set(GFX_HOST_CORE_SRCS
@@ -184,7 +188,18 @@ if(GFX_BUILD_HOST_SDL)
     endif()
     target_link_libraries(gfx_backend_sdl PUBLIC gfx_host_core ${GFX_SDL_TARGET} ${GFX_SDL_LIBRARIES})
 
+    add_library(gfx_host_runner STATIC "sim/host/gfx_host_runner.c")
+    target_include_directories(gfx_host_runner
+        PUBLIC
+            "include"
+            "sim/host"
+    )
+    target_compile_features(gfx_host_runner PUBLIC c_std_11)
+    target_link_libraries(gfx_host_runner PUBLIC gfx_host_core gfx_backend_sdl)
+
     set(GFX_FORMAT_DEMO_SRCS
+        "examples/common/gfx_display_port.c"
+        "examples/format_playground/assets/font_puhui_16_4.c"
         "examples/format_playground/playground_scene.c"
         "examples/format_playground/widgets/widget_anim.c"
         "examples/format_playground/widgets/widget_button.c"
@@ -207,68 +222,12 @@ if(GFX_BUILD_HOST_SDL)
             "src"
             "sim/host"
             "sim/port/include"
+            "examples/common"
             "examples/format_playground"
             "examples/motion"
     )
     target_compile_features(gfx_host_sdl_demo PRIVATE c_std_11)
-    target_link_libraries(gfx_host_sdl_demo PRIVATE gfx_host_core gfx_backend_sdl)
-
-    # Shared esp_emote_expression tree for ESP-IDF (override_path) and host SDL builds.
-    set(GFX_EXPRESSION_ROOT "${CMAKE_CURRENT_LIST_DIR}/../esp_emote_expression" CACHE PATH
-        "esp_emote_expression source tree (single source for device + host SDL)")
-
-    set(GFX_CJSON_ROOT "${GFX_EXPRESSION_ROOT}/third_party/cjson")
-
-    if(EXISTS "${GFX_EXPRESSION_ROOT}/src/emote_init.c")
-        set(GFX_EXPRESSION_FONT_SRCS "sim/host/expression/gfx_host_expression_fonts.c")
-        if(EXISTS "${GFX_EXPRESSION_ROOT}/src/default_assets/font_puhui_basic_20_4.c")
-            set(GFX_EXPRESSION_FONT_SRCS
-                "${GFX_EXPRESSION_ROOT}/src/default_assets/font_maison_neue_book_12.c"
-                "${GFX_EXPRESSION_ROOT}/src/default_assets/font_maison_neue_book_26.c"
-                "${GFX_EXPRESSION_ROOT}/src/default_assets/font_puhui_basic_20_4.c"
-            )
-        endif()
-        set(GFX_HOST_EXPRESSION_SRCS
-            "${GFX_EXPRESSION_ROOT}/src/emote_init.c"
-            "${GFX_EXPRESSION_ROOT}/src/emote_load.c"
-            "${GFX_EXPRESSION_ROOT}/src/emote_op.c"
-            "${GFX_EXPRESSION_ROOT}/src/emote_setup.c"
-            "${GFX_CJSON_ROOT}/cJSON.c"
-            ${GFX_EXPRESSION_FONT_SRCS}
-        )
-
-        message(STATUS "gfx_host_expression source: ${GFX_EXPRESSION_ROOT}")
-
-        add_library(gfx_host_expression STATIC ${GFX_HOST_EXPRESSION_SRCS})
-        target_include_directories(gfx_host_expression
-            PUBLIC
-                "${GFX_EXPRESSION_ROOT}/include"
-            PRIVATE
-                "include"
-                "src"
-                "sim/port/include"
-                "${GFX_EXPRESSION_ROOT}/priv_include"
-                "${GFX_CJSON_ROOT}"
-        )
-        target_compile_features(gfx_host_expression PUBLIC c_std_11)
-        target_link_libraries(gfx_host_expression PUBLIC gfx_host_core)
-
-        add_executable(gfx_host_expression_demo
-            "sim/host/expression/gfx_host_expression_demo.c"
-        )
-        target_include_directories(gfx_host_expression_demo
-            PRIVATE
-                "include"
-                "src"
-                "sim/port/include"
-                "${GFX_EXPRESSION_ROOT}/include"
-                "${GFX_EXPRESSION_ROOT}/priv_include"
-        )
-        target_compile_features(gfx_host_expression_demo PRIVATE c_std_11)
-        target_link_libraries(gfx_host_expression_demo PRIVATE gfx_host_expression gfx_backend_sdl)
-    else()
-        message(STATUS "Skipping gfx_host_expression_demo: ${GFX_EXPRESSION_ROOT} not found")
-    endif()
+    target_link_libraries(gfx_host_sdl_demo PRIVATE gfx_host_core gfx_backend_sdl gfx_host_runner)
 
     add_executable(gfx_host_fs_smoke "sim/host/gfx_host_fs_smoke.c")
     target_include_directories(gfx_host_fs_smoke PRIVATE "include" "src")

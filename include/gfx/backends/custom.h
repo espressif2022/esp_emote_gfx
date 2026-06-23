@@ -80,10 +80,10 @@ typedef struct {
     gfx_custom_backend_flush_fn_t flush;
     gfx_custom_backend_wait_flush_fn_t wait_flush;
     gfx_custom_backend_destroy_fn_t destroy;
-} gfx_custom_backend_vtable_t;
+} gfx_custom_backend_ops_t;
 
 typedef struct {
-    const gfx_custom_backend_vtable_t *vtable;
+    const gfx_custom_backend_ops_t *ops;
     const gfx_custom_backend_draw_ops_t *draw_ops;
     gfx_custom_backend_alignment_t alignment;
     uint32_t caps;

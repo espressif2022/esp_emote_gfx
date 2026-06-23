@@ -17,8 +17,8 @@ GFX_STATIC_ASSERT(sizeof(gfx_custom_backend_surface_t) == sizeof(gfx_backend_sur
                   backend_surface_layout);
 GFX_STATIC_ASSERT(sizeof(gfx_custom_backend_image_t) == sizeof(gfx_backend_image_t),
                   backend_image_layout);
-GFX_STATIC_ASSERT(sizeof(gfx_custom_backend_vtable_t) == sizeof(gfx_backend_vtable_t),
-                  backend_vtable_layout);
+GFX_STATIC_ASSERT(sizeof(gfx_custom_backend_ops_t) == sizeof(gfx_backend_ops_t),
+                  backend_ops_layout);
 GFX_STATIC_ASSERT(sizeof(gfx_custom_backend_draw_ops_t) == sizeof(gfx_draw_ops_t),
                   backend_draw_ops_layout);
 
@@ -28,7 +28,7 @@ gfx_backend_t *gfx_custom_backend_create(const gfx_custom_backend_config_t *cfg)
         return NULL;
     }
 
-    return gfx_backend_create_custom((const gfx_backend_vtable_t *)cfg->vtable,
+    return gfx_backend_create_custom((const gfx_backend_ops_t *)cfg->ops,
                                      (const gfx_draw_ops_t *)cfg->draw_ops,
                                      *(const gfx_render_alignment_t *)&cfg->alignment,
                                      cfg->caps,

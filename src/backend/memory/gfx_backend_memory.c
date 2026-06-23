@@ -170,7 +170,7 @@ static void gfx_memory_backend_destroy_impl(gfx_backend_t *backend)
     free(mem);
 }
 
-static const gfx_backend_vtable_t s_memory_backend_vtable = {
+static const gfx_backend_ops_t s_memory_backend_ops = {
     .flush = gfx_memory_backend_flush_impl,
     .wait_flush = gfx_memory_backend_wait_flush_impl,
     .destroy = gfx_memory_backend_destroy_impl,
@@ -198,7 +198,7 @@ gfx_backend_t *gfx_memory_backend_create(const gfx_memory_backend_config_t *cfg)
     uint32_t draw_caps = gfx_platform_accel_get_caps();
     GFX_RETURN_ON_FALSE(mem != NULL, NULL, TAG, "create: no mem for backend");
 
-    mem->base.vtable = &s_memory_backend_vtable;
+    mem->base.ops = &s_memory_backend_ops;
     mem->base.draw_ops = draw_ops;
     mem->base.caps = GFX_BACKEND_CAP_FLUSH | draw_caps;
     mem->base.alignment = gfx_memory_backend_merge_alignment(gfx_backend_get_alignment(NULL),

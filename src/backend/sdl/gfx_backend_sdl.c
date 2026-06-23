@@ -301,7 +301,7 @@ static void s_destroy(gfx_backend_t *backend)
     free(sdl);
 }
 
-static const gfx_backend_vtable_t s_sdl_backend_vtable = {
+static const gfx_backend_ops_t s_sdl_backend_ops = {
     .flush = s_flush,
     .wait_flush = s_wait_flush,
     .destroy = s_destroy,
@@ -391,7 +391,7 @@ gfx_backend_t *gfx_backend_sdl_create(const gfx_backend_sdl_config_t *cfg)
         return NULL;
     }
 
-    sdl->base.vtable = &s_sdl_backend_vtable;
+    sdl->base.ops = &s_sdl_backend_ops;
     sdl->base.caps = GFX_BACKEND_CAP_FLUSH | GFX_BACKEND_CAP_PRESENT;
     sdl->base.alignment = gfx_backend_get_alignment(NULL);
     return &sdl->base;
@@ -402,7 +402,7 @@ void gfx_backend_sdl_delete(gfx_backend_t *backend)
     gfx_backend_destroy(backend);
 }
 
-bool gfx_backend_sdl_poll(gfx_display_t *disp)
+bool gfx_backend_sdl_poll_events(gfx_display_t *disp)
 {
     SDL_Event event;
 
@@ -440,6 +440,16 @@ bool gfx_backend_sdl_poll(gfx_display_t *disp)
             s_handle_mouse_motion(disp, event.motion.x, event.motion.y);
         }
 #endif
+    }
+
+    return false;
+}
+
+bool gfx_backend_sdl_poll(gfx_display_t *disp)
+{
+    bool quit = gfx_backend_sdl_poll_events(disp);
+    if (quit) {
+        return true;
     }
 
     if (disp != NULL && disp->ctx != NULL && ((gfx_core_context_t *)disp->ctx)->manual_tick) {

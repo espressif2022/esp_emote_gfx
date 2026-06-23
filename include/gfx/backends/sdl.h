@@ -57,6 +57,19 @@ void gfx_backend_sdl_delete(gfx_backend_t *backend);
 bool gfx_backend_sdl_poll(gfx_display_t *display);
 
 /**
+ * @brief Poll SDL window events and dispatch mouse input without ticking GFX.
+ *
+ * Host runners that own the frame loop should call this and then advance
+ * gfx_core_tick() themselves. gfx_backend_sdl_poll() remains as the legacy
+ * convenience helper that also ticks manual-tick displays.
+ *
+ * @param display Display that should receive simulated touch events, or NULL to
+ *                only process window/keyboard events.
+ * @return true when the user requested quit, false otherwise.
+ */
+bool gfx_backend_sdl_poll_events(gfx_display_t *display);
+
+/**
  * @brief Poll SDL window events without a display.
  * @return true when the user requested quit, false otherwise.
  */

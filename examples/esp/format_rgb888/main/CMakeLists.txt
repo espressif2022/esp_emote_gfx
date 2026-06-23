@@ -1,6 +1,7 @@
 idf_component_register(
     SRCS
         "main.c"
+        "../../../common/gfx_display_port.c"
         "../../../format_playground/format_demo_app.c"
         "../../../format_playground/playground_scene.c"
         "../../../format_playground/widgets/widget_button.c"
@@ -13,7 +14,7 @@ idf_component_register(
         "../../../format_playground/widgets/widget_pageflow.c"
         "../../../format_playground/widgets/widget_wheel.c"
         "../../../format_playground/assets/font_puhui_16_4.c"
-    INCLUDE_DIRS "." "../../../format_playground" "../../../motion" "../../../../src"
+    INCLUDE_DIRS "." "../../../common" "../../../format_playground" "../../../motion" "../../../../src"
 )
 
 set(DIR_TEST "${PROJECT_DIR}/../../assets/format")

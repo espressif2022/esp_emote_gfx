@@ -105,7 +105,7 @@ static gfx_err_t test_backend_blend(gfx_backend_t *backend, gfx_display_t *disp,
     return GFX_OK;
 }
 
-static const gfx_backend_vtable_t s_test_backend_vtable = {
+static const gfx_backend_ops_t s_test_backend_ops = {
     .flush = test_backend_flush,
     .wait_flush = test_backend_wait_flush,
     .destroy = test_backend_destroy,
@@ -124,7 +124,7 @@ static test_backend_t *test_backend_create(gfx_render_alignment_t alignment)
         return NULL;
     }
 
-    backend->base.vtable = &s_test_backend_vtable;
+    backend->base.ops = &s_test_backend_ops;
     backend->base.draw_ops = &s_test_draw_ops;
     backend->base.alignment = alignment;
     backend->base.caps = GFX_BACKEND_CAP_FLUSH | GFX_BACKEND_CAP_FILL |

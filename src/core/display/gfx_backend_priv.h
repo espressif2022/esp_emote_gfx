@@ -82,10 +82,10 @@ typedef struct {
                        const void *pixels, gfx_coord_t stride);
     gfx_err_t (*wait_flush)(gfx_backend_t *backend, gfx_display_t *disp);
     void (*destroy)(gfx_backend_t *backend);
-} gfx_backend_vtable_t;
+} gfx_backend_ops_t;
 
 struct gfx_backend {
-    const gfx_backend_vtable_t *vtable;
+    const gfx_backend_ops_t *ops;
     const gfx_draw_ops_t *draw_ops;
     gfx_render_alignment_t alignment;
     uint32_t caps;
@@ -107,7 +107,7 @@ uint32_t gfx_backend_get_caps(const gfx_backend_t *backend);
 bool gfx_backend_has_caps(const gfx_backend_t *backend, uint32_t caps);
 const gfx_draw_ops_t *gfx_backend_get_draw_ops(const gfx_backend_t *backend);
 gfx_render_alignment_t gfx_backend_get_alignment(const gfx_backend_t *backend);
-gfx_backend_t *gfx_backend_create_custom(const gfx_backend_vtable_t *vtable,
+gfx_backend_t *gfx_backend_create_custom(const gfx_backend_ops_t *ops,
         const gfx_draw_ops_t *draw_ops,
         gfx_render_alignment_t alignment,
         uint32_t caps,

@@ -56,14 +56,10 @@ gfx_err_t gfx_fs_open(const gfx_fs_open_config_t *config, gfx_fs_t **out_fs)
 #endif
 
     case GFX_FS_SOURCE_PACK_FILE:
-#if GFX_HOST_BUILD
-        return gfx_fs_open_unsupported(out_fs);
-#else
         if (config->access_mode != GFX_FS_ACCESS_COPY) {
             return GFX_ERR_INVALID_ARG;
         }
         return gfx_fs_open_pack_file_port(config->path_or_label, out_fs);
-#endif
 
     default:
         return GFX_ERR_INVALID_ARG;

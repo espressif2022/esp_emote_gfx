@@ -46,11 +46,9 @@ typedef struct {
 /* Backend constructors implemented per platform. */
 gfx_err_t gfx_fs_open_dir_port(const char *root_dir, gfx_fs_t **out_fs);
 
-#ifndef GFX_HOST_BUILD
 gfx_err_t gfx_fs_open_partition_port(const char *partition_label, gfx_fs_access_mode_t access_mode,
                                      gfx_fs_t **out_fs);
 gfx_err_t gfx_fs_open_pack_file_port(const char *file_path, gfx_fs_t **out_fs);
-#endif
 
 /* Internal entry access used by the file/source layer. Applications should use
  * the public gfx_fs_fopen()/load() API. */
