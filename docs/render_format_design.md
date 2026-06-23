@@ -321,7 +321,7 @@ Required smoke coverage:
 Current implemented smoke coverage:
 
 - Host smoke:
-  `sim/host/gfx_host_alignment_smoke.c`
+  `simulation/host/gfx_host_alignment_smoke.c`
 - ESP-IDF / Unity:
   `test_apps/main/test_backend.c`
 

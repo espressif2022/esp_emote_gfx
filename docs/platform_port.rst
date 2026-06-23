@@ -31,7 +31,7 @@ The Linux/POSIX host implementation lives in:
 
 The ESP-IDF component CMake excludes the Linux port. Host/simulator CMake
 targets should explicitly compile the Linux port instead of the ESP-IDF port.
-For host builds that do not use ESP-IDF headers, ``sim/port/include`` provides
+For host builds that do not use ESP-IDF headers, ``simulation/port/include`` provides
 minimal compatibility headers such as ``esp_err.h``.
 
 Core modules such as display, render, timer, log, animation state events, and
@@ -71,7 +71,7 @@ Linux port smoke test:
 .. code-block:: sh
 
    cc -std=c11 -Wall -Wextra \
-     -Iinclude -Isrc -Isim/port/include \
+     -Iinclude -Isrc -Isimulation/port/include \
      -c src/platform/linux/gfx_platform_linux.c \
      -o /tmp/gfx_platform_linux.o \
      -pthread

@@ -127,7 +127,7 @@ target_include_directories(gfx_host_core
         "include"
     PRIVATE
         "src"
-        "sim/port/include"
+        "simulation/port/include"
         "${GFX_HEATSHRINK_ROOT}/include"
 )
 target_compile_definitions(gfx_host_core PUBLIC GFX_HOST_BUILD=1)
@@ -188,11 +188,11 @@ if(GFX_BUILD_HOST_SDL)
     endif()
     target_link_libraries(gfx_backend_sdl PUBLIC gfx_host_core ${GFX_SDL_TARGET} ${GFX_SDL_LIBRARIES})
 
-    add_library(gfx_host_runner STATIC "sim/host/gfx_host_runner.c")
+    add_library(gfx_host_runner STATIC "simulation/host/gfx_host_runner.c")
     target_include_directories(gfx_host_runner
         PUBLIC
             "include"
-            "sim/host"
+            "simulation/host"
     )
     target_compile_features(gfx_host_runner PUBLIC c_std_11)
     target_link_libraries(gfx_host_runner PUBLIC gfx_host_core gfx_backend_sdl)
@@ -213,15 +213,15 @@ if(GFX_BUILD_HOST_SDL)
     )
 
     add_executable(gfx_host_sdl_demo
-        "sim/host/gfx_host_sdl_demo.c"
+        "simulation/host/gfx_host_sdl_demo.c"
         ${GFX_FORMAT_DEMO_SRCS}
     )
     target_include_directories(gfx_host_sdl_demo
         PRIVATE
             "include"
             "src"
-            "sim/host"
-            "sim/port/include"
+            "simulation/host"
+            "simulation/port/include"
             "examples/common"
             "examples/format_playground"
             "examples/motion"
@@ -229,43 +229,43 @@ if(GFX_BUILD_HOST_SDL)
     target_compile_features(gfx_host_sdl_demo PRIVATE c_std_11)
     target_link_libraries(gfx_host_sdl_demo PRIVATE gfx_host_core gfx_backend_sdl gfx_host_runner)
 
-    add_executable(gfx_host_fs_smoke "sim/host/gfx_host_fs_smoke.c")
+    add_executable(gfx_host_fs_smoke "simulation/host/gfx_host_fs_smoke.c")
     target_include_directories(gfx_host_fs_smoke PRIVATE "include" "src")
     target_compile_features(gfx_host_fs_smoke PRIVATE c_std_11)
     target_link_libraries(gfx_host_fs_smoke PRIVATE gfx_host_core)
 
-    add_executable(gfx_host_font_smoke "sim/host/gfx_host_font_smoke.c")
-    target_include_directories(gfx_host_font_smoke PRIVATE "include" "src" "sim/port/include")
+    add_executable(gfx_host_font_smoke "simulation/host/gfx_host_font_smoke.c")
+    target_include_directories(gfx_host_font_smoke PRIVATE "include" "src" "simulation/port/include")
     target_compile_features(gfx_host_font_smoke PRIVATE c_std_11)
     target_link_libraries(gfx_host_font_smoke PRIVATE gfx_host_core)
 
-    add_executable(gfx_host_alignment_smoke "sim/host/gfx_host_alignment_smoke.c")
-    target_include_directories(gfx_host_alignment_smoke PRIVATE "include" "src" "sim/port/include")
+    add_executable(gfx_host_alignment_smoke "simulation/host/gfx_host_alignment_smoke.c")
+    target_include_directories(gfx_host_alignment_smoke PRIVATE "include" "src" "simulation/port/include")
     target_compile_features(gfx_host_alignment_smoke PRIVATE c_std_11)
     target_link_libraries(gfx_host_alignment_smoke PRIVATE gfx_host_core)
 
-    add_executable(gfx_host_list_smoke "sim/host/gfx_host_list_smoke.c")
-    target_include_directories(gfx_host_list_smoke PRIVATE "include" "sim/port/include")
+    add_executable(gfx_host_list_smoke "simulation/host/gfx_host_list_smoke.c")
+    target_include_directories(gfx_host_list_smoke PRIVATE "include" "simulation/port/include")
     target_compile_features(gfx_host_list_smoke PRIVATE c_std_11)
     target_link_libraries(gfx_host_list_smoke PRIVATE gfx_host_core)
 
-    add_executable(gfx_host_coverflow_smoke "sim/host/gfx_host_coverflow_smoke.c")
-    target_include_directories(gfx_host_coverflow_smoke PRIVATE "include" "sim/port/include")
+    add_executable(gfx_host_coverflow_smoke "simulation/host/gfx_host_coverflow_smoke.c")
+    target_include_directories(gfx_host_coverflow_smoke PRIVATE "include" "simulation/port/include")
     target_compile_features(gfx_host_coverflow_smoke PRIVATE c_std_11)
     target_link_libraries(gfx_host_coverflow_smoke PRIVATE gfx_host_core)
 
-    add_executable(gfx_host_wheel_smoke "sim/host/gfx_host_wheel_smoke.c")
-    target_include_directories(gfx_host_wheel_smoke PRIVATE "include" "sim/port/include")
+    add_executable(gfx_host_wheel_smoke "simulation/host/gfx_host_wheel_smoke.c")
+    target_include_directories(gfx_host_wheel_smoke PRIVATE "include" "simulation/port/include")
     target_compile_features(gfx_host_wheel_smoke PRIVATE c_std_11)
     target_link_libraries(gfx_host_wheel_smoke PRIVATE gfx_host_core)
 
-    add_executable(gfx_host_container_smoke "sim/host/gfx_host_container_smoke.c")
-    target_include_directories(gfx_host_container_smoke PRIVATE "include" "src" "sim/port/include")
+    add_executable(gfx_host_container_smoke "simulation/host/gfx_host_container_smoke.c")
+    target_include_directories(gfx_host_container_smoke PRIVATE "include" "src" "simulation/port/include")
     target_compile_features(gfx_host_container_smoke PRIVATE c_std_11)
     target_link_libraries(gfx_host_container_smoke PRIVATE gfx_host_core)
 
-    add_executable(gfx_host_tween_smoke "sim/host/gfx_host_tween_smoke.c")
-    target_include_directories(gfx_host_tween_smoke PRIVATE "include" "sim/port/include")
+    add_executable(gfx_host_tween_smoke "simulation/host/gfx_host_tween_smoke.c")
+    target_include_directories(gfx_host_tween_smoke PRIVATE "include" "simulation/port/include")
     target_compile_features(gfx_host_tween_smoke PRIVATE c_std_11)
     target_link_libraries(gfx_host_tween_smoke PRIVATE gfx_host_core)
 
@@ -287,7 +287,7 @@ if(GFX_BUILD_HOST_SDL)
         add_test(NAME gfx_host_sdl_dummy_smoke
             COMMAND ${CMAKE_COMMAND}
                 -D GFX_HOST_SDL_DEMO=$<TARGET_FILE:gfx_host_sdl_demo>
-                -P ${CMAKE_CURRENT_SOURCE_DIR}/sim/host/run_sdl_dummy_smoke.cmake
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/simulation/host/run_sdl_dummy_smoke.cmake
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
     endif()
 

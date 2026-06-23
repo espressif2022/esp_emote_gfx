@@ -1,6 +1,6 @@
 # Examples
 
-Runnable demos and shared assets. Host SDL entry points live under `sim/host/`; this tree holds the shared UI and device projects.
+Runnable demos and shared assets. Host SDL entry points live under `simulation/host/`; this tree holds the shared UI and device projects.
 
 ## Layout
 
@@ -14,6 +14,8 @@ Runnable demos and shared assets. Host SDL entry points live under `sim/host/`; 
 | `esp/format_rgb888/` | ESP-IDF BGR888 HMI board demo |
 
 ## Host (SDL)
+
+See `../simulation/README.md` for the full host simulation build notes.
 
 ```bash
 cmake -S . -B build-host-sdl -DGFX_BUILD_HOST_SDL=ON

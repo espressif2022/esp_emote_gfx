@@ -508,6 +508,68 @@ static bool gfx_font_lv_parse_kern(const uint8_t *bin_base, lv_font_fmt_txt_dsc_
     return true;
 }
 
+#if GFX_HOST_BUILD
+static bool gfx_font_lv_glyph_table_valid(const uint8_t *glyph_dsc_bin, size_t table_bytes, uint8_t stride)
+{
+    if (glyph_dsc_bin == NULL || table_bytes < (size_t)stride * 2U || (table_bytes % stride) != 0U) {
+        return false;
+    }
+
+    size_t count = table_bytes / stride;
+    size_t checked = 0U;
+
+    for (size_t i = 1U; i < count && checked < 32U; i++) {
+        const uint8_t *glyph = glyph_dsc_bin + i * (size_t)stride;
+        uint16_t box_w;
+        uint16_t box_h;
+
+        if (stride == 16U) {
+            box_w = gfx_font_lv_bin_u16(glyph + 8);
+            box_h = gfx_font_lv_bin_u16(glyph + 10);
+        } else {
+            box_w = glyph[4];
+            box_h = glyph[5];
+        }
+
+        if (box_w == 0U && box_h == 0U) {
+            continue;
+        }
+
+        checked++;
+        if (box_w > 0U && box_h > 0U && box_w <= 200U && box_h <= 200U) {
+            return true;
+        }
+
+        return false;
+    }
+
+    return false;
+}
+
+static uint8_t gfx_font_lv_detect_glyph_stride(const uint8_t *src_dsc, uint32_t glyph_dsc_rel, uint32_t cmaps_rel)
+{
+    if (src_dsc == NULL || cmaps_rel <= glyph_dsc_rel) {
+        return 8U;
+    }
+
+    const size_t table_bytes = (size_t)(cmaps_rel - glyph_dsc_rel);
+    const uint8_t *glyph_dsc_bin = src_dsc + glyph_dsc_rel;
+    const bool valid16 = (table_bytes % 16U) == 0U &&
+                         gfx_font_lv_glyph_table_valid(glyph_dsc_bin, table_bytes, 16U);
+    const bool valid8 = (table_bytes % 8U) == 0U &&
+                        gfx_font_lv_glyph_table_valid(glyph_dsc_bin, table_bytes, 8U);
+
+    if (valid16) {
+        return 16U;
+    }
+    if (valid8) {
+        return 8U;
+    }
+
+    return (table_bytes % 16U) == 0U ? 16U : 8U;
+}
+#endif
+
 static lv_font_t *gfx_font_lv_parse_binary(uint8_t *bin_addr)
 {
     const uint8_t *bin_base = bin_addr;
@@ -573,14 +635,20 @@ static lv_font_t *gfx_font_lv_parse_binary(uint8_t *bin_addr)
     }
 
     runtime->glyph_dsc_bin = (const uint8_t *)dsc->glyph_dsc;
-    runtime->glyph_dsc_stride = glyph_dsc_ofs > gfx_font_lv_bin_u32(src_dsc) &&
-                                glyph_dsc_ofs - gfx_font_lv_bin_u32(src_dsc) > 0xFFFFFU ? 16U : 8U;
+    runtime->glyph_dsc_stride = gfx_font_lv_detect_glyph_stride(src_dsc, glyph_dsc_ofs,
+                                gfx_font_lv_bin_u32(src_dsc + 8));
     font->user_data = runtime;
 #endif
 
-    GFX_LOGI(TAG, "load lvgl font: binary line=%d base=%d cmap=%u bpp=%u",
+    GFX_LOGI(TAG, "load lvgl font: binary line=%d base=%d cmap=%u bpp=%u stride=%u",
              (int)font->line_height, (int)font->base_line,
-             (unsigned)dsc->cmap_num, (unsigned)dsc->bpp);
+             (unsigned)dsc->cmap_num, (unsigned)dsc->bpp,
+#if GFX_HOST_BUILD
+             (unsigned)((gfx_font_lv_runtime_t *)font->user_data)->glyph_dsc_stride
+#else
+             8U
+#endif
+            );
     return font;
 }
 
