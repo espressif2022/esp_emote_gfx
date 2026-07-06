@@ -7,9 +7,7 @@
 #pragma once
 
 /*
- * Lightweight public core API.
- *
- * New code should include this file instead of the legacy "gfx_base.h".
+ * Lightweight public core API (types, log, core, display, object, timer, input).
  */
 
 #include "gfx/types.h"

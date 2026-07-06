@@ -8,7 +8,7 @@
 
 #include <stdint.h>
 #include "common/gfx_types_priv.h"
-#include "core/gfx_obj.h"
+#include "gfx/object.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,6 +33,8 @@ extern "C" {
 #define GFX_OBJ_TYPE_STICKMAN_EMOTE 0x0C
 #define GFX_OBJ_TYPE_COVERFLOW    0x0D
 #define GFX_OBJ_TYPE_CONTAINER    0x0E
+#define GFX_OBJ_TYPE_IMAGE_BUTTON 0x0F
+#define GFX_OBJ_TYPE_PROGRESS_BAR 0x10
 
 #define DEFAULT_SCREEN_WIDTH  320
 #define DEFAULT_SCREEN_HEIGHT 240

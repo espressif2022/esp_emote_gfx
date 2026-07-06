@@ -5,10 +5,11 @@
  */
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_lcd_panel_ops.h"
 #include "unity.h"
 #include "bsp/esp-bsp.h"
+#include "gfx/backends/esp_lcd.h"
 #include "common.h"
+#include "test_board.h"
 
 static const char *const TAG = "test_multi_disp";
 
@@ -22,16 +23,6 @@ typedef struct {
 static int32_t s_drag_offset_x = 0;
 static int32_t s_drag_offset_y = 0;
 static bool s_drag_active = false;
-
-static void test_multi_disp_flush_cb(gfx_display_t *disp, gfx_coord_t x1, gfx_coord_t y1,
-                                     gfx_coord_t x2, gfx_coord_t y2, const void *data)
-{
-    esp_lcd_panel_handle_t panel = (esp_lcd_panel_handle_t)gfx_display_get_user_data(disp);
-
-    esp_lcd_panel_draw_bitmap(panel, x1, y1, x2, y2, data);
-    gfx_display_flush_ready(disp, true);
-    vTaskDelay(pdMS_TO_TICKS(5));
-}
 
 static void test_multi_disp_touch_cb(gfx_object_t *obj, const gfx_touch_event_t *event, void *user_data)
 {
@@ -56,15 +47,23 @@ static void test_multi_disp_touch_cb(gfx_object_t *obj, const gfx_touch_event_t 
 
 static gfx_display_t *test_multi_disp_add(void)
 {
+    gfx_backend_t *backend = gfx_backend_esp_lcd_create(&(gfx_backend_esp_lcd_config_t) {
+        .panel = panel_handle,
+        .panel_io = io_handle,
+        .interface = test_board_lcd_interface(),
+    });
     gfx_display_config_t disp_cfg = {
         .h_res = BSP_LCD_H_RES,
         .v_res = BSP_LCD_V_RES,
         .color_format = GFX_COLOR_FORMAT_RGB565,
-        .flush_cb = test_multi_disp_flush_cb,
+        .backend = backend,
         .update_cb = NULL,
-        .user_data = (void *)panel_handle,
         .buffers = {.buf1 = NULL, .buf2 = NULL, .buf_pixels = BSP_LCD_H_RES * 16},
     };
+
+    if (backend == NULL) {
+        return NULL;
+    }
 
     return gfx_display_add(emote_handle, &disp_cfg);
 }

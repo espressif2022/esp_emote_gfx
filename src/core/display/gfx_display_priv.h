@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "core/gfx_disp.h"
+#include "gfx/display.h"
 #include "core/object/gfx_object_priv.h"
 #include "core/display/gfx_backend_priv.h"
 #include "platform/gfx_platform.h"
@@ -42,11 +42,6 @@ struct gfx_display {
         uint32_t h_res;
         uint32_t v_res;
     } res;
-
-    /** Option flags */
-    struct {
-        unsigned char full_frame : 1;
-    } flags;
 
     /** Pixel formats */
     struct {
@@ -89,10 +84,9 @@ struct gfx_display {
         bool bg_enable;   /**< true = fill background before draw; default true */
     } style;
 
-    /** Render state (flush / swap) */
+    /** Render state (flush) */
     struct {
         bool flushing_last;
-        bool swap_act_buf;
         uint32_t dirty_pixels;
         uint64_t frame_time_us;
         uint64_t render_time_us;
@@ -115,11 +109,6 @@ struct gfx_display {
         uint8_t pressed_id;
     } injected_touch;
 
-    /** Pending sync: dirty areas from previous frame to sync into buf_act at next render start (only non-merged areas, no merged flags) */
-    struct {
-        gfx_area_t areas[GFX_DISP_INV_BUF_SIZE];
-        uint8_t count;
-    } sync_pending;
 };
 
 /*********************
@@ -173,6 +162,8 @@ gfx_err_t gfx_display_remove_child(gfx_display_t *disp, void *src);
  * @internal Used during display/core teardown to ensure widget destructors run.
  */
 gfx_err_t gfx_display_delete_children(gfx_display_t *disp);
+
+bool gfx_display_has_full_frame_buf(const gfx_display_t *disp);
 
 /**
  * @brief Return the topmost visible object containing a point.

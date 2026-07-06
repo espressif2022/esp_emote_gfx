@@ -65,7 +65,6 @@ int main(void)
         .v_res = 120,
         .backend = backend,
         .flags = {
-            .full_frame = true,
         },
     });
     expect_true(disp != NULL, "display create");

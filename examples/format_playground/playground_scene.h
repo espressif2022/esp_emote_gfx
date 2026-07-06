@@ -8,7 +8,7 @@
 
 #include <stddef.h>
 
-#include "core/gfx_err.h"
+#include "gfx/error.h"
 #include "gfx.h"
 
 #ifdef __cplusplus

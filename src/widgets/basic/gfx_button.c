@@ -19,10 +19,8 @@
 #include "common/gfx_comm.h"
 #include "core/display/gfx_refresh_priv.h"
 #include "render/gfx_render_priv.h"
-#include "render/sw/gfx_blend_priv.h"
-#include "render/sw/gfx_sw_draw_priv.h"
 #include "core/object/gfx_object_priv.h"
-#include "core/gfx_touch.h"
+#include "gfx/input.h"
 #include "gfx/widgets/button.h"
 #include "widgets/label/gfx_label_draw_priv.h"
 #include "widgets/label/gfx_label_priv.h"
@@ -186,15 +184,12 @@ static gfx_err_t gfx_button_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 
     fill_color = button->state.pressed ? button->style.bg_color_pressed : button->style.bg_color;
     gfx_render_surface_fill(obj->disp, &dst_surface, &clip_area, fill_color, 0xFFU);
-    gfx_sw_draw_rect_stroke_fmt(ctx->buf,
-                                ctx->stride,
-                                ctx->format,
-                                &ctx->buf_area,
-                                &ctx->clip_area,
-                                &obj_area,
-                                button->style.border_width,
-                                button->style.border_color,
-                                0xFF);
+    gfx_render_surface_rect_stroke(obj->disp,
+                                   &dst_surface,
+                                   &obj_area,
+                                   button->style.border_width,
+                                   button->style.border_color,
+                                   0xFF);
 
     gfx_button_get_label_area(obj, &obj_area, &label_area);
     (void)gfx_label_text_box_draw(obj, &button->label, ctx, &label_area, &clip_area);

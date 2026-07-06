@@ -9,8 +9,8 @@
 #include <string.h>
 #include <limits.h>
 #include "common/gfx_check.h"
-#include "core/base/gfx_fs_priv.h"
-#include "core/gfx_fs.h"
+#include "core/fs/gfx_fs_priv.h"
+#include "gfx/fs.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_ANIM_DECODER
 #include "common/gfx_log_priv.h"
 #include "lib/eaf/gfx_eaf_dec.h"

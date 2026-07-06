@@ -22,15 +22,22 @@
 #define GFX_LOG_TAG    "gfx_motion_player"
 #include "common/gfx_log_priv.h"
 
-#include "core/gfx_disp.h"
+#include "gfx/display.h"
 #include "core/display/gfx_display_priv.h"
+#include "core/display/gfx_refresh_priv.h"
 #include "widgets/motion/gfx_motion_player_priv.h"
 
 /**********************
  *   STATIC FUNCTIONS
  **********************/
 
+#define GFX_MOTION_PLAYER_CANVAS_INV_PAD 8
+#define GFX_MOTION_PLAYER_MESH_BOUNDS_PAD 1
+
 static void gfx_motion_player_deinit(gfx_motion_player_t *player);
+static void gfx_motion_player_invalidate_canvas(gfx_motion_player_t *player,
+        gfx_coord_t x, gfx_coord_t y, uint16_t w, uint16_t h);
+static void gfx_motion_player_invalidate_owned_objects(gfx_motion_player_t *player);
 
 static void gfx_motion_player_to_screen(const gfx_motion_asset_t *asset,
                                         const gfx_motion_point_t *dp,
@@ -79,6 +86,60 @@ static const gfx_motion_action_step_t *gfx_motion_player_active_step(const gfx_m
     return &action->steps[scene->active_step];
 }
 
+static void gfx_motion_player_invalidate_canvas(gfx_motion_player_t *player,
+        gfx_coord_t x, gfx_coord_t y, uint16_t w, uint16_t h)
+{
+    gfx_display_t *disp = NULL;
+    gfx_area_t area;
+
+    if (player == NULL) {
+        return;
+    }
+
+    for (uint8_t i = 0; i < player->seg_obj_count; i++) {
+        if (player->seg_objs[i] != NULL && player->seg_objs[i]->disp != NULL) {
+            disp = player->seg_objs[i]->disp;
+            break;
+        }
+    }
+    if (disp == NULL) {
+        for (uint8_t i = 0; i < player->icon_obj_count; i++) {
+            if (player->icon_objs[i] != NULL && player->icon_objs[i]->disp != NULL) {
+                disp = player->icon_objs[i]->disp;
+                break;
+            }
+        }
+    }
+    if (disp == NULL) {
+        return;
+    }
+
+    area.x1 = (gfx_coord_t)(x - GFX_MOTION_PLAYER_CANVAS_INV_PAD);
+    area.y1 = (gfx_coord_t)(y - GFX_MOTION_PLAYER_CANVAS_INV_PAD);
+    area.x2 = (gfx_coord_t)(x + (gfx_coord_t)w + GFX_MOTION_PLAYER_CANVAS_INV_PAD - 1);
+    area.y2 = (gfx_coord_t)(y + (gfx_coord_t)h + GFX_MOTION_PLAYER_CANVAS_INV_PAD - 1);
+    gfx_invalidate_area_disp(disp, &area);
+}
+
+static void gfx_motion_player_invalidate_owned_objects(gfx_motion_player_t *player)
+{
+    if (player == NULL) {
+        return;
+    }
+
+    for (uint8_t i = 0; i < player->seg_obj_count; i++) {
+        if (player->seg_objs[i] != NULL) {
+            gfx_object_invalidate(player->seg_objs[i]);
+        }
+    }
+
+    for (uint8_t i = 0; i < player->icon_obj_count; i++) {
+        if (player->icon_objs[i] != NULL) {
+            gfx_object_invalidate(player->icon_objs[i]);
+        }
+    }
+}
+
 static gfx_err_t gfx_motion_player_set_grid_array(uint8_t *cols_arr, uint8_t *rows_arr,
         uint8_t max_count, uint8_t seg_idx, gfx_object_t *obj, uint8_t cols, uint8_t rows)
 {
@@ -110,6 +171,9 @@ static gfx_err_t gfx_motion_player_set_grid_internal(gfx_motion_player_t *player
 static gfx_err_t gfx_motion_player_configure_mesh_shape(uint8_t *cols_arr, uint8_t *rows_arr,
         uint8_t max_count, gfx_object_t *obj, uint8_t seg_idx, const gfx_motion_segment_t *seg)
 {
+    GFX_RETURN_ON_ERROR(gfx_mesh_img_set_bounds_pad(obj, GFX_MOTION_PLAYER_MESH_BOUNDS_PAD),
+                        TAG, "set mesh bounds pad seg[%u]", seg_idx);
+
     switch (seg->kind) {
     case GFX_MOTION_SEG_RING: {
         uint8_t segs = gfx_motion_player_ring_segs((float)(seg->radius_hint > 0 ? seg->radius_hint : 20));
@@ -288,7 +352,8 @@ static gfx_err_t gfx_motion_player_apply_icon_segment(gfx_motion_player_t *playe
     case GFX_MOTION_SEG_BEZIER_LOOP:
     case GFX_MOTION_SEG_BEZIER_FILL: {
         uint16_t n = seg->joint_count;
-        if (n > MOTION_BEZIER_MAX_PTS) {
+        if (n < 4U || n > MOTION_BEZIER_MAX_PTS ||
+                (uint32_t)seg->joint_a + n > icon->joint_count) {
             return GFX_OK;
         }
         for (uint16_t j = 0; j < n; j++) {
@@ -735,10 +800,20 @@ gfx_err_t gfx_motion_player_set_canvas(gfx_motion_player_t *player,
 {
     GFX_RETURN_ON_FALSE(player != NULL, GFX_ERR_INVALID_ARG, TAG, "player is NULL");
     GFX_RETURN_ON_FALSE(w > 0U && h > 0U, GFX_ERR_INVALID_ARG, TAG, "size must be > 0");
+    if (player->canvas_x == x && player->canvas_y == y &&
+            player->canvas_w == w && player->canvas_h == h) {
+        return GFX_OK;
+    }
+
+    gfx_motion_player_invalidate_canvas(player, player->canvas_x, player->canvas_y,
+                                        player->canvas_w, player->canvas_h);
+    gfx_motion_player_invalidate_owned_objects(player);
     player->canvas_x = x;
     player->canvas_y = y;
     player->canvas_w = w;
     player->canvas_h = h;
+    gfx_motion_player_invalidate_canvas(player, player->canvas_x, player->canvas_y,
+                                        player->canvas_w, player->canvas_h);
     player->mesh_dirty = true;
     return GFX_OK;
 }

@@ -9,9 +9,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "core/gfx_err.h"
+#include "gfx/error.h"
 #include "common/gfx_config_internal.h"
-#include "core/gfx_types.h"
+#include "gfx/types.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -3,7 +3,7 @@
 The Linux/POSIX platform implementation is in:
 
 ```text
-src/platform/linux/gfx_platform_linux.c
+src/platform/linux/linux_platform.c
 ```
 
 It implements the internal `gfx_platform` contract with:
@@ -15,7 +15,7 @@ It implements the internal `gfx_platform` contract with:
 - standard heap allocation
 
 This is the base needed by the SDL simulator. A complete Linux simulator target
-should compile this port instead of `src/platform/esp_idf/gfx_platform_esp_idf.c`,
+should compile this port instead of `src/platform/esp_idf/esp_idf_platform.c`,
 then link the SDL backend under `src/backend/sdl/`.
 
 Minimal compile smoke test:
@@ -23,11 +23,10 @@ Minimal compile smoke test:
 ```sh
 cc -std=c11 -Wall -Wextra \
   -Iinclude -Isrc -Isimulation/port/include \
-  -c src/platform/linux/gfx_platform_linux.c \
+  -c src/platform/linux/linux_platform.c \
   -o /tmp/gfx_platform_linux.o \
   -pthread
 ```
 
 `simulation/port/include` contains small compatibility headers for host builds that do
 not include ESP-IDF headers.
-

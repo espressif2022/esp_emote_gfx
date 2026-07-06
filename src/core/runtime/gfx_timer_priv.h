@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "core/gfx_timer.h"
+#include "gfx/timer.h"
 #include <stdbool.h>
 
 #ifdef __cplusplus

@@ -45,9 +45,12 @@ Host simulator code can include host-only backend headers such as:
 #include "gfx/backends/sdl.h"
 ```
 
-Public APIs should live under `include/gfx/`. Headers under `include/core/` and
-`include/gfx/widgets/` are internal or transitional and should not grow new
-application-facing APIs.
+Public APIs live under `include/gfx/`.
+
+Entry headers:
+
+- `include/gfx.h` or `include/gfx/all.h` — full widget/backend bundle
+- `include/gfx/gfx.h` or `include/gfx/base.h` — core runtime only; add widgets/backends explicitly
 
 ### Runtime
 
@@ -57,6 +60,9 @@ Target files:
 
 ```text
 src/core/runtime/
+src/core/fs/
+src/core/log/
+src/core/types/
 ```
 
 Public names:
@@ -241,6 +247,11 @@ include/gfx/widgets/
 src/widgets/
 ```
 
+Widget `.c` files include public headers from `include/gfx/` (for example
+`gfx/widgets/image.h`, `gfx/input.h`). Implementation-private headers stay under
+`src/core/`, `src/render/`, and `src/widgets/.../*_priv.h`. See
+`src/widgets/README.md`.
+
 Each widget should use this internal shape:
 
 ```text
@@ -260,9 +271,7 @@ Simple widgets can stay in one `.c` file.
 - Public headers: `include/gfx/<module>.h`
 - Public widget headers: `include/gfx/widgets/<widget>.h`
 - Public backend headers: `include/gfx/backends/<backend>.h`
-- Private headers: `*_private.h`
-- Internal/transitional headers may live under `include/core/` and
-  `include/gfx/widgets/`, but new application APIs should not be added there.
+- Private headers: `*_priv.h` (implementation headers under `src/`)
 
 Prefer full words for public module names:
 
@@ -305,14 +314,23 @@ gfx_image_set_source_desc()
 gfx_backend_sdl_create()
 ```
 
-Static functions inside `.c` files use `s_` and do not repeat the full module
-prefix unless it improves clarity.
+Static functions inside `.c` files use the `s_` prefix and do not repeat the
+full module prefix unless it improves clarity.
+
+Platform port files additionally follow these rules:
+
+- Cross-target contract: `gfx_platform_*()` (declared in `src/platform/gfx_platform.h`)
+- Platform registration entry points: `gfx_<module>_..._port()` (same symbol on every target, e.g. `gfx_fs_open_dir_port()`)
+- File-local static helpers: `s_*()`; file-local types may use a short target prefix (e.g. `linux_event_t` in `linux_platform.c`)
 
 Examples:
 
 ```c
 static gfx_err_t s_prepare_frame(...);
 static void s_render_8bit_pixels(...);
+static void s_abs_deadline(...);          /* linux platform */
+gfx_platform_event_create();              /* public port API */
+gfx_fs_open_dir_port(...);                /* fs backend registration */
 ```
 
 ### Return Values
@@ -350,10 +368,7 @@ CI runs `scripts/check_no_esp_in_src.sh` to enforce: no `#include "esp_*"` under
 Host SDL builds link playground sources from `examples/`; they must not depend on
 `test_apps/` demo code paths.
 
-1. Add the new public include tree under `include/gfx/`.
-2. Delete old forwarding entry points instead of adding new alternate names.
-3. Move host-only backend headers out of `include/core/`.
-4. Rename public APIs in documentation and demos first.
-5. Move source files to the target directories in small batches.
-6. Remove transitional headers once their declarations have moved to the new
-   public locations.
+1. Public headers live under `include/gfx/` (done).
+2. Host-only backend headers live under `include/gfx/backends/` (done).
+3. Rename or move remaining public APIs in documentation and demos when needed.
+4. Move source files to target directories in small batches (ongoing).

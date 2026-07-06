@@ -115,7 +115,6 @@ gfx_err_t gfx_display_port_open(const gfx_display_port_config_t *cfg,
             .buff_dma = cfg->display.buff_dma,
             .buff_spiram = cfg->display.buff_spiram,
             .double_buffer = cfg->display.double_buffer,
-            .full_frame = cfg->display.full_frame,
         },
         .buffers = {
             .buf1 = cfg->display.buf1,

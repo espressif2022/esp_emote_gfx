@@ -67,7 +67,7 @@ Basic Setup
    {
        gfx_display_t *disp = (gfx_display_t *)user_ctx;
        if (disp) {
-           gfx_display_flush_ready(disp, true);
+           gfx_display_flush_ready(disp);
        }
        return true;
    }

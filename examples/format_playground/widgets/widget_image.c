@@ -11,11 +11,11 @@
 #include "common/gfx_check.h"
 
 const char *const gfx_format_demo_flow_image_names[DEMO_CARD_COUNT] = {
-    "flow_misty_ridge.jpg",
-    "flow_format_probe.jpg",
-    "flow_warm_harbor.jpg",
-    "flow_quiet_trail.jpg",
-    "flow_night_lake.jpg",
+    DEMO_FLOW_IMAGE_C5_DEVKITC,
+    DEMO_FLOW_IMAGE_C6_DEVKITC,
+    DEMO_FLOW_IMAGE_S3_DEVKITC,
+    DEMO_FLOW_IMAGE_P4_EYE_FRONT,
+    DEMO_FLOW_IMAGE_P4_EYE_BACK,
 };
 
 typedef struct {
@@ -26,13 +26,14 @@ typedef struct {
 
 /*
  * Image clips for the preview. Plain names resolve through the default mmap
- * asset fs; "/spiffs/..." paths resolve through the loose-asset mount.
+ * asset fs so image/pageflow/coverflow use the same fast asset path.
  */
 static const demo_image_clip_t s_image_clips[] = {
-    { .name = "Format Probe", .path = "flow_format_probe.jpg", .mode = "mmap JPEG" },
-    { .name = "Warm Harbor",  .path = "flow_warm_harbor.jpg", .mode = "mmap JPEG" },
-    { .name = "Night Lake",   .path = "flow_night_lake.jpg", .mode = "mmap JPEG" },
-    { .name = "File Trail",   .path = "/spiffs/flow_quiet_trail.jpg", .mode = "file JPEG" },
+    { .name = "ESP32-C5 DevKitC",   .path = DEMO_FLOW_IMAGE_C5_DEVKITC, .mode = "mmap JPEG" },
+    { .name = "ESP32-C6 DevKitC",   .path = DEMO_FLOW_IMAGE_C6_DEVKITC, .mode = "mmap JPEG" },
+    { .name = "ESP32-S3 DevKitC",   .path = DEMO_FLOW_IMAGE_S3_DEVKITC, .mode = "mmap JPEG" },
+    { .name = "ESP32-P4 Eye Front", .path = DEMO_FLOW_IMAGE_P4_EYE_FRONT, .mode = "mmap JPEG" },
+    { .name = "ESP32-P4 Eye Back",  .path = DEMO_FLOW_IMAGE_P4_EYE_BACK, .mode = "mmap JPEG" },
 };
 
 #define DEMO_IMAGE_CLIP_COUNT (sizeof(s_image_clips) / sizeof(s_image_clips[0]))
@@ -107,7 +108,7 @@ gfx_err_t gfx_format_demo_build_image_demo(format_playground_scene_t *scene)
     obj = gfx_image_create(scene->disp);
     GFX_RETURN_ON_FALSE(obj != NULL, GFX_ERR_INVALID_ARG, "playground", "create image demo failed");
     scene->image_demo = obj;
-    (void)gfx_object_set_pos(obj, 286, 164);
+    (void)gfx_object_set_pos(obj, 378, 164);
 
     GFX_RETURN_ON_ERROR(demo_load_image_clip(scene, 0), "playground", "load image clip failed");
     (void)gfx_object_set_visible(obj, false);

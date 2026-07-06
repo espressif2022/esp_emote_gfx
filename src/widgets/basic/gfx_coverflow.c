@@ -13,14 +13,13 @@
 
 #include "common/gfx_comm.h"
 #include "core/display/gfx_refresh_priv.h"
-#include "core/gfx_touch.h"
+#include "gfx/input.h"
 #include "core/object/gfx_object_priv.h"
 #include "gfx/tween.h"
 #include "gfx/widgets/coverflow.h"
 #include "gfx/widgets/mesh_image.h"
 #include "render/gfx_render_priv.h"
 #include "render/sw/gfx_blend_priv.h"
-#include "render/sw/gfx_sw_draw_priv.h"
 #include "widgets/img/gfx_image_resource_priv.h"
 #include "widgets/label/gfx_label_draw_priv.h"
 #include "widgets/label/gfx_label_priv.h"
@@ -646,9 +645,8 @@ static void gfx_coverflow_draw_card_state(gfx_object_t *obj, gfx_coverflow_t *fl
 
     gfx_render_surface_fill(obj->disp, &dst_surface, &clip, fill, 0xFFU);
     if (flow->style.border_width > 0U) {
-        gfx_sw_draw_rect_stroke_fmt(ctx->buf, ctx->stride, ctx->format,
-                                    &ctx->buf_area, &ctx->clip_area,
-                                    &state->area, flow->style.border_width, flow->style.border_color, 0xFF);
+        gfx_render_surface_rect_stroke(obj->disp, &dst_surface, &state->area,
+                                       flow->style.border_width, flow->style.border_color, 0xFF);
     }
     if (flow->use_images) {
         if (flow->image_resources != NULL) {

@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 730" width="1280" height="730" font-family="Inter,'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+<rect width="1280" height="730" rx="16" fill="#fafaf8"/>
+<defs>
+  <marker id="ag" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><polygon points="0,1 8,4.5 0,8" fill="#888"/></marker>
+  <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><polygon points="0,1 8,4.5 0,8" fill="#e7352c"/></marker>
+  <marker id="am" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><polygon points="0,1 8,4.5 0,8" fill="#b7791f"/></marker>
+</defs>
+<text x="48" y="48" font-size="24" font-weight="720" fill="#111">资源编译器 vs Runtime Create：工作量在哪里执行</text>
+<rect x="48" y="57" width="1184" height="30" rx="7" fill="rgba(231,53,44,.07)" stroke="rgba(231,53,44,.28)" stroke-width="1.1"/>
+<text x="640" y="77" text-anchor="middle" font-size="13" fill="#6b3430">效率差距不在 render 函数快多少，在于「设备端是否还在执行上位机可以提前算好的事」</text>
+<text x="64" y="103" font-size="11" font-weight="700" fill="#737373" letter-spacing="1">LVGL / Create 模型 · 设备端每帧执行</text>
+<text x="588" y="103" font-size="11" font-weight="700" fill="#b7791f" letter-spacing="1">上位机资源编译器</text>
+<text x="880" y="103" font-size="11" font-weight="700" fill="#e7352c" letter-spacing="1">编译器模型 · 设备端不再执行</text>
+<rect x="48" y="108" width="490" height="392" rx="14" fill="#fff" stroke="rgba(115,115,115,.32)" stroke-width="1.3"/>
+<rect x="556" y="108" width="272" height="392" rx="14" fill="#fff9ed" stroke="rgba(180,120,20,.42)" stroke-width="1.4"/>
+<rect x="848" y="108" width="384" height="392" rx="14" fill="#fff4f3" stroke="rgba(231,53,44,.45)" stroke-width="1.5"/>
+<rect x="64" y="124" width="458" height="66" rx="10" fill="#f5f5f2" stroke="#d8d6d1" stroke-width="1"/>
+<text x="76" y="144" font-size="12" font-weight="700" fill="#111">⑴  圆角 / 描边抗锯齿</text>
+<rect x="74" y="150" width="438" height="22" rx="5" fill="#1e1c1a"/>
+<text x="80" y="165" font-size="10" fill="rgba(130,190,255,.9)" font-family="'JetBrains Mono','Courier New',monospace">for y<radius: for x<radius: corner_cover()</text>
+<text x="76" y="184" font-size="10.5" fill="#b45309" font-weight="600">⚠  radius²×4 像素循环 / 角 · 每帧都跑</text>
+<rect x="64" y="196" width="458" height="66" rx="10" fill="#f5f5f2" stroke="#d8d6d1" stroke-width="1"/>
+<text x="76" y="216" font-size="12" font-weight="700" fill="#111">⑵  布局位置重算</text>
+<rect x="74" y="222" width="438" height="22" rx="5" fill="#1e1c1a"/>
+<text x="80" y="237" font-size="10" fill="rgba(130,190,255,.9)" font-family="'JetBrains Mono','Courier New',monospace">gfx_refresh_update_layout_dirty_object(obj)  // 递归</text>
+<text x="76" y="256" font-size="10.5" fill="#b45309" font-weight="600">⚠  layout_dirty → calc_pos_in_parent 每帧递归整棵树</text>
+<rect x="64" y="268" width="458" height="66" rx="10" fill="#f5f5f2" stroke="#d8d6d1" stroke-width="1"/>
+<text x="76" y="288" font-size="12" font-weight="700" fill="#111">⑶  对象树绘制遍历</text>
+<rect x="74" y="294" width="438" height="22" rx="5" fill="#1e1c1a"/>
+<text x="80" y="309" font-size="10" fill="rgba(130,190,255,.9)" font-family="'JetBrains Mono','Courier New',monospace">gfx_render_draw_object_tree(disp, child, &ctx)  // 递归</text>
+<text x="76" y="328" font-size="10.5" fill="#b45309" font-weight="600">⚠  100 个 image → 递归 100 层 · N 层 = N 次遍历</text>
+<rect x="64" y="340" width="458" height="66" rx="10" fill="#f5f5f2" stroke="#d8d6d1" stroke-width="1"/>
+<text x="76" y="360" font-size="12" font-weight="700" fill="#111">⑷  glyph 位图查找</text>
+<rect x="74" y="366" width="438" height="22" rx="5" fill="#1e1c1a"/>
+<text x="80" y="381" font-size="10" fill="rgba(130,190,255,.9)" font-family="'JetBrains Mono','Courier New',monospace">ops->draw_glyph(backend, disp, &dst, area, ...)  // per char</text>
+<text x="76" y="400" font-size="10.5" fill="#b45309" font-weight="600">⚠  每帧 · 每字符都要查找一次 glyph bitmap</text>
+<rect x="64" y="412" width="458" height="66" rx="10" fill="#f5f5f2" stroke="#d8d6d1" stroke-width="1"/>
+<text x="76" y="432" font-size="12" font-weight="700" fill="#111">⑸  图像解码 / 格式转换</text>
+<rect x="74" y="438" width="438" height="22" rx="5" fill="#1e1c1a"/>
+<text x="80" y="453" font-size="10" fill="rgba(130,190,255,.9)" font-family="'JetBrains Mono','Courier New',monospace">gfx_subsystem_image_decoder_init()  // runtime decode</text>
+<text x="76" y="472" font-size="10.5" fill="#b45309" font-weight="600">⚠  PNG/JPEG 每次 draw 时解码 · 格式不匹配还要转换</text>
+<rect x="864" y="124" width="352" height="66" rx="10" fill="rgba(231,53,44,.06)" stroke="rgba(231,53,44,.25)" stroke-width="1"/>
+<text x="876" y="144" font-size="12" font-weight="700" fill="#c0392b">✓  圆角已预光栅化</text>
+<rect x="874" y="150" width="332" height="22" rx="5" fill="#1a0e0c"/>
+<text x="880" y="165" font-size="10" fill="rgba(160,220,180,.9)" font-family="'JetBrains Mono','Courier New',monospace">load corner_bitmap[r][x][y]  // 直接 blit</text>
+<text x="876" y="184" font-size="10.5" fill="rgba(0,140,70,.8)" font-weight="600">radius² 循环移至上位机，一次性</text>
+<rect x="864" y="196" width="352" height="66" rx="10" fill="rgba(231,53,44,.06)" stroke="rgba(231,53,44,.25)" stroke-width="1"/>
+<text x="876" y="216" font-size="12" font-weight="700" fill="#c0392b">✓  位置已 bake，无需重算</text>
+<rect x="874" y="222" width="332" height="22" rx="5" fill="#1a0e0c"/>
+<text x="880" y="237" font-size="10" fill="rgba(160,220,180,.9)" font-family="'JetBrains Mono','Courier New',monospace">pos = pkg->layout[obj_id].x, .y  // 直接读</text>
+<text x="876" y="256" font-size="10.5" fill="rgba(0,140,70,.8)" font-weight="600">layout_dirty 递归消除</text>
+<rect x="864" y="268" width="352" height="66" rx="10" fill="rgba(231,53,44,.06)" stroke="rgba(231,53,44,.25)" stroke-width="1"/>
+<text x="876" y="288" font-size="12" font-weight="700" fill="#c0392b">✓  draw list 平铺，无递归</text>
+<rect x="874" y="294" width="332" height="22" rx="5" fill="#1a0e0c"/>
+<text x="880" y="309" font-size="10" fill="rgba(160,220,180,.9)" font-family="'JetBrains Mono','Courier New',monospace">for item in draw_list: blit(item)  // O(N) flat</text>
+<text x="876" y="328" font-size="10.5" fill="rgba(0,140,70,.8)" font-weight="600">100 个 image → 顺序 blit，无递归</text>
+<rect x="864" y="340" width="352" height="66" rx="10" fill="rgba(231,53,44,.06)" stroke="rgba(231,53,44,.25)" stroke-width="1"/>
+<text x="876" y="360" font-size="12" font-weight="700" fill="#c0392b">✓  glyph bitmap 预打包</text>
+<rect x="874" y="366" width="332" height="22" rx="5" fill="#1a0e0c"/>
+<text x="880" y="381" font-size="10" fill="rgba(160,220,180,.9)" font-family="'JetBrains Mono','Courier New',monospace">glyph_ptr = pkg->glyphs[codepoint]  // 直接寻址</text>
+<text x="876" y="400" font-size="10.5" fill="rgba(0,140,70,.8)" font-weight="600">draw_glyph 调用栈消除</text>
+<rect x="864" y="412" width="352" height="66" rx="10" fill="rgba(231,53,44,.06)" stroke="rgba(231,53,44,.25)" stroke-width="1"/>
+<text x="876" y="432" font-size="12" font-weight="700" fill="#c0392b">✓  图片已转 RGB565</text>
+<rect x="874" y="438" width="332" height="22" rx="5" fill="#1a0e0c"/>
+<text x="880" y="453" font-size="10" fill="rgba(160,220,180,.9)" font-family="'JetBrains Mono','Courier New',monospace">blit(pkg->images[id], dst)  // 格式匹配，零解码</text>
+<text x="876" y="472" font-size="10.5" fill="rgba(0,140,70,.8)" font-weight="600">decode 路径完全消除</text>
+<text x="692" y="128" text-anchor="middle" font-size="12" font-weight="700" fill="#8a5a00">上位机</text>
+<text x="692" y="144" text-anchor="middle" font-size="12" font-weight="700" fill="#8a5a00">资源编译器</text>
+<text x="692" y="160" text-anchor="middle" font-size="10" fill="#b7791f">（不是生成器）</text>
+<path d="M522 157 H590" fill="none" stroke="#b7791f" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#am)"/>
+<rect x="592" y="143" width="200" height="28" rx="7" fill="#fff3d8" stroke="rgba(180,120,20,.35)" stroke-width="1"/>
+<text x="692" y="162" text-anchor="middle" font-size="11.5" fill="#704a00" font-weight="600">预光栅化圆角</text>
+<path d="M794 157 H862" fill="none" stroke="#e7352c" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+<path d="M522 229 H590" fill="none" stroke="#b7791f" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#am)"/>
+<rect x="592" y="215" width="200" height="28" rx="7" fill="#fff3d8" stroke="rgba(180,120,20,.35)" stroke-width="1"/>
+<text x="692" y="234" text-anchor="middle" font-size="11.5" fill="#704a00" font-weight="600">bake 布局位置</text>
+<path d="M794 229 H862" fill="none" stroke="#e7352c" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+<path d="M522 301 H590" fill="none" stroke="#b7791f" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#am)"/>
+<rect x="592" y="287" width="200" height="28" rx="7" fill="#fff3d8" stroke="rgba(180,120,20,.35)" stroke-width="1"/>
+<text x="692" y="306" text-anchor="middle" font-size="11.5" fill="#704a00" font-weight="600">展开 draw list</text>
+<path d="M794 301 H862" fill="none" stroke="#e7352c" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+<path d="M522 373 H590" fill="none" stroke="#b7791f" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#am)"/>
+<rect x="592" y="359" width="200" height="28" rx="7" fill="#fff3d8" stroke="rgba(180,120,20,.35)" stroke-width="1"/>
+<text x="692" y="378" text-anchor="middle" font-size="11.5" fill="#704a00" font-weight="600">打包 glyph</text>
+<path d="M794 373 H862" fill="none" stroke="#e7352c" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+<path d="M522 445 H590" fill="none" stroke="#b7791f" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#am)"/>
+<rect x="592" y="431" width="200" height="28" rx="7" fill="#fff3d8" stroke="rgba(180,120,20,.35)" stroke-width="1"/>
+<text x="692" y="450" text-anchor="middle" font-size="11.5" fill="#704a00" font-weight="600">转换图片格式</text>
+<path d="M794 445 H862" fill="none" stroke="#e7352c" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+<rect x="48" y="510" width="1184" height="106" rx="12" fill="#1a1816" stroke="rgba(180,120,20,.3)" stroke-width="1"/>
+<text x="64" y="532" font-size="12" font-weight="700" fill="rgba(255,255,255,.5)" letter-spacing=".8">极端案例：同一位置 100 个 image</text>
+<rect x="64" y="540" width="210" height="18" rx="3" fill="rgba(255,255,255,0.85)"/>
+<text x="70" y="553" font-size="9.5" fill="#1e1c1a" font-family="'JetBrains Mono','Courier New',monospace">gfx_render_draw_object_tree() // depth 1</text>
+<rect x="67" y="549" width="204" height="18" rx="3" fill="rgba(255,255,255,0.75)"/>
+<text x="73" y="562" font-size="9.5" fill="#1e1c1a" font-family="'JetBrains Mono','Courier New',monospace">gfx_render_draw_object_tree() // depth 2</text>
+<rect x="70" y="558" width="198" height="18" rx="3" fill="rgba(255,255,255,0.65)"/>
+<text x="76" y="571" font-size="9.5" fill="#1e1c1a" font-family="'JetBrains Mono','Courier New',monospace">gfx_render_draw_object_tree() // depth 3</text>
+<rect x="73" y="567" width="192" height="18" rx="3" fill="rgba(255,255,255,0.55)"/>
+<text x="79" y="580" font-size="9.5" fill="#1e1c1a">···  共 100 层递归 ···</text>
+<rect x="76" y="576" width="186" height="18" rx="3" fill="rgba(255,255,255,0.45)"/>
+<rect x="79" y="585" width="180" height="18" rx="3" fill="rgba(255,255,255,0.35)"/>
+<text x="64" y="608" font-size="10.5" fill="#f59e0b" font-weight="600">⚠  每帧遍历 · 每层都做 dirty check / clip / draw</text>
+<path d="M 300 556 H 420" fill="none" stroke="#b7791f" stroke-width="2" marker-end="url(#am)"/>
+<text x="360" y="550" text-anchor="middle" font-size="10" fill="#b7791f">编译器</text>
+<text x="360" y="564" text-anchor="middle" font-size="10" fill="#b7791f">处理后</text>
+<rect x="430" y="536" width="280" height="66" rx="8" fill="rgba(231,53,44,.15)" stroke="rgba(231,53,44,.4)" stroke-width="1"/>
+<text x="440" y="553" font-size="10" fill="rgba(255,200,190,.9)" font-family="'JetBrains Mono','Courier New',monospace">// 编译器已裁剪：100 层 → 1 层可见</text>
+<text x="440" y="570" font-size="10" fill="rgba(160,220,180,.9)" font-family="'JetBrains Mono','Courier New',monospace">draw_list[0] = { img_id=99, x=10, y=20 };</text>
+<text x="440" y="587" font-size="10" fill="rgba(130,190,255,.9)" font-family="'JetBrains Mono','Courier New',monospace">blit_flat(draw_list, count=1);  // O(1)</text>
+<text x="440" y="608" font-size="10.5" fill="rgba(50,200,100,.8)" font-weight="600">✓  Z-order 已在上位机裁剪，设备只 blit 可见层</text>
+<rect x="730" y="536" width="490" height="66" rx="8" fill="rgba(0,0,0,.2)" stroke="rgba(255,255,255,.08)" stroke-width="1"/>
+<text x="740" y="553" font-size="10" fill="rgba(255,255,255,.45)" font-family="'JetBrains Mono','Courier New',monospace">// JSON → parser → obj_create  ←  这是错的！</text>
+<text x="740" y="571" font-size="10" fill="rgba(255,180,100,.7)" font-family="'JetBrains Mono','Courier New',monospace">json → parse field → lv_obj_create → lv_obj_set_xxx</text>
+<text x="740" y="589" font-size="10" fill="rgba(255,180,100,.7)" font-family="'JetBrains Mono','Courier New',monospace">// 设备端链路更长，本质仍是 runtime create，无前移</text>
+<text x="740" y="608" font-size="10.5" fill="#f59e0b" font-weight="600">⚠  误区：这不是编译器，是"解释执行器"</text>
+<rect x="48" y="628" width="1184" height="36" rx="8" fill="rgba(231,53,44,.06)" stroke="rgba(231,53,44,.2)" stroke-width="1"/>
+<text x="640" y="643" text-anchor="middle" font-size="12" font-weight="700" fill="#c0392b">上位机是资源编译器，不是资源生成器。</text>
+<text x="640" y="658" text-anchor="middle" font-size="11" fill="#6b3430">Embedded Wizard 类方案效率优势来源于此——不是 render 函数快，是设备端根本不用再做这些事。</text>
+</svg>

@@ -153,7 +153,6 @@ int main(void)
         .v_res = 120,
         .backend = backend,
         .flags = {
-            .full_frame = 1,
         },
     });
     expect_true(disp != NULL, "display add");

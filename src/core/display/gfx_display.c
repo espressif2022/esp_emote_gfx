@@ -303,7 +303,6 @@ gfx_display_t *gfx_display_add(gfx_handle_t handle, const gfx_display_config_t *
     new_disp->ctx = ctx;
     new_disp->res.h_res = cfg->h_res;
     new_disp->res.v_res = cfg->v_res;
-    new_disp->flags.full_frame = cfg->flags.full_frame;
     new_disp->cb.update_cb = cfg->update_cb;
     new_disp->cb.user_data = cfg->user_data;
     if (cfg->backend != NULL) {
@@ -318,19 +317,6 @@ gfx_display_t *gfx_display_add(gfx_handle_t handle, const gfx_display_config_t *
     }
 
     gfx_display_init_default_state(new_disp);
-
-    if (cfg->flags.full_frame && cfg->buffers.buf_pixels > 0) {
-        uint32_t screen_px = new_disp->res.h_res * new_disp->res.v_res;
-        if (cfg->buffers.buf_pixels != screen_px) {
-            GFX_LOGE(TAG, "create display: full_frame requires buf_pixels (%u) == screen size (%u)",
-                     (unsigned)cfg->buffers.buf_pixels, (unsigned)screen_px);
-            if (!backend_from_cfg) {
-                gfx_backend_destroy(new_disp->backend);
-            }
-            free(new_disp);
-            return NULL;
-        }
-    }
 
     new_disp->sync.event_group = gfx_platform_event_create();
     if (new_disp->sync.event_group == NULL) {
@@ -444,12 +430,11 @@ void gfx_display_refresh_all(gfx_display_t *disp)
     gfx_invalidate_area_disp(disp, &full_screen);
 }
 
-bool gfx_display_flush_ready(gfx_display_t *disp, bool swap_act_buf)
+bool gfx_display_flush_ready(gfx_display_t *disp)
 {
     if (disp == NULL || disp->sync.event_group == NULL) {
         return false;
     }
-    disp->render.swap_act_buf = swap_act_buf;
     if (gfx_platform_in_isr()) {
         bool need_yield = false;
         bool result = gfx_platform_event_set_from_isr(disp->sync.event_group, WAIT_FLUSH_DONE, &need_yield) != 0;
@@ -525,6 +510,15 @@ bool gfx_display_is_flushing_last(gfx_display_t *disp)
         return false;
     }
     return disp->render.flushing_last;
+}
+
+bool gfx_display_has_full_frame_buf(const gfx_display_t *disp)
+{
+    if (disp == NULL || disp->res.h_res == 0U || disp->res.v_res == 0U) {
+        return false;
+    }
+
+    return disp->buf.buf_pixels >= disp->res.h_res * disp->res.v_res;
 }
 
 gfx_err_t gfx_display_get_perf_stats(gfx_display_t *disp, gfx_display_perf_stats_t *out_stats)

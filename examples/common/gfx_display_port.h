@@ -45,7 +45,6 @@ typedef struct {
         bool buff_dma;
         bool buff_spiram;
         bool double_buffer;
-        bool full_frame;
         void *buf1;
         void *buf2;
         size_t buf_pixels;

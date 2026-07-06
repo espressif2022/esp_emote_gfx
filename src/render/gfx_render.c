@@ -7,9 +7,10 @@
 /*********************
  *      INCLUDES
  *********************/
-#include <string.h>
 #include <inttypes.h>
+#include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #define GFX_LOG_MODULE GFX_LOG_MODULE_RENDER
 #include "common/gfx_log_priv.h"
@@ -24,6 +25,8 @@
  *********************/
 
 #define GFX_RENDER_OPA_COVER 0xFFU
+#define GFX_RENDER_AA_SUBPIXELS 4
+#define GFX_RENDER_AA_SAMPLES (GFX_RENDER_AA_SUBPIXELS * GFX_RENDER_AA_SUBPIXELS)
 
 /**********************
  *      TYPEDEFS
@@ -39,7 +42,6 @@ static const char *const TAG = "render";
  *  STATIC PROTOTYPES
  **********************/
 
-static void gfx_render_sync_dirty_areas(gfx_display_t *disp);
 static const void *gfx_render_prepare_flush_pixels(gfx_display_t *disp,
         const void *render_buf,
         gfx_coord_t x1, gfx_coord_t y1, gfx_coord_t x2, gfx_coord_t y2,
@@ -51,6 +53,41 @@ static bool gfx_render_backend_draw_glyph(gfx_display_t *disp, const gfx_draw_ct
         gfx_color_t color, gfx_opa_t opa);
 static void gfx_render_fill_area(gfx_display_t *disp, const gfx_draw_ctx_t *ctx,
                                  const gfx_area_t *area, gfx_color_t color, gfx_opa_t opa);
+static void gfx_render_surface_fill_clipped(gfx_display_t *disp,
+        const gfx_render_surface_t *dst,
+        const gfx_area_t *area,
+        gfx_color_t color,
+        gfx_opa_t opa);
+static uint16_t gfx_render_clamp_radius(const gfx_area_t *area, uint16_t radius);
+static gfx_opa_t gfx_render_scale_opa(gfx_opa_t opa, uint8_t cover);
+static void gfx_render_surface_draw_aa_pixel(gfx_display_t *disp,
+        const gfx_render_surface_t *dst,
+        gfx_coord_t x,
+        gfx_coord_t y,
+        gfx_color_t color,
+        gfx_opa_t opa,
+        uint8_t cover);
+static uint8_t gfx_render_round_rect_corner_cover(gfx_coord_t px,
+        gfx_coord_t py,
+        gfx_coord_t radius,
+        bool outer);
+static uint8_t gfx_render_round_rect_coverage(const gfx_area_t *area,
+        gfx_coord_t radius,
+        gfx_coord_t x,
+        gfx_coord_t y);
+static void gfx_render_surface_round_rect_corners_aa(gfx_display_t *disp,
+        const gfx_render_surface_t *dst,
+        const gfx_area_t *area,
+        gfx_coord_t radius,
+        gfx_color_t color,
+        gfx_opa_t opa);
+static void gfx_render_surface_round_rect_stroke_corners_aa(gfx_display_t *disp,
+        const gfx_render_surface_t *dst,
+        const gfx_area_t *area,
+        gfx_coord_t radius,
+        gfx_coord_t stroke_w,
+        gfx_color_t color,
+        gfx_opa_t opa);
 static gfx_coord_t gfx_render_align_floor(gfx_coord_t value, uint16_t alignment);
 static gfx_coord_t gfx_render_align_ceil(gfx_coord_t value, uint16_t alignment);
 static void gfx_render_update_object_tree(gfx_object_t *obj);
@@ -58,40 +95,6 @@ static void gfx_render_update_object_tree(gfx_object_t *obj);
 /**********************
  *   STATIC FUNCTIONS
  **********************/
-
-static void gfx_render_sync_dirty_areas(gfx_display_t *disp)
-{
-    if (!disp->flags.full_frame || disp->buf.buf2 == NULL || disp->sync_pending.count == 0) {
-        return;
-    }
-
-    uint8_t *dst_screen_buf = (uint8_t *)disp->buf.buf_act;
-    uint8_t *src_screen_buf = (uint8_t *)((disp->buf.buf_act == disp->buf.buf1) ? disp->buf.buf2 : disp->buf.buf1);
-    gfx_coord_t stride = (gfx_coord_t)disp->res.h_res;
-    const size_t px_size = disp->format.render_pixel_size;
-
-    for (uint8_t i = 0; i < disp->sync_pending.count; i++) {
-        const gfx_area_t *a = &disp->sync_pending.areas[i];
-        bool covered = false;
-        for (uint8_t j = 0; j < disp->dirty.count && !covered; j++) {
-            if (disp->dirty.merged[j]) {
-                continue;
-            }
-            if (gfx_area_is_in(a, &disp->dirty.areas[j])) {
-                covered = true;
-            }
-        }
-        if (covered) {
-            continue;
-        }
-        size_t w = (size_t)(a->x2 - a->x1 + 1);
-        size_t h = (size_t)(a->y2 - a->y1 + 1);
-        for (size_t y = 0; y < h; y++) {
-            size_t offset = (size_t)(a->y1 + (gfx_coord_t)y) * stride + (size_t)a->x1;
-            memcpy(dst_screen_buf + offset * px_size, src_screen_buf + offset * px_size, w * px_size);
-        }
-    }
-}
 
 static uint32_t gfx_render_rgb565_to_xrgb888(uint16_t rgb565)
 {
@@ -135,16 +138,16 @@ static const void *gfx_render_prepare_flush_pixels(gfx_display_t *disp,
     const uint8_t *src_base = (const uint8_t *)render_buf;
     uint8_t *dst_base = (uint8_t *)disp->buf.flush_buf;
 
-    if (disp->flags.full_frame) {
+    if (gfx_display_has_full_frame_buf(disp)) {
         src_stride = disp->res.h_res;
         dst_stride = disp->res.h_res;
     }
 
     for (uint32_t y = 0; y < h; y++) {
-        size_t src_px_offset = disp->flags.full_frame
+        size_t src_px_offset = gfx_display_has_full_frame_buf(disp)
                                ? (size_t)(y1 + (gfx_coord_t)y) * src_stride + (size_t)x1
                                : (size_t)y * src_stride;
-        size_t dst_px_offset = disp->flags.full_frame
+        size_t dst_px_offset = gfx_display_has_full_frame_buf(disp)
                                ? (size_t)(y1 + (gfx_coord_t)y) * dst_stride + (size_t)x1
                                : (size_t)y * dst_stride;
         const uint8_t *src_row = src_base + src_px_offset * disp->format.render_pixel_size;
@@ -248,6 +251,237 @@ static void gfx_render_fill_area(gfx_display_t *disp, const gfx_draw_ctx_t *ctx,
     gfx_sw_blend_surface_fill(ctx->buf, ctx->stride, ctx->format, &local_area, color, opa);
 }
 
+static void gfx_render_surface_fill_clipped(gfx_display_t *disp,
+        const gfx_render_surface_t *dst,
+        const gfx_area_t *area,
+        gfx_color_t color,
+        gfx_opa_t opa)
+{
+    gfx_area_t clipped;
+
+    if (dst == NULL || area == NULL || opa == 0U) {
+        return;
+    }
+    if (!gfx_area_intersect_exclusive(&clipped, area, &dst->clip_area)) {
+        return;
+    }
+    if (!gfx_area_intersect_exclusive(&clipped, &clipped, &dst->buf_area)) {
+        return;
+    }
+    gfx_render_surface_fill(disp, dst, &clipped, color, opa);
+}
+
+static uint16_t gfx_render_clamp_radius(const gfx_area_t *area, uint16_t radius)
+{
+    gfx_coord_t w;
+    gfx_coord_t h;
+    gfx_coord_t max_radius;
+
+    if (area == NULL || area->x2 <= area->x1 || area->y2 <= area->y1) {
+        return 0U;
+    }
+
+    w = (gfx_coord_t)(area->x2 - area->x1);
+    h = (gfx_coord_t)(area->y2 - area->y1);
+    max_radius = ((w < h) ? w : h) / 2;
+    if ((gfx_coord_t)radius > max_radius) {
+        return (uint16_t)max_radius;
+    }
+    return radius;
+}
+
+static gfx_opa_t gfx_render_scale_opa(gfx_opa_t opa, uint8_t cover)
+{
+    if (cover == 0U || opa == 0U) {
+        return 0U;
+    }
+    if (cover >= 255U) {
+        return opa;
+    }
+    return (gfx_opa_t)(((uint32_t)opa * cover + 127U) / 255U);
+}
+
+static void gfx_render_surface_draw_aa_pixel(gfx_display_t *disp,
+        const gfx_render_surface_t *dst,
+        gfx_coord_t x,
+        gfx_coord_t y,
+        gfx_color_t color,
+        gfx_opa_t opa,
+        uint8_t cover)
+{
+    gfx_area_t px_area;
+    gfx_opa_t px_opa;
+
+    if (cover == 0U) {
+        return;
+    }
+
+    px_opa = gfx_render_scale_opa(opa, cover);
+    if (px_opa == 0U) {
+        return;
+    }
+
+    px_area = (gfx_area_t) {
+        .x1 = x,
+        .y1 = y,
+        .x2 = (gfx_coord_t)(x + 1),
+        .y2 = (gfx_coord_t)(y + 1),
+    };
+    gfx_render_surface_fill_clipped(disp, dst, &px_area, color, px_opa);
+}
+
+static uint8_t gfx_render_round_rect_corner_cover(gfx_coord_t px,
+        gfx_coord_t py,
+        gfx_coord_t radius,
+        bool outer)
+{
+    int32_t r_q = (int32_t)radius * GFX_RENDER_AA_SUBPIXELS * 2;
+    int32_t limit = outer ? r_q : (r_q - 2);
+    int32_t limit_sq;
+    uint8_t count = 0;
+
+    if (radius <= 0 || limit <= 0) {
+        return outer ? 255U : 0U;
+    }
+
+    limit_sq = limit * limit;
+    for (int sy = 0; sy < GFX_RENDER_AA_SUBPIXELS; sy++) {
+        for (int sx = 0; sx < GFX_RENDER_AA_SUBPIXELS; sx++) {
+            int32_t sample_x = (int32_t)px * GFX_RENDER_AA_SUBPIXELS * 2 + sx * 2 + 1;
+            int32_t sample_y = (int32_t)py * GFX_RENDER_AA_SUBPIXELS * 2 + sy * 2 + 1;
+            int32_t dx = sample_x - r_q;
+            int32_t dy = sample_y - r_q;
+            int32_t dist_sq = dx * dx + dy * dy;
+
+            if (dist_sq <= limit_sq) {
+                count++;
+            }
+        }
+    }
+
+    return (uint8_t)(((uint32_t)count * 255U + (GFX_RENDER_AA_SAMPLES / 2U)) / GFX_RENDER_AA_SAMPLES);
+}
+
+static uint8_t gfx_render_round_rect_coverage(const gfx_area_t *area,
+        gfx_coord_t radius,
+        gfx_coord_t x,
+        gfx_coord_t y)
+{
+    gfx_coord_t local_x;
+    gfx_coord_t local_y;
+    gfx_coord_t w;
+    gfx_coord_t h;
+    gfx_coord_t cx;
+    gfx_coord_t cy;
+
+    if (area == NULL || radius <= 0 ||
+            x < area->x1 || x >= area->x2 || y < area->y1 || y >= area->y2) {
+        return 0U;
+    }
+
+    w = (gfx_coord_t)(area->x2 - area->x1);
+    h = (gfx_coord_t)(area->y2 - area->y1);
+    local_x = (gfx_coord_t)(x - area->x1);
+    local_y = (gfx_coord_t)(y - area->y1);
+
+    if (local_x >= radius && local_x < (gfx_coord_t)(w - radius)) {
+        return 255U;
+    }
+    if (local_y >= radius && local_y < (gfx_coord_t)(h - radius)) {
+        return 255U;
+    }
+
+    cx = local_x < radius ? local_x : (gfx_coord_t)(w - 1 - local_x);
+    cy = local_y < radius ? local_y : (gfx_coord_t)(h - 1 - local_y);
+    return gfx_render_round_rect_corner_cover(cx, cy, radius, true);
+}
+
+static void gfx_render_surface_round_rect_corners_aa(gfx_display_t *disp,
+        const gfx_render_surface_t *dst,
+        const gfx_area_t *area,
+        gfx_coord_t radius,
+        gfx_color_t color,
+        gfx_opa_t opa)
+{
+    if (dst == NULL || area == NULL || radius <= 0 || opa == 0U) {
+        return;
+    }
+
+    for (gfx_coord_t y = 0; y < radius; y++) {
+        for (gfx_coord_t x = 0; x < radius; x++) {
+            uint8_t cover = gfx_render_round_rect_corner_cover(x, y, radius, true);
+            gfx_coord_t left_x = (gfx_coord_t)(area->x1 + x);
+            gfx_coord_t right_x = (gfx_coord_t)(area->x2 - 1 - x);
+            gfx_coord_t top_y = (gfx_coord_t)(area->y1 + y);
+            gfx_coord_t bottom_y = (gfx_coord_t)(area->y2 - 1 - y);
+
+            if (cover == 0U) {
+                continue;
+            }
+
+            gfx_render_surface_draw_aa_pixel(disp, dst, left_x, top_y, color, opa, cover);
+            if (right_x != left_x) {
+                gfx_render_surface_draw_aa_pixel(disp, dst, right_x, top_y, color, opa, cover);
+            }
+            if (bottom_y != top_y) {
+                gfx_render_surface_draw_aa_pixel(disp, dst, left_x, bottom_y, color, opa, cover);
+                if (right_x != left_x) {
+                    gfx_render_surface_draw_aa_pixel(disp, dst, right_x, bottom_y, color, opa, cover);
+                }
+            }
+        }
+    }
+}
+
+static void gfx_render_surface_round_rect_stroke_corners_aa(gfx_display_t *disp,
+        const gfx_render_surface_t *dst,
+        const gfx_area_t *area,
+        gfx_coord_t radius,
+        gfx_coord_t stroke_w,
+        gfx_color_t color,
+        gfx_opa_t opa)
+{
+    gfx_area_t inner_area;
+    gfx_coord_t inner_radius;
+
+    if (dst == NULL || area == NULL || radius <= 0 || stroke_w <= 0 || opa == 0U) {
+        return;
+    }
+
+    inner_area = (gfx_area_t) {
+        .x1 = (gfx_coord_t)(area->x1 + stroke_w),
+        .y1 = (gfx_coord_t)(area->y1 + stroke_w),
+        .x2 = (gfx_coord_t)(area->x2 - stroke_w),
+        .y2 = (gfx_coord_t)(area->y2 - stroke_w),
+    };
+    inner_radius = (gfx_coord_t)(radius - stroke_w);
+
+    for (gfx_coord_t y = 0; y < radius; y++) {
+        for (gfx_coord_t x = 0; x < radius; x++) {
+            gfx_coord_t points[4][2] = {
+                { (gfx_coord_t)(area->x1 + x), (gfx_coord_t)(area->y1 + y) },
+                { (gfx_coord_t)(area->x2 - 1 - x), (gfx_coord_t)(area->y1 + y) },
+                { (gfx_coord_t)(area->x1 + x), (gfx_coord_t)(area->y2 - 1 - y) },
+                { (gfx_coord_t)(area->x2 - 1 - x), (gfx_coord_t)(area->y2 - 1 - y) },
+            };
+
+            for (size_t i = 0; i < sizeof(points) / sizeof(points[0]); i++) {
+                gfx_coord_t px = points[i][0];
+                gfx_coord_t py = points[i][1];
+                uint8_t outer_cover = gfx_render_round_rect_coverage(area, radius, px, py);
+                uint8_t inner_cover = gfx_render_round_rect_coverage(&inner_area, inner_radius, px, py);
+                uint8_t cover;
+
+                if (outer_cover <= inner_cover) {
+                    continue;
+                }
+                cover = (uint8_t)(outer_cover - inner_cover);
+                gfx_render_surface_draw_aa_pixel(disp, dst, px, py, color, opa, cover);
+            }
+        }
+    }
+}
+
 void gfx_render_surface_fill(gfx_display_t *disp,
                              const gfx_render_surface_t *dst,
                              const gfx_area_t *area,
@@ -269,6 +503,170 @@ void gfx_render_surface_fill(gfx_display_t *disp,
         .pixel_size = gfx_color_format_get_size(dst->format),
     };
     gfx_render_fill_area(disp, &ctx, area, color, opa);
+}
+
+void gfx_render_surface_rect_stroke(gfx_display_t *disp,
+                                    const gfx_render_surface_t *dst,
+                                    const gfx_area_t *area,
+                                    uint16_t width,
+                                    gfx_color_t color,
+                                    gfx_opa_t opa)
+{
+    gfx_coord_t w;
+    gfx_coord_t h;
+    gfx_coord_t stroke_w;
+    gfx_area_t band;
+
+    if (dst == NULL || area == NULL || width == 0U || opa == 0U ||
+            area->x2 <= area->x1 || area->y2 <= area->y1) {
+        return;
+    }
+
+    w = (gfx_coord_t)(area->x2 - area->x1);
+    h = (gfx_coord_t)(area->y2 - area->y1);
+    stroke_w = (gfx_coord_t)width;
+    if (stroke_w * 2 > w) {
+        stroke_w = (gfx_coord_t)((w + 1) / 2);
+    }
+    if (stroke_w * 2 > h) {
+        stroke_w = (gfx_coord_t)((h + 1) / 2);
+    }
+    if (stroke_w <= 0) {
+        return;
+    }
+
+    if (stroke_w * 2 >= w || stroke_w * 2 >= h) {
+        gfx_render_surface_fill_clipped(disp, dst, area, color, opa);
+        return;
+    }
+
+    band = (gfx_area_t) {
+        .x1 = area->x1,
+        .y1 = area->y1,
+        .x2 = area->x2,
+        .y2 = (gfx_coord_t)(area->y1 + stroke_w),
+    };
+    gfx_render_surface_fill_clipped(disp, dst, &band, color, opa);
+
+    band.y1 = (gfx_coord_t)(area->y2 - stroke_w);
+    band.y2 = area->y2;
+    gfx_render_surface_fill_clipped(disp, dst, &band, color, opa);
+
+    band = (gfx_area_t) {
+        .x1 = area->x1,
+        .y1 = (gfx_coord_t)(area->y1 + stroke_w),
+        .x2 = (gfx_coord_t)(area->x1 + stroke_w),
+        .y2 = (gfx_coord_t)(area->y2 - stroke_w),
+    };
+    gfx_render_surface_fill_clipped(disp, dst, &band, color, opa);
+
+    band.x1 = (gfx_coord_t)(area->x2 - stroke_w);
+    band.x2 = area->x2;
+    gfx_render_surface_fill_clipped(disp, dst, &band, color, opa);
+}
+
+void gfx_render_surface_round_rect_fill(gfx_display_t *disp,
+                                        const gfx_render_surface_t *dst,
+                                        const gfx_area_t *area,
+                                        const gfx_round_rect_fill_dsc_t *dsc)
+{
+    uint16_t radius;
+    gfx_coord_t r;
+    gfx_area_t band;
+
+    if (dst == NULL || area == NULL || dsc == NULL || dsc->opa == 0U ||
+            area->x2 <= area->x1 || area->y2 <= area->y1) {
+        return;
+    }
+
+    radius = gfx_render_clamp_radius(area, dsc->radius);
+    if (radius == 0U) {
+        gfx_render_surface_fill_clipped(disp, dst, area, dsc->color, dsc->opa);
+        return;
+    }
+
+    r = (gfx_coord_t)radius;
+    band = (gfx_area_t) {
+        .x1 = (gfx_coord_t)(area->x1 + r),
+        .y1 = area->y1,
+        .x2 = (gfx_coord_t)(area->x2 - r),
+        .y2 = area->y2,
+    };
+    gfx_render_surface_fill_clipped(disp, dst, &band, dsc->color, dsc->opa);
+
+    band = (gfx_area_t) {
+        .x1 = area->x1,
+        .y1 = (gfx_coord_t)(area->y1 + r),
+        .x2 = (gfx_coord_t)(area->x1 + r),
+        .y2 = (gfx_coord_t)(area->y2 - r),
+    };
+    gfx_render_surface_fill_clipped(disp, dst, &band, dsc->color, dsc->opa);
+
+    band.x1 = (gfx_coord_t)(area->x2 - r);
+    band.x2 = area->x2;
+    gfx_render_surface_fill_clipped(disp, dst, &band, dsc->color, dsc->opa);
+
+    gfx_render_surface_round_rect_corners_aa(disp, dst, area, r, dsc->color, dsc->opa);
+}
+
+void gfx_render_surface_round_rect_stroke(gfx_display_t *disp,
+        const gfx_render_surface_t *dst,
+        const gfx_area_t *area,
+        const gfx_round_rect_stroke_dsc_t *dsc)
+{
+    uint16_t radius;
+    gfx_coord_t r;
+    gfx_coord_t stroke_w;
+    gfx_area_t band;
+
+    if (dst == NULL || area == NULL || dsc == NULL || dsc->opa == 0U ||
+            dsc->width == 0U || area->x2 <= area->x1 || area->y2 <= area->y1) {
+        return;
+    }
+
+    radius = gfx_render_clamp_radius(area, dsc->radius);
+    if (radius == 0U) {
+        gfx_render_surface_rect_stroke(disp, dst, area, dsc->width, dsc->color, dsc->opa);
+        return;
+    }
+
+    r = (gfx_coord_t)radius;
+    stroke_w = (gfx_coord_t)dsc->width;
+    if (stroke_w >= r) {
+        gfx_round_rect_fill_dsc_t fill_dsc = {
+            .color = dsc->color,
+            .opa = dsc->opa,
+            .radius = radius,
+        };
+        gfx_render_surface_round_rect_fill(disp, dst, area, &fill_dsc);
+        return;
+    }
+
+    band = (gfx_area_t) {
+        .x1 = (gfx_coord_t)(area->x1 + r),
+        .y1 = area->y1,
+        .x2 = (gfx_coord_t)(area->x2 - r),
+        .y2 = (gfx_coord_t)(area->y1 + stroke_w),
+    };
+    gfx_render_surface_fill_clipped(disp, dst, &band, dsc->color, dsc->opa);
+
+    band.y1 = (gfx_coord_t)(area->y2 - stroke_w);
+    band.y2 = area->y2;
+    gfx_render_surface_fill_clipped(disp, dst, &band, dsc->color, dsc->opa);
+
+    band = (gfx_area_t) {
+        .x1 = area->x1,
+        .y1 = (gfx_coord_t)(area->y1 + r),
+        .x2 = (gfx_coord_t)(area->x1 + stroke_w),
+        .y2 = (gfx_coord_t)(area->y2 - r),
+    };
+    gfx_render_surface_fill_clipped(disp, dst, &band, dsc->color, dsc->opa);
+
+    band.x1 = (gfx_coord_t)(area->x2 - stroke_w);
+    band.x2 = area->x2;
+    gfx_render_surface_fill_clipped(disp, dst, &band, dsc->color, dsc->opa);
+
+    gfx_render_surface_round_rect_stroke_corners_aa(disp, dst, area, r, stroke_w, dsc->color, dsc->opa);
 }
 
 static gfx_coord_t gfx_render_align_floor(gfx_coord_t value, uint16_t alignment)
@@ -719,6 +1117,83 @@ bool gfx_render_surface_scale_image(gfx_display_t *disp,
     return gfx_render_backend_scale(disp, &ctx, dst_area, &dst->clip_area, &backend_src, src_area, opa);
 }
 
+bool gfx_render_backend_transform(gfx_display_t *disp,
+                                  const gfx_draw_ctx_t *ctx,
+                                  const gfx_area_t *dst_area,
+                                  const gfx_area_t *clip_area,
+                                  const gfx_backend_image_t *src,
+                                  const gfx_area_t *src_area,
+                                  int16_t angle,
+                                  gfx_opa_t opa)
+{
+    gfx_area_t draw_area;
+
+    if (disp == NULL || ctx == NULL || dst_area == NULL || clip_area == NULL ||
+            src == NULL || src->pixels == NULL || src_area == NULL || opa == 0U) {
+        return false;
+    }
+
+    if (!gfx_area_intersect_exclusive(&draw_area, dst_area, clip_area) ||
+            draw_area.x1 != dst_area->x1 || draw_area.y1 != dst_area->y1 ||
+            draw_area.x2 != dst_area->x2 || draw_area.y2 != dst_area->y2) {
+        return false;
+    }
+
+    gfx_backend_t *backend = disp->backend;
+    const gfx_draw_ops_t *ops = gfx_backend_get_draw_ops(backend);
+    if (ops == NULL || ops->transform == NULL) {
+        return false;
+    }
+
+    gfx_backend_surface_t dst = {
+        .buf = ctx->buf,
+        .area = ctx->buf_area,
+        .stride = ctx->stride,
+        .format = ctx->format,
+    };
+
+    if (!gfx_render_backend_op_can_use_dst(backend, GFX_BACKEND_CAP_TRANSFORM, &dst, dst_area)) {
+        return false;
+    }
+
+    return ops->transform(backend, disp, &dst, dst_area, src, src_area, angle, opa) == GFX_OK;
+}
+
+bool gfx_render_surface_transform_image(gfx_display_t *disp,
+                                        const gfx_render_surface_t *dst,
+                                        const gfx_area_t *dst_area,
+                                        const gfx_render_image_t *src,
+                                        const gfx_area_t *src_area,
+                                        int16_t angle,
+                                        gfx_opa_t opa)
+{
+    gfx_draw_ctx_t ctx;
+    gfx_backend_image_t backend_src;
+
+    if (dst == NULL || src == NULL) {
+        return false;
+    }
+
+    ctx = (gfx_draw_ctx_t) {
+        .buf = dst->buf,
+        .buf_area = dst->buf_area,
+        .clip_area = dst->clip_area,
+        .stride = dst->stride,
+        .format = dst->format,
+        .pixel_size = gfx_color_format_get_size(dst->format),
+    };
+    backend_src = (gfx_backend_image_t) {
+        .pixels = src->pixels,
+        .stride = src->stride,
+        .format = src->format,
+        .alpha = src->alpha,
+        .alpha_stride = src->alpha_stride,
+    };
+
+    return gfx_render_backend_transform(disp, &ctx, dst_area, &dst->clip_area,
+                                        &backend_src, src_area, angle, opa);
+}
+
 static uint32_t gfx_render_stride_pixels_for_width(uint32_t width_px,
         const gfx_render_alignment_t *alignment,
         uint8_t pixel_size)
@@ -761,7 +1236,7 @@ void gfx_render_part_area(gfx_display_t *disp, gfx_area_t *area, uint8_t area_id
 
     uint32_t render_w = (uint32_t)(render_area.x2 - render_area.x1);
     uint32_t render_h = (uint32_t)(render_area.y2 - render_area.y1);
-    uint32_t stride_pixels = disp->flags.full_frame ? disp->res.h_res :
+    uint32_t stride_pixels = gfx_display_has_full_frame_buf(disp) ? disp->res.h_res :
                              gfx_render_stride_pixels_for_width(render_w, &alignment,
                                      disp->format.render_pixel_size);
     uint32_t row_h = disp->buf.buf_pixels / stride_pixels;
@@ -795,7 +1270,7 @@ void gfx_render_part_area(gfx_display_t *disp, gfx_area_t *area, uint8_t area_id
         gfx_coord_t dest_stride = (gfx_coord_t)stride_pixels;
 
         gfx_area_t buf_area;
-        if (disp->flags.full_frame) {
+        if (gfx_display_has_full_frame_buf(disp)) {
             buf_area.x1 = 0;
             buf_area.y1 = 0;
             buf_area.x2 = (gfx_coord_t)disp->res.h_res;
@@ -849,10 +1324,6 @@ void gfx_render_part_area(gfx_display_t *disp, gfx_area_t *area, uint8_t area_id
             }
             disp->render.flush_time_us += (uint64_t)(gfx_platform_time_us() - flush_start_us);
             disp->render.flush_count++;
-
-            if (disp->buf.buf2 != NULL && (!disp->flags.full_frame || disp->render.flushing_last)) {
-                disp->buf.buf_act = (disp->buf.buf_act == disp->buf.buf1) ? disp->buf.buf2 : disp->buf.buf1;
-            }
         }
 
         cur_y = chunk_y2;
@@ -875,8 +1346,6 @@ void gfx_render_dirty_areas(gfx_display_t *disp)
     gfx_sw_blend_perf_reset(&disp->render.draw);
     gfx_sw_blend_perf_bind(&disp->render.draw);
 
-    gfx_render_sync_dirty_areas(disp);
-
     uint8_t last_area_idx = 0;
     for (uint8_t i = 0; i < disp->dirty.count; i++) {
         if (!disp->dirty.merged[i]) {
@@ -884,7 +1353,6 @@ void gfx_render_dirty_areas(gfx_display_t *disp)
         }
     }
 
-    uint8_t sync_points = 0;
     for (uint8_t i = 0; i < disp->dirty.count; i++) {
         if (disp->dirty.merged[i]) {
             continue;
@@ -892,11 +1360,8 @@ void gfx_render_dirty_areas(gfx_display_t *disp)
         gfx_area_t *area = &disp->dirty.areas[i];
         bool is_last_area = (i == last_area_idx);
         gfx_render_part_area(disp, area, i, is_last_area);
-        gfx_area_copy(&disp->sync_pending.areas[sync_points], area);
-        sync_points++;
     }
     gfx_sw_blend_perf_unbind();
-    disp->sync_pending.count = sync_points;
 }
 
 /**

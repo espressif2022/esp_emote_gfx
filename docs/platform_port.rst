@@ -21,13 +21,13 @@ The ESP-IDF implementation lives in:
 
 .. code-block:: text
 
-   src/platform/esp_idf/gfx_platform_esp_idf.c
+   src/platform/esp_idf/esp_idf_platform.c
 
 The Linux/POSIX host implementation lives in:
 
 .. code-block:: text
 
-   src/platform/linux/gfx_platform_linux.c
+   src/platform/linux/linux_platform.c
 
 The ESP-IDF component CMake excludes the Linux port. Host/simulator CMake
 targets should explicitly compile the Linux port instead of the ESP-IDF port.
@@ -72,10 +72,26 @@ Linux port smoke test:
 
    cc -std=c11 -Wall -Wextra \
      -Iinclude -Isrc -Isimulation/port/include \
-     -c src/platform/linux/gfx_platform_linux.c \
+     -c src/platform/linux/linux_platform.c \
      -o /tmp/gfx_platform_linux.o \
      -pthread
 
 Remaining ESP-IDF-specific areas are device-facing ports such as LCD touch and
 panel integration. These should become separate input/display adapters rather
 than part of core rendering.
+
+Naming Conventions
+------------------
+
+Platform code uses three symbol classes:
+
+* **Cross-target contract** — ``gfx_platform_*()`` declared in
+  ``src/platform/gfx_platform.h`` and implemented per target
+  (``esp_idf_platform.c``, ``linux_platform.c``).
+* **Port registration** — ``gfx_<module>_..._port()`` entry points with the
+  same name on every target (for example ``gfx_fs_open_dir_port()``).
+* **File-local helpers** — ``s_*()`` static functions; private structs may use
+  a short target prefix such as ``linux_event_t`` in ``linux_platform.c``.
+
+See ``docs/architecture.md`` for the full naming rules shared with core and
+backend code.

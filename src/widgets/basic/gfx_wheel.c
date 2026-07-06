@@ -13,13 +13,12 @@
 
 #include "common/gfx_comm.h"
 #include "core/display/gfx_refresh_priv.h"
-#include "core/gfx_touch.h"
+#include "gfx/input.h"
 #include "core/object/gfx_object_priv.h"
 #include "gfx/tween.h"
 #include "gfx/widgets/wheel.h"
 #include "render/gfx_render_priv.h"
 #include "render/sw/gfx_blend_priv.h"
-#include "render/sw/gfx_sw_draw_priv.h"
 #include "widgets/label/gfx_label_draw_priv.h"
 #include "widgets/label/gfx_label_priv.h"
 
@@ -435,10 +434,10 @@ static gfx_err_t gfx_wheel_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     }
 
     if (wheel->style.border_width > 0U) {
-        gfx_sw_draw_rect_stroke_fmt(ctx->buf, ctx->stride, ctx->format, &ctx->buf_area, &ctx->clip_area,
-                                    &center_area, wheel->style.border_width, wheel->style.border_color, 0xFF);
-        gfx_sw_draw_rect_stroke_fmt(ctx->buf, ctx->stride, ctx->format, &ctx->buf_area, &ctx->clip_area,
-                                    &obj_area, wheel->style.border_width, wheel->style.border_color, 0xFF);
+        gfx_render_surface_rect_stroke(obj->disp, &dst_surface, &center_area,
+                                       wheel->style.border_width, wheel->style.border_color, 0xFF);
+        gfx_render_surface_rect_stroke(obj->disp, &dst_surface, &obj_area,
+                                       wheel->style.border_width, wheel->style.border_color, 0xFF);
     }
 
     if (wheel->item_count == 0U || wheel->item_height == 0U) {

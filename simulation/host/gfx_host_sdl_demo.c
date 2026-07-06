@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "core/gfx_err.h"
+#include "gfx/error.h"
 #include "gfx/base.h"
 #include "gfx/fs.h"
 
@@ -70,7 +70,6 @@ static int host_demo_open_port(host_demo_t *demo)
             },
         },
         .display = {
-            .full_frame = true,
             .double_buffer = true,
         },
         .fs = {

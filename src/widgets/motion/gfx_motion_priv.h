@@ -9,9 +9,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "core/gfx_disp.h"
-#include "core/gfx_obj.h"
-#include "core/gfx_timer.h"
+#include "gfx/display.h"
+#include "gfx/object.h"
+#include "gfx/timer.h"
 
 #ifdef __cplusplus
 extern "C" {

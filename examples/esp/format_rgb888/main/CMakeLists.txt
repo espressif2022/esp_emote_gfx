@@ -14,6 +14,7 @@ idf_component_register(
         "../../../format_playground/widgets/widget_pageflow.c"
         "../../../format_playground/widgets/widget_wheel.c"
         "../../../format_playground/assets/font_puhui_16_4.c"
+        "../../../format_playground/assets/image_button_assets.c"
     INCLUDE_DIRS "." "../../../common" "../../../format_playground" "../../../motion" "../../../../src"
 )
 

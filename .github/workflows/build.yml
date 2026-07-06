@@ -51,22 +51,28 @@ jobs:
           cmake --build build-host-sdl --parallel
           cd build-host-sdl && ctest --output-on-failure
 
-      - name: Build test_apps
+      - name: Build test_apps (unit + visual + hw)
         shell: bash
         timeout-minutes: 100
         run: |
           . $IDF_PATH/export.sh
-          # pip install --upgrade idf-component-manager
           pip install idf-build-apps
 
           cd $GITHUB_WORKSPACE
-          # Build both BSP configs: sdkconfig.bsp.esp-box (esp32s3) and sdkconfig.bsp.esp32_p4_function_ev_board (esp32p4)
-          IDF_CCACHE_ENABLE=1 idf-build-apps build -p test_apps --config-rules "sdkconfig.bsp.*=" -vv
+          IDF_CCACHE_ENABLE=1 idf-build-apps build \
+            -p test_apps/unit \
+            -p test_apps/visual \
+            -p test_apps \
+            --config-rules "sdkconfig.bsp.*=" \
+            -vv
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: test_apps-build-idf-${{matrix.idf-version}}
-          path: test_apps/build_*/
+          path: |
+            test_apps/build*/
+            test_apps/unit/build*/
+            test_apps/visual/build*/
           retention-days: 7
           if-no-files-found: warn

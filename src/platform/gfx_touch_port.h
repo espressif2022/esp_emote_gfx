@@ -9,7 +9,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "core/gfx_err.h"
+#include "gfx/error.h"
 
 #ifdef __cplusplus
 extern "C" {

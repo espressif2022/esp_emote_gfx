@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 960 540" role="img" aria-labelledby="explodeTitle">
+  <title id="explodeTitle">组件爆炸图</title>
+  <defs>
+    <style>
+      text { font-family: Inter, "PingFang SC", "Microsoft YaHei", Arial, sans-serif; }
+      .chip { fill: #fff; stroke: #e30613; stroke-width: 2; }
+      .chip-label { fill: #0a0a0a; font-size: 13px; font-weight: 600; }
+      .tag { fill: #e30613; }
+      .tag-text { fill: #fff; font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+      .line { stroke: rgba(227, 6, 19, .45); stroke-width: 1.5; fill: none; }
+    </style>
+  </defs>
+  <rect width="960" height="540" fill="#f5f5f3"/>
+  <g stroke="#e6e6e4" stroke-width="1">
+    <path d="M0 24 H960 M0 48 H960 M0 72 H960 M0 96 H960 M0 120 H960 M0 144 H960 M0 168 H960 M0 192 H960 M0 216 H960 M0 240 H960 M0 264 H960 M0 288 H960 M0 312 H960 M0 336 H960 M0 360 H960 M0 384 H960 M0 408 H960 M0 432 H960 M0 456 H960 M0 480 H960 M0 504 H960"/>
+    <path d="M24 0 V540 M48 0 V540 M72 0 V540 M96 0 V540 M120 0 V540 M144 0 V540 M168 0 V540 M192 0 V540 M216 0 V540 M240 0 V540 M264 0 V540 M288 0 V540 M312 0 V540 M336 0 V540 M360 0 V540 M384 0 V540 M408 0 V540 M432 0 V540 M456 0 V540 M480 0 V540 M504 0 V540 M528 0 V540 M552 0 V540 M576 0 V540 M600 0 V540 M624 0 V540 M648 0 V540 M672 0 V540 M696 0 V540 M720 0 V540 M744 0 V540 M768 0 V540 M792 0 V540 M816 0 V540 M840 0 V540 M864 0 V540 M888 0 V540 M912 0 V540 M936 0 V540"/>
+  </g>
+
+  <rect x="38" y="118" width="184" height="304" fill="none" stroke="#e30613" stroke-width="2"/>
+  <rect x="38" y="96" width="96" height="18" class="tag"/>
+  <text x="46" y="110" class="tag-text">WIDGET LIST</text>
+  <image xlink:href="all_widget_crop_sidebar.png" x="40" y="120" width="180" height="300"/>
+
+  <rect x="278" y="88" width="224" height="134" fill="none" stroke="#e30613" stroke-width="2"/>
+  <rect x="278" y="66" width="118" height="18" class="tag"/>
+  <text x="286" y="80" class="tag-text">IMAGE BUTTON</text>
+  <image xlink:href="all_widget_crop_image_button.png" x="280" y="90" width="220" height="130"/>
+
+  <rect x="518" y="138" width="384" height="224" fill="none" stroke="#e30613" stroke-width="2"/>
+  <rect x="518" y="116" width="118" height="18" class="tag"/>
+  <text x="526" y="130" class="tag-text">PREVIEW AREA</text>
+  <image xlink:href="all_widget_crop_preview.png" x="520" y="140" width="380" height="220"/>
+
+  <line class="line" x1="222" y1="270" x2="278" y2="155"/>
+  <line class="line" x1="222" y1="270" x2="518" y2="250"/>
+  <line class="line" x1="222" y1="270" x2="305" y2="297"/>
+
+  <rect x="258" y="278" width="88" height="34" class="chip"/>
+  <text x="272" y="300" class="chip-label">Motion</text>
+  <rect x="358" y="278" width="72" height="34" class="chip"/>
+  <text x="372" y="300" class="chip-label">Anim</text>
+  <rect x="448" y="278" width="82" height="34" class="chip"/>
+  <text x="462" y="300" class="chip-label">Button</text>
+  <rect x="258" y="338" width="72" height="34" class="chip"/>
+  <text x="272" y="360" class="chip-label">Image</text>
+  <rect x="348" y="338" width="118" height="34" class="chip"/>
+  <text x="362" y="360" class="chip-label">Progress Bar</text>
+  <rect x="528" y="338" width="58" height="34" class="chip"/>
+  <text x="542" y="360" class="chip-label">List</text>
+  <rect x="258" y="398" width="98" height="34" class="chip"/>
+  <text x="272" y="420" class="chip-label">Coverflow</text>
+  <rect x="388" y="398" width="98" height="34" class="chip"/>
+  <text x="402" y="420" class="chip-label">Pageflow</text>
+  <rect x="528" y="398" width="68" height="34" class="chip"/>
+  <text x="542" y="420" class="chip-label">Wheel</text>
+</svg>

@@ -14,7 +14,7 @@
 #include "common/gfx_check.h"
 #define GFX_LOG_MODULE GFX_LOG_MODULE_IMAGE_DECODER
 #include "common/gfx_log_priv.h"
-#include "core/gfx_fs.h"
+#include "gfx/fs.h"
 #include "common/gfx_types_priv.h"
 #include "platform/gfx_platform.h"
 #include "platform/gfx_platform_jpeg_priv.h"
@@ -41,6 +41,9 @@ static void gfx_image_decoder_c_array_close_cb(gfx_image_decoder_t *decoder, gfx
 static gfx_err_t gfx_image_decoder_jpeg_info_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc, gfx_image_header_t *header);
 static gfx_err_t gfx_image_decoder_jpeg_open_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc);
 static void gfx_image_decoder_jpeg_close_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc);
+static gfx_err_t gfx_image_decoder_jpeg_prepare_file(gfx_image_decoder_dsc_t *dsc);
+static gfx_err_t gfx_image_decoder_jpeg_probe_payload(const uint8_t *payload, size_t payload_size,
+        gfx_image_header_t *header);
 static const void *gfx_image_decoder_get_payload(const gfx_image_decoder_dsc_t *dsc);
 static size_t gfx_image_decoder_get_payload_size(const gfx_image_decoder_dsc_t *dsc);
 static gfx_err_t gfx_image_decoder_fs_err(gfx_err_t err);
@@ -410,41 +413,67 @@ static void gfx_image_decoder_c_array_close_cb(gfx_image_decoder_t *decoder, gfx
 static gfx_err_t gfx_image_decoder_jpeg_info_cb(gfx_image_decoder_t *decoder, gfx_image_decoder_dsc_t *dsc,
         gfx_image_header_t *header)
 {
-    uint32_t w = 0;
-    uint32_t h = 0;
     const uint8_t *payload = NULL;
-    gfx_fs_blob_t file_blob = {0};
     size_t payload_size = 0;
-    gfx_err_t fs_err;
+    gfx_err_t ret;
     (void)decoder;
 
     GFX_RETURN_ON_FALSE(dsc != NULL && (dsc->src.type == GFX_IMAGE_SRC_TYPE_MEMORY ||
                                         dsc->src.type == GFX_IMAGE_SRC_TYPE_FILE),
                         GFX_ERR_INVALID_ARG, TAG, "jpeg info: unsupported source type");
     if (dsc->src.type == GFX_IMAGE_SRC_TYPE_FILE) {
-        fs_err = gfx_fs_load((const char *)dsc->src.data, &file_blob);
-        GFX_RETURN_ON_FALSE(fs_err == GFX_OK, gfx_image_decoder_fs_err(fs_err),
-                            TAG, "jpeg info: open file source failed");
-        payload = file_blob.data;
-        payload_size = file_blob.size;
+        ret = gfx_image_decoder_jpeg_prepare_file(dsc);
+        GFX_RETURN_ON_ERROR(ret, TAG, "jpeg info: open file source failed");
+        payload = dsc->src_blob.data;
+        payload_size = dsc->src_blob.size;
     } else {
         payload = (const uint8_t *)gfx_image_decoder_get_payload(dsc);
         payload_size = gfx_image_decoder_get_payload_size(dsc);
     }
 
+    ret = gfx_image_decoder_jpeg_probe_payload(payload, payload_size, header);
+    if (!dsc->retain_src_blob) {
+        gfx_fs_unload(&dsc->src_blob);
+    }
+    return ret;
+}
+
+static gfx_err_t gfx_image_decoder_jpeg_prepare_file(gfx_image_decoder_dsc_t *dsc)
+{
+    gfx_err_t fs_err;
+
+    if (dsc == NULL || dsc->src.type != GFX_IMAGE_SRC_TYPE_FILE || dsc->src.data == NULL) {
+        return GFX_ERR_INVALID_ARG;
+    }
+    if (dsc->src_blob.data != NULL) {
+        return GFX_OK;
+    }
+
+    fs_err = gfx_fs_load((const char *)dsc->src.data, &dsc->src_blob);
+    return gfx_image_decoder_fs_err(fs_err);
+}
+
+static gfx_err_t gfx_image_decoder_jpeg_probe_payload(const uint8_t *payload, size_t payload_size,
+        gfx_image_header_t *header)
+{
+    uint32_t w = 0;
+    uint32_t h = 0;
     gfx_err_t ret = GFX_OK;
+
+    GFX_RETURN_ON_FALSE(header != NULL, GFX_ERR_INVALID_ARG, TAG, "jpeg probe: header is NULL");
+
     GFX_GOTO_ON_FALSE(payload != NULL && payload_size >= 2U,
-                      GFX_ERR_INVALID_ARG, cleanup, TAG, "jpeg info: payload is invalid");
+                      GFX_ERR_INVALID_ARG, cleanup, TAG, "jpeg probe: payload is invalid");
     GFX_GOTO_ON_FALSE(gfx_image_detect_format(payload) == GFX_IMAGE_FORMAT_JPEG,
-                      GFX_ERR_INVALID_ARG, cleanup, TAG, "jpeg info: not jpeg");
+                      GFX_ERR_INVALID_ARG, cleanup, TAG, "jpeg probe: not jpeg");
     GFX_GOTO_ON_FALSE(gfx_platform_jpeg_is_available(),
-                      GFX_ERR_NOT_SUPPORTED, cleanup, TAG, "jpeg info: platform jpeg unavailable");
+                      GFX_ERR_NOT_SUPPORTED, cleanup, TAG, "jpeg probe: platform jpeg unavailable");
     GFX_GOTO_ON_ERROR(gfx_platform_jpeg_get_info(payload, payload_size, &w, &h),
-                      cleanup, TAG, "jpeg info: get info failed");
+                      cleanup, TAG, "jpeg probe: get info failed");
     GFX_GOTO_ON_FALSE(w > 0U && h > 0U && w <= UINT16_MAX && h <= UINT16_MAX &&
                       w * 3U <= UINT16_MAX,
                       GFX_ERR_INVALID_SIZE, cleanup,
-                      TAG, "jpeg info: unsupported size %" PRIu32 "x%" PRIu32, w, h);
+                      TAG, "jpeg probe: unsupported size %" PRIu32 "x%" PRIu32, w, h);
 
     memset(header, 0, sizeof(*header));
     header->magic = GFX_IMAGE_HEADER_MAGIC;
@@ -454,7 +483,6 @@ static gfx_err_t gfx_image_decoder_jpeg_info_cb(gfx_image_decoder_t *decoder, gf
     header->stride = (uint16_t)(w * 3U);
 
 cleanup:
-    gfx_fs_unload(&file_blob);
     return ret;
 }
 
@@ -468,19 +496,27 @@ static gfx_err_t gfx_image_decoder_jpeg_open_cb(gfx_image_decoder_t *decoder, gf
     size_t out_size;
     gfx_err_t ret;
     gfx_err_t fs_err;
+    (void)decoder;
 
-    GFX_RETURN_ON_ERROR(gfx_image_decoder_jpeg_info_cb(decoder, dsc, &header),
-                        TAG, "jpeg open: info failed");
-
+    GFX_RETURN_ON_FALSE(dsc != NULL && (dsc->src.type == GFX_IMAGE_SRC_TYPE_MEMORY ||
+                                        dsc->src.type == GFX_IMAGE_SRC_TYPE_FILE),
+                        GFX_ERR_INVALID_ARG, TAG, "jpeg open: unsupported source type");
     if (dsc->src.type == GFX_IMAGE_SRC_TYPE_FILE) {
-        fs_err = gfx_fs_load((const char *)dsc->src.data, &file_blob);
-        GFX_RETURN_ON_FALSE(fs_err == GFX_OK, gfx_image_decoder_fs_err(fs_err),
-                            TAG, "jpeg open: open file source failed");
+        fs_err = gfx_image_decoder_jpeg_prepare_file(dsc);
+        GFX_RETURN_ON_ERROR(fs_err, TAG, "jpeg open: open file source failed");
+        file_blob = dsc->src_blob;
+        memset(&dsc->src_blob, 0, sizeof(dsc->src_blob));
         payload = file_blob.data;
         payload_size = file_blob.size;
     } else {
         payload = (const uint8_t *)gfx_image_decoder_get_payload(dsc);
         payload_size = gfx_image_decoder_get_payload_size(dsc);
+    }
+
+    ret = gfx_image_decoder_jpeg_probe_payload(payload, payload_size, &header);
+    if (ret != GFX_OK) {
+        gfx_fs_unload(&file_blob);
+        return ret;
     }
 
     out_size = (size_t)header.stride * (size_t)header.h;
@@ -494,12 +530,13 @@ static gfx_err_t gfx_image_decoder_jpeg_open_cb(gfx_image_decoder_t *decoder, gf
              gfx_image_decoder_src_type_name(dsc->src.type), dsc->src.data, payload_size,
              (unsigned)header.w, (unsigned)header.h, out_size);
     ret = gfx_platform_jpeg_decode_rgb888(payload, payload_size, out_data, &out_size);
-    gfx_fs_unload(&file_blob);
     if (ret != GFX_OK) {
+        gfx_fs_unload(&file_blob);
         gfx_platform_free(out_data);
         return ret;
     }
 
+    gfx_fs_unload(&file_blob);
     dsc->header = header;
     dsc->data = out_data;
     dsc->data_size = out_size;
@@ -512,7 +549,11 @@ static void gfx_image_decoder_jpeg_close_cb(gfx_image_decoder_t *decoder, gfx_im
 {
     (void)decoder;
 
-    if (dsc == NULL || dsc->user_data == NULL) {
+    if (dsc == NULL) {
+        return;
+    }
+    gfx_fs_unload(&dsc->src_blob);
+    if (dsc->user_data == NULL) {
         return;
     }
     GFX_LOGD(TAG, "jpeg close: pixels=%p bytes=%zu", dsc->user_data, dsc->data_size);

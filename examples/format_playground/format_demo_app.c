@@ -16,15 +16,19 @@
 
 #include "hmi_rgb_board.h"
 #include "gfx_display_port.h"
-#include "gfx/backends/esp_lcd_rgb.h"
+#include "gfx/backends/esp_lcd.h"
 #include "playground_scene.h"
+
+#if defined(GFX565_TEAR_DEMO)
+#include "gfx565_tear_config.h"
+#endif
 
 typedef struct {
     gfx_display_port_t port;
     gfx_touch_t *touch;
     esp_lcd_panel_handle_t panel;
     esp_lcd_touch_handle_t touch_panel;
-    void *panel_fbs[2];
+    void *panel_fbs[3];
     gfx_timer_handle_t perf_timer;
     const gfx_format_demo_app_config_t *config;
 } format_demo_app_runtime_t;
@@ -54,12 +58,20 @@ static void format_demo_perf_timer_cb(void *user_data)
 
 static esp_err_t format_demo_board_init(format_demo_app_runtime_t *app)
 {
+#if defined(GFX565_TEAR_DEMO)
+    const uint8_t panel_num_fbs = GFX565_PANEL_NUM_FBS;
+#else
+    const uint8_t panel_num_fbs = 2U;
+#endif
+
     ESP_RETURN_ON_ERROR(hmi_rgb_board_backlight_init(), app->config->log_tag, "backlight init failed");
     hmi_rgb_board_backlight_set(false);
-    ESP_RETURN_ON_ERROR(hmi_rgb_board_rgb_panel_create(&app->panel, 2), app->config->log_tag, "panel create failed");
-    ESP_RETURN_ON_ERROR(esp_lcd_rgb_panel_get_frame_buffer(app->panel, 2,
+    ESP_RETURN_ON_ERROR(hmi_rgb_board_rgb_panel_create(&app->panel, panel_num_fbs),
+                        app->config->log_tag, "panel create failed");
+    ESP_RETURN_ON_ERROR(esp_lcd_rgb_panel_get_frame_buffer(app->panel, panel_num_fbs,
                         &app->panel_fbs[0],
-                        &app->panel_fbs[1]),
+                        panel_num_fbs > 1U ? &app->panel_fbs[1] : NULL,
+                        panel_num_fbs > 2U ? &app->panel_fbs[2] : NULL),
                         app->config->log_tag, "get frame buffers failed");
     ESP_RETURN_ON_ERROR(hmi_rgb_board_rgb_panel_boot(app->panel), app->config->log_tag, "panel boot failed");
 
@@ -76,33 +88,80 @@ static esp_err_t format_demo_gfx_init(format_demo_app_runtime_t *app)
 {
     gfx_backend_t *backend;
     gfx_err_t err;
-
-    backend = gfx_backend_esp_lcd_rgb_create(&(gfx_backend_esp_lcd_rgb_config_t) {
+#if defined(GFX565_TEAR_DEMO)
+    gfx_backend_esp_lcd_config_t backend_cfg = {
         .panel = app->panel,
-    });
-    ESP_RETURN_ON_FALSE(backend != NULL, ESP_FAIL, app->config->log_tag, "display backend create failed");
-
-    err = gfx_display_port_open(&(gfx_display_port_config_t) {
-        .h_res = HMI_RGB_LCD_H_RES,
-        .v_res = HMI_RGB_LCD_V_RES,
+        .panel_io = NULL,
+        .interface = GFX_BACKEND_ESP_LCD_IF_RGB,
+        .flush_mode = GFX565_FLUSH_MODE,
+        .tear_mode = GFX565_TEAR_MODE,
+        .panel_fb_count = GFX565_PANEL_NUM_FBS,
+        .panel_fb = {
+            app->panel_fbs[0],
+            app->panel_fbs[1],
+            GFX565_PANEL_NUM_FBS > 2U ? app->panel_fbs[2] : NULL,
+        },
+    };
+    gfx_display_port_config_t port_cfg = {
+        .h_res = GFX565_H_RES,
+        .v_res = GFX565_V_RES,
         .fps = 30,
         .color_format = app->config->color_format,
         .backend_type = GFX_DISPLAY_PORT_BACKEND_EXTERNAL,
-        .backend = backend,
         .runtime = {
             .core = {
                 .task = GFX_CORE_TASK_DEFAULT_CONFIG(),
             },
         },
         .display = {
-            .full_frame = true,
+            .buf_pixels = GFX565_BUF_PIXELS,
+#if GFX565_USE_PANEL_AS_DRAW
+            .buf1 = app->panel_fbs[0],
+            .buf2 = app->panel_fbs[1],
+#else
+            .double_buffer = true,
+            .buff_spiram = true,
+#endif
+        },
+    };
+
+    ESP_LOGI(app->config->log_tag,
+             "tear verify: mode=%s panel_fbs=%u buf_pixels=%u",
+             GFX565_TEAR_MODE_NAME,
+             (unsigned)GFX565_PANEL_NUM_FBS,
+             (unsigned)GFX565_BUF_PIXELS);
+#else
+    gfx_backend_esp_lcd_config_t backend_cfg = {
+        .panel = app->panel,
+        .panel_io = NULL,
+        .interface = GFX_BACKEND_ESP_LCD_IF_RGB,
+    };
+    gfx_display_port_config_t port_cfg = {
+        .h_res = HMI_RGB_LCD_H_RES,
+        .v_res = HMI_RGB_LCD_V_RES,
+        .fps = 30,
+        .color_format = app->config->color_format,
+        .backend_type = GFX_DISPLAY_PORT_BACKEND_EXTERNAL,
+        .runtime = {
+            .core = {
+                .task = GFX_CORE_TASK_DEFAULT_CONFIG(),
+            },
+        },
+        .display = {
             .buf1 = app->panel_fbs[0],
             .buf2 = app->panel_fbs[1],
             .buf_pixels = HMI_RGB_LCD_H_RES * HMI_RGB_LCD_V_RES,
         },
-    }, &app->port);
+    };
+#endif
+
+    backend = gfx_backend_esp_lcd_create(&backend_cfg);
+    ESP_RETURN_ON_FALSE(backend != NULL, ESP_FAIL, app->config->log_tag, "display backend create failed");
+
+    port_cfg.backend = backend;
+    err = gfx_display_port_open(&port_cfg, &app->port);
     if (err != GFX_OK) {
-        gfx_backend_esp_lcd_rgb_delete(backend);
+        gfx_backend_esp_lcd_delete(backend);
         ESP_LOGE(app->config->log_tag, "display port open failed: %d", (int)err);
         return ESP_FAIL;
     }

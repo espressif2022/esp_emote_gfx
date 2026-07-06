@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "core/gfx_err.h"
+#include "gfx/error.h"
 #include <stdbool.h>
 #include <stdint.h>
 

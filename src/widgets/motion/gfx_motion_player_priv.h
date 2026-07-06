@@ -11,7 +11,7 @@
 
 #include "common/gfx_config_internal.h"
 #include "common/gfx_mesh_frac.h"
-#include "core/gfx_obj.h"
+#include "gfx/object.h"
 #include "gfx/widgets/mesh_image.h"
 #include "gfx/widgets/motion.h"
 #include "widgets/motion/gfx_motion_priv.h"

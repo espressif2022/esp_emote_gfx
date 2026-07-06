@@ -1,0 +1,270 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1288" height="1090" viewBox="56 100 1288 1090" role="img" aria-labelledby="title desc">
+  <title id="title">框架结构图</title>
+  <desc id="desc">ESP Emote GFX 的结构总览，包含 UI 能力、运行时、资源服务、渲染器、后端、加速能力以及平台硬件层。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#10141a"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#0891b2"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#93c5fd"/>
+    </marker>
+    <marker id="orangeArrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#fb923c"/>
+    </marker>
+    <style>
+      text { font-family: Inter, "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif; }
+      .title { fill: #f8fafc; font-size: 36px; font-weight: 700; }
+      .section { fill: #94a3b8; font-size: 14px; font-weight: 700; letter-spacing: 1px; }
+      .panel { fill: rgba(15, 23, 42, 0.76); stroke: rgba(148, 163, 184, 0.34); stroke-width: 1.2; }
+      .box-title { fill: #f8fafc; font-size: 18px; font-weight: 700; }
+      .small-title { fill: #f8fafc; font-size: 15px; font-weight: 700; }
+      .chip-text { fill: #cbd5e1; font-size: 13px; font-weight: 500; }
+      .blue { fill: rgba(37, 99, 235, 0.20); stroke: #60a5fa; stroke-width: 1.5; }
+      .green { fill: rgba(22, 163, 74, 0.18); stroke: #4ade80; stroke-width: 1.5; }
+      .orange { fill: rgba(234, 88, 12, 0.18); stroke: #fb923c; stroke-width: 1.5; }
+      .violet { fill: rgba(124, 58, 237, 0.20); stroke: #a78bfa; stroke-width: 1.5; }
+      .cyan { fill: rgba(8, 145, 178, 0.18); stroke: #22d3ee; stroke-width: 1.5; }
+      .future { fill: rgba(15, 23, 42, 0.38); stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 8 7; }
+      .future-chip { fill: rgba(22, 163, 74, 0.10); stroke: #4ade80; stroke-width: 1.3; stroke-dasharray: 7 6; }
+      .pending-chip { fill: rgba(37, 99, 235, 0.08); stroke: #60a5fa; stroke-width: 1.3; stroke-dasharray: 6 5; }
+      .flow { fill: none; stroke: #93c5fd; stroke-width: 2.2; marker-end: url(#arrow); }
+      .call { fill: none; stroke: #fb923c; stroke-width: 2; stroke-dasharray: 8 7; marker-end: url(#orangeArrow); }
+    </style>
+  </defs>
+
+  <rect width="1288" height="1090" x="56" y="100" fill="url(#bg)"/>
+  <circle cx="1200" cy="92" r="220" fill="#1d4ed8" opacity="0.10"/>
+  <circle cx="155" cy="1010" r="280" fill="#06b6d4" opacity="0.08"/>
+
+  <g transform="translate(56 100)">
+    <rect x="0" y="0" width="1288" height="230" rx="18" class="panel"/>
+    <text x="24" y="32" class="section">UI 能力层</text>
+    <g transform="translate(64 62)">
+      <rect x="0" y="0" width="560" height="136" rx="16" class="blue"/>
+      <text x="22" y="31" class="box-title">本地组件</text>
+      <g transform="translate(22 52)">
+        <rect x="0" y="0" width="116" height="28" rx="8" class="green"/>
+        <text x="12" y="19" class="chip-text">基础控件</text>
+        <rect x="128" y="0" width="116" height="28" rx="8" class="green"/>
+        <text x="140" y="19" class="chip-text">图像</text>
+        <rect x="256" y="0" width="116" height="28" rx="8" class="green"/>
+        <text x="268" y="19" class="chip-text">文本 / 标签</text>
+        <rect x="384" y="0" width="116" height="28" rx="8" class="green"/>
+        <text x="396" y="19" class="chip-text">动画 / 进度</text>
+        <rect x="0" y="42" width="116" height="28" rx="8" class="green"/>
+        <text x="12" y="61" class="chip-text">Motion</text>
+        <rect x="128" y="42" width="116" height="28" rx="8" class="green"/>
+        <text x="140" y="61" class="chip-text">列表 / Flow</text>
+        <rect x="256" y="42" width="116" height="28" rx="8" class="green"/>
+        <text x="268" y="61" class="chip-text">Cover / Page</text>
+        <rect x="384" y="42" width="116" height="28" rx="8" class="pending-chip"/>
+        <text x="396" y="61" class="chip-text">待增加</text>
+      </g>
+    </g>
+    <g transform="translate(664 62)">
+      <rect x="0" y="0" width="560" height="136" rx="16" class="future"/>
+      <text x="22" y="31" class="box-title">描述驱动计划</text>
+      <g transform="translate(22 52)">
+        <rect x="0" y="0" width="150" height="28" rx="8" class="future-chip"/>
+        <text x="12" y="19" class="chip-text">设计输入</text>
+        <rect x="172" y="0" width="150" height="28" rx="8" class="future-chip"/>
+        <text x="184" y="19" class="chip-text">AI 识别 UI</text>
+        <rect x="344" y="0" width="150" height="28" rx="8" class="future-chip"/>
+        <text x="356" y="19" class="chip-text">GUI 上位机</text>
+        <rect x="0" y="42" width="236" height="28" rx="8" class="future-chip"/>
+        <text x="12" y="61" class="chip-text">UI 描述 / Scene 包</text>
+        <rect x="258" y="42" width="236" height="28" rx="8" class="future-chip"/>
+        <text x="270" y="61" class="chip-text">资源引用 / 预计算数据</text>
+      </g>
+    </g>
+  </g>
+
+  <path d="M700 330 V362" class="flow"/>
+
+  <g transform="translate(56 370)">
+    <rect x="0" y="0" width="1288" height="390" rx="18" class="panel"/>
+    <text x="24" y="32" class="section">运行时结构</text>
+
+    <g transform="translate(52 70)">
+      <rect x="0" y="0" width="250" height="112" rx="14" class="violet"/>
+      <text x="18" y="31" class="box-title">核心运行时</text>
+      <g transform="translate(18 52)">
+        <rect x="0" y="0" width="62" height="24" rx="7" class="violet"/>
+        <text x="10" y="16" class="chip-text">定时</text>
+        <rect x="74" y="0" width="62" height="24" rx="7" class="violet"/>
+        <text x="84" y="16" class="chip-text">输入</text>
+        <rect x="148" y="0" width="78" height="24" rx="7" class="violet"/>
+        <text x="158" y="16" class="chip-text">生命周期</text>
+      </g>
+    </g>
+    <path d="M302 126 H358" class="flow"/>
+
+    <g transform="translate(366 70)">
+      <rect x="0" y="0" width="250" height="112" rx="14" class="blue"/>
+      <text x="18" y="31" class="box-title">对象树</text>
+      <g transform="translate(18 52)">
+        <rect x="0" y="0" width="62" height="24" rx="7" class="blue"/>
+        <text x="10" y="16" class="chip-text">状态</text>
+        <rect x="74" y="0" width="72" height="24" rx="7" class="blue"/>
+        <text x="84" y="16" class="chip-text">层级</text>
+        <rect x="158" y="0" width="68" height="24" rx="7" class="blue"/>
+        <text x="168" y="16" class="chip-text">事件</text>
+      </g>
+    </g>
+    <path d="M616 126 H672" class="flow"/>
+
+    <g transform="translate(680 70)">
+      <rect x="0" y="0" width="250" height="112" rx="14" fill="url(#core)" stroke="#7dd3fc" stroke-width="1.5"/>
+      <text x="18" y="31" class="box-title">显示刷新</text>
+      <g transform="translate(18 52)">
+        <rect x="0" y="0" width="94" height="24" rx="7" class="blue"/>
+        <text x="10" y="16" class="chip-text">脏区</text>
+        <rect x="106" y="0" width="120" height="24" rx="7" class="blue"/>
+        <text x="116" y="16" class="chip-text">渲染缓存</text>
+      </g>
+    </g>
+    <path d="M930 126 H986" class="flow"/>
+
+    <g transform="translate(994 70)">
+      <rect x="0" y="0" width="250" height="112" rx="14" class="orange"/>
+      <text x="18" y="31" class="box-title">渲染器</text>
+      <g transform="translate(18 52)">
+        <rect x="0" y="0" width="66" height="24" rx="7" class="orange"/>
+        <text x="10" y="16" class="chip-text">图形</text>
+        <rect x="80" y="0" width="66" height="24" rx="7" class="orange"/>
+        <text x="90" y="16" class="chip-text">图片</text>
+        <rect x="160" y="0" width="66" height="24" rx="7" class="orange"/>
+        <text x="170" y="16" class="chip-text">文本</text>
+        <rect x="0" y="34" width="66" height="24" rx="7" class="orange"/>
+        <text x="10" y="50" class="chip-text">混合</text>
+        <rect x="80" y="34" width="66" height="24" rx="7" class="orange"/>
+        <text x="90" y="50" class="chip-text">网格</text>
+        <rect x="160" y="34" width="66" height="24" rx="7" class="orange"/>
+        <text x="170" y="50" class="chip-text">抗锯齿</text>
+      </g>
+    </g>
+
+    <g transform="translate(150 232)">
+      <rect x="0" y="0" width="430" height="112" rx="14" class="orange"/>
+      <text x="18" y="30" class="box-title">文件系统</text>
+      <g transform="translate(18 58)">
+        <rect x="0" y="0" width="116" height="26" rx="7" class="orange"/>
+        <text x="12" y="18" class="chip-text">VFS</text>
+        <rect x="138" y="0" width="116" height="26" rx="7" class="orange"/>
+        <text x="150" y="18" class="chip-text">mmap</text>
+        <rect x="276" y="0" width="116" height="26" rx="7" class="orange"/>
+        <text x="288" y="18" class="chip-text">memory</text>
+      </g>
+    </g>
+
+    <g transform="translate(708 232)">
+      <rect x="0" y="0" width="430" height="112" rx="14" class="orange"/>
+      <text x="18" y="30" class="box-title">解码 / 运行时资源</text>
+      <g transform="translate(18 52)">
+        <rect x="0" y="0" width="62" height="24" rx="7" class="orange"/>
+        <text x="10" y="16" class="chip-text">图片</text>
+        <rect x="74" y="0" width="54" height="24" rx="7" class="orange"/>
+        <text x="84" y="16" class="chip-text">字体</text>
+        <rect x="140" y="0" width="50" height="24" rx="7" class="orange"/>
+        <text x="150" y="16" class="chip-text">EAF</text>
+        <rect x="202" y="0" width="72" height="24" rx="7" class="orange"/>
+        <text x="212" y="16" class="chip-text">Motion</text>
+        <rect x="286" y="0" width="50" height="24" rx="7" class="orange"/>
+        <text x="296" y="16" class="chip-text">JPG</text>
+        <rect x="348" y="0" width="62" height="24" rx="7" class="orange"/>
+        <text x="358" y="16" class="chip-text">Alpha</text>
+      </g>
+    </g>
+
+    <path d="M491 182 V212 H365 V224" class="call"/>
+    <path d="M923 232 V212 H1119 V190" class="call"/>
+    <path d="M580 288 H700" class="flow"/>
+  </g>
+
+  <path d="M700 760 V792" class="flow"/>
+
+  <g transform="translate(56 800)">
+    <rect x="0" y="0" width="1288" height="170" rx="18" class="panel"/>
+    <text x="24" y="32" class="section">加速与后端</text>
+    <g transform="translate(70 58)">
+      <rect x="0" y="0" width="250" height="90" rx="12" class="violet"/>
+      <text x="16" y="27" class="small-title">绘制加速</text>
+      <g transform="translate(16 48)">
+        <rect x="0" y="0" width="94" height="24" rx="7" class="violet"/>
+        <text x="10" y="16" class="chip-text">PPA 绘制</text>
+        <rect x="108" y="0" width="102" height="24" rx="7" class="violet"/>
+        <text x="118" y="16" class="chip-text">SW 回退</text>
+      </g>
+    </g>
+    <g transform="translate(368 58)">
+      <rect x="0" y="0" width="250" height="90" rx="12" class="cyan"/>
+      <text x="16" y="27" class="small-title">后端层</text>
+      <g transform="translate(16 48)">
+        <rect x="0" y="0" width="66" height="24" rx="7" class="cyan"/>
+        <text x="8" y="16" class="chip-text">esp_lcd</text>
+        <rect x="78" y="0" width="48" height="24" rx="7" class="cyan"/>
+        <text x="86" y="16" class="chip-text">SDL</text>
+        <rect x="138" y="0" width="70" height="24" rx="7" class="cyan"/>
+        <text x="146" y="16" class="chip-text">内存</text>
+      </g>
+    </g>
+    <g transform="translate(666 58)">
+      <rect x="0" y="0" width="250" height="90" rx="12" class="cyan"/>
+      <text x="16" y="27" class="small-title">刷新模式</text>
+      <g transform="translate(16 48)">
+        <rect x="0" y="0" width="66" height="24" rx="7" class="cyan"/>
+        <text x="8" y="16" class="chip-text">DIRECT</text>
+        <rect x="78" y="0" width="82" height="24" rx="7" class="cyan"/>
+        <text x="86" y="16" class="chip-text">STAGING</text>
+        <rect x="172" y="0" width="56" height="24" rx="7" class="cyan"/>
+        <text x="180" y="16" class="chip-text">FULL</text>
+      </g>
+    </g>
+    <g transform="translate(964 58)">
+      <rect x="0" y="0" width="250" height="90" rx="12" class="cyan"/>
+      <text x="16" y="27" class="small-title">刷新加速</text>
+      <g transform="translate(16 48)">
+        <rect x="0" y="0" width="72" height="24" rx="7" class="cyan"/>
+        <text x="10" y="16" class="chip-text">DMA2D</text>
+        <rect x="86" y="0" width="120" height="24" rx="7" class="cyan"/>
+        <text x="96" y="16" class="chip-text">异步 FB 拷贝</text>
+      </g>
+    </g>
+  </g>
+
+  <path d="M700 970 V1002" class="flow"/>
+
+  <g transform="translate(56 1010)">
+    <rect x="0" y="0" width="1288" height="178" rx="18" class="panel"/>
+    <text x="24" y="32" class="section">平台与硬件输出</text>
+    <g transform="translate(70 58)">
+      <rect x="0" y="0" width="560" height="102" rx="14" class="cyan"/>
+      <text x="16" y="27" class="small-title">ESP 目标平台</text>
+      <g transform="translate(16 42)">
+        <rect x="0" y="0" width="252" height="42" rx="10" class="cyan"/>
+        <text x="12" y="17" class="chip-text">ESP SoC / 加速</text>
+        <text x="12" y="33" class="chip-text">PPA / DMA2D / JPG / PSRAM</text>
+        <rect x="284" y="0" width="252" height="42" rx="10" class="cyan"/>
+        <text x="296" y="17" class="chip-text">板级 I/O / 存储</text>
+        <text x="296" y="33" class="chip-text">LCD / 触摸 / Flash / mmap 资源</text>
+      </g>
+    </g>
+    <g transform="translate(658 58)">
+      <rect x="0" y="0" width="560" height="102" rx="14" class="cyan"/>
+      <text x="16" y="27" class="small-title">Host / Linux 目标</text>
+      <g transform="translate(16 42)">
+        <rect x="0" y="0" width="252" height="42" rx="10" class="cyan"/>
+        <text x="12" y="17" class="chip-text">Host 运行环境</text>
+        <text x="12" y="33" class="chip-text">SDL 窗口 / Host 输入 / 测试仿真</text>
+        <rect x="284" y="0" width="252" height="42" rx="10" class="cyan"/>
+        <text x="296" y="17" class="chip-text">Host OS 服务</text>
+        <text x="296" y="33" class="chip-text">POSIX FS / Host 解码 / 文件资源</text>
+      </g>
+    </g>
+  </g>
+</svg>

@@ -9,14 +9,16 @@
 #include "common/gfx_check.h"
 
 const char *const gfx_format_demo_widget_names[DEMO_WIDGET_COUNT] = {
-    "Button",
-    "List",
-    "Image",
-    "Anim",
     "Motion",
-    "Wheel",
-    "Pageflow",
+    "Anim",
     "Coverflow",
+    "Pageflow",
+    "Image",
+    "Button",
+    "Image Button",
+    "Progress Bar",
+    "List",
+    "Wheel",
 };
 
 static void demo_widget_list_focus_cb(gfx_object_t *obj, int32_t focused_index, void *user_data)
@@ -59,9 +61,9 @@ gfx_err_t gfx_format_demo_build_widget_list(format_playground_scene_t *scene)
     (void)gfx_list_set_text_pad(list, 14, 8);
     (void)gfx_list_set_font(list, scene->font);
     (void)gfx_list_set_bg_color(list, GFX_COLOR_HEX(0x161C22));
-    (void)gfx_list_set_focus_bg_color(list, GFX_COLOR_HEX(0x2E7D32));
-    (void)gfx_list_set_selected_bg_color(list, GFX_COLOR_HEX(0x24476A));
-    (void)gfx_list_set_pressed_bg_color(list, GFX_COLOR_HEX(0x375D7D));
+    (void)gfx_list_set_focus_bg_color(list, GFX_COLOR_HEX(0x2F8CFF));
+    (void)gfx_list_set_selected_bg_color(list, GFX_COLOR_HEX(0x2F8CFF));
+    (void)gfx_list_set_pressed_bg_color(list, GFX_COLOR_HEX(0x2F8CFF));
     (void)gfx_list_set_text_color(list, GFX_COLOR_HEX(0xDCE4EC));
     (void)gfx_list_set_focus_text_color(list, GFX_COLOR_HEX(0xFFFFFF));
     (void)gfx_list_set_selected_text_color(list, GFX_COLOR_HEX(0xFFFFFF));

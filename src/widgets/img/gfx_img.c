@@ -31,6 +31,7 @@
 
 typedef struct {
     gfx_image_resource_t resource;
+    int16_t rotation;
 } gfx_image_t;
 
 /**********************
@@ -60,6 +61,35 @@ static const gfx_widget_class_t s_gfx_image_widget_class = {
 /**********************
  *   STATIC FUNCTIONS
  **********************/
+
+static uint16_t gfx_image_display_width(const gfx_image_t *image, uint16_t image_width, uint16_t image_height)
+{
+    if (image->rotation == 90 || image->rotation == 270) {
+        return image_height;
+    }
+
+    return image_width;
+}
+
+static uint16_t gfx_image_display_height(const gfx_image_t *image, uint16_t image_width, uint16_t image_height)
+{
+    if (image->rotation == 90 || image->rotation == 270) {
+        return image_width;
+    }
+
+    return image_height;
+}
+
+static void gfx_image_apply_display_geometry(gfx_object_t *obj, gfx_image_t *image)
+{
+    uint16_t image_width = image->resource.header.w;
+    uint16_t image_height = image->resource.header.h;
+
+    obj->geometry.width = gfx_image_display_width(image, image_width, image_height);
+    obj->geometry.height = gfx_image_display_height(image, image_width, image_height);
+    obj->local_geometry.width = obj->geometry.width;
+    obj->local_geometry.height = obj->geometry.height;
+}
 
 static gfx_err_t gfx_image_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
 {
@@ -115,10 +145,42 @@ static gfx_err_t gfx_image_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     if (!gfx_object_get_abs_area_exclusive(obj, &obj_area)) {
         return GFX_OK;
     }
-    obj_area.x2 = (gfx_coord_t)(obj_area.x1 + image_width);
-    obj_area.y2 = (gfx_coord_t)(obj_area.y1 + image_height);
+    obj_area.x2 = (gfx_coord_t)(obj_area.x1 + gfx_image_display_width(image, image_width, image_height));
+    obj_area.y2 = (gfx_coord_t)(obj_area.y1 + gfx_image_display_height(image, image_width, image_height));
 
     if (!gfx_area_intersect_exclusive(&clip_area, &render_area, &obj_area)) {
+        return GFX_OK;
+    }
+
+    if (image->rotation != 0 &&
+            !gfx_color_format_has_plane_alpha(color_format) &&
+            clip_area.x1 == obj_area.x1 && clip_area.y1 == obj_area.y1 &&
+            clip_area.x2 == obj_area.x2 && clip_area.y2 == obj_area.y2) {
+        gfx_area_t dst_area = obj_area;
+        gfx_area_t src_area = {
+            .x1 = 0,
+            .y1 = 0,
+            .x2 = (gfx_coord_t)image_width,
+            .y2 = (gfx_coord_t)image_height,
+        };
+        gfx_render_image_t backend_src = {
+            .pixels = image_data,
+            .stride = gfx_image_resource_stride_px(&image->resource),
+            .format = color_format,
+        };
+
+        if (gfx_render_surface_transform_image(obj->disp, &dst_surface, &dst_area,
+                                               &backend_src, &src_area, image->rotation, 0xFFU)) {
+            return GFX_OK;
+        }
+
+        GFX_LOGW(TAG, "draw image: transform backend unavailable for rotation %d", image->rotation);
+        return GFX_OK;
+    }
+
+    if (image->rotation != 0) {
+        GFX_LOGW(TAG, "draw image: partial clip or plane alpha with rotation %d is not supported",
+                 image->rotation);
         return GFX_OK;
     }
 
@@ -266,12 +328,37 @@ gfx_err_t gfx_image_set_source_desc(gfx_object_t *obj, const gfx_image_src_t *sr
 
     gfx_object_invalidate(obj);
 
-    obj->geometry.width = image->resource.header.w;
-    obj->geometry.height = image->resource.header.h;
-    obj->local_geometry.width = image->resource.header.w;
-    obj->local_geometry.height = image->resource.header.h;
+    gfx_image_apply_display_geometry(obj, image);
 
     gfx_object_mark_resource_dirty(obj);
+    gfx_object_update_layout(obj);
+    gfx_object_invalidate(obj);
+
+    return GFX_OK;
+}
+
+gfx_err_t gfx_image_set_rotation(gfx_object_t *obj, int16_t angle)
+{
+    gfx_image_t *image;
+    int16_t normalized;
+
+    CHECK_OBJ_TYPE_IMAGE(obj);
+
+    image = (gfx_image_t *)obj->src;
+    GFX_RETURN_ON_FALSE(image != NULL, GFX_ERR_INVALID_STATE, TAG, "set image rotation: state is NULL");
+
+    normalized = (int16_t)(((angle % 360) + 360) % 360);
+    if (normalized != 0 && normalized != 90 && normalized != 180 && normalized != 270) {
+        return GFX_ERR_INVALID_ARG;
+    }
+
+    if (image->rotation == normalized) {
+        return GFX_OK;
+    }
+
+    image->rotation = normalized;
+    gfx_image_apply_display_geometry(obj, image);
+    gfx_object_invalidate(obj);
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
 

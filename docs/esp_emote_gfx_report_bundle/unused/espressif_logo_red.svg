@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 190 36" role="img" aria-labelledby="title">
+  <title id="title">Espressif</title>
+  <g fill="#e7352c">
+    <path d="M18 4.5a13.5 13.5 0 1 0 0 27c7 0 12.8-5.3 13.4-12.1h-7.1A6.8 6.8 0 1 1 18 11.2c3 0 5.6 1.9 6.5 4.7h6.9A13.5 13.5 0 0 0 18 4.5Z"/>
+    <circle cx="30" cy="9" r="3.1"/>
+    <circle cx="30" cy="27" r="3.1"/>
+  </g>
+  <text x="44" y="24" fill="#2b2b2b" font-family="Inter, Helvetica, Arial, sans-serif" font-size="20" font-weight="800" letter-spacing="1.1">ESPRESSIF</text>
+</svg>

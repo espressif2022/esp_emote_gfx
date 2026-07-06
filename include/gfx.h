@@ -7,11 +7,9 @@
 #pragma once
 
 /*
- * Main public umbrella header.
+ * Main public umbrella header (full widget/backend bundle).
  *
- * Applications should usually include only this file. It exposes the public
- * core API plus the built-in widgets. Private implementation headers stay
- * under src/ and are intentionally not reachable from here.
+ * For core runtime only, use "gfx/base.h" or "gfx/gfx.h".
  */
 
-#include "gfx/gfx.h"
+#include "gfx/all.h"

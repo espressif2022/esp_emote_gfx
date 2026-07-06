@@ -26,7 +26,7 @@ typedef struct {
  * @brief Create an SDL display backend for host-side simulators.
  *
  * The implementation is intentionally kept out of the embedded ESP-IDF
- * component build. Host builds can compile src/backend/sdl/gfx_backend_sdl.c with an
+ * component build. Host builds compile `src/backend/sdl/sdl_backend.c` with an
  * SDL2 or SDL3 dependency.
  *
  * If the returned backend is passed to gfx_display_add() and display creation

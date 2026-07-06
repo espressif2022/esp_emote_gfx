@@ -56,13 +56,23 @@ gfx_err_t gfx_image_resource_set_source(gfx_image_resource_t *resource, const gf
     GFX_RETURN_ON_ERROR(gfx_image_resource_validate_src(src), TAG, "set source: invalid descriptor");
 
     dsc.src = *src;
-    GFX_RETURN_ON_ERROR(gfx_image_decoder_info(&dsc, &header), TAG, "set source: query header failed");
-    GFX_RETURN_ON_FALSE(gfx_color_format_is_image_supported((gfx_color_format_t)header.cf),
-                        GFX_ERR_NOT_SUPPORTED, TAG, "set source: unsupported color format");
+    dsc.retain_src_blob = true;
+    gfx_err_t ret = gfx_image_decoder_info(&dsc, &header);
+    if (ret != GFX_OK) {
+        gfx_fs_unload(&dsc.src_blob);
+        GFX_LOGE(TAG, "set source: query header failed");
+        return ret;
+    }
+    if (!gfx_color_format_is_image_supported((gfx_color_format_t)header.cf)) {
+        gfx_fs_unload(&dsc.src_blob);
+        return GFX_ERR_NOT_SUPPORTED;
+    }
 
     gfx_image_resource_close(resource);
     resource->src = *src;
     resource->header = header;
+    resource->decoder.src_blob = dsc.src_blob;
+    memset(&dsc.src_blob, 0, sizeof(dsc.src_blob));
     return GFX_OK;
 }
 
@@ -76,17 +86,30 @@ gfx_err_t gfx_image_resource_open(gfx_image_resource_t *resource)
         return GFX_OK;
     }
 
+    gfx_fs_blob_t src_blob = resource->decoder.src_blob;
+    memset(&resource->decoder, 0, sizeof(resource->decoder));
     resource->decoder = (gfx_image_decoder_dsc_t) {
         .src = resource->src,
         .header = resource->header,
+        .src_blob = src_blob,
+        .retain_src_blob = true,
     };
     GFX_LOGD(TAG, "open image resource: src=%s payload=%p size=%zu header=%ux%u cf=%u",
              gfx_image_resource_src_type_name(resource->src.type), resource->src.data,
              resource->src.data_len, (unsigned)resource->header.w, (unsigned)resource->header.h,
              (unsigned)resource->header.cf);
-    GFX_RETURN_ON_ERROR(gfx_image_decoder_open(&resource->decoder), TAG, "open decoder failed");
-    GFX_RETURN_ON_FALSE(resource->decoder.data != NULL, GFX_ERR_INVALID_STATE,
-                        TAG, "decoder returned no data");
+    gfx_err_t ret = gfx_image_decoder_open(&resource->decoder);
+    if (ret != GFX_OK) {
+        gfx_image_decoder_close(&resource->decoder);
+        memset(&resource->decoder, 0, sizeof(resource->decoder));
+        GFX_LOGE(TAG, "open decoder failed");
+        return ret;
+    }
+    if (resource->decoder.data == NULL) {
+        gfx_image_decoder_close(&resource->decoder);
+        memset(&resource->decoder, 0, sizeof(resource->decoder));
+        return GFX_ERR_INVALID_STATE;
+    }
     GFX_LOGD(TAG, "opened image resource: pixels=%p bytes=%zu",
              resource->decoder.data, resource->decoder.data_size);
     return GFX_OK;
@@ -98,12 +121,14 @@ void gfx_image_resource_close(gfx_image_resource_t *resource)
         return;
     }
 
-    if (resource->decoder.data != NULL || resource->decoder.user_data != NULL) {
+    if (resource->decoder.data != NULL || resource->decoder.user_data != NULL ||
+            resource->decoder.src_blob.data != NULL) {
         GFX_LOGD(TAG, "close image resource: src=%s payload=%p pixels=%p bytes=%zu",
                  gfx_image_resource_src_type_name(resource->src.type), resource->src.data,
                  resource->decoder.data, resource->decoder.data_size);
         gfx_image_decoder_close(&resource->decoder);
     }
+    gfx_fs_unload(&resource->decoder.src_blob);
     memset(&resource->decoder, 0, sizeof(resource->decoder));
 }
 

@@ -1,0 +1,197 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1260" height="800" viewBox="0 0 1260 800">
+  <defs>
+    <style>
+      text { font-family: Inter, "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif; }
+      .bg { fill: #fafaf8; }
+      .title { font-size: 28px; font-weight: 720; fill: #101010; }
+      .lead { font-size: 13.5px; fill: #646464; }
+      .lane-title   { font-size: 12px; font-weight: 760; letter-spacing: 1.2px; fill: #777; }
+      .lane-title-warn   { fill: #92400e; }
+      .lane-title-target { fill: #e7352c; }
+      .lane         { fill: #fff;    stroke: rgba(115,115,115,.34); stroke-width: 1.4; }
+      .lane-warn    { fill: #fffbf0; stroke: rgba(180,120,20,.45); stroke-width: 1.5; }
+      .lane-target  { fill: #fff4f3; stroke: rgba(231,53,44,.5);   stroke-width: 1.7; }
+      .node         { fill: #f4f4f1; stroke: #d4d4d0; stroke-width: 1; }
+      .node-warn    { fill: #fef3c7; stroke: rgba(180,120,20,.4);  stroke-width: 1; }
+      .node-target  { fill: #fff;    stroke: rgba(231,53,44,.42);  stroke-width: 1; }
+      .node-err     { fill: #fff7ed; stroke: rgba(234,88,12,.5);   stroke-width: 1.3; }
+      .node-title   { font-size: 14.5px; font-weight: 700; fill: #111; }
+      .node-sub     { font-size: 11.5px; fill: #5f5f5f; }
+      .node-sub-red { font-size: 11.5px; fill: #6b3430; }
+      .node-sub-warn{ font-size: 11.5px; fill: #78350f; }
+      .node-sub-err { font-size: 11.5px; fill: #9a3412; }
+      .chip-target  { fill: #ffe4e1; stroke: rgba(231,53,44,.38); stroke-width: 1; }
+      .chip-compile { fill: #dcfce7; stroke: rgba(22,163,74,.38);  stroke-width: 1; }
+      .chip-text    { font-size: 10.5px; font-weight: 660; fill: #222; }
+      .arrow        { fill: none; stroke: #737373; stroke-width: 2;   marker-end: url(#arrow); }
+      .arrow-warn   { fill: none; stroke: #b7791f; stroke-width: 2.2; marker-end: url(#arrow-warn); }
+      .arrow-target { fill: none; stroke: #e7352c; stroke-width: 2.4; marker-end: url(#arrow-target); }
+      .join         { fill: none; stroke: #888;    stroke-width: 1.8; stroke-dasharray: 6 7; marker-end: url(#arrow); }
+      .join-target  { fill: none; stroke: #e7352c; stroke-width: 2.1; stroke-dasharray: 7 6; marker-end: url(#arrow-target); }
+      .shared       { fill: #111; }
+      .shared-title { fill: #fff; font-size: 19px; font-weight: 720; }
+      .shared-sub   { fill: #cbd5e1; font-size: 12px; }
+      .badge        { fill: rgba(0,0,0,.06); }
+      .badge-warn   { fill: rgba(234,88,12,.12); stroke: rgba(234,88,12,.3); stroke-width: 1; }
+      .badge-target { fill: rgba(231,53,44,.10); }
+      .badge-text   { font-size: 12px; font-weight: 700; fill: #222; }
+      .badge-err    { font-size: 11.5px; fill: #9a3412; }
+      .value-title  { font-size: 12.5px; font-weight: 760; fill: #111; }
+      .value-text   { font-size: 11.5px; fill: #555; }
+      .mono         { font-family: "JetBrains Mono","Courier New",monospace; font-size: 10px; }
+    </style>
+    <marker id="arrow"        markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M1,1 L8,5 L1,9 Z" fill="#737373"/></marker>
+    <marker id="arrow-warn"   markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M1,1 L8,5 L1,9 Z" fill="#b7791f"/></marker>
+    <marker id="arrow-target" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M1,1 L8,5 L1,9 Z" fill="#e7352c"/></marker>
+  </defs>
+
+  <rect width="1260" height="800" rx="18" class="bg"/>
+  <text x="56" y="50" class="title">三种路径：从 Runtime Create 到资源编译器</text>
+  <text x="56" y="74" class="lead">关键区别不是格式，而是「工作量是否前移到上位机」。外挂 JSON/XML 层是解释执行器，链路更长；原生描述驱动才是编译器，设备端只做 load。</text>
+
+  <!-- ══════════════════ LANE A ══════════════════ -->
+  <g transform="translate(54 118)">
+    <text x="0" y="0" class="lane-title">A · 代码驱动（Runtime Create）</text>
+    <rect x="0" y="16" width="350" height="450" rx="16" class="lane"/>
+
+    <g transform="translate(22 44)">
+      <rect width="306" height="54" rx="10" class="node"/>
+      <text x="16" y="22" class="node-title">Prompt / 需求文字</text>
+      <text x="16" y="41" class="node-sub">AI 或工程师根据需求手写代码</text>
+    </g>
+    <path d="M175 100 V124" class="arrow"/>
+
+    <g transform="translate(22 126)">
+      <rect width="306" height="66" rx="10" class="node"/>
+      <text x="16" y="23" class="node-title">生成 C create 代码</text>
+      <text x="16" y="42" class="node-sub">gfx_label_create / gfx_image_create …</text>
+      <text x="16" y="58" class="node-sub">obj_create + set image / font / path</text>
+    </g>
+    <path d="M175 194 V218" class="arrow"/>
+
+    <g transform="translate(22 220)">
+      <rect width="306" height="96" rx="10" class="node"/>
+      <text x="16" y="23" class="node-title">设备端编译执行</text>
+      <text x="16" y="42" class="node-sub">UI 结构、资源路径、业务逻辑混合</text>
+      <!-- cost callout -->
+      <rect x="10" y="50" width="286" height="38" rx="6" fill="rgba(0,0,0,.05)"/>
+      <text x="18" y="64" class="mono" fill="#b45309">⚠  radius²×4 AA 循环 / 角 · 每帧</text>
+      <text x="18" y="78" class="mono" fill="#b45309">⚠  draw_object_tree 递归 · 100 img = 100 层</text>
+    </g>
+
+    <g transform="translate(22 332)">
+      <rect width="306" height="78" rx="10" rx="10" class="badge"/>
+      <text x="16" y="22" class="value-title">价值与限制</text>
+      <text x="16" y="41" class="value-text">小项目直观；大页面 create 代码膨胀</text>
+      <text x="16" y="58" class="value-text" fill="#b45309">layout / AA / glyph / decode 每帧在设备端跑</text>
+    </g>
+  </g>
+
+  <!-- ══════════════════ LANE B ══════════════════ -->
+  <g transform="translate(455 118)">
+    <text x="0" y="0" class="lane-title lane-title-warn">B · 外挂 XML / JSON 描述层 ← 误区</text>
+    <rect x="0" y="16" width="350" height="450" rx="16" class="lane-warn"/>
+
+    <g transform="translate(22 44)">
+      <rect width="306" height="54" rx="10" class="node-warn"/>
+      <text x="16" y="22" class="node-title">XML / JSON 描述文件</text>
+      <text x="16" y="41" class="node-sub-warn">把 create API 调用序列化成配置字段</text>
+    </g>
+    <path d="M175 100 V124" class="arrow-warn"/>
+
+    <g transform="translate(22 126)">
+      <rect width="306" height="86" rx="10" class="node-err"/>
+      <text x="16" y="23" class="node-title" fill="#9a3412">设备端 Parser / Mapper</text>
+      <text x="16" y="42" class="node-sub-err">解析字段 → 字段到 widget API 映射</text>
+      <text x="16" y="58" class="node-sub-err">→ 调用 lv_obj_create → set_property</text>
+      <text x="16" y="74" class="node-sub-err">每个属性都要维护映射规则</text>
+    </g>
+
+    <!-- Warning box -->
+    <g transform="translate(22 224)">
+      <rect width="306" height="46" rx="9" fill="rgba(234,88,12,.1)" stroke="rgba(234,88,12,.4)" stroke-width="1.2"/>
+      <text x="14" y="18" font-size="11.5" font-weight="700" fill="#9a3412">⚠  比 A 链路更长，本质仍是 Runtime Create</text>
+      <text x="14" y="35" class="mono" fill="#7c2d12">parse → map → obj_create = A 的开销 + parse 开销</text>
+    </g>
+
+    <path d="M175 272 V296" class="arrow-warn"/>
+    <g transform="translate(22 298)">
+      <rect width="306" height="54" rx="10" class="node-warn"/>
+      <text x="16" y="22" class="node-title">转译成 create object</text>
+      <text x="16" y="41" class="node-sub-warn">结果等同 A，但设备端多了 parse 开销</text>
+    </g>
+
+    <g transform="translate(22 368)">
+      <rect width="306" height="56" rx="10" class="badge-warn"/>
+      <text x="16" y="20" class="badge-text" fill="#9a3412">⚠ 解释执行器，不是编译器</text>
+      <text x="16" y="38" class="badge-err">工作量没有前移，设备端链路反而更长</text>
+      <text x="16" y="54" class="badge-err">≠ 资源编译器，不能消除运行时开销</text>
+    </g>
+  </g>
+
+  <!-- ══════════════════ LANE C ══════════════════ -->
+  <g transform="translate(856 118)">
+    <text x="0" y="0" class="lane-title lane-title-target">C · 资源编译器（工作前移）</text>
+    <rect x="0" y="16" width="350" height="450" rx="16" class="lane-target"/>
+
+    <g transform="translate(22 44)">
+      <rect width="306" height="66" rx="10" class="node-target"/>
+      <text x="16" y="23" class="node-title">上位机资源编译器</text>
+      <text x="16" y="42" class="node-sub-red">产物是编译器输出，不是描述文本</text>
+      <text x="16" y="58" class="node-sub-red">以下工作在上位机一次性完成</text>
+    </g>
+
+    <!-- Compiler output chips row -->
+    <g transform="translate(22 122)">
+      <rect width="306" height="30" rx="8" fill="rgba(231,53,44,.05)" stroke="rgba(231,53,44,.2)" stroke-width="1"/>
+      <rect x="8"   y="5" width="54" height="20" rx="5" class="chip-compile"/>
+      <text x="12"  y="19" class="chip-text">layout·pos</text>
+      <rect x="68"  y="5" width="46" height="20" rx="5" class="chip-compile"/>
+      <text x="72"  y="19" class="chip-text">glyph·bmp</text>
+      <rect x="120" y="5" width="54" height="20" rx="5" class="chip-compile"/>
+      <text x="124" y="19" class="chip-text">corner·bmp</text>
+      <rect x="180" y="5" width="54" height="20" rx="5" class="chip-compile"/>
+      <text x="184" y="19" class="chip-text">RGB565·img</text>
+      <rect x="240" y="5" width="58" height="20" rx="5" class="chip-compile"/>
+      <text x="244" y="19" class="chip-text">draw·list</text>
+    </g>
+
+    <!-- Pre-computation detail -->
+    <g transform="translate(22 164)">
+      <rect width="306" height="106" rx="9" fill="#1a0e0c"/>
+      <text x="12" y="18"  class="mono" fill="rgba(160,220,180,.9)">bake  layout_pos[]       // 消除 layout_dirty 递归</text>
+      <text x="12" y="34"  class="mono" fill="rgba(160,220,180,.9)">raster corner_bmp[r][]  // 消除 radius²×4 循环/帧</text>
+      <text x="12" y="50"  class="mono" fill="rgba(160,220,180,.9)">pack  glyph_bmp[]        // 消除 draw_glyph 查找</text>
+      <text x="12" y="66"  class="mono" fill="rgba(160,220,180,.9)">conv  img_rgb565[]       // 消除 image decode</text>
+      <text x="12" y="82"  class="mono" fill="rgba(160,220,180,.9)">cull  draw_list[]        // Z-order 裁剪，消除递归遍历</text>
+      <text x="12" y="98"  class="mono" fill="rgba(100,180,255,.7)">// 100 个 image → draw_list 仅 1 条可见项</text>
+    </g>
+
+    <path d="M175 272 V296" class="arrow-target"/>
+    <g transform="translate(22 298)">
+      <rect width="306" height="66" rx="10" class="node-target"/>
+      <text x="16" y="23" class="node-title">设备端 load assets</text>
+      <text x="16" y="42" class="node-sub-red">顺序 blit draw_list，无 create / parse / decode</text>
+      <text x="16" y="58" class="node-sub-red">应用代码只绑定业务状态和回调</text>
+    </g>
+
+    <g transform="translate(22 380)">
+      <rect width="306" height="56" rx="10" class="badge-target"/>
+      <text x="16" y="20" class="value-title">核心收益</text>
+      <text x="16" y="38" class="value-text" fill="#c0392b">A 的 5 项设备端开销全部消除</text>
+      <text x="16" y="54" class="value-text">同一描述包跑 SDL / ESP，支持 asset 级测试</text>
+    </g>
+  </g>
+
+  <!-- joins -->
+  <path d="M229 584 C300 630 465 642 630 650" class="join"/>
+  <path d="M630 584 V636" class="join"/>
+  <path d="M1031 584 C960 630 795 642 630 650" class="join-target"/>
+
+  <g transform="translate(220 656)">
+    <rect width="820" height="84" rx="16" class="shared"/>
+    <text x="32" y="34" class="shared-title">统一运行路径：Runtime Object Tree → Renderer → Backend</text>
+    <text x="32" y="58" class="shared-sub">三种 UI 来源最终进入同一套对象树、脏区、格式处理和 SDL / ESP 后端。</text>
+    <text x="32" y="74" class="shared-sub">差异在前半段：A/B 在设备端 create，C 在上位机编译，设备端只做 load。</text>
+  </g>
+</svg>

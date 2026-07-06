@@ -29,6 +29,19 @@ typedef struct {
     gfx_coord_t alpha_stride;
 } gfx_render_image_t;
 
+typedef struct {
+    gfx_color_t color;
+    gfx_opa_t opa;
+    uint16_t radius;
+} gfx_round_rect_fill_dsc_t;
+
+typedef struct {
+    gfx_color_t color;
+    gfx_opa_t opa;
+    uint16_t radius;
+    uint16_t width;
+} gfx_round_rect_stroke_dsc_t;
+
 /**
  * @brief Handle rendering of all objects in the scene (iterates over all displays)
  * @param ctx Player context
@@ -139,6 +152,23 @@ void gfx_render_surface_fill(gfx_display_t *disp,
                              gfx_color_t color,
                              gfx_opa_t opa);
 
+void gfx_render_surface_rect_stroke(gfx_display_t *disp,
+                                    const gfx_render_surface_t *dst,
+                                    const gfx_area_t *area,
+                                    uint16_t width,
+                                    gfx_color_t color,
+                                    gfx_opa_t opa);
+
+void gfx_render_surface_round_rect_fill(gfx_display_t *disp,
+                                        const gfx_render_surface_t *dst,
+                                        const gfx_area_t *area,
+                                        const gfx_round_rect_fill_dsc_t *dsc);
+
+void gfx_render_surface_round_rect_stroke(gfx_display_t *disp,
+        const gfx_render_surface_t *dst,
+        const gfx_area_t *area,
+        const gfx_round_rect_stroke_dsc_t *dsc);
+
 bool gfx_render_surface_blit_image(gfx_display_t *disp,
                                    const gfx_render_surface_t *dst,
                                    const gfx_area_t *area,
@@ -185,6 +215,29 @@ bool gfx_render_surface_scale_image(gfx_display_t *disp,
                                     const gfx_render_image_t *src,
                                     const gfx_area_t *src_area,
                                     gfx_opa_t opa);
+
+/**
+ * @brief Try to draw a rotated image through backend transform acceleration.
+ *
+ * `angle` uses clockwise degrees; only 0/90/180/270 are accepted by PPA today.
+ * Returns true only when a backend transform operation completed successfully.
+ */
+bool gfx_render_backend_transform(gfx_display_t *disp,
+                                  const gfx_draw_ctx_t *ctx,
+                                  const gfx_area_t *dst_area,
+                                  const gfx_area_t *clip_area,
+                                  const gfx_backend_image_t *src,
+                                  const gfx_area_t *src_area,
+                                  int16_t angle,
+                                  gfx_opa_t opa);
+
+bool gfx_render_surface_transform_image(gfx_display_t *disp,
+                                        const gfx_render_surface_t *dst,
+                                        const gfx_area_t *dst_area,
+                                        const gfx_render_image_t *src,
+                                        const gfx_area_t *src_area,
+                                        int16_t angle,
+                                        gfx_opa_t opa);
 
 #ifdef __cplusplus
 }

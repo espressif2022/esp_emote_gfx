@@ -54,7 +54,7 @@ gfx_err_t gfx_format_demo_build_list_demo(format_playground_scene_t *scene)
 
     GFX_RETURN_ON_FALSE(obj != NULL, GFX_ERR_INVALID_ARG, "playground", "create list demo failed");
     scene->list_demo = obj;
-    (void)gfx_object_set_pos(obj, 280, 146);
+    (void)gfx_object_set_pos(obj, 386, 146);
     (void)gfx_object_set_size(obj, 304, 252);
     (void)gfx_list_set_items(obj, gfx_format_demo_list_items, gfx_format_demo_list_item_count);
     (void)gfx_list_set_font(obj, scene->font);

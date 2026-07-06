@@ -8,8 +8,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "core/gfx_err.h"
-#include "core/gfx_types.h"
+#include "gfx/error.h"
+#include "gfx/types.h"
 
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
 #include <ft2build.h>

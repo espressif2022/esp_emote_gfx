@@ -30,7 +30,7 @@ gfx_display_flush_ready()
 
 .. code-block:: c
 
-   bool gfx_display_flush_ready(gfx_display_t *display, bool swap_act_buf);
+   bool gfx_display_flush_ready(gfx_display_t *display);
 
 gfx_display_get_user_data()
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -9,11 +9,11 @@
 #include "common/gfx_check.h"
 
 const char *const gfx_format_demo_cover_card_titles[DEMO_CARD_COUNT] = {
-    "Misty Ridge",
-    "Format Probe",
-    "Warm Harbor",
-    "Quiet Trail",
-    "Night Lake",
+    "Page1",
+    "Page2",
+    "Page3",
+    "Page4",
+    "Page5",
 };
 
 static gfx_object_t *demo_create_cover_card(gfx_display_t *display, gfx_font_t font,
@@ -66,12 +66,12 @@ gfx_err_t gfx_format_demo_build_coverflow_demo(format_playground_scene_t *scene)
 
     GFX_RETURN_ON_FALSE(obj != NULL, GFX_ERR_INVALID_ARG, "playground", "create coverflow failed");
     scene->coverflow_demo = obj;
-    (void)gfx_object_set_pos(obj, 258, 142);
+    (void)gfx_object_set_pos(obj, 351, 142);
     (void)gfx_object_set_size(obj, 374, 238);
     (void)gfx_coverflow_set_font(obj, scene->font);
     (void)gfx_coverflow_set_drag_threshold(obj, 8);
     (void)gfx_coverflow_set_page_threshold(obj, 50);
-    (void)gfx_coverflow_set_zoom(obj, 112, 58);
+    (void)gfx_coverflow_set_zoom(obj, 124, 58);
     (void)gfx_coverflow_set_spacing(obj, 38);
     (void)gfx_coverflow_set_side_dim(obj, 92);
     (void)gfx_coverflow_set_bg_color(obj, GFX_COLOR_HEX(0x101418));

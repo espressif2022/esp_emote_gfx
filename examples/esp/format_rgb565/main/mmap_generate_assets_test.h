@@ -13,8 +13,8 @@
 
 #include "esp_mmap_assets.h"
 
-#define MMAP_ASSETS_TEST_FILES           20
-#define MMAP_ASSETS_TEST_CHECKSUM        0x3E83
+#define MMAP_ASSETS_TEST_FILES           26
+#define MMAP_ASSETS_TEST_CHECKSUM        0x7924
 
 enum MMAP_ASSETS_TEST_LISTS {
     MMAP_ASSETS_TEST_MI_1_EYE_24BIT_AAF = 0,        /*!< mi_1_eye_24bit.aaf */
@@ -26,15 +26,21 @@ enum MMAP_ASSETS_TEST_LISTS {
     MMAP_ASSETS_TEST_MI_2_EYE_8BIT_HUFF_AAF = 6,        /*!< mi_2_eye_8bit_huff.aaf */
     MMAP_ASSETS_TEST_ICON_RGB565_BIN = 7,        /*!< icon_rgb565.bin */
     MMAP_ASSETS_TEST_ICON_RGB565A8_BIN = 8,        /*!< icon_rgb565A8.bin */
-    MMAP_ASSETS_TEST_MI_1_EYE_8BIT_EAF = 9,        /*!< mi_1_eye_8bit.eaf */
-    MMAP_ASSETS_TEST_MI_1_EYE_8BIT_HUFF_EAF = 10,        /*!< mi_1_eye_8bit_huff.eaf */
-    MMAP_ASSETS_TEST_MI_2_EYE_8BIT_HUFF_EAF = 11,        /*!< mi_2_eye_8bit_huff.eaf */
-    MMAP_ASSETS_TEST_ONLY_HEATSHRINK_4BIT_EAF = 12,        /*!< only_heatshrink_4bit.eaf */
-    MMAP_ASSETS_TEST_TRANSPARENT_EAF = 13,        /*!< transparent.eaf */
-    MMAP_ASSETS_TEST_FLOW_FORMAT_PROBE_JPG = 14,        /*!< flow_format_probe.jpg */
-    MMAP_ASSETS_TEST_FLOW_MISTY_RIDGE_JPG = 15,        /*!< flow_misty_ridge.jpg */
-    MMAP_ASSETS_TEST_FLOW_NIGHT_LAKE_JPG = 16,        /*!< flow_night_lake.jpg */
-    MMAP_ASSETS_TEST_FLOW_QUIET_TRAIL_JPG = 17,        /*!< flow_quiet_trail.jpg */
-    MMAP_ASSETS_TEST_FLOW_WARM_HARBOR_JPG = 18,        /*!< flow_warm_harbor.jpg */
-    MMAP_ASSETS_TEST_DEJAVUSANS_TTF = 19,        /*!< DejaVuSans.ttf */
+    MMAP_ASSETS_TEST_ANGRY_20S_EAF = 9,        /*!< angry_20s.eaf */
+    MMAP_ASSETS_TEST_BADMINTON_12_EAF = 10,        /*!< badminton_12.eaf */
+    MMAP_ASSETS_TEST_CONFIDENT_08_EAF = 11,        /*!< confident_08.eaf */
+    MMAP_ASSETS_TEST_CRY_10S_10S_EAF = 12,        /*!< cry_10s_10s.eaf */
+    MMAP_ASSETS_TEST_MI_1_EYE_8BIT_EAF = 13,        /*!< mi_1_eye_8bit.eaf */
+    MMAP_ASSETS_TEST_MI_1_EYE_8BIT_HUFF_EAF = 14,        /*!< mi_1_eye_8bit_huff.eaf */
+    MMAP_ASSETS_TEST_MI_2_EYE_8BIT_HUFF_EAF = 15,        /*!< mi_2_eye_8bit_huff.eaf */
+    MMAP_ASSETS_TEST_ONLY_HEATSHRINK_4BIT_EAF = 16,        /*!< only_heatshrink_4bit.eaf */
+    MMAP_ASSETS_TEST_TRANSPARENT_EAF = 17,        /*!< transparent.eaf */
+    MMAP_ASSETS_TEST_YAWN_20S_EAF = 18,        /*!< yawn_20s.eaf */
+    MMAP_ASSETS_TEST_YUMMY_20_S_EAF = 19,        /*!< yummy_20_s.eaf */
+    MMAP_ASSETS_TEST_01_ESP32_C5_DEVKITC_320X240_JPG = 20,        /*!< 01_esp32_c5_devkitc_320x240.jpg */
+    MMAP_ASSETS_TEST_02_ESP32_C6_DEVKITC_320X240_JPG = 21,        /*!< 02_esp32_c6_devkitc_320x240.jpg */
+    MMAP_ASSETS_TEST_03_ESP32_S3_DEVKITC_320X240_JPG = 22,        /*!< 03_esp32_s3_devkitc_320x240.jpg */
+    MMAP_ASSETS_TEST_04_ESP32_P4_EYE_FRONT_320X240_JPG = 23,        /*!< 04_esp32_p4_eye_front_320x240.jpg */
+    MMAP_ASSETS_TEST_05_ESP32_P4_EYE_BACK_320X240_JPG = 24,        /*!< 05_esp32_p4_eye_back_320x240.jpg */
+    MMAP_ASSETS_TEST_DEJAVUSANS_TTF = 25,        /*!< DejaVuSans.ttf */
 };

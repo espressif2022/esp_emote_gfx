@@ -219,12 +219,15 @@ static void demo_hide_preview_objects(format_playground_scene_t *scene)
     }
 
     demo_set_object_visible(scene->button_demo, false);
+    demo_set_object_visible(scene->image_button_demo, false);
+    demo_set_object_visible(scene->progress_bar_demo, false);
     demo_set_object_visible(scene->list_demo, false);
     demo_set_object_visible(scene->image_demo, false);
     demo_set_object_visible(scene->anim_demo, false);
     demo_set_object_visible(scene->wheel_demo, false);
     demo_set_object_visible(scene->pageflow_demo, false);
     demo_set_object_visible(scene->coverflow_demo, false);
+    demo_set_object_visible(scene->motion_zoom_slider, false);
     demo_set_object_visible(scene->preview_note, false);
     demo_set_object_visible(scene->preview_button, false);
     if (scene->motion != NULL) {
@@ -281,6 +284,14 @@ void gfx_format_demo_apply_widget_focus(format_playground_scene_t *scene, uint16
         demo_set_object_visible(scene->button_demo, true);
         demo_set_preview_note(scene, "Tap the button to confirm touch and color.");
         break;
+    case DEMO_WIDGET_IMAGE_BUTTON:
+        demo_set_object_visible(scene->image_button_demo, true);
+        demo_set_preview_note(scene, "Press to swap the background image while keeping text and touch feedback.");
+        break;
+    case DEMO_WIDGET_PROGRESS_BAR:
+        demo_set_object_visible(scene->progress_bar_demo, true);
+        demo_set_preview_note(scene, "Single widget version of the care scene long-press progress track and fill.");
+        break;
     case DEMO_WIDGET_LIST:
         demo_set_object_visible(scene->list_demo, true);
         demo_set_preview_note(scene, "Scroll and select list rows.");
@@ -300,6 +311,7 @@ void gfx_format_demo_apply_widget_focus(format_playground_scene_t *scene, uint16
                                      (uint16_t)gfx_format_demo_anim_clip_count());
         break;
     case DEMO_WIDGET_MOTION:
+        demo_set_object_visible(scene->motion_zoom_slider, true);
         if (scene->motion != NULL) {
             (void)gfx_motion_player_set_visible(scene->motion, true);
         }
@@ -395,6 +407,8 @@ gfx_err_t gfx_format_demo_build_playground_scene(gfx_display_t *disp, const char
 
     GFX_RETURN_ON_ERROR(gfx_format_demo_build_widget_list(&s_scene), "playground", "build widget list failed");
     GFX_RETURN_ON_ERROR(gfx_format_demo_build_button(&s_scene), "playground", "build button failed");
+    GFX_RETURN_ON_ERROR(gfx_format_demo_build_image_button(&s_scene), "playground", "build image button failed");
+    GFX_RETURN_ON_ERROR(gfx_format_demo_build_progress_bar(&s_scene), "playground", "build progress bar failed");
     GFX_RETURN_ON_ERROR(gfx_format_demo_build_list_demo(&s_scene), "playground", "build list failed");
     GFX_RETURN_ON_ERROR(gfx_format_demo_build_image_demo(&s_scene), "playground", "build image failed");
     GFX_RETURN_ON_ERROR(gfx_format_demo_build_anim_demo(&s_scene), "playground", "build anim failed");
@@ -408,6 +422,7 @@ gfx_err_t gfx_format_demo_build_playground_scene(gfx_display_t *disp, const char
                         "playground", "create preview button failed");
 
     s_scene.action_idx = 0;
+    s_scene.progress_value = 0;
     demo_apply_action(&s_scene, true);
     gfx_format_demo_apply_widget_focus(&s_scene, 0);
     return GFX_OK;

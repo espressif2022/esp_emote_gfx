@@ -97,6 +97,19 @@ gfx_object_t *gfx_image_create(gfx_display_t *disp);
  */
 gfx_err_t gfx_image_set_source_desc(gfx_object_t *obj, const gfx_image_src_t *src);
 
+/**
+ * @brief Set clockwise rotation for an image object.
+ *
+ * Only 0, 90, 180, and 270 degrees are supported. Rotated drawing uses backend
+ * transform acceleration when the full object is visible and the source has no
+ * separate alpha plane; partial clipping falls back to skipping the draw.
+ *
+ * @param obj Pointer to the image object
+ * @param angle Clockwise rotation in degrees
+ * @return GFX_OK on success, GFX_ERR_* otherwise
+ */
+gfx_err_t gfx_image_set_rotation(gfx_object_t *obj, int16_t angle);
+
 #ifdef __cplusplus
 }
 #endif

@@ -21,6 +21,7 @@ typedef struct {
  * Anim clips for the preview. Plain names resolve through the default mmap
  * asset fs; "/spiffs/..." paths resolve through the loose-asset mount.
  */
+#if 0
 static const demo_anim_clip_t s_anim_clips[] = {
     { .name = "AAF 24-bit",      .path = "mi_1_eye_24bit.aaf", .mode = "mmap AAF" },
     // { .name = "AAF 4-bit",       .path = "mi_1_eye_4bit.aaf", .mode = "mmap AAF" },
@@ -31,6 +32,17 @@ static const demo_anim_clip_t s_anim_clips[] = {
     { .name = "File AAF",        .path = "/spiffs/mi_1_eye_24bit.aaf", .mode = "file AAF copy" },
     { .name = "File EAF",        .path = "/spiffs/mi_1_eye_8bit.eaf", .mode = "file EAF stream", .flags = GFX_ANIM_SRC_FLAG_STREAMING },
 };
+#else
+static const demo_anim_clip_t s_anim_clips[] = {
+    { .name = "AAF 24-bit",      .path = "angry_20s.eaf", .mode = "mmap AAF" },
+    // { .name = "AAF 4-bit",       .path = "mi_1_eye_4bit.aaf", .mode = "mmap AAF" },
+    { .name = "EAF 8-bit",       .path = "confident_08.eaf", .mode = "mmap EAF" },
+    { .name = "AAF Huff 8-bit",  .path = "badminton_12.eaf", .mode = "mmap AAF" },
+    { .name = "Transparent EAF", .path = "cry_10s_10s.eaf", .mode = "mmap EAF" },
+    { .name = "Yawn",            .path = "yawn_20s.eaf", .mode = "mmap EAF" },
+    { .name = "Yummy",           .path = "yummy_20_s.eaf", .mode = "mmap EAF" },
+};
+#endif
 
 #define DEMO_ANIM_COUNT (sizeof(s_anim_clips) / sizeof(s_anim_clips[0]))
 
@@ -99,7 +111,18 @@ static gfx_err_t demo_load_anim_clip(format_playground_scene_t *scene, size_t in
 
 gfx_err_t gfx_format_demo_next_anim_clip(format_playground_scene_t *scene)
 {
-    return demo_load_anim_clip(scene, (s_anim_index + 1U) % DEMO_ANIM_COUNT);
+    gfx_err_t last_err = GFX_FAIL;
+
+    for (size_t step = 1U; step <= DEMO_ANIM_COUNT; step++) {
+        size_t next_index = (s_anim_index + step) % DEMO_ANIM_COUNT;
+
+        last_err = demo_load_anim_clip(scene, next_index);
+        if (last_err == GFX_OK) {
+            return GFX_OK;
+        }
+    }
+
+    return last_err;
 }
 
 gfx_err_t gfx_format_demo_build_anim_demo(format_playground_scene_t *scene)
@@ -110,7 +133,7 @@ gfx_err_t gfx_format_demo_build_anim_demo(format_playground_scene_t *scene)
     GFX_RETURN_ON_FALSE(obj != NULL, GFX_ERR_INVALID_ARG, "playground", "create anim demo failed");
 
     scene->anim_demo = obj;
-    (void)gfx_object_set_pos(obj, 286, 164);
+    (void)gfx_object_set_pos(obj, 378, 100);
 
     GFX_RETURN_ON_ERROR(demo_load_anim_clip(scene, 0), "playground", "load anim clip failed");
     (void)gfx_object_set_visible(obj, false);

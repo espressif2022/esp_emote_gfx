@@ -6,7 +6,9 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
+#include "gfx/fs.h"
 #include "gfx/widgets/image.h"
 
 #ifdef __cplusplus
@@ -33,6 +35,8 @@ typedef struct {
     const uint8_t *data;        /**< Decoded/native image pixel data */
     uint32_t data_size;         /**< Size of decoded data */
     void *user_data;            /**< User data for decoder */
+    gfx_fs_blob_t src_blob;     /**< Optional retained encoded file payload */
+    bool retain_src_blob;       /**< Keep src_blob after info() for a later open() */
     void *decoder;              /**< Internal decoder owner for close routing */
 } gfx_image_decoder_dsc_t;
 

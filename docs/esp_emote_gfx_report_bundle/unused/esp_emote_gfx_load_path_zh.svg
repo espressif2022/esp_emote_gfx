@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 596 188" role="img" aria-labelledby="loadPathTitle loadPathDesc">
+  <title id="loadPathTitle">AI 与上位机驱动 UI 链路</title>
+  <desc id="loadPathDesc">当前链路以 AI 辅助编写 C 代码为主；目标链路由上位机和 AI 将图像、SVG 或 JSON 转为 UI 描述包，再由运行时加载为对象树，然后交给渲染器。</desc>
+  <defs>
+    <linearGradient id="panelBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#10141a"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <marker id="flowArrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M1,1 L8,5 L1,9 Z" fill="#93c5fd"/>
+    </marker>
+    <marker id="accentArrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M1,1 L8,5 L1,9 Z" fill="#f87171"/>
+    </marker>
+    <style>
+      text { font-family: Inter, "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif; }
+      .label { fill: #94a3b8; font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+      .target { fill: #fca5a5; }
+      .box-title { fill: #f8fafc; font-size: 12px; font-weight: 700; }
+      .chip-text { fill: #cbd5e1; font-size: 10px; font-weight: 500; }
+      .cyan { fill: rgba(8, 145, 178, 0.18); stroke: #22d3ee; stroke-width: 1.4; }
+      .violet { fill: rgba(124, 58, 237, 0.20); stroke: #a78bfa; stroke-width: 1.4; }
+      .orange { fill: rgba(234, 88, 12, 0.18); stroke: #fb923c; stroke-width: 1.4; }
+      .accent { fill: rgba(239, 68, 68, 0.16); stroke: #f87171; stroke-width: 1.5; }
+      .flow { fill: none; stroke: #93c5fd; stroke-width: 2; marker-end: url(#flowArrow); }
+      .flow-accent { fill: none; stroke: #f87171; stroke-width: 2.3; marker-end: url(#accentArrow); }
+    </style>
+  </defs>
+
+  <rect width="596" height="188" rx="12" fill="url(#panelBg)" stroke="rgba(148,163,184,0.22)" stroke-width="1"/>
+
+  <text x="18" y="58" class="label">当前</text>
+  <g transform="translate(56 28)">
+    <rect width="102" height="58" rx="12" class="cyan"/>
+    <text x="51" y="24" text-anchor="middle" class="box-title">AI 写代码</text>
+    <text x="51" y="45" text-anchor="middle" class="chip-text">prompt -> C create</text>
+  </g>
+  <path d="M158 57 H182" class="flow"/>
+  <g transform="translate(182 28)">
+    <rect width="114" height="58" rx="12" class="violet"/>
+    <text x="57" y="24" text-anchor="middle" class="box-title">应用代码</text>
+    <text x="57" y="45" text-anchor="middle" class="chip-text">UI + 业务混合</text>
+  </g>
+  <path d="M296 57 H320" class="flow"/>
+  <g transform="translate(320 28)">
+    <rect width="120" height="58" rx="12" class="violet"/>
+    <text x="60" y="24" text-anchor="middle" class="box-title">Object Tree</text>
+    <text x="60" y="45" text-anchor="middle" class="chip-text">运行时对象</text>
+  </g>
+  <path d="M440 57 H464" class="flow"/>
+  <g transform="translate(464 28)">
+    <rect width="96" height="58" rx="12" class="orange"/>
+    <text x="48" y="35" text-anchor="middle" class="box-title">Renderer</text>
+  </g>
+
+  <text x="18" y="148" class="label target">目标</text>
+  <g transform="translate(70 118)">
+    <rect width="128" height="58" rx="12" class="accent"/>
+    <text x="64" y="24" text-anchor="middle" class="box-title">上位机 / AI</text>
+    <text x="64" y="45" text-anchor="middle" class="chip-text">图像/SVG -> 描述</text>
+  </g>
+  <path d="M198 147 H226" class="flow-accent"/>
+  <g transform="translate(226 118)">
+    <rect width="112" height="58" rx="12" class="accent"/>
+    <text x="56" y="24" text-anchor="middle" class="box-title">UI 描述包</text>
+    <text x="56" y="45" text-anchor="middle" class="chip-text">scene+assets</text>
+  </g>
+  <path d="M338 147 H366" class="flow-accent"/>
+  <g transform="translate(366 118)">
+    <rect width="112" height="58" rx="12" class="violet"/>
+    <text x="56" y="24" text-anchor="middle" class="box-title">Runtime</text>
+    <text x="56" y="45" text-anchor="middle" class="chip-text">Object Tree</text>
+  </g>
+  <path d="M478 147 H506" class="flow-accent"/>
+  <g transform="translate(506 118)">
+    <rect width="78" height="58" rx="12" class="orange"/>
+    <text x="39" y="35" text-anchor="middle" class="box-title">Renderer</text>
+  </g>
+</svg>

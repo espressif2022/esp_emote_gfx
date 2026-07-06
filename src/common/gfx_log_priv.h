@@ -8,7 +8,7 @@
 
 #include <stdbool.h>
 
-#include "core/gfx_log.h"
+#include "gfx/log.h"
 
 bool gfx_log_should_output(gfx_log_module_t module, gfx_log_level_t level);
 void gfx_log_write(gfx_log_module_t module, gfx_log_level_t level, const char *tag, const char *format, ...);

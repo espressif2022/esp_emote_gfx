@@ -28,7 +28,9 @@ if(COMMAND idf_component_register)
     list(APPEND GFX_IDF_REQUIRES esp_mmap_assets)
 
     if(EXISTS "${GFX_IDF_PATH}/components/esp_driver_ppa/CMakeLists.txt")
-        list(APPEND GFX_IDF_REQUIRES esp_driver_ppa)
+        list(APPEND GFX_IDF_REQUIRES esp_driver_ppa esp_mm)
+    elseif(EXISTS "${GFX_IDF_PATH}/components/esp_mm/CMakeLists.txt")
+        list(APPEND GFX_IDF_REQUIRES esp_mm)
     endif()
 
     if(EXISTS "${GFX_IDF_PATH}/components/esp_driver_jpeg/CMakeLists.txt")
@@ -46,6 +48,17 @@ if(COMMAND idf_component_register)
         REQUIRES
             ${GFX_IDF_REQUIRES}
     )
+
+    # esp_async_fbcpy.h lives in esp_lcd/priv_include (same as esp_lvgl_adapter).
+    if(NOT CMAKE_SCRIPT_MODE_FILE)
+        if(EXISTS "${GFX_IDF_PATH}/components/esp_lcd/priv_include/esp_async_fbcpy.h")
+            idf_component_get_property(ESP_LCD_DIR esp_lcd COMPONENT_DIR)
+            if(ESP_LCD_DIR)
+                target_include_directories(${COMPONENT_LIB} PRIVATE "${ESP_LCD_DIR}/priv_include")
+            endif()
+        endif()
+    endif()
+
     return()
 endif()
 
@@ -66,10 +79,10 @@ if(NOT EXISTS "${GFX_HEATSHRINK_ROOT}/heatshrink_decoder.c")
 endif()
 
 set(GFX_HOST_CORE_SRCS
-    "src/core/base/gfx_fs.c"
-    "src/core/base/gfx_fs_file.c"
-    "src/core/base/gfx_color.c"
-    "src/core/base/gfx_log.c"
+    "src/core/fs/gfx_fs.c"
+    "src/core/fs/gfx_fs_file.c"
+    "src/core/types/gfx_color.c"
+    "src/core/log/gfx_log.c"
     "src/core/display/gfx_backend.c"
     "src/core/display/gfx_display.c"
     "src/core/display/gfx_refresh.c"
@@ -79,8 +92,8 @@ set(GFX_HOST_CORE_SRCS
     "src/core/runtime/gfx_timer.c"
     "src/core/runtime/gfx_touch.c"
     "src/core/tween/gfx_tween.c"
-    "src/backend/custom/gfx_backend_custom.c"
-    "src/backend/memory/gfx_backend_memory.c"
+    "src/backend/custom/custom_backend.c"
+    "src/backend/memory/memory_backend.c"
     "src/codecs/anim/gfx_anim_decoder.c"
     "src/codecs/anim/gfx_anim_decoder_eaf.c"
     "src/codecs/image/gfx_image_decoder.c"
@@ -94,8 +107,10 @@ set(GFX_HOST_CORE_SRCS
     "src/widgets/basic/gfx_button.c"
     "src/widgets/basic/gfx_container.c"
     "src/widgets/basic/gfx_coverflow.c"
+    "src/widgets/basic/gfx_image_button.c"
     "src/widgets/basic/gfx_list.c"
     "src/widgets/basic/gfx_pageflow.c"
+    "src/widgets/basic/gfx_progress_bar.c"
     "src/widgets/basic/gfx_qrcode.c"
     "src/widgets/basic/gfx_wheel.c"
     "src/widgets/img/gfx_img.c"
@@ -111,13 +126,13 @@ set(GFX_HOST_CORE_SRCS
     "src/widgets/motion/gfx_motion_style.c"
     "src/lib/qrcode/qrcode_wrapper.c"
     "src/lib/qrcode/qrcodegen.c"
-    "src/platform/host/gfx_font_host.c"
-    "src/platform/host/gfx_platform_accel_host_stub.c"
-    "src/platform/host/gfx_platform_jpeg_host_stub.c"
-    "src/platform/host/gfx_touch_port_host.c"
-    "src/platform/linux/gfx_fs_linux.c"
-    "src/platform/linux/gfx_platform_linux.c"
-    "src/platform/host/gfx_subsystem_host_stub.c"
+    "src/platform/host/host_font.c"
+    "src/platform/host/host_accel_stub.c"
+    "src/platform/host/host_jpeg_stub.c"
+    "src/platform/host/host_touch_stub.c"
+    "src/platform/linux/linux_fs.c"
+    "src/platform/linux/linux_platform.c"
+    "src/platform/host/host_subsystem_stub.c"
     "${GFX_HEATSHRINK_ROOT}/heatshrink_decoder.c"
 )
 
@@ -173,7 +188,7 @@ if(GFX_BUILD_HOST_SDL)
         target_link_libraries(gfx_host_core PUBLIC ${JPEG_LIBRARIES})
     endif()
 
-    add_library(gfx_backend_sdl STATIC "src/backend/sdl/gfx_backend_sdl.c")
+    add_library(gfx_backend_sdl STATIC "src/backend/sdl/sdl_backend.c")
     target_include_directories(gfx_backend_sdl
         PUBLIC
             "include"
@@ -200,6 +215,7 @@ if(GFX_BUILD_HOST_SDL)
     set(GFX_FORMAT_DEMO_SRCS
         "examples/common/gfx_display_port.c"
         "examples/format_playground/assets/font_puhui_16_4.c"
+        "examples/format_playground/assets/image_button_assets.c"
         "examples/format_playground/playground_scene.c"
         "examples/format_playground/widgets/widget_anim.c"
         "examples/format_playground/widgets/widget_button.c"
@@ -244,6 +260,11 @@ if(GFX_BUILD_HOST_SDL)
     target_compile_features(gfx_host_alignment_smoke PRIVATE c_std_11)
     target_link_libraries(gfx_host_alignment_smoke PRIVATE gfx_host_core)
 
+    add_executable(gfx_host_roundup_smoke "simulation/host/gfx_host_roundup_smoke.c")
+    target_include_directories(gfx_host_roundup_smoke PRIVATE "include" "src" "test_apps/unit/main")
+    target_compile_features(gfx_host_roundup_smoke PRIVATE c_std_11)
+    target_link_libraries(gfx_host_roundup_smoke PRIVATE gfx_host_core)
+
     add_executable(gfx_host_list_smoke "simulation/host/gfx_host_list_smoke.c")
     target_include_directories(gfx_host_list_smoke PRIVATE "include" "simulation/port/include")
     target_compile_features(gfx_host_list_smoke PRIVATE c_std_11)
@@ -279,6 +300,7 @@ if(GFX_BUILD_HOST_SDL)
             COMMAND gfx_host_font_smoke
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
         add_test(NAME gfx_host_alignment_smoke COMMAND gfx_host_alignment_smoke)
+        add_test(NAME gfx_host_roundup_smoke COMMAND gfx_host_roundup_smoke)
         add_test(NAME gfx_host_list_smoke COMMAND gfx_host_list_smoke)
         add_test(NAME gfx_host_coverflow_smoke COMMAND gfx_host_coverflow_smoke)
         add_test(NAME gfx_host_wheel_smoke COMMAND gfx_host_wheel_smoke)
@@ -293,7 +315,7 @@ if(GFX_BUILD_HOST_SDL)
 
     add_custom_target(gfx_host_smoke
         COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-        DEPENDS gfx_host_fs_smoke gfx_host_font_smoke gfx_host_alignment_smoke gfx_host_list_smoke
+        DEPENDS gfx_host_fs_smoke gfx_host_font_smoke gfx_host_alignment_smoke gfx_host_roundup_smoke gfx_host_list_smoke
             gfx_host_coverflow_smoke gfx_host_wheel_smoke gfx_host_container_smoke
             gfx_host_tween_smoke gfx_host_sdl_demo
         USES_TERMINAL

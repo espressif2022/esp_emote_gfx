@@ -13,7 +13,7 @@
 #include "fonts/gfx_font_priv.h"
 
 #if GFX_HOST_BUILD
-#include "platform/host/gfx_font_host_priv.h"
+#include "platform/host/host_font_priv.h"
 #endif
 
 static const char *const TAG = "font_adapter";

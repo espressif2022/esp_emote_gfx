@@ -312,6 +312,18 @@ gfx_err_t gfx_mesh_img_set_opa(gfx_object_t *obj, gfx_opa_t opa);
 gfx_err_t gfx_mesh_img_set_aa_inward(gfx_object_t *obj, bool inward);
 
 /**
+ * @brief Expand mesh object bounds without changing control-point geometry.
+ *
+ * This is useful for anti-aliased procedural meshes whose rasterizer may need
+ * a small clip margin around the exact control-point bounds.
+ *
+ * @param obj Mesh image object.
+ * @param pad Extra local pixels to include around computed mesh bounds.
+ * @return GFX_OK on success, GFX_ERR_* otherwise.
+ */
+gfx_err_t gfx_mesh_img_set_bounds_pad(gfx_object_t *obj, uint8_t pad);
+
+/**
  * @brief Treat first and last grid columns as adjacent (closed strip).
  *
  * When enabled, the left edge of the first column and the right edge of the

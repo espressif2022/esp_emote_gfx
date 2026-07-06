@@ -7,6 +7,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 
+#include "gfx565_tear_config.h"
 #include "format_demo_app.h"
 #include "playground_scene.h"
 
@@ -36,6 +37,8 @@ static void init_loose_assets(void)
 
 void app_main(void)
 {
+    ESP_LOGI(TAG, "tear verify mode: %s (edit gfx565_tear_config.h to switch)", GFX565_TEAR_MODE_NAME);
+
     const gfx_format_demo_app_config_t config = {
         .log_tag = TAG,
         .title = "GFX RGB565 Playground",

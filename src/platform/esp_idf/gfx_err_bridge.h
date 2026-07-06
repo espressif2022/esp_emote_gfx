@@ -7,7 +7,7 @@
 #pragma once
 
 #include "esp_err.h"
-#include "core/gfx_err.h"
+#include "gfx/error.h"
 
 #ifdef __cplusplus
 extern "C" {

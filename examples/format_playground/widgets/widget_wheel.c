@@ -37,7 +37,7 @@ gfx_err_t gfx_format_demo_build_wheel_demo(format_playground_scene_t *scene)
 
     GFX_RETURN_ON_FALSE(obj != NULL, GFX_ERR_INVALID_ARG, "playground", "create wheel failed");
     scene->wheel_demo = obj;
-    (void)gfx_object_set_pos(obj, 292, 146);
+    (void)gfx_object_set_pos(obj, 388, 146);
     (void)gfx_object_set_size(obj, 300, 252);
     (void)gfx_wheel_set_items(obj, gfx_format_demo_wheel_items, gfx_format_demo_wheel_item_count);
     (void)gfx_wheel_set_font(obj, scene->font);

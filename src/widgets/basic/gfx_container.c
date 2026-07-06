@@ -14,8 +14,6 @@
 #include "core/display/gfx_refresh_priv.h"
 #include "core/object/gfx_object_priv.h"
 #include "render/gfx_render_priv.h"
-#include "render/sw/gfx_blend_priv.h"
-#include "render/sw/gfx_sw_draw_priv.h"
 #include "gfx/widgets/container.h"
 
 #define CHECK_OBJ_TYPE_CONTAINER(obj) CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_CONTAINER, TAG)
@@ -82,15 +80,12 @@ static gfx_err_t gfx_container_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx
                                 container->bg_color, 0xFFU);
     }
 
-    gfx_sw_draw_rect_stroke_fmt(ctx->buf,
-                                ctx->stride,
-                                ctx->format,
-                                &ctx->buf_area,
-                                &ctx->clip_area,
-                                &obj_area,
-                                container->border_width,
-                                container->border_color,
-                                0xFF);
+    gfx_render_surface_rect_stroke(obj->disp,
+                                   &dst_surface,
+                                   &obj_area,
+                                   container->border_width,
+                                   container->border_color,
+                                   0xFF);
 
     return GFX_OK;
 }

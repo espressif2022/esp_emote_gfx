@@ -1,0 +1,151 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 720" width="1180" height="720"
+     font-family="Inter, 'Noto Sans SC', 'Microsoft YaHei', Arial, sans-serif">
+  <defs>
+    <marker id="ac" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <polygon points="0,1 7,4 0,7" fill="#c0bcb7"/></marker>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <polygon points="0,1 7,4 0,7" fill="#e7352c"/></marker>
+    <marker id="ad" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <polygon points="0,1 7,4 0,7" fill="#777"/></marker>
+    <marker id="arc" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <polygon points="0,1 7,4 0,7" fill="#e7352c"/></marker>
+  </defs>
+
+  <rect width="1180" height="720" rx="18" fill="#fafaf8"/>
+
+  <!-- TITLE -->
+  <text x="40" y="50" font-size="23" font-weight="700" fill="#111">UI 构建链路演进</text>
+  <text x="40" y="74" font-size="13" fill="#888">前半段从"AI 生成 C 代码"升级为"上位机导出资源包"；进入 Runtime 后统一走 Object Tree&#8594;Renderer。</text>
+  <rect x="950" y="33" width="210" height="28" rx="7" fill="rgba(231,53,44,.07)" stroke="rgba(231,53,44,.3)" stroke-width="1"/>
+  <text x="1055" y="52" text-anchor="middle" font-size="11" fill="#c0392b" font-weight="600">类 A2UI：AI 描述界面，Runtime 负责渲染</text>
+
+  <!-- LANE HEADERS -->
+  <rect x="24" y="84" width="448" height="26" rx="6" fill="#7a7570"/>
+  <text x="248" y="102" text-anchor="middle" font-size="11" font-weight="700" fill="white" letter-spacing="1.2">CURRENT · AI PROMPT 生成代码</text>
+  <rect x="708" y="84" width="448" height="26" rx="6" fill="#e7352c"/>
+  <text x="932" y="102" text-anchor="middle" font-size="11" font-weight="700" fill="white" letter-spacing="1.2">TARGET · AI PROMPT 生成资源文件</text>
+  <text x="590" y="102" text-anchor="middle" font-size="10" fill="#c0bcb8" font-weight="600" letter-spacing=".5">对比维度</text>
+
+  <!-- ══════════════ PAIR 1: GENERATION  y=117..231 ══════════════ -->
+  <!-- Left step 1 -->
+  <rect x="24" y="117" width="448" height="114" rx="12" fill="#f5f5f2" stroke="#d6d4cf" stroke-width="1.2"/>
+  <circle cx="54" cy="149" r="14" fill="#c6c3be"/>
+  <text x="50" y="153" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">1</text>
+  <text x="80" y="143" font-size="14.5" font-weight="700" fill="#111">AI Prompt 生成 C create 代码</text>
+  <text x="80" y="163" font-size="12" fill="#666">输出是工程代码，不是可独立加载的 UI 资产</text>
+  <rect x="80" y="185" width="218" height="24" rx="6" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.42)" stroke-width="1"/>
+  <text x="92" y="201" font-size="11" fill="#b45309" font-weight="600">&#9888;  可执行代码，不可跨端复用</text>
+
+  <!-- Right step 1 -->
+  <rect x="708" y="117" width="448" height="114" rx="12" fill="#fff3f2" stroke="#e7352c" stroke-width="1.5"/>
+  <circle cx="738" cy="149" r="14" fill="#e7352c"/>
+  <text x="734" y="153" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">1</text>
+  <text x="764" y="143" font-size="14.5" font-weight="700" fill="#111">AI / 上位机生成 Scene Package</text>
+  <text x="764" y="163" font-size="12" fill="#6b3430">资源引用、UI 描述、预计算数据一体打包</text>
+  <rect x="764" y="185" width="192" height="24" rx="6" fill="rgba(231,53,44,.09)" stroke="rgba(231,53,44,.35)" stroke-width="1"/>
+  <text x="776" y="201" font-size="11" fill="#c0392b" font-weight="600">&#10003;  声明式描述，AI 原生格式</text>
+
+  <!-- Center card 1 -->
+  <rect x="480" y="127" width="220" height="92" rx="10" fill="#eeece8" stroke="#d8d5d0" stroke-width="1"/>
+  <text x="590" y="148" text-anchor="middle" font-size="9.5" fill="#aaa" font-weight="700" letter-spacing=".08em">生成物</text>
+  <text x="556" y="173" font-size="12" fill="#888" text-anchor="middle">C 代码</text>
+  <line x1="574" y1="173" x2="608" y2="173" stroke="#e7352c" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arc)"/>
+  <text x="624" y="173" font-size="12" fill="#111" font-weight="600" text-anchor="middle">scene.pkg</text>
+  <text x="590" y="198" text-anchor="middle" font-size="10" fill="#bbb">输出形态不同 &#8594; 加载方式不同</text>
+
+  <!-- Arrows P1→P2 -->
+  <line x1="248" y1="231" x2="248" y2="251" stroke="#c0bcb7" stroke-width="1.3" marker-end="url(#ac)"/>
+  <line x1="932" y1="231" x2="932" y2="251" stroke="#e7352c" stroke-width="1.4" marker-end="url(#ar)"/>
+
+  <!-- ══════════════ PAIR 2: ARTIFACT  y=251..391 ══════════════ -->
+  <!-- Left: code editor -->
+  <rect x="24" y="251" width="448" height="140" rx="12" fill="#1d1b18"/>
+  <rect x="24" y="251" width="448" height="26" rx="12" fill="#2b2926"/>
+  <rect x="24" y="267" width="448" height="10" fill="#2b2926"/>
+  <circle cx="44" cy="264" r="4" fill="#ff5f57"/>
+  <circle cx="58" cy="264" r="4" fill="#febc2e"/>
+  <circle cx="72" cy="264" r="4" fill="#28c840"/>
+  <text x="248" y="264" text-anchor="middle" font-size="9" fill="rgba(255,255,255,.28)" font-family="'JetBrains Mono','Courier New',monospace">playground_scene.c</text>
+  <text x="38" y="292" font-size="10.5" fill="rgba(130,190,255,.88)" font-family="'JetBrains Mono','Courier New',monospace">gfx_label_create(display);</text>
+  <text x="38" y="310" font-size="10.5" fill="rgba(130,190,255,.88)" font-family="'JetBrains Mono','Courier New',monospace">gfx_object_set_pos(label, x, y);</text>
+  <text x="38" y="328" font-size="10.5" fill="rgba(130,190,255,.88)" font-family="'JetBrains Mono','Courier New',monospace">gfx_label_set_font(label, font);</text>
+  <text x="38" y="346" font-size="10.5" fill="rgba(130,190,255,.88)" font-family="'JetBrains Mono','Courier New',monospace">gfx_image_set_src(img, &amp;res);</text>
+  <rect x="38" y="364" width="168" height="22" rx="5" fill="rgba(245,158,11,.18)" stroke="rgba(245,158,11,.4)" stroke-width="1"/>
+  <text x="48" y="379" font-size="10.5" fill="#f59e0b" font-weight="600">&#9888;  UI / 资源 / 业务混在一起</text>
+
+  <!-- Right: scene.pkg file tree -->
+  <rect x="708" y="251" width="448" height="140" rx="12" fill="white" stroke="#e7352c" stroke-width="1.5"/>
+  <rect x="708" y="251" width="448" height="30" rx="12" fill="rgba(231,53,44,.06)"/>
+  <rect x="708" y="271" width="448" height="10" fill="rgba(231,53,44,.06)"/>
+  <text x="724" y="271" font-size="13.5" fill="#c0392b" font-weight="700" font-family="'JetBrains Mono','Courier New',monospace">scene.pkg</text>
+  <text x="724" y="298" font-size="11" fill="#444" font-family="'JetBrains Mono','Courier New',monospace">&#x251C;&#x2500; layout.bin</text>
+  <text x="834" y="298" font-size="10.5" fill="#aaa">&#8592; UI 结构描述</text>
+  <text x="724" y="318" font-size="11" fill="#444" font-family="'JetBrains Mono','Courier New',monospace">&#x251C;&#x2500; assets/</text>
+  <text x="834" y="318" font-size="10.5" fill="#aaa">&#8592; 图像、字体</text>
+  <text x="724" y="338" font-size="11" fill="#444" font-family="'JetBrains Mono','Courier New',monospace">&#x251C;&#x2500; actions.bin</text>
+  <text x="834" y="338" font-size="10.5" fill="#aaa">&#8592; action 描述</text>
+  <text x="724" y="358" font-size="11" fill="#444" font-family="'JetBrains Mono','Courier New',monospace">&#x2514;&#x2500; precomp.bin</text>
+  <text x="834" y="358" font-size="10.5" fill="#aaa">&#8592; 预计算数据</text>
+  <rect x="724" y="367" width="208" height="22" rx="5" fill="rgba(231,53,44,.09)" stroke="rgba(231,53,44,.35)" stroke-width="1"/>
+  <text x="734" y="382" font-size="10.5" fill="#c0392b" font-weight="600">&#10003;  结构化，跨端独立加载</text>
+
+  <!-- Center card 2 -->
+  <rect x="480" y="261" width="220" height="118" rx="10" fill="#eeece8" stroke="#d8d5d0" stroke-width="1"/>
+  <text x="590" y="281" text-anchor="middle" font-size="9.5" fill="#aaa" font-weight="700" letter-spacing=".08em">产物格式</text>
+  <text x="590" y="306" text-anchor="middle" font-size="11.5" fill="#888">散落 C 代码</text>
+  <text x="590" y="323" text-anchor="middle" font-size="10" fill="#bbb">UI + 资源 + 业务混在一起</text>
+  <line x1="530" y1="341" x2="650" y2="341" stroke="#e7352c" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arc)"/>
+  <text x="590" y="362" text-anchor="middle" font-size="11.5" fill="#111" font-weight="600">结构化资源包</text>
+
+  <!-- Arrows P2→P3 -->
+  <line x1="248" y1="391" x2="248" y2="409" stroke="#c0bcb7" stroke-width="1.3" marker-end="url(#ac)"/>
+  <line x1="932" y1="391" x2="932" y2="409" stroke="#e7352c" stroke-width="1.4" marker-end="url(#ar)"/>
+
+  <!-- ══════════════ PAIR 3: DEVICE  y=409..523 ══════════════ -->
+  <!-- Left step 3 -->
+  <rect x="24" y="409" width="448" height="114" rx="12" fill="#f5f5f2" stroke="#d6d4cf" stroke-width="1.2"/>
+  <circle cx="54" cy="441" r="14" fill="#c6c3be"/>
+  <text x="50" y="445" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">3</text>
+  <text x="80" y="435" font-size="14.5" font-weight="700" fill="#111">设备端编译执行 create object</text>
+  <text x="80" y="455" font-size="12" fill="#666">仿真和实机需要维护同一套 create 逻辑</text>
+  <rect x="80" y="477" width="210" height="24" rx="6" fill="rgba(245,158,11,.1)" stroke="rgba(245,158,11,.42)" stroke-width="1"/>
+  <text x="92" y="493" font-size="11" fill="#b45309" font-weight="600">&#9888;  双端要同步 create 逻辑</text>
+
+  <!-- Right step 2 -->
+  <rect x="708" y="409" width="448" height="114" rx="12" fill="#fff3f2" stroke="#e7352c" stroke-width="1.5"/>
+  <circle cx="738" cy="441" r="14" fill="#e7352c"/>
+  <text x="734" y="445" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">2</text>
+  <text x="764" y="435" font-size="14.5" font-weight="700" fill="#111">设备端直接 load assets</text>
+  <text x="764" y="455" font-size="12" fill="#6b3430">应用只保留业务状态和回调绑定</text>
+  <rect x="764" y="477" width="226" height="24" rx="6" fill="rgba(231,53,44,.09)" stroke="rgba(231,53,44,.35)" stroke-width="1"/>
+  <text x="776" y="493" font-size="11" fill="#c0392b" font-weight="600">&#10003;  同一资源包跑 SDL / ESP 实机</text>
+
+  <!-- Center card 3 -->
+  <rect x="480" y="419" width="220" height="92" rx="10" fill="#eeece8" stroke="#d8d5d0" stroke-width="1"/>
+  <text x="590" y="439" text-anchor="middle" font-size="9.5" fill="#aaa" font-weight="700" letter-spacing=".08em">设备端工作</text>
+  <text x="556" y="465" font-size="12" fill="#888" text-anchor="middle">create 组装</text>
+  <line x1="574" y1="465" x2="608" y2="465" stroke="#e7352c" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arc)"/>
+  <text x="624" y="465" font-size="12" fill="#111" font-weight="600" text-anchor="middle">load 加载</text>
+  <text x="590" y="492" text-anchor="middle" font-size="10" fill="#bbb">应用代码职责大幅减少</text>
+
+  <!-- CONVERGE -->
+  <path d="M 248,523 C 248,552 410,560 590,564" fill="none" stroke="#c0bcb7" stroke-width="1.4" marker-end="url(#ad)"/>
+  <path d="M 932,523 C 932,552 770,560 590,564" fill="none" stroke="#e7352c" stroke-width="1.5" marker-end="url(#ad)"/>
+
+  <!-- SHARED RUNTIME -->
+  <rect x="200" y="568" width="780" height="50" rx="10" fill="#1e1c1a"/>
+  <text x="590" y="587" text-anchor="middle" font-size="9" fill="rgba(255,255,255,.28)" letter-spacing=".12em">统一运行路径</text>
+  <text x="590" y="607" text-anchor="middle" font-size="13" fill="rgba(255,255,255,.84)" font-weight="500">Render Object / Object Tree  &#8594;  Renderer  &#8594;  Backend（SDL / ESP）</text>
+
+  <!-- VALUE SUMMARY -->
+  <text x="590" y="640" text-anchor="middle" font-size="10" fill="#c0bcb8" letter-spacing=".06em">核心价值</text>
+  <rect x="120" y="648" width="272" height="38" rx="9" fill="rgba(231,53,44,.07)" stroke="rgba(231,53,44,.22)" stroke-width="1"/>
+  <text x="256" y="664" text-anchor="middle" font-size="12" fill="#c0392b" font-weight="600">&#9733;  AI 描述界面，不写 create 代码</text>
+  <text x="256" y="679" text-anchor="middle" font-size="10" fill="rgba(192,57,43,.55)">输出从代码变成 UI 资产文件</text>
+  <rect x="454" y="648" width="272" height="38" rx="9" fill="rgba(231,53,44,.07)" stroke="rgba(231,53,44,.22)" stroke-width="1"/>
+  <text x="590" y="664" text-anchor="middle" font-size="12" fill="#c0392b" font-weight="600">&#9733;  资源包跨端复用</text>
+  <text x="590" y="679" text-anchor="middle" font-size="10" fill="rgba(192,57,43,.55)">同一 scene.pkg 跑 SDL / ESP 实机</text>
+  <rect x="788" y="648" width="272" height="38" rx="9" fill="rgba(231,53,44,.07)" stroke="rgba(231,53,44,.22)" stroke-width="1"/>
+  <text x="924" y="664" text-anchor="middle" font-size="12" fill="#c0392b" font-weight="600">&#9733;  应用代码只关注业务逻辑</text>
+  <text x="924" y="679" text-anchor="middle" font-size="10" fill="rgba(192,57,43,.55)">UI 结构与业务彻底分离</text>
+</svg>

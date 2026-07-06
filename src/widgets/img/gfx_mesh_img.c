@@ -57,6 +57,7 @@ typedef struct {
     gfx_mesh_img_point_q8_t *rest_points;
     gfx_mesh_img_point_q8_t *points;
     bool aa_inward;
+    uint8_t bounds_pad;
     bool wrap_cols;
     bool scanline_fill;
     gfx_opa_t opacity;
@@ -309,6 +310,14 @@ static void gfx_mesh_img_update_bounds(gfx_object_t *obj, gfx_mesh_img_t *mesh)
         min_y_q8 = MIN(min_y_q8, mesh->points[i].y_q8);
         max_x_q8 = MAX(max_x_q8, mesh->points[i].x_q8);
         max_y_q8 = MAX(max_y_q8, mesh->points[i].y_q8);
+    }
+
+    if (mesh->bounds_pad > 0U) {
+        int32_t pad_q8 = (int32_t)mesh->bounds_pad << GFX_MESH_IMG_Q8_SHIFT;
+        min_x_q8 -= pad_q8;
+        min_y_q8 -= pad_q8;
+        max_x_q8 += pad_q8;
+        max_y_q8 += pad_q8;
     }
 
     min_x = gfx_mesh_img_floor_q8_to_int(min_x_q8);
@@ -844,6 +853,7 @@ gfx_err_t gfx_mesh_img_set_src_desc(gfx_object_t *obj, const gfx_image_src_t *sr
 
     gfx_mesh_img_reset_rest_points(mesh);
     gfx_mesh_img_update_bounds(obj, mesh);
+    gfx_object_invalidate_abs_area_cache_tree(obj);
     gfx_object_mark_resource_dirty(obj);
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
@@ -886,6 +896,7 @@ gfx_err_t gfx_mesh_img_set_grid(gfx_object_t *obj, uint8_t cols, uint8_t rows)
     GFX_RETURN_ON_ERROR(gfx_mesh_img_alloc_points(mesh, cols, rows), TAG, "set mesh grid: alloc points failed");
     gfx_mesh_img_reset_rest_points(mesh);
     gfx_mesh_img_update_bounds(obj, mesh);
+    gfx_object_invalidate_abs_area_cache_tree(obj);
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
 
@@ -994,6 +1005,7 @@ gfx_err_t gfx_mesh_img_set_point_q8(gfx_object_t *obj, size_t point_idx, int32_t
     mesh->points[point_idx].x_q8 = x_q8;
     mesh->points[point_idx].y_q8 = y_q8;
     gfx_mesh_img_update_bounds(obj, mesh);
+    gfx_object_invalidate_abs_area_cache_tree(obj);
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
     return GFX_OK;
@@ -1020,6 +1032,7 @@ gfx_err_t gfx_mesh_img_set_points_q8(gfx_object_t *obj, const gfx_mesh_img_point
     gfx_object_invalidate(obj);
     memcpy(mesh->points, points, point_count * sizeof(*points));
     gfx_mesh_img_update_bounds(obj, mesh);
+    gfx_object_invalidate_abs_area_cache_tree(obj);
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
     return GFX_OK;
@@ -1042,6 +1055,7 @@ gfx_err_t gfx_mesh_img_set_points(gfx_object_t *obj, const gfx_mesh_img_point_t 
         mesh->points[i].y_q8 = (int32_t)points[i].y << GFX_MESH_IMG_Q8_SHIFT;
     }
     gfx_mesh_img_update_bounds(obj, mesh);
+    gfx_object_invalidate_abs_area_cache_tree(obj);
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
     return GFX_OK;
@@ -1078,6 +1092,7 @@ gfx_err_t gfx_mesh_img_set_rect(gfx_object_t *obj, uint16_t width, uint16_t heig
     obj->geometry.height = height;
     obj->local_geometry.width = width;
     obj->local_geometry.height = height;
+    gfx_object_invalidate_abs_area_cache_tree(obj);
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
     return GFX_OK;
@@ -1131,6 +1146,7 @@ gfx_err_t gfx_mesh_img_reset_points(gfx_object_t *obj)
     gfx_object_invalidate(obj);
     gfx_mesh_img_reset_rest_points(mesh);
     gfx_mesh_img_update_bounds(obj, mesh);
+    gfx_object_invalidate_abs_area_cache_tree(obj);
     gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
     return GFX_OK;
@@ -1171,6 +1187,26 @@ gfx_err_t gfx_mesh_img_set_aa_inward(gfx_object_t *obj, bool inward)
     GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "set mesh aa inward: state is NULL");
 
     mesh->aa_inward = inward;
+    gfx_object_invalidate(obj);
+    return GFX_OK;
+}
+
+gfx_err_t gfx_mesh_img_set_bounds_pad(gfx_object_t *obj, uint8_t pad)
+{
+    gfx_mesh_img_t *mesh;
+
+    CHECK_OBJ_TYPE_MESH_IMAGE(obj);
+    mesh = (gfx_mesh_img_t *)obj->src;
+    GFX_RETURN_ON_FALSE(mesh != NULL, GFX_ERR_INVALID_STATE, TAG, "set mesh bounds pad: state is NULL");
+    if (mesh->bounds_pad == pad) {
+        return GFX_OK;
+    }
+
+    gfx_object_invalidate(obj);
+    mesh->bounds_pad = pad;
+    gfx_mesh_img_update_bounds(obj, mesh);
+    gfx_object_invalidate_abs_area_cache_tree(obj);
+    gfx_object_update_layout(obj);
     gfx_object_invalidate(obj);
     return GFX_OK;
 }

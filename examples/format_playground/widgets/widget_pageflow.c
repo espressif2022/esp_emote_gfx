@@ -31,8 +31,8 @@ gfx_err_t gfx_format_demo_build_pageflow_demo(format_playground_scene_t *scene)
         };
     }
     scene->pageflow_demo = obj;
-    (void)gfx_object_set_pos(obj, 272, 146);
-    (void)gfx_object_set_size(obj, 332, 228);
+    (void)gfx_object_set_pos(obj, 372, 138);
+    (void)gfx_object_set_size(obj, 332, 244);
     GFX_RETURN_ON_ERROR(gfx_pageflow_set_image_sources(obj, sources, DEMO_CARD_COUNT),
                         "playground", "set pageflow image sources failed");
     (void)gfx_pageflow_set_font(obj, scene->font);

@@ -150,7 +150,7 @@ to leak into widget, renderer, or asset code.
 
 The first adapter implementation converts flushed RGB565 rectangles into an
 XRGB8888 streaming texture. A host CMake target can compile
-``src/backend/sdl/gfx_backend_sdl.c`` with either ``GFX_SDL_USE_SDL3`` or
+``src/backend/sdl/sdl_backend.c`` with either ``GFX_SDL_USE_SDL3`` or
 ``GFX_SDL_USE_SDL2`` and link the matching SDL library.
 
 Next Steps

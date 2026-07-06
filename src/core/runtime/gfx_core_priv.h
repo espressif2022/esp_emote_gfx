@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include "core/gfx_core.h"
-#include "core/gfx_touch.h"
+#include "gfx/core.h"
+#include "gfx/input.h"
 #include "core/display/gfx_display_priv.h"
 #include "core/object/gfx_object_priv.h"
 #include "core/runtime/gfx_timer_priv.h"

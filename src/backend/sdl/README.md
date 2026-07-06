@@ -1,6 +1,6 @@
 # SDL Host Backend
 
-This directory is a host-only adapter for desktop simulation. It lives under
+This directory is a host-only adapter for desktop simulation (`sdl_backend.c`). It lives under
 `src/backend/` as a real backend, but ESP-IDF component builds explicitly
 exclude it so embedded targets do not link SDL.
 

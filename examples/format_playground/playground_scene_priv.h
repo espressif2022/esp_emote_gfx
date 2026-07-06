@@ -9,7 +9,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "core/gfx_err.h"
+#include "gfx/error.h"
 #include "gfx.h"
 #include "playground_scene.h"
 
@@ -17,18 +17,26 @@
 extern "C" {
 #endif
 
-#define DEMO_WIDGET_COUNT 8U
+#define DEMO_WIDGET_COUNT 10U
 #define DEMO_CARD_COUNT   5U
 
+#define DEMO_FLOW_IMAGE_C5_DEVKITC     "01_esp32_c5_devkitc_320x240.jpg"
+#define DEMO_FLOW_IMAGE_C6_DEVKITC     "02_esp32_c6_devkitc_320x240.jpg"
+#define DEMO_FLOW_IMAGE_S3_DEVKITC     "03_esp32_s3_devkitc_320x240.jpg"
+#define DEMO_FLOW_IMAGE_P4_EYE_FRONT   "04_esp32_p4_eye_front_320x240.jpg"
+#define DEMO_FLOW_IMAGE_P4_EYE_BACK    "05_esp32_p4_eye_back_320x240.jpg"
+
 typedef enum {
-    DEMO_WIDGET_BUTTON = 0,
-    DEMO_WIDGET_LIST,
-    DEMO_WIDGET_IMAGE,
+    DEMO_WIDGET_MOTION = 0,
     DEMO_WIDGET_ANIM,
-    DEMO_WIDGET_MOTION,
-    DEMO_WIDGET_WHEEL,
-    DEMO_WIDGET_PAGEFLOW,
     DEMO_WIDGET_COVERFLOW,
+    DEMO_WIDGET_PAGEFLOW,
+    DEMO_WIDGET_IMAGE,
+    DEMO_WIDGET_BUTTON,
+    DEMO_WIDGET_IMAGE_BUTTON,
+    DEMO_WIDGET_PROGRESS_BAR,
+    DEMO_WIDGET_LIST,
+    DEMO_WIDGET_WHEEL,
 } demo_widget_id_t;
 
 typedef struct {
@@ -40,6 +48,8 @@ typedef struct {
     gfx_object_t *preview_note;
     gfx_object_t *status;
     gfx_object_t *button_demo;
+    gfx_object_t *image_button_demo;
+    gfx_object_t *progress_bar_demo;
     gfx_object_t *list_demo;
     gfx_object_t *image_demo;
     gfx_object_t *anim_demo;
@@ -51,6 +61,9 @@ typedef struct {
     gfx_object_t *cover_cards[DEMO_CARD_COUNT];
     gfx_coverflow_card_dsc_t cover_card_dsc[DEMO_CARD_COUNT];
     gfx_motion_player_t *motion;
+    gfx_object_t *motion_zoom_slider;
+    uint16_t progress_value;
+    uint16_t motion_zoom_value;
     uint16_t widget_idx;
     uint16_t action_idx;
     gfx_font_t font;
@@ -83,6 +96,8 @@ void gfx_format_demo_apply_widget_focus(format_playground_scene_t *scene, uint16
 
 gfx_err_t gfx_format_demo_build_widget_list(format_playground_scene_t *scene);
 gfx_err_t gfx_format_demo_build_button(format_playground_scene_t *scene);
+gfx_err_t gfx_format_demo_build_image_button(format_playground_scene_t *scene);
+gfx_err_t gfx_format_demo_build_progress_bar(format_playground_scene_t *scene);
 gfx_err_t gfx_format_demo_build_list_demo(format_playground_scene_t *scene);
 gfx_err_t gfx_format_demo_build_image_demo(format_playground_scene_t *scene);
 gfx_err_t gfx_format_demo_build_anim_demo(format_playground_scene_t *scene);

@@ -30,7 +30,7 @@ static gfx_err_t gfx_callback_backend_flush(gfx_backend_t *backend, gfx_display_
     if (cb_backend->flush_cb == NULL) {
         return GFX_OK;
     }
-    gfx_coord_t expected_stride = disp->flags.full_frame ? (gfx_coord_t)disp->res.h_res : (x2 - x1);
+    gfx_coord_t expected_stride = gfx_display_has_full_frame_buf(disp) ? (gfx_coord_t)disp->res.h_res : (x2 - x1);
     GFX_RETURN_ON_FALSE(stride == expected_stride, GFX_ERR_NOT_SUPPORTED,
                         TAG, "callback backend flush: aligned stride is not supported by legacy flush_cb");
     GFX_RETURN_ON_FALSE(disp->sync.event_group != NULL, GFX_ERR_INVALID_STATE,

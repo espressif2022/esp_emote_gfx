@@ -16,7 +16,7 @@
 #include "common/gfx_log_priv.h"
 
 #include "common/gfx_subsystem_init_priv.h"
-#include "core/gfx_obj.h"
+#include "gfx/object.h"
 #include "core/display/gfx_refresh_priv.h"
 #include "render/gfx_render_priv.h"
 #include "core/object/gfx_object_priv.h"

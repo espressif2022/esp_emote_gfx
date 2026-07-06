@@ -20,7 +20,7 @@
 #include "render/sw/gfx_blend_priv.h"
 #include "render/sw/gfx_sw_draw_priv.h"
 #include "core/object/gfx_object_priv.h"
-#include "core/gfx_touch.h"
+#include "gfx/input.h"
 #include "platform/gfx_platform.h"
 #include "gfx/widgets/list.h"
 #include "widgets/label/gfx_label_draw_priv.h"

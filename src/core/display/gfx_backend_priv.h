@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "core/gfx_disp.h"
+#include "gfx/display.h"
 
 #ifdef __cplusplus
 extern "C" {
