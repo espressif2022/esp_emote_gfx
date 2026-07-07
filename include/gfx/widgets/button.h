@@ -84,6 +84,31 @@ gfx_err_t gfx_button_set_border_color(gfx_object_t *obj, gfx_color_t color);
 gfx_err_t gfx_button_set_border_width(gfx_object_t *obj, uint16_t width);
 
 /**
+ * @brief Set the rounded rectangle corner radius for a button
+ * @param obj Button object
+ * @param radius Corner radius in pixels
+ * @return GFX_OK on success, error code otherwise
+ */
+gfx_err_t gfx_button_set_radius(gfx_object_t *obj, uint16_t radius);
+
+/**
+ * @brief Enable or disable button background fill
+ * @param obj Button object
+ * @param enable True to draw the fill color, false for border/text only
+ * @return GFX_OK on success, error code otherwise
+ */
+gfx_err_t gfx_button_set_fill_enable(gfx_object_t *obj, bool enable);
+
+/**
+ * @brief Set text padding inside the button
+ * @param obj Button object
+ * @param pad_x Horizontal padding in pixels
+ * @param pad_y Vertical padding in pixels
+ * @return GFX_OK on success, error code otherwise
+ */
+gfx_err_t gfx_button_set_text_padding(gfx_object_t *obj, uint16_t pad_x, uint16_t pad_y);
+
+/**
  * @brief Set the text alignment for a button label
  * @param obj Button object
  * @param align Text alignment

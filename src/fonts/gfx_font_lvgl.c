@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -50,8 +50,10 @@ static int gfx_font_lv_get_base_line(gfx_font_handle_t font_adapter);
 static uint8_t gfx_font_lv_get_pixel_value(gfx_font_handle_t font_adapter, const uint8_t *bitmap, int32_t x, int32_t y, int32_t box_w);
 static int gfx_font_lv_adjust_baseline_offset(gfx_font_handle_t font_adapter, void *glyph_dsc);
 static int gfx_font_lv_get_advance_width(gfx_font_handle_t font_adapter, void *glyph_dsc);
+#if GFX_HOST_BUILD
 static uint16_t gfx_font_lv_bin_u16(const uint8_t *addr);
 static uint32_t gfx_font_lv_bin_u32(const uint8_t *addr);
+#endif
 
 static void *malloc_cpy(void *src, size_t sz);
 static void addr_add(void **addr, uintptr_t add);
@@ -388,6 +390,7 @@ void gfx_font_lv_init_adapter(gfx_font_handle_t font_adapter, const void *font)
  * Original source: https://github.com/78/xiaozhi-fonts
  */
 
+#if GFX_HOST_BUILD
 static uint8_t gfx_font_lv_bin_u8(const uint8_t *addr)
 {
     return addr[0];
@@ -508,7 +511,6 @@ static bool gfx_font_lv_parse_kern(const uint8_t *bin_base, lv_font_fmt_txt_dsc_
     return true;
 }
 
-#if GFX_HOST_BUILD
 static bool gfx_font_lv_glyph_table_valid(const uint8_t *glyph_dsc_bin, size_t table_bytes, uint8_t stride)
 {
     if (glyph_dsc_bin == NULL || table_bytes < (size_t)stride * 2U || (table_bytes % stride) != 0U) {
@@ -570,6 +572,7 @@ static uint8_t gfx_font_lv_detect_glyph_stride(const uint8_t *src_dsc, uint32_t 
 }
 #endif
 
+#if GFX_HOST_BUILD
 static lv_font_t *gfx_font_lv_parse_binary(uint8_t *bin_addr)
 {
     const uint8_t *bin_base = bin_addr;
@@ -651,6 +654,7 @@ static lv_font_t *gfx_font_lv_parse_binary(uint8_t *bin_addr)
             );
     return font;
 }
+#endif
 
 lv_font_t *gfx_font_lv_load_from_binary(uint8_t *bin_addr)
 {

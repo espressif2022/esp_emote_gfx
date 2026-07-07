@@ -59,6 +59,26 @@ gfx_err_t gfx_container_set_border_color(gfx_object_t *obj, gfx_color_t color);
 gfx_err_t gfx_container_set_border_width(gfx_object_t *obj, uint16_t width);
 
 /**
+ * @brief Set the container corner radius.
+ * @param obj Container object.
+ * @param radius Corner radius in pixels; 0 draws a rectangle.
+ * @return GFX_OK on success, error code otherwise.
+ */
+gfx_err_t gfx_container_set_radius(gfx_object_t *obj, uint16_t radius);
+
+/**
+ * @brief Set whether the container border is drawn as dashed.
+ *
+ * Dashed mode is intended for small rounded/circle indicators. Rectangular
+ * containers continue to use the normal solid stroke path when radius is 0.
+ *
+ * @param obj Container object.
+ * @param enable True to draw a dashed border.
+ * @return GFX_OK on success, error code otherwise.
+ */
+gfx_err_t gfx_container_set_border_dash_enable(gfx_object_t *obj, bool enable);
+
+/**
  * @brief Set whether children are clipped to the container bounds.
  * @param obj Container object.
  * @param enable True to clip child draw and hit-test to the container area.

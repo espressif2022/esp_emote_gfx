@@ -225,6 +225,13 @@ static void demo_hide_preview_objects(format_playground_scene_t *scene)
     demo_set_object_visible(scene->image_demo, false);
     demo_set_object_visible(scene->anim_demo, false);
     demo_set_object_visible(scene->wheel_demo, false);
+    demo_set_object_visible(scene->pick_stamp_demo, false);
+    for (size_t i = 0; i < sizeof(scene->pick_stamp_date) / sizeof(scene->pick_stamp_date[0]); i++) {
+        demo_set_object_visible(scene->pick_stamp_date[i], false);
+    }
+    for (size_t i = 0; i < sizeof(scene->pick_stamp_time) / sizeof(scene->pick_stamp_time[0]); i++) {
+        demo_set_object_visible(scene->pick_stamp_time[i], false);
+    }
     demo_set_object_visible(scene->pageflow_demo, false);
     demo_set_object_visible(scene->coverflow_demo, false);
     demo_set_object_visible(scene->motion_zoom_slider, false);
@@ -328,6 +335,16 @@ void gfx_format_demo_apply_widget_focus(format_playground_scene_t *scene, uint16
         demo_set_object_visible(scene->wheel_demo, true);
         demo_set_preview_note(scene, "Spin the wheel and watch the selected row snap to center.");
         break;
+    case DEMO_WIDGET_PICK_STAMP:
+        demo_set_object_visible(scene->pick_stamp_demo, true);
+        for (size_t i = 0; i < sizeof(scene->pick_stamp_date) / sizeof(scene->pick_stamp_date[0]); i++) {
+            demo_set_object_visible(scene->pick_stamp_date[i], true);
+        }
+        for (size_t i = 0; i < sizeof(scene->pick_stamp_time) / sizeof(scene->pick_stamp_time[0]); i++) {
+            demo_set_object_visible(scene->pick_stamp_time[i], true);
+        }
+        demo_set_preview_note(scene, "MY PICK stamp: BBH Bogle oblique 27 date, 20 time.");
+        break;
     case DEMO_WIDGET_PAGEFLOW:
         demo_set_object_visible(scene->pageflow_demo, true);
         demo_set_preview_note(scene, "Swipe to the format probe image and compare color banding.");
@@ -414,6 +431,7 @@ gfx_err_t gfx_format_demo_build_playground_scene(gfx_display_t *disp, const char
     GFX_RETURN_ON_ERROR(gfx_format_demo_build_anim_demo(&s_scene), "playground", "build anim failed");
     GFX_RETURN_ON_ERROR(gfx_format_demo_build_motion_demo(&s_scene), "playground", "build motion failed");
     GFX_RETURN_ON_ERROR(gfx_format_demo_build_wheel_demo(&s_scene), "playground", "build wheel failed");
+    GFX_RETURN_ON_ERROR(gfx_format_demo_build_pick_stamp_demo(&s_scene), "playground", "build pick stamp failed");
     GFX_RETURN_ON_ERROR(gfx_format_demo_build_pageflow_demo(&s_scene), "playground", "build pageflow failed");
     GFX_RETURN_ON_ERROR(gfx_format_demo_build_coverflow_demo(&s_scene), "playground", "build coverflow failed");
 

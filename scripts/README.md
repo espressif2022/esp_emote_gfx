@@ -203,7 +203,7 @@ python3 image_converter.py icon.png \
 
 ### Q: 什么时候需要 --swap16？
 
-**A:** 普通静态图片不需要。默认 `RGB565` / `RGB565A8` 使用 `{high, low}` 字节序；`--swap16` 会把格式改成 `RGB565_SWAPPED` / `RGB565A8_SWAPPED`，payload 使用 `{low, high}` 字节序。字节序由 `cf` 表达，不再通过 native flag 表达。`RGB888` / `RGB888A8` 没有 16-bit swap 语义，不能和 `--swap16` 一起使用。
+**A:** 普通静态图片不需要。默认 `RGB565` / `RGB565A8` 使用 `{low, high}` 字节序；`--swap16` 会把格式改成 `RGB565_SWAPPED` / `RGB565A8_SWAPPED`，payload 使用 `{high, low}` 字节序。字节序由 `cf` 表达，不再通过 native flag 表达。`RGB888` / `RGB888A8` 没有 16-bit swap 语义，不能和 `--swap16` 一起使用。
 
 ### Q: C 文件和二进制文件的区别？
 

@@ -35,6 +35,7 @@
 
 - [ ] P3 Render / backend / color format。
   - [ ] 继续完善 PPA provider：恢复正确的 `RGB888 src -> RGB565/RGB888` SRM 输入语义，评估 XRGB8888、RGB565_SWAPPED、BGR888 桥接。
+  - [ ] 补 `scripts/image_converter.py` RGB565 字节序回归：确认默认 `RGB565/RGB565A8` 输出 `{low, high}`，`--swap16`/`*_SWAPPED` 输出 `{high, low}`，并覆盖 `RGB565A8` 的 `[RGB565 plane][A8 plane]` 布局，避免和 `gfx_color_read_rgb565_bytes()` 语义再次反向。
   - [ ] transform backend ops 与 draw_glyph 路径继续补齐 smoke，确保 alignment eligibility 不满足时稳定 fallback software。
   - [ ] 扩展 ESP-IDF/Unity 对齐测试：4-byte/8-byte 对齐面积、边缘 clip、超出 limit fallback、dirty area 不漏绘。
   - [ ] host 侧补 full-frame double-buffer sync 覆盖，对齐 ESP memory backend smoke。

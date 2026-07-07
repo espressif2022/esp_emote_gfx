@@ -217,7 +217,7 @@ static gfx_err_t gfx_progress_bar_draw(gfx_object_t *obj, const gfx_draw_ctx_t *
                       .y2 = (gfx_coord_t)(obj_area.y1 + (gfx_coord_t)bar->fill_pad + (gfx_coord_t)inner_h),
             };
         }
-        if (gfx_area_intersect_exclusive(&fill_area, &fill_area, &ctx->clip_area)) {
+        if (gfx_area_intersect_exclusive(&clip_area, &fill_area, &ctx->clip_area)) {
             round_dsc.color = bar->fill_color;
             round_dsc.radius = fill_radius;
             gfx_render_surface_round_rect_fill(obj->disp, &dst_surface, &fill_area, &round_dsc);
@@ -245,7 +245,7 @@ static gfx_err_t gfx_progress_bar_draw(gfx_object_t *obj, const gfx_draw_ctx_t *
             .y2 = (gfx_coord_t)(obj_area.y1 + (gfx_coord_t)bar->fill_pad + (gfx_coord_t)inner_h),
         };
     }
-    if (!gfx_area_intersect_exclusive(&thumb_area, &thumb_area, &ctx->clip_area)) {
+    if (!gfx_area_intersect_exclusive(&clip_area, &thumb_area, &ctx->clip_area)) {
         return GFX_OK;
     }
     thumb_radius = (uint16_t)(thumb_size / 2U);

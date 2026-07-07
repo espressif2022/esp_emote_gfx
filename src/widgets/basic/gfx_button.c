@@ -22,6 +22,7 @@
 #include "core/object/gfx_object_priv.h"
 #include "gfx/input.h"
 #include "gfx/widgets/button.h"
+#include "fonts/gfx_font_priv.h"
 #include "widgets/label/gfx_label_draw_priv.h"
 #include "widgets/label/gfx_label_priv.h"
 
@@ -47,6 +48,10 @@ typedef struct {
         gfx_color_t bg_color_pressed;
         gfx_color_t border_color;
         uint16_t border_width;
+        uint16_t radius;
+        uint16_t text_pad_x;
+        uint16_t text_pad_y;
+        bool fill_enable;
     } style;
 
     struct {
@@ -105,6 +110,10 @@ static void gfx_button_init_default_state(gfx_button_t *button)
     button->style.bg_color_pressed = GFX_COLOR_HEX(0x1E53BB);
     button->style.border_color = GFX_COLOR_HEX(0xD9E6FF);
     button->style.border_width = 1;
+    button->style.radius = 6;
+    button->style.text_pad_x = GFX_BUTTON_TEXT_PAD_X;
+    button->style.text_pad_y = GFX_BUTTON_TEXT_PAD_Y;
+    button->style.fill_enable = true;
     button->state.pressed = false;
 }
 
@@ -115,11 +124,17 @@ static void gfx_button_get_label_area(const gfx_object_t *obj, const gfx_area_t 
     gfx_coord_t inner_y;
     uint16_t inner_w;
     uint16_t inner_h;
+    uint16_t text_h;
+    uint16_t top_pad;
 
-    inner_x = obj_area->x1 + GFX_BUTTON_TEXT_PAD_X;
-    inner_y = obj_area->y1 + GFX_BUTTON_TEXT_PAD_Y;
-    inner_w = (obj->geometry.width > (GFX_BUTTON_TEXT_PAD_X * 2)) ? (obj->geometry.width - (GFX_BUTTON_TEXT_PAD_X * 2)) : obj->geometry.width;
-    inner_h = (obj->geometry.height > (GFX_BUTTON_TEXT_PAD_Y * 2)) ? (obj->geometry.height - (GFX_BUTTON_TEXT_PAD_Y * 2)) : obj->geometry.height;
+    inner_x = obj_area->x1 + (gfx_coord_t)button->style.text_pad_x;
+    inner_y = obj_area->y1 + (gfx_coord_t)button->style.text_pad_y;
+    inner_w = (obj->geometry.width > (button->style.text_pad_x * 2U)) ?
+              (uint16_t)(obj->geometry.width - (button->style.text_pad_x * 2U)) :
+              obj->geometry.width;
+    inner_h = (obj->geometry.height > (button->style.text_pad_y * 2U)) ?
+              (uint16_t)(obj->geometry.height - (button->style.text_pad_y * 2U)) :
+              obj->geometry.height;
 
     if (inner_w == 0) {
         inner_w = obj->geometry.width;
@@ -127,6 +142,16 @@ static void gfx_button_get_label_area(const gfx_object_t *obj, const gfx_area_t 
     if (inner_h == 0) {
         inner_h = obj->geometry.height;
     }
+
+    text_h = inner_h;
+    if (button->label.font.handle != NULL && button->label.font.handle->get_line_height != NULL) {
+        int line_height = button->label.font.handle->get_line_height(button->label.font.handle);
+        if (line_height > 0) {
+            text_h = (uint16_t)line_height;
+        }
+    }
+    top_pad = (inner_h > text_h) ? (uint16_t)((inner_h - text_h) / 2U) : 0U;
+    inner_y += (gfx_coord_t)top_pad;
 
     area->x1 = inner_x;
     area->y1 = inner_y;
@@ -183,13 +208,23 @@ static gfx_err_t gfx_button_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
     }
 
     fill_color = button->state.pressed ? button->style.bg_color_pressed : button->style.bg_color;
-    gfx_render_surface_fill(obj->disp, &dst_surface, &clip_area, fill_color, 0xFFU);
-    gfx_render_surface_rect_stroke(obj->disp,
-                                   &dst_surface,
-                                   &obj_area,
-                                   button->style.border_width,
-                                   button->style.border_color,
-                                   0xFF);
+    if (button->style.fill_enable) {
+        gfx_round_rect_fill_dsc_t fill_dsc = {
+            .color = fill_color,
+            .opa = 0xFFU,
+            .radius = button->style.radius,
+        };
+        gfx_render_surface_round_rect_fill(obj->disp, &dst_surface, &obj_area, &fill_dsc);
+    }
+    if (button->style.border_width > 0U) {
+        gfx_round_rect_stroke_dsc_t stroke_dsc = {
+            .color = button->style.border_color,
+            .opa = 0xFFU,
+            .radius = button->style.radius,
+            .width = button->style.border_width,
+        };
+        gfx_render_surface_round_rect_stroke(obj->disp, &dst_surface, &obj_area, &stroke_dsc);
+    }
 
     gfx_button_get_label_area(obj, &obj_area, &label_area);
     (void)gfx_label_text_box_draw(obj, &button->label, ctx, &label_area, &clip_area);
@@ -428,6 +463,37 @@ gfx_err_t gfx_button_set_border_width(gfx_object_t *obj, uint16_t width)
     GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
 
     ((gfx_button_t *)obj->src)->style.border_width = width;
+    gfx_object_invalidate(obj);
+    return GFX_OK;
+}
+
+gfx_err_t gfx_button_set_radius(gfx_object_t *obj, uint16_t radius)
+{
+    CHECK_OBJ_TYPE_BUTTON(obj);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
+
+    ((gfx_button_t *)obj->src)->style.radius = radius;
+    gfx_object_invalidate(obj);
+    return GFX_OK;
+}
+
+gfx_err_t gfx_button_set_fill_enable(gfx_object_t *obj, bool enable)
+{
+    CHECK_OBJ_TYPE_BUTTON(obj);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
+
+    ((gfx_button_t *)obj->src)->style.fill_enable = enable;
+    gfx_object_invalidate(obj);
+    return GFX_OK;
+}
+
+gfx_err_t gfx_button_set_text_padding(gfx_object_t *obj, uint16_t pad_x, uint16_t pad_y)
+{
+    CHECK_OBJ_TYPE_BUTTON(obj);
+    GFX_RETURN_IF_NULL(obj->src, GFX_ERR_INVALID_STATE);
+
+    ((gfx_button_t *)obj->src)->style.text_pad_x = pad_x;
+    ((gfx_button_t *)obj->src)->style.text_pad_y = pad_y;
     gfx_object_invalidate(obj);
     return GFX_OK;
 }

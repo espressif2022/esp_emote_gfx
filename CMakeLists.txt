@@ -215,7 +215,10 @@ if(GFX_BUILD_HOST_SDL)
     set(GFX_FORMAT_DEMO_SRCS
         "examples/common/gfx_display_port.c"
         "examples/format_playground/assets/font_puhui_16_4.c"
+        "examples/format_playground/assets/font_match_bogle_oblique_20_4.c"
+        "examples/format_playground/assets/font_match_bogle_oblique_27_4.c"
         "examples/format_playground/assets/image_button_assets.c"
+        "examples/format_playground/assets/my_pick_stamp.c"
         "examples/format_playground/playground_scene.c"
         "examples/format_playground/widgets/widget_anim.c"
         "examples/format_playground/widgets/widget_button.c"
@@ -225,6 +228,7 @@ if(GFX_BUILD_HOST_SDL)
         "examples/format_playground/widgets/widget_motion.c"
         "examples/format_playground/widgets/widget_nav_list.c"
         "examples/format_playground/widgets/widget_pageflow.c"
+        "examples/format_playground/widgets/widget_pick_stamp.c"
         "examples/format_playground/widgets/widget_wheel.c"
     )
 

@@ -19,6 +19,7 @@ const char *const gfx_format_demo_widget_names[DEMO_WIDGET_COUNT] = {
     "Progress Bar",
     "List",
     "Wheel",
+    "Pick Stamp",
 };
 
 static void demo_widget_list_focus_cb(gfx_object_t *obj, int32_t focused_index, void *user_data)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2025-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 """
 PNG to GFX image converter.
@@ -73,17 +73,18 @@ def rgb888_to_rgb565(r, g, b):
 def rgb565_to_bytes(rgb565, swap16=False):
     """Convert RGB565 to image payload bytes.
 
-    RGB565 stores high-byte, low-byte payload. RGB565_SWAPPED stores
-    low-byte, high-byte payload. The byte order is represented by the image
+    Keep this aligned with gfx_color_read_rgb565_bytes():
+    RGB565 stores low-byte, high-byte payload, while RGB565_SWAPPED stores
+    high-byte, low-byte payload. The byte order is represented by the image
     color format, not by a native-framebuffer flag.
     """
     high_byte = (rgb565 >> 8) & 0xFF
     low_byte = rgb565 & 0xFF
 
     if swap16:
-        return [low_byte, high_byte]
-    else:
         return [high_byte, low_byte]
+    else:
+        return [low_byte, high_byte]
 
 def build_image_payload(pixels, width, height, output_format, swap16=False):
     """Build image bytes and metadata for the requested output format."""

@@ -17,7 +17,7 @@
 extern "C" {
 #endif
 
-#define DEMO_WIDGET_COUNT 10U
+#define DEMO_WIDGET_COUNT 11U
 #define DEMO_CARD_COUNT   5U
 
 #define DEMO_FLOW_IMAGE_C5_DEVKITC     "01_esp32_c5_devkitc_320x240.jpg"
@@ -37,6 +37,7 @@ typedef enum {
     DEMO_WIDGET_PROGRESS_BAR,
     DEMO_WIDGET_LIST,
     DEMO_WIDGET_WHEEL,
+    DEMO_WIDGET_PICK_STAMP,
 } demo_widget_id_t;
 
 typedef struct {
@@ -56,6 +57,9 @@ typedef struct {
     gfx_object_t *fps_label;
     gfx_object_t *preview_button;
     gfx_object_t *wheel_demo;
+    gfx_object_t *pick_stamp_demo;
+    gfx_object_t *pick_stamp_date[5];
+    gfx_object_t *pick_stamp_time[8];
     gfx_object_t *pageflow_demo;
     gfx_object_t *coverflow_demo;
     gfx_object_t *cover_cards[DEMO_CARD_COUNT];
@@ -103,6 +107,7 @@ gfx_err_t gfx_format_demo_build_image_demo(format_playground_scene_t *scene);
 gfx_err_t gfx_format_demo_build_anim_demo(format_playground_scene_t *scene);
 gfx_err_t gfx_format_demo_build_motion_demo(format_playground_scene_t *scene);
 gfx_err_t gfx_format_demo_build_wheel_demo(format_playground_scene_t *scene);
+gfx_err_t gfx_format_demo_build_pick_stamp_demo(format_playground_scene_t *scene);
 gfx_err_t gfx_format_demo_build_pageflow_demo(format_playground_scene_t *scene);
 gfx_err_t gfx_format_demo_build_coverflow_demo(format_playground_scene_t *scene);
 
