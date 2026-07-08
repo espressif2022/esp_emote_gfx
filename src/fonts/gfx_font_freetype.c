@@ -236,6 +236,7 @@ static gfx_err_t gfx_font_ft_new_internal(const gfx_label_cfg_t *cfg, gfx_font_t
     gfx_font_ft_t *ft_font = (gfx_font_ft_t *)calloc(1, sizeof(gfx_font_ft_t));
     GFX_RETURN_ON_FALSE(ft_font, GFX_ERR_NO_MEM, TAG, "no mem for ft_font");
 
+    ft_font->magic = GFX_FONT_FT_MAGIC;
     ft_font->face = face;
     ft_font->size = cfg->font_size;
     ft_font->fixed_size_index = -1;
@@ -277,6 +278,7 @@ err:
 static gfx_err_t gfx_font_ft_delete_internal(gfx_font_t font)
 {
     GFX_RETURN_ON_FALSE(font, GFX_ERR_INVALID_ARG, TAG, "font is NULL");
+    GFX_RETURN_ON_FALSE(gfx_font_ft_is_font(font), GFX_ERR_INVALID_ARG, TAG, "font is not FreeType");
 
     gfx_font_ft_t *ft_font = (gfx_font_ft_t *)font;
     if (ft_font->ft_size != NULL) {
@@ -285,6 +287,7 @@ static gfx_err_t gfx_font_ft_delete_internal(gfx_font_t font)
     if (ft_font->face != NULL) {
         FT_Done_Face(ft_font->face);
     }
+    ft_font->magic = 0;
     free(ft_font);
 
     return GFX_OK;
@@ -454,6 +457,12 @@ gfx_err_t gfx_label_font_create(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font
 gfx_err_t gfx_label_font_delete(gfx_font_t font)
 {
     return gfx_font_ft_delete_internal(font);
+}
+
+bool gfx_font_ft_is_font(const void *font)
+{
+    const gfx_font_ft_t *ft_font = (const gfx_font_ft_t *)font;
+    return ft_font != NULL && ft_font->magic == GFX_FONT_FT_MAGIC;
 }
 
 void gfx_font_ft_init_adapter(gfx_font_handle_t font_adapter, const void *font)

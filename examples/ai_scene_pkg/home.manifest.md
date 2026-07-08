@@ -9,7 +9,7 @@ This file explains the binary bytes in `home.inc`. Keep it synchronized whenever
 - Package length symbol: `home_scene_pkg_len`
 - Runtime font binding symbol: `home_fonts[]`
 - Source preview image: `home_preview.bmp`
-- Format: GSP1 v3, little-endian, pointer-free runtime package
+- Format: GSP1 v4, little-endian, pointer-free runtime package
 - Loader: `gsp_load_with_fonts(home_scene_pkg, home_scene_pkg_len, ...)`
 - Current change: enlarged the main container and replaced the placeholder with a baked image blob.
 
@@ -18,27 +18,30 @@ This file explains the binary bytes in `home.inc`. Keep it synchronized whenever
 | Field | Value |
 |---|---:|
 | magic | `GSP1` |
-| version | `3` |
+| version | `4` |
 | screen | `480 x 480` |
 | screen_bg | `0x0E1116` |
-| obj_count | `7` |
-| obj_table_off | `48` |
-| str_table_off | `516` |
+| obj_count | `12` |
+| obj_table_off | `56` |
+| str_table_off | `1029` |
 | blob_count | `1` |
-| blob_table_off | `496` |
-| total_size | `2458` |
-| crc32 | `0x2353858B` |
+| blob_table_off | `824` |
+| action_count | `3` |
+| action_table_off | `844` |
+| total_size | `3085` |
+| crc32 | `0xD6A5DCD0` |
 
 ## Binary Layout
 
 | Region | Byte Range | Size | Notes |
 |---|---:|---:|---|
-| Header | `0..47` | `48` | Fixed GSP header |
-| Object table | `48..495` | `448` | `7 * 64B` object entries |
-| Blob table | `496..515` | `20` | `1 * 20B` blob entries |
-| Params area | empty | `0` | No `GSP_F_PARAMS` object |
-| String table | `516..609` | `94` | NUL-terminated UTF-8 strings |
-| Blob data | `610..2457` | `1848` | Compressed image payloads |
+| Header | `0..55` | `56` | Fixed GSP header (v4) |
+| Object table | `56..823` | `768` | `12 * 64B` object entries |
+| Blob table | `824..843` | `20` | `1 * 20B` blob entries |
+| Action table | `844..915` | `72` | `3 * 24B` action entries |
+| Params area | `916..1028` | `113` | Widget-private params blocks |
+| String table | `1029..1236` | `208` | NUL-terminated UTF-8 strings |
+| Blob data | `1237..3084` | `1848` | Compressed image payloads |
 
 ## Component Rules Used
 
@@ -48,30 +51,57 @@ This file explains the binary bytes in `home.inc`. Keep it synchronized whenever
 | `2` | label | `gfx_label_create()` |
 | `3` | button | `gfx_button_create()` |
 | `4` | image | `gfx_image_create()` + package blob source |
+| `5` | list | `gfx_list_create()` + params-v1 items |
+| `6` | wheel | `gfx_wheel_create()` + params-v1 items |
+| `7` | layer | `gfx_container_create()` + layer switching |
 
 Parent rule: entries are preorder; every non-root object must reference an earlier object index. `0xFFFF` means root.
 
 ## Object Table
 
-| Idx | Role | Type | Parent | Rect | Flags | Text / Callback / Blob | Font | Bind | Notes |
+| Idx | Role | Type | Parent | Rect | Flags | Name / Text / Callback / Blob | Font | Bind | Notes |
 |---:|---|---|---:|---|---:|---|---:|---:|---|
 | `0` | screen root | container | root | `(0,0 480x480)` | `0x004` | none | `0` | `0` | Background 0x0E1116; flags: BG_COLOR |
-| `1` | main panel | container | `0` | `(36,68 408x344)` | `0x01C` | none | `0` | `0` | Enlarged panel with border/radius; flags: BG_COLOR|BORDER|RADIUS |
-| `2` | title | label | `1` | `(30,30 340x32)` | `0x003` | text@`516` `AI Scene · u32-offset pkg` | `0` | `0` | Main scene title; flags: TEXT|FG_COLOR |
-| `3` | subtitle | label | `1` | `(30,72 340x26)` | `0x003` | text@`543` `one blob, 32/64-bit identical` | `1` | `0` | Package invariance note; flags: TEXT|FG_COLOR |
-| `4` | data label | label | `1` | `(30,106 340x30)` | `0x003` | text@`573` `温度 23.5°C 数据绑定` | `2` | `1` | Demo bind_id 1; flags: TEXT|FG_COLOR |
+| `1` | home layer | layer | `0` | `(36,68 408x344)` | `0x09C` | name@`1029` `homeLayer` | `0` | `0` | First page layer; flags: BG_COLOR|BORDER|RADIUS|NAME |
+| `2` | title | label | `1` | `(30,30 340x32)` | `0x083` | name@`1066` `title`, text@`1039` `AI Scene · u32-offset pkg` | `0` | `0` | Main scene title; flags: TEXT|FG_COLOR|NAME |
+| `3` | subtitle | label | `1` | `(30,72 340x26)` | `0x083` | name@`1106` `subtitle`, text@`1072` `page 1: image + callback + action` | `1` | `0` | Package invariance note; flags: TEXT|FG_COLOR|NAME |
+| `4` | data label | label | `1` | `(30,106 340x30)` | `0x003` | text@`1115` `温度 23.5°C 数据绑定` | `2` | `1` | Demo bind_id 1; flags: TEXT|FG_COLOR |
 | `5` | baked image | image | `1` | `(30,150 96x72)` | `0x040` | blob `0` | `0` | `0` | RGB565 preview image baked into blob table; flags: IMAGE |
-| `6` | OK action | button | `1` | `(238,158 140x60)` | `0x03F` | text@`601` `OK`, cb@`604` `on_ok` | `3` | `0` | Callback name on_ok; flags: TEXT|FG_COLOR|BG_COLOR|BORDER|RADIUS|CALLBACK |
+| `6` | home Next | button | `1` | `(238,246 140x60)` | `0x0BF` | name@`1154` `homeNext`, text@`1143` `Next`, cb@`1148` `on_ok` | `3` | `0` | Callback on_ok + GOTO selectorLayer; flags: TEXT|FG_COLOR|BG_COLOR|BORDER|RADIUS|CALLBACK|NAME |
+| `7` | selector layer | layer | `0` | `(36,68 408x344)` | `0x19C` | name@`1163` `selectorLayer` | `0` | `0` | Second page layer, initially hidden; flags: BG_COLOR|BORDER|RADIUS|NAME|HIDDEN |
+| `8` | selector title | label | `7` | `(30,28 340x32)` | `0x003` | text@`1177` `Page 2 · List + Wheel` | `0` | `0` | Second page title; flags: TEXT|FG_COLOR |
+| `9` | feature list | list | `7` | `(30,78 168x170)` | `0x88E` | name@`1200` `featureList` | `1` | `0` | List widget with params-v1 items; flags: FG_COLOR|BG_COLOR|BORDER|NAME|PARAMS |
+| `10` | format wheel | wheel | `7` | `(220,78 158x170)` | `0x88E` | name@`1212` `formatWheel` | `1` | `0` | Wheel widget with params-v1 items; flags: FG_COLOR|BG_COLOR|BORDER|NAME|PARAMS |
+| `11` | selector Next | button | `7` | `(238,246 140x60)` | `0x09F` | name@`1224` `selectorNext`, text@`1143` `Next` | `3` | `0` | GOTO homeLayer; flags: TEXT|FG_COLOR|BG_COLOR|BORDER|RADIUS|NAME |
+
+## Action Table (v4)
+
+Position-independent `event -> action` records (24B each). No inline structs, no pointers: targets are u16 object indexes or name offsets, params are u32 string offsets, colors are scalar `arg`.
+
+| Idx | Src Obj | Event | Action | Target | Param / Arg |
+|---:|---:|---|---|---|---|
+| `0` | `6` | click | set_bg_color | obj `1` | arg `0x1E3A5F` |
+| `1` | `6` | click | goto | name@`1163` `selectorLayer` | none |
+| `2` | `11` | click | goto | name@`1029` `homeLayer` | none |
 
 ## String Table
 
 | Offset | String |
 |---:|---|
-| `516` | `AI Scene · u32-offset pkg` |
-| `543` | `one blob, 32/64-bit identical` |
-| `573` | `温度 23.5°C 数据绑定` |
-| `601` | `OK` |
-| `604` | `on_ok` |
+| `1029` | `homeLayer` |
+| `1039` | `AI Scene · u32-offset pkg` |
+| `1066` | `title` |
+| `1072` | `page 1: image + callback + action` |
+| `1106` | `subtitle` |
+| `1115` | `温度 23.5°C 数据绑定` |
+| `1143` | `Next` |
+| `1148` | `on_ok` |
+| `1154` | `homeNext` |
+| `1163` | `selectorLayer` |
+| `1177` | `Page 2 · List + Wheel` |
+| `1200` | `featureList` |
+| `1212` | `formatWheel` |
+| `1224` | `selectorNext` |
 
 ## Resource Bindings
 
@@ -79,16 +109,16 @@ Fonts are currently outside the binary package as a C binding table in the same 
 
 | Font Id | Family | Path | Size | Weight | Style | Used By |
 |---:|---|---|---:|---:|---:|---|
-| `0` | `NotoSansCJK` | `fonts/NotoSansCJK-Regular.ttc` | `22` | `400` | `0` | object `2` |
+| `0` | `NotoSansCJK` | `fonts/NotoSansCJK-Regular.ttc` | `22` | `400` | `0` | object `2`, object `8` |
 | `1` | `NotoSansCJK` | `fonts/NotoSansCJK-Regular.ttc` | `17` | `400` | `0` | object `3` |
 | `2` | `NotoSansCJK` | `fonts/NotoSansCJK-Regular.ttc` | `20` | `400` | `0` | object `4` |
-| `3` | `NotoSansCJK` | `fonts/NotoSansCJK-Regular.ttc` | `21` | `700` | `0` | object `6` |
+| `3` | `NotoSansCJK` | `fonts/NotoSansCJK-Regular.ttc` | `21` | `700` | `0` | object `6`, object `11` |
 
 Images/blobs:
 
 | Blob Id | Size | Format | Codec | Raw | Compressed | Data Offset | Used By |
 |---:|---|---:|---|---:|---:|---:|---|
-| `0` | `96x72` | `0x04` | `rle16` | `13824` | `1848` | `610` | object `5` |
+| `0` | `96x72` | `0x04` | `rle16` | `13824` | `1848` | `1237` | object `5` |
 
 ## Runtime Path
 
@@ -99,6 +129,7 @@ home.inc
       header/CRC validation
       object table scan
       string offset resolution
+      runtime refs: object name / bind_id -> gfx_object_t
       blob table resolution -> image blob decode/cache
       gfx_*_create + setter
       callback name binding: "on_ok" -> on_ok_cb
@@ -116,11 +147,11 @@ ctest --test-dir build-host-sdl -R ai_scene_pkg --output-on-failure
 
 Latest result:
 
-- Package size: `2458` bytes
-- CRC: `0x2353858B`
-- Loaded objects: `7`
+- Package size: `3085` bytes
+- CRC: `0xD6A5DCD0`
+- Loaded objects: `12`
 - Image blobs: `1`
-- Self-check: expected `PASS (7 objects from home.inc)`
+- Self-check: expected `PASS (12 objects from home.inc)`
 
 ## Known Limits
 

@@ -8,12 +8,17 @@
  * ai_scene_pkg_demo — 加载 uic 导出的 home.inc，并走当前 GSP 包格式渲染。
  *
  * 流程：
- *   1) #include "home.inc"：uic 从 home.json 导出的 GSP1 二进制包；
- *   2) gsp_load() 只读包字节，按 type 工厂建树；
- *   4) 断言树结构/父子/坐标正确（自检）；
- *   5) SDL 渲染真实 esp_emote_gfx 画面。
+ *   1) #include "home.inc"：导出的 GSP1 v4 二进制包（含动作表）；
+ *   2) gsp_load() 只读包字节，按 type 工厂建树 + 解析动作表；
+ *   3) 断言树结构/父子/坐标/动作表正确（自检）；
+ *   4) SDL 渲染真实 esp_emote_gfx 画面。
  *
- * 设 GSP_HEADLESS=1 则只做 1~4 步并按自检结果返回（可无窗口自动验证）。
+ * 交互（点击 OK 按钮）：
+ *   - on_ok C 回调（GSP_F_CALLBACK）：计数并改标题文字；
+ *   - 动作表（v4，纯数据，无需 C 代码）：给面板换底色 + 改副标题文字。
+ *   二者由 loader 的统一 trampoline 依次分发，在同一控件上共存。
+ *
+ * 设 GSP_HEADLESS=1 则只做 1~3 步并按自检结果返回（可无窗口自动验证）。
  */
 
 #include <stdint.h>
@@ -23,7 +28,11 @@
 #include <string.h>
 
 #include "gfx/base.h"
+#include "gfx/input.h"
+#include "gfx/object.h"
 #include "gfx/widgets/label.h"
+#include "gfx/widgets/list.h"
+#include "gfx/widgets/wheel.h"
 
 #include "gfx_display_port.h"
 #include "gfx_host_runner.h"
@@ -212,12 +221,37 @@ static int create_demo_fonts(const gsp_font_desc_t *font_descs, uint16_t font_de
 
 static void on_ok_cb(gfx_object_t *obj, const gfx_touch_event_t *event, void *user_data)
 {
+    gsp_scene_t *scene = (gsp_scene_t *)user_data;
+
     (void)obj;
-    (void)user_data;
     if (event != NULL && event->type == GFX_TOUCH_EVENT_RELEASE) {
         s_clicks++;
+        gfx_object_t *title = gsp_scene_find_by_name(scene, "title");
+        if (title != NULL) {
+            (void)gfx_label_set_text_fmt(title, "OK clicked #%d", s_clicks);
+        }
         printf("[callback] on_ok clicked (#%d)\n", s_clicks);
     }
+}
+
+static void inject_click(gfx_display_t *disp, gfx_object_t *obj)
+{
+    gfx_coord_t x = 0, y = 0;
+    uint16_t w = 0, h = 0;
+
+    if (disp == NULL || obj == NULL) {
+        return;
+    }
+    (void)gfx_object_get_pos(obj, &x, &y);
+    (void)gfx_object_get_size(obj, &w, &h);
+    const gfx_touch_event_t press = {
+        .type = GFX_TOUCH_EVENT_PRESS,
+        .x = (uint16_t)(x + w / 2), .y = (uint16_t)(y + h / 2),
+    };
+    gfx_touch_event_t release = press;
+    release.type = GFX_TOUCH_EVENT_RELEASE;
+    (void)gfx_touch_inject(disp, &press);
+    (void)gfx_touch_inject(disp, &release);
 }
 
 /* 自检：加载后的树结构必须与 home.inc 描述一致。返回 0 通过。*/
@@ -228,20 +262,67 @@ static int verify_tree(const gsp_scene_t *scene)
 
     CHECK(scene->obj_count == HOME_OBJ_COUNT, "obj_count == HOME_OBJ_COUNT");
     CHECK(scene->root != NULL, "root != NULL");
+    CHECK(gsp_scene_find_by_name(scene, "title") == gsp_scene_get_obj(scene, 2),
+          "name lookup: title -> obj2");
+    CHECK(gsp_scene_find_by_name(scene, "subtitle") == gsp_scene_get_obj(scene, 3),
+          "name lookup: subtitle -> obj3");
+    CHECK(gsp_scene_find_by_name(scene, "homeLayer") == gsp_scene_get_obj(scene, 1),
+          "name lookup: homeLayer -> obj1");
+    CHECK(gsp_scene_find_by_name(scene, "homeNext") == gsp_scene_get_obj(scene, 6),
+          "name lookup: homeNext -> obj6");
+    CHECK(gsp_scene_find_by_name(scene, "selectorLayer") == gsp_scene_get_obj(scene, 7),
+          "name lookup: selectorLayer -> obj7");
+    CHECK(gsp_scene_find_by_name(scene, "featureList") == gsp_scene_get_obj(scene, 9),
+          "name lookup: featureList -> obj9");
+    CHECK(gsp_scene_find_by_name(scene, "formatWheel") == gsp_scene_get_obj(scene, 10),
+          "name lookup: formatWheel -> obj10");
+    CHECK(gsp_scene_find_by_name(scene, "selectorNext") == gsp_scene_get_obj(scene, 11),
+          "name lookup: selectorNext -> obj11");
+    CHECK(gsp_scene_find_by_bind_id(scene, 1) == gsp_scene_get_obj(scene, 4),
+          "bind lookup: bind_id 1 -> obj4");
+    CHECK(gfx_object_get_visible(gsp_scene_get_obj(scene, 1)), "homeLayer initially visible");
+    CHECK(!gfx_object_get_visible(gsp_scene_get_obj(scene, 7)), "selectorLayer initially hidden");
+    CHECK(gfx_list_get_item_count(gsp_scene_get_obj(scene, 9)) == 4,
+          "featureList has 4 params-v1 items");
+    CHECK(gfx_wheel_get_item_count(gsp_scene_get_obj(scene, 10)) == 4,
+          "formatWheel has 4 params-v1 items");
+    CHECK(strcmp(gfx_wheel_get_item_text(gsp_scene_get_obj(scene, 10), 0), "RGB565") == 0,
+          "formatWheel item0 = RGB565");
+    /* v4 动作表：两个 Next 做 layer 跳转，homeNext 还带 C callback */
+    CHECK(scene->action_count == HOME_ACTION_COUNT, "action_count == HOME_ACTION_COUNT");
+    if (scene->action_count >= 3) {
+        CHECK(scene->actions[0].src_idx == 6 && scene->actions[0].event == GSP_EV_CLICK &&
+              scene->actions[0].action == GSP_ACT_SET_BG_COLOR && scene->actions[0].target_idx == 1,
+              "action0: homeNext click -> homeLayer set_bg_color");
+        CHECK(scene->actions[1].src_idx == 6 && scene->actions[1].action == GSP_ACT_GOTO &&
+              scene->actions[1].target_name != NULL &&
+              strcmp(scene->actions[1].target_name, "selectorLayer") == 0,
+              "action1: homeNext click -> selectorLayer");
+        CHECK(scene->actions[2].src_idx == 11 && scene->actions[2].action == GSP_ACT_GOTO &&
+              scene->actions[2].target_name != NULL &&
+              strcmp(scene->actions[2].target_name, "homeLayer") == 0,
+              "action2: selectorNext click -> homeLayer");
+    }
     for (uint16_t i = 0; i < scene->obj_count; i++) {
         CHECK(scene->objs[i] != NULL, "object handle non-null");
     }
-    if (scene->obj_count == 7) {
+    if (scene->obj_count == HOME_OBJ_COUNT) {
         CHECK(gfx_object_get_parent(scene->objs[0]) == NULL, "obj0 is root");
         CHECK(gfx_object_get_parent(scene->objs[1]) == scene->objs[0], "obj1 parent = obj0");
-        for (uint16_t i = 2; i < 7; i++) {
-            CHECK(gfx_object_get_parent(scene->objs[i]) == scene->objs[1], "obj[i] parent = obj1 (card)");
+        for (uint16_t i = 2; i <= 6; i++) {
+            CHECK(gfx_object_get_parent(scene->objs[i]) == scene->objs[1], "home child parent = homeLayer");
         }
-        /* obj6 = button: panel(36,68) + local(238,158) = abs(274,226) */
+        CHECK(gfx_object_get_parent(scene->objs[7]) == scene->objs[0], "obj7 parent = obj0");
+        for (uint16_t i = 8; i <= 11; i++) {
+            CHECK(gfx_object_get_parent(scene->objs[i]) == scene->objs[7], "selector child parent = selectorLayer");
+        }
+        /* obj6 = button: layer(36,68) + local(238,246) = abs(274,314) */
         gfx_coord_t bx = 0, by = 0;
         (void)gfx_object_get_pos(scene->objs[6], &bx, &by);
-        CHECK(bx == 274 && by == 226, "button abs pos = (274,226)");
+        CHECK(bx == 274 && by == 314, "homeNext abs pos = (274,314)");
         CHECK(strcmp(gfx_object_get_class_name(scene->objs[5]), "image") == 0, "obj5 is image");
+        CHECK(strcmp(gfx_object_get_class_name(scene->objs[9]), "list") == 0, "obj9 is list");
+        CHECK(strcmp(gfx_object_get_class_name(scene->objs[10]), "wheel") == 0, "obj10 is wheel");
         CHECK(scene->blob_count == 1, "scene has one image blob");
         CHECK(scene->img_dscs != NULL && scene->img_bufs != NULL, "image blob cache allocated");
         if (scene->img_dscs != NULL && scene->img_bufs != NULL) {
@@ -298,10 +379,10 @@ int main(void)
     }
 
     /* 3) load: 只读字节包 -> gfx object 树（工厂建树） */
-    const gsp_cb_binding_t cbs[] = {
-        { .name = "on_ok", .cb = on_ok_cb, .user_data = NULL },
-    };
     gsp_scene_t scene = {0};
+    const gsp_cb_binding_t cbs[] = {
+        { .name = "on_ok", .cb = on_ok_cb, .user_data = &scene },
+    };
     int rc = gsp_load_with_fonts(home_scene_pkg, home_scene_pkg_len, port.disp,
                                  font_bindings, font_count,
                                  font_bindings[0].font,
@@ -320,6 +401,30 @@ int main(void)
            scene.obj_count);
 
     if (headless) {
+        /* 功能验证：注入两次 Next。
+         * 1) homeNext: C 回调改 title + GOTO selectorLayer
+         * 2) selectorNext: GOTO homeLayer
+         */
+        (void)gfx_core_refresh_now(port.gfx);
+        const int before = s_clicks;
+        inject_click(port.disp, gsp_scene_get_obj(&scene, 6));
+        const bool to_selector = (s_clicks == before + 1) &&
+                                 !gfx_object_get_visible(gsp_scene_get_obj(&scene, 1)) &&
+                                 gfx_object_get_visible(gsp_scene_get_obj(&scene, 7));
+        printf("LAYER-GOTO-1: %s (homeNext -> selectorLayer)\n",
+               to_selector ? "PASS" : "FAIL");
+        if (!to_selector) {
+            fails++;
+        }
+        inject_click(port.disp, gsp_scene_get_obj(&scene, 11));
+        const bool to_home = gfx_object_get_visible(gsp_scene_get_obj(&scene, 1)) &&
+                             !gfx_object_get_visible(gsp_scene_get_obj(&scene, 7));
+        printf("LAYER-GOTO-2: %s (selectorNext -> homeLayer)\n",
+               to_home ? "PASS" : "FAIL");
+        if (!to_home) {
+            fails++;
+        }
+
         gsp_scene_free(&scene);
         gfx_display_port_close(&port);
         free(font_bindings);

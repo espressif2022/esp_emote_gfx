@@ -60,6 +60,8 @@ typedef gfx_font_adapter_t *gfx_font_handle_t;
 typedef void *gfx_ft_handle_t;
 typedef void *gfx_ft_lib_handle_t;
 
+#define GFX_FONT_FT_MAGIC 0x46545950U /* 'FTYP' */
+
 typedef struct face_entry {
     void *face;
     const void *mem;
@@ -72,6 +74,7 @@ typedef struct {
 } gfx_ft_lib_t;
 
 typedef struct {
+    uint32_t magic;
     FT_Face face;
     FT_Size ft_size;
     int size;
@@ -94,6 +97,7 @@ gfx_err_t gfx_font_init_adapter(gfx_font_handle_t font_adapter, const void *font
 #ifdef CONFIG_GFX_FONT_FREETYPE_SUPPORT
 gfx_err_t gfx_ft_lib_create(void);
 gfx_err_t gfx_ft_lib_cleanup(void);
+bool gfx_font_ft_is_font(const void *font);
 void gfx_font_ft_init_adapter(gfx_font_handle_t font_adapter, const void *font);
 #endif
 

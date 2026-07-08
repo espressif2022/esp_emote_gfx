@@ -307,7 +307,6 @@ if(GFX_BUILD_HOST_SDL)
 
     add_executable(gfx_ai_scene_pkg_demo
         "examples/ai_scene_pkg/ai_scene_pkg_demo.c"
-        "examples/ai_scene_pkg/gsp_pack.c"
         "examples/ai_scene_pkg/gsp_load.c"
         "examples/common/gfx_display_port.c"
     )
@@ -322,6 +321,18 @@ if(GFX_BUILD_HOST_SDL)
     )
     target_compile_features(gfx_ai_scene_pkg_demo PRIVATE c_std_11)
     target_link_libraries(gfx_ai_scene_pkg_demo PRIVATE gfx_host_core gfx_backend_sdl gfx_host_runner)
+
+    add_executable(gfx_ai_scene_pkg_export_home
+        "examples/ai_scene_pkg/gsp_export_home.c"
+        "examples/ai_scene_pkg/gsp_pack.c"
+    )
+    target_include_directories(gfx_ai_scene_pkg_export_home
+        PRIVATE
+            "include"
+            "src"
+            "examples/ai_scene_pkg"
+    )
+    target_compile_features(gfx_ai_scene_pkg_export_home PRIVATE c_std_11)
 
     include(CTest)
     if(BUILD_TESTING)

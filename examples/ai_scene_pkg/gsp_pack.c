@@ -209,13 +209,23 @@ uint8_t *gsp_pack(const gsp_scene_desc_t *scene, size_t *out_size)
             params_total += scene->objs[i].params_len;
         }
     }
+    const uint16_t action_count = scene->actions ? scene->action_count : 0u;
+    for (uint16_t i = 0; i < action_count; i++) {
+        if (scene->actions[i].param) {
+            strcap += strlen(scene->actions[i].param) + 1;
+        }
+        if (scene->actions[i].target_name) {
+            strcap += strlen(scene->actions[i].target_name) + 1;
+        }
+    }
 
-    /* ---- 布局：params 区放在 string 区之前，两者基址均可提前算出 ----
-     *   [header][obj 表][blob 表][params 区][string 区][blob 数据]
+    /* ---- 布局：各表基址均可提前算出 ----
+     *   [header][obj 表][blob 表][action 表][params 区][string 区][blob 数据]
      */
     const uint32_t obj_table_off = GSP_HEADER_SIZE;
     const uint32_t blob_table_off = obj_table_off + (uint32_t)n * GSP_OBJ_SIZE;
-    const uint32_t params_base = blob_table_off + (uint32_t)blob_count * GSP_BLOB_SIZE;
+    const uint32_t action_table_off = blob_table_off + (uint32_t)blob_count * GSP_BLOB_SIZE;
+    const uint32_t params_base = action_table_off + (uint32_t)action_count * GSP_ACTION_SIZE;
     const uint32_t str_table_off = params_base + params_total;
 
     gsp_strtab_t st = { .bytes = (uint8_t *)malloc(strcap), .len = 0, .cap = strcap };
@@ -288,6 +298,45 @@ uint8_t *gsp_pack(const gsp_scene_desc_t *scene, size_t *out_size)
         gsp_wr_u32(e + 60, 0u);
     }
 
+    /* ---- action 表：event -> action，全部用 u16 索引 / u32 偏移 ---- */
+    uint8_t *action_bytes = (uint8_t *)calloc(action_count ? action_count : 1, GSP_ACTION_SIZE);
+    if (action_bytes == NULL) {
+        free(st.bytes);
+        free(obj_bytes);
+        free(params_bytes);
+        for (uint16_t k = 0; k < blob_count; k++) {
+            free(blobs[k].comp);
+        }
+        free(blobs);
+        free(obj_blob);
+        return NULL;
+    }
+    for (uint16_t i = 0; i < action_count; i++) {
+        const gsp_action_desc_t *a = &scene->actions[i];
+        uint8_t *e = action_bytes + (size_t)i * GSP_ACTION_SIZE;
+
+        uint32_t name_off = 0;
+        if (a->target_name) {
+            name_off = str_table_off + strtab_intern(&st, a->target_name);
+        }
+        uint32_t param_off = 0;
+        uint16_t param_len = 0;
+        if (a->param) {
+            param_off = str_table_off + strtab_intern(&st, a->param);
+            param_len = (uint16_t)(strlen(a->param) + 1u);
+        }
+
+        gsp_wr_u16(e + 0, a->src_idx);
+        gsp_wr_u16(e + 2, a->event);
+        gsp_wr_u16(e + 4, a->action);
+        gsp_wr_u16(e + 6, a->target_name ? GSP_ACT_NO_TARGET : a->target_idx);
+        gsp_wr_u32(e + 8, name_off);
+        gsp_wr_u32(e + 12, param_off);
+        gsp_wr_u16(e + 16, param_len);
+        gsp_wr_u16(e + 18, 0u);        /* flags 预留 */
+        gsp_wr_u32(e + 20, a->arg);
+    }
+
     /* blob data 紧跟 string 区之后 */
     const uint32_t blob_data_off = str_table_off + (uint32_t)st.len;
     uint32_t blob_data_total = 0;
@@ -298,6 +347,7 @@ uint8_t *gsp_pack(const gsp_scene_desc_t *scene, size_t *out_size)
     /* blob table 字节（data_off 用绝对偏移）*/
     uint8_t *blob_bytes = (uint8_t *)calloc(blob_count ? blob_count : 1, GSP_BLOB_SIZE);
     if (blob_bytes == NULL) {
+        free(action_bytes);
         free(st.bytes);
         free(obj_bytes);
         free(params_bytes);
@@ -325,6 +375,7 @@ uint8_t *gsp_pack(const gsp_scene_desc_t *scene, size_t *out_size)
     const uint32_t total = blob_data_off + blob_data_total;
     uint8_t *buf = (uint8_t *)malloc(total);
     if (buf == NULL) {
+        free(action_bytes);
         free(blob_bytes);
         free(st.bytes);
         free(obj_bytes);
@@ -350,10 +401,13 @@ uint8_t *gsp_pack(const gsp_scene_desc_t *scene, size_t *out_size)
     gsp_wr_u32(buf + 32, blob_table_off);
     gsp_wr_u32(buf + 36, total);
     gsp_wr_u32(buf + 40, 0u);   /* crc32 占位，稍后回填 */
-    gsp_wr_u32(buf + 44, 0u);   /* reserved */
+    gsp_wr_u32(buf + 44, action_count);
+    gsp_wr_u32(buf + 48, action_count ? action_table_off : 0u);
+    gsp_wr_u32(buf + 52, 0u);   /* reserved */
 
     memcpy(buf + obj_table_off, obj_bytes, (size_t)n * GSP_OBJ_SIZE);
     memcpy(buf + blob_table_off, blob_bytes, (size_t)blob_count * GSP_BLOB_SIZE);
+    memcpy(buf + action_table_off, action_bytes, (size_t)action_count * GSP_ACTION_SIZE);
     memcpy(buf + params_base, params_bytes, params_total);
     memcpy(buf + str_table_off, st.bytes, st.len);
     cursor = blob_data_off;
@@ -365,6 +419,7 @@ uint8_t *gsp_pack(const gsp_scene_desc_t *scene, size_t *out_size)
     /* 全包装配完成后回填 crc32 */
     gsp_wr_u32(buf + 40, gsp_crc32_scene(buf, total));
 
+    free(action_bytes);
     free(blob_bytes);
     free(obj_bytes);
     free(st.bytes);

@@ -18,11 +18,15 @@
 
 #include "gsp_format.h"
 
+#include "gfx/input.h"
+#include "gfx/object.h"
 #include "gfx/types.h"
 #include "gfx/widgets/button.h"
 #include "gfx/widgets/container.h"
 #include "gfx/widgets/image.h"
 #include "gfx/widgets/label.h"
+#include "gfx/widgets/list.h"
+#include "gfx/widgets/wheel.h"
 
 /* 校验 off 指向的字符串在 [off,size) 内 NUL 结尾，返回指针或 NULL。*/
 static const char *safe_str(const uint8_t *buf, size_t size, uint32_t off)
@@ -151,6 +155,283 @@ static const gfx_image_dsc_t *blob_get(const uint8_t *buf, size_t size, uint32_t
     return dsc;
 }
 
+static int apply_item_params(const uint8_t *buf, size_t size, const uint8_t *params,
+                             uint16_t params_len, gfx_object_t *obj, bool wheel)
+{
+    (void)buf;
+    (void)size;
+
+    if (params == NULL || params_len == 0) {
+        return GSP_OK;
+    }
+    if (params_len < 12u) {
+        return GSP_ERR_BOUNDS;
+    }
+
+    const uint16_t item_count = gsp_rd_u16(params + 0);
+    const uint16_t selected = gsp_rd_u16(params + 2);
+    const uint16_t item_height = gsp_rd_u16(params + 4);
+    const uint16_t rows_or_page = gsp_rd_u16(params + 6);
+    const uint16_t flags = gsp_rd_u16(params + 8);
+    uint32_t cursor = 12u;
+
+    if (wheel) {
+        (void)gfx_wheel_clear(obj);
+        if (item_height > 0) {
+            (void)gfx_wheel_set_item_height(obj, item_height);
+        }
+        if (rows_or_page > 0) {
+            (void)gfx_wheel_set_visible_rows(obj, rows_or_page > 255u ? 255u : (uint8_t)rows_or_page);
+        }
+        (void)gfx_wheel_set_cyclic(obj, (flags & GSP_ITEM_PARAMS_F_CYCLIC) != 0);
+    } else {
+        (void)gfx_list_clear(obj);
+        if (item_height > 0) {
+            (void)gfx_list_set_item_height(obj, item_height);
+        }
+        if (rows_or_page > 0) {
+            (void)gfx_list_set_items_per_page(obj, rows_or_page);
+        }
+        (void)gfx_list_set_snap_to_item(obj, (flags & GSP_ITEM_PARAMS_F_SNAP_TO_ITEM) != 0);
+    }
+
+    for (uint16_t i = 0; i < item_count; i++) {
+        if (cursor + 2u > params_len) {
+            return GSP_ERR_BOUNDS;
+        }
+        const uint16_t len = gsp_rd_u16(params + cursor);
+        cursor += 2u;
+        if ((uint32_t)cursor + len > params_len) {
+            return GSP_ERR_BOUNDS;
+        }
+        char *item = (char *)malloc((size_t)len + 1u);
+        if (item == NULL) {
+            return GSP_ERR_ALLOC;
+        }
+        memcpy(item, params + cursor, len);
+        item[len] = '\0';
+        if (wheel) {
+            (void)gfx_wheel_add_item(obj, item);
+        } else {
+            (void)gfx_list_add_item(obj, item);
+        }
+        free(item);
+        cursor += len;
+    }
+
+    if (selected != GSP_ITEM_PARAMS_SELECTED_NONE) {
+        if (wheel) {
+            (void)gfx_wheel_set_selected(obj, selected);
+        } else {
+            (void)gfx_list_set_selected(obj, selected);
+            (void)gfx_list_set_focus(obj, selected);
+        }
+    }
+    return GSP_OK;
+}
+
+/* ------------------------------------------------------------------ */
+/* v4 动作表：运行期分发（源对象 touch 回调 -> 目标对象操作）           */
+/* ------------------------------------------------------------------ */
+
+static gfx_object_t *action_target(const gsp_scene_t *s, const gsp_action_rt_t *a)
+{
+    if (a->target_name != NULL) {
+        return gsp_scene_find_by_name(s, a->target_name);
+    }
+    if (a->target_idx != GSP_ACT_NO_TARGET) {
+        return gsp_scene_get_obj(s, a->target_idx);
+    }
+    return NULL;
+}
+
+static int show_layer_object(gsp_scene_t *s, gfx_object_t *layer)
+{
+    if (s == NULL || layer == NULL || s->refs == NULL) {
+        return GSP_ERR_ACTION;
+    }
+
+    const gsp_object_ref_t *target = NULL;
+    for (uint16_t i = 0; i < s->ref_count; i++) {
+        if (s->refs[i].obj == layer) {
+            target = &s->refs[i];
+            break;
+        }
+    }
+    if (target == NULL || target->type != GSP_OBJ_LAYER) {
+        return GSP_ERR_TYPE;
+    }
+
+    for (uint16_t i = 0; i < s->ref_count; i++) {
+        if (s->refs[i].type == GSP_OBJ_LAYER && s->refs[i].parent_idx == target->parent_idx) {
+            (void)gfx_object_set_visible(s->refs[i].obj, s->refs[i].obj == layer);
+        }
+    }
+    return GSP_OK;
+}
+
+static void action_exec(gsp_scene_t *s, const gsp_action_rt_t *a,
+                        gfx_object_t *src, const gfx_touch_event_t *ev)
+{
+    gfx_object_t *tgt = action_target(s, a);
+    const char *cn = (tgt != NULL) ? gfx_object_get_class_name(tgt) : NULL;
+
+    switch (a->action) {
+    case GSP_ACT_SHOW:
+        if (tgt != NULL) {
+            (void)gfx_object_set_visible(tgt, true);
+        }
+        break;
+    case GSP_ACT_HIDE:
+        if (tgt != NULL) {
+            (void)gfx_object_set_visible(tgt, false);
+        }
+        break;
+    case GSP_ACT_SET_TEXT:
+        if (tgt != NULL && a->param != NULL && cn != NULL) {
+            if (strcmp(cn, "label") == 0) {
+                (void)gfx_label_set_text(tgt, a->param);
+            } else if (strcmp(cn, "button") == 0) {
+                (void)gfx_button_set_text(tgt, a->param);
+            }
+        }
+        break;
+    case GSP_ACT_SET_BG_COLOR:
+        if (tgt != NULL && cn != NULL) {
+            if (strcmp(cn, "container") == 0) {
+                (void)gfx_container_set_bg_color(tgt, GFX_COLOR_HEX(a->arg));
+            } else if (strcmp(cn, "button") == 0) {
+                (void)gfx_button_set_bg_color(tgt, GFX_COLOR_HEX(a->arg));
+            }
+        }
+        break;
+    case GSP_ACT_CALL:
+        if (a->target_name != NULL) {
+            for (size_t k = 0; k < s->cb_count; k++) {
+                if (s->cbs != NULL && s->cbs[k].name != NULL &&
+                    strcmp(s->cbs[k].name, a->target_name) == 0) {
+                    if (s->cbs[k].cb != NULL) {
+                        s->cbs[k].cb(src, ev, s->cbs[k].user_data);
+                    }
+                    break;
+                }
+            }
+        }
+        break;
+    case GSP_ACT_GOTO:
+        if (tgt != NULL) {
+            (void)show_layer_object(s, tgt);
+        }
+        break;
+    default:
+        /* TOGGLE/OPACITY/BACK 预留：运行期先忽略（已在加载期做过合法性校验）*/
+        break;
+    }
+}
+
+/* 把 touch 事件类型映射到 GSP_EV_*，命中返回 true。*/
+static bool action_event_match(uint16_t ev_kind, const gfx_touch_event_t *ev)
+{
+    if (ev == NULL) {
+        return false;
+    }
+    switch (ev_kind) {
+    case GSP_EV_CLICK:
+    case GSP_EV_RELEASE:
+        return ev->type == GFX_TOUCH_EVENT_RELEASE;
+    case GSP_EV_PRESS:
+        return ev->type == GFX_TOUCH_EVENT_PRESS;
+    default:
+        return false;
+    }
+}
+
+/* 统一 touch trampoline：先跑 GSP_F_CALLBACK 用户回调，再跑动作表。*/
+static void gsp_touch_trampoline(gfx_object_t *obj, const gfx_touch_event_t *ev, void *ud)
+{
+    gsp_scene_t *s = (gsp_scene_t *)ud;
+    int idx = -1;
+
+    if (s == NULL || s->objs == NULL) {
+        return;
+    }
+    for (uint16_t i = 0; i < s->obj_count; i++) {
+        if (s->objs[i] == obj) {
+            idx = (int)i;
+            break;
+        }
+    }
+    if (idx < 0) {
+        return;
+    }
+    if (s->refs != NULL && s->refs[idx].user_cb != NULL) {
+        s->refs[idx].user_cb(obj, ev, s->refs[idx].user_cb_data);
+    }
+    for (uint16_t i = 0; i < s->action_count; i++) {
+        const gsp_action_rt_t *a = &s->actions[i];
+        if (a->src_idx == (uint16_t)idx && action_event_match(a->event, ev)) {
+            action_exec(s, a, obj, ev);
+        }
+    }
+}
+
+/* 解析动作表到 out->actions[]（全程边界校验）。返回 GSP_OK 或错误码。*/
+static int parse_actions(const uint8_t *buf, size_t size, uint32_t total,
+                         uint32_t action_count, uint32_t action_off,
+                         uint32_t obj_count, gsp_scene_t *out)
+{
+    if (action_count == 0) {
+        return GSP_OK;
+    }
+    if (action_count > 0xFFFFu) {
+        return GSP_ERR_COUNT;
+    }
+    const uint64_t end = (uint64_t)action_off + (uint64_t)action_count * GSP_ACTION_SIZE;
+    if (action_off < GSP_HEADER_SIZE || end > total) {
+        return GSP_ERR_BOUNDS;
+    }
+
+    out->actions = (gsp_action_rt_t *)calloc(action_count, sizeof(*out->actions));
+    if (out->actions == NULL) {
+        return GSP_ERR_ALLOC;
+    }
+
+    for (uint32_t i = 0; i < action_count; i++) {
+        const uint8_t *e = buf + action_off + (size_t)i * GSP_ACTION_SIZE;
+        gsp_action_rt_t *a = &out->actions[i];
+
+        a->src_idx     = gsp_rd_u16(e + 0);
+        a->event       = gsp_rd_u16(e + 2);
+        a->action      = gsp_rd_u16(e + 4);
+        a->target_idx  = gsp_rd_u16(e + 6);
+        const uint32_t name_off  = gsp_rd_u32(e + 8);
+        const uint32_t param_off = gsp_rd_u32(e + 12);
+        a->param_len   = gsp_rd_u16(e + 16);
+        a->arg         = gsp_rd_u32(e + 20);
+
+        if (a->src_idx >= obj_count) {
+            return GSP_ERR_ACTION;
+        }
+        if (a->target_idx != GSP_ACT_NO_TARGET && a->target_idx >= obj_count) {
+            return GSP_ERR_ACTION;
+        }
+        if (name_off != 0) {
+            a->target_name = safe_str(buf, size, name_off);
+            if (a->target_name == NULL) {
+                return GSP_ERR_STRING;
+            }
+        }
+        if (param_off != 0) {
+            a->param = safe_str(buf, size, param_off);
+            if (a->param == NULL) {
+                return GSP_ERR_STRING;
+            }
+        }
+    }
+    out->action_count = (uint16_t)action_count;
+    return GSP_OK;
+}
+
 int gsp_load_with_fonts(const uint8_t *buf, size_t size, gfx_display_t *disp,
                         const gsp_font_binding_t *fonts, size_t font_count,
                         gfx_font_t default_font,
@@ -178,6 +459,11 @@ int gsp_load_with_fonts(const uint8_t *buf, size_t size, gfx_display_t *disp,
     const uint32_t blob_off = gsp_rd_u32(buf + 32);
     const uint32_t total = gsp_rd_u32(buf + 36);
     const uint32_t crc = gsp_rd_u32(buf + 40);
+    const uint32_t action_count = gsp_rd_u32(buf + 44);
+    const uint32_t action_off = gsp_rd_u32(buf + 48);
+
+    out->cbs = cbs;
+    out->cb_count = cb_count;
 
     if (total > size || total < GSP_HEADER_SIZE) {
         return GSP_ERR_BOUNDS;
@@ -203,7 +489,10 @@ int gsp_load_with_fonts(const uint8_t *buf, size_t size, gfx_display_t *disp,
     }
 
     gfx_object_t **objs = (gfx_object_t **)calloc(obj_count, sizeof(*objs));
-    if (objs == NULL) {
+    gsp_object_ref_t *refs = (gsp_object_ref_t *)calloc(obj_count, sizeof(*refs));
+    if (objs == NULL || refs == NULL) {
+        free(objs);
+        free(refs);
         return GSP_ERR_ALLOC;
     }
     /* blob 解压缓存（可能为空）*/
@@ -212,6 +501,7 @@ int gsp_load_with_fonts(const uint8_t *buf, size_t size, gfx_display_t *disp,
         out->img_bufs = (uint8_t **)calloc(blob_count, sizeof(*out->img_bufs));
         if (out->img_dscs == NULL || out->img_bufs == NULL) {
             free(objs);
+            free(refs);
             free(out->img_dscs);
             free(out->img_bufs);
             memset(out, 0, sizeof(*out));
@@ -244,6 +534,7 @@ int gsp_load_with_fonts(const uint8_t *buf, size_t size, gfx_display_t *disp,
         const uint16_t params_len = gsp_rd_u16(e + 52);
         const uint8_t  text_align = e[55];
         const uint16_t font_id = gsp_rd_u16(e + 56);
+        const uint16_t bind_id = gsp_rd_u16(e + 58);
 
         /* 先序约束：父必须是更早的对象 */
         if (parent != GSP_NO_PARENT && parent >= i) {
@@ -275,19 +566,23 @@ int gsp_load_with_fonts(const uint8_t *buf, size_t size, gfx_display_t *disp,
                 break;
             }
         }
-        (void)name;   /* 引擎暂无 set_name API：格式已带，留待接入 */
+        const uint8_t *params = NULL;
         if (flags & GSP_F_PARAMS) {
             /* 私有参数块只做边界校验，具体解析交给各 widget（扩展点）*/
             if ((uint64_t)params_off + params_len > total || params_off < GSP_HEADER_SIZE) {
                 rc = GSP_ERR_BOUNDS;
                 break;
             }
+            params = buf + params_off;
         }
 
         gfx_object_t *o = NULL;
+        gfx_object_touch_cb_t user_cb = NULL;   /* GSP_F_CALLBACK 解析出的用户回调 */
+        void *user_cb_data = NULL;
         gfx_font_t obj_font = resolve_font(font_id, fonts, font_count, default_font);
         switch (type) {
         case GSP_OBJ_CONTAINER:
+        case GSP_OBJ_LAYER:
             o = gfx_container_create(disp);
             if (o != NULL) {
                 if (flags & GSP_F_BG_COLOR) {
@@ -300,6 +595,46 @@ int gsp_load_with_fonts(const uint8_t *buf, size_t size, gfx_display_t *disp,
                 if (flags & GSP_F_RADIUS) {
                     (void)gfx_container_set_radius(o, radius);
                 }
+            }
+            break;
+
+        case GSP_OBJ_LIST:
+            o = gfx_list_create(disp);
+            if (o != NULL) {
+                if (obj_font != NULL) {
+                    (void)gfx_list_set_font(o, obj_font);
+                }
+                if (flags & GSP_F_BG_COLOR) {
+                    (void)gfx_list_set_bg_color(o, GFX_COLOR_HEX(bg));
+                }
+                if (flags & GSP_F_FG_COLOR) {
+                    (void)gfx_list_set_text_color(o, GFX_COLOR_HEX(fg));
+                }
+                if (flags & GSP_F_BORDER) {
+                    (void)gfx_list_set_border_color(o, GFX_COLOR_HEX(bc));
+                    (void)gfx_list_set_border_width(o, bw);
+                }
+                rc = apply_item_params(buf, size, params, params_len, o, false);
+            }
+            break;
+
+        case GSP_OBJ_WHEEL:
+            o = gfx_wheel_create(disp);
+            if (o != NULL) {
+                if (obj_font != NULL) {
+                    (void)gfx_wheel_set_font(o, obj_font);
+                }
+                if (flags & GSP_F_BG_COLOR) {
+                    (void)gfx_wheel_set_bg_color(o, GFX_COLOR_HEX(bg));
+                }
+                if (flags & GSP_F_FG_COLOR) {
+                    (void)gfx_wheel_set_text_color(o, GFX_COLOR_HEX(fg));
+                }
+                if (flags & GSP_F_BORDER) {
+                    (void)gfx_wheel_set_border_color(o, GFX_COLOR_HEX(bc));
+                    (void)gfx_wheel_set_border_width(o, bw);
+                }
+                rc = apply_item_params(buf, size, params, params_len, o, true);
             }
             break;
 
@@ -344,10 +679,13 @@ int gsp_load_with_fonts(const uint8_t *buf, size_t size, gfx_display_t *disp,
                     (void)gfx_button_set_radius(o, radius);
                 }
                 if (cbname != NULL) {
+                    /* 解析出用户回调，但不直接绑定：统一交给 trampoline，
+                     * 使 GSP_F_CALLBACK 与 v4 动作表能在同一控件上共存。*/
                     for (size_t k = 0; k < cb_count; k++) {
                         if (cbs != NULL && cbs[k].name != NULL &&
                             strcmp(cbs[k].name, cbname) == 0) {
-                            (void)gfx_object_set_touch_cb(o, cbs[k].cb, cbs[k].user_data);
+                            user_cb = cbs[k].cb;
+                            user_cb_data = cbs[k].user_data;
                             break;
                         }
                     }
@@ -381,6 +719,9 @@ int gsp_load_with_fonts(const uint8_t *buf, size_t size, gfx_display_t *disp,
         }
 
         if (rc != GSP_OK) {
+            if (o != NULL) {
+                (void)gfx_object_delete(o);
+            }
             break;
         }
         if (o == NULL) {
@@ -397,11 +738,22 @@ int gsp_load_with_fonts(const uint8_t *buf, size_t size, gfx_display_t *disp,
             (void)gfx_object_add_child(objs[parent], o);
         }
         objs[i] = o;
+        refs[i] = (gsp_object_ref_t) {
+            .obj_idx = (uint16_t)i,
+            .type = type,
+            .parent_idx = parent,
+            .bind_id = bind_id,
+            .name = name,
+            .obj = o,
+            .user_cb = user_cb,
+            .user_cb_data = user_cb_data,
+        };
     }
 
     if (rc != GSP_OK) {
         destroy_all(objs, obj_count);
         free(objs);
+        free(refs);
         for (uint32_t k = 0; k < blob_count; k++) {
             free(out->img_bufs ? out->img_bufs[k] : NULL);
         }
@@ -413,7 +765,30 @@ int gsp_load_with_fonts(const uint8_t *buf, size_t size, gfx_display_t *disp,
 
     out->objs = objs;
     out->obj_count = (uint16_t)obj_count;
+    out->refs = refs;
+    out->ref_count = (uint16_t)obj_count;
     out->root = objs[0];
+
+    /* v4：解析动作表（坏包只返回错误码）*/
+    rc = parse_actions(buf, size, total, action_count, action_off, obj_count, out);
+    if (rc != GSP_OK) {
+        gsp_scene_free(out);   /* 释放已建好的树/refs/blobs/actions */
+        return rc;
+    }
+
+    /* 安装统一 touch trampoline：凡有用户回调或作为动作源的对象都挂上，
+     * 由 trampoline 依次分发用户回调 + 动作表，二者共存。*/
+    for (uint16_t i = 0; i < out->obj_count; i++) {
+        bool needs = (out->refs[i].user_cb != NULL);
+        for (uint16_t k = 0; !needs && k < out->action_count; k++) {
+            if (out->actions[k].src_idx == i) {
+                needs = true;
+            }
+        }
+        if (needs) {
+            (void)gfx_object_set_touch_cb(out->objs[i], gsp_touch_trampoline, out);
+        }
+    }
     return GSP_OK;
 }
 
@@ -438,12 +813,58 @@ void gsp_scene_free(gsp_scene_t *scene)
         destroy_all(scene->objs, scene->obj_count);
         free(scene->objs);
     }
+    free(scene->refs);
+    free(scene->actions);
     for (uint32_t k = 0; k < scene->blob_count; k++) {
         free(scene->img_bufs ? scene->img_bufs[k] : NULL);
     }
     free(scene->img_bufs);
     free(scene->img_dscs);
     memset(scene, 0, sizeof(*scene));
+}
+
+gfx_object_t *gsp_scene_get_obj(const gsp_scene_t *scene, uint16_t index)
+{
+    if (scene == NULL || scene->objs == NULL || index >= scene->obj_count) {
+        return NULL;
+    }
+    return scene->objs[index];
+}
+
+gfx_object_t *gsp_scene_find_by_name(const gsp_scene_t *scene, const char *name)
+{
+    if (scene == NULL || scene->refs == NULL || name == NULL) {
+        return NULL;
+    }
+    for (uint16_t i = 0; i < scene->ref_count; i++) {
+        if (scene->refs[i].name != NULL && strcmp(scene->refs[i].name, name) == 0) {
+            return scene->refs[i].obj;
+        }
+    }
+    return NULL;
+}
+
+gfx_object_t *gsp_scene_find_by_bind_id(const gsp_scene_t *scene, uint16_t bind_id)
+{
+    if (scene == NULL || scene->refs == NULL || bind_id == 0) {
+        return NULL;
+    }
+    for (uint16_t i = 0; i < scene->ref_count; i++) {
+        if (scene->refs[i].bind_id == bind_id) {
+            return scene->refs[i].obj;
+        }
+    }
+    return NULL;
+}
+
+int gsp_scene_show_layer(gsp_scene_t *scene, const char *name)
+{
+    gfx_object_t *layer = gsp_scene_find_by_name(scene, name);
+
+    if (layer == NULL) {
+        return GSP_ERR_ACTION;
+    }
+    return show_layer_object(scene, layer);
 }
 
 /* ------------------------------------------------------------------ */
@@ -457,6 +878,9 @@ static const char *type_name(uint16_t t)
     case GSP_OBJ_LABEL:     return "label";
     case GSP_OBJ_BUTTON:    return "button";
     case GSP_OBJ_IMAGE:     return "image";
+    case GSP_OBJ_LIST:      return "list";
+    case GSP_OBJ_WHEEL:     return "wheel";
+    case GSP_OBJ_LAYER:     return "layer";
     default:                return "?";
     }
 }
@@ -480,6 +904,8 @@ void gsp_dump(const uint8_t *buf, size_t size)
     const uint32_t blob_off = gsp_rd_u32(buf + 32);
     const uint32_t total = gsp_rd_u32(buf + 36);
     const uint32_t crc = gsp_rd_u32(buf + 40);
+    const uint32_t action_count = gsp_rd_u32(buf + 44);
+    const uint32_t action_off = gsp_rd_u32(buf + 48);
     const uint32_t crc_calc = (total <= size) ? gsp_crc32_scene(buf, total) : 0u;
 
     printf("==== GSP package (%zu bytes) ====\n", size);
@@ -489,6 +915,7 @@ void gsp_dump(const uint8_t *buf, size_t size)
            version, sw, sh, sbg & 0xFFFFFFu);
     printf("        obj_count=%u obj_table_off=%u str_table_off=%u\n", n, obj_off, str_off);
     printf("        blob_count=%u blob_table_off=%u total=%u\n", blob_count, blob_off, total);
+    printf("        action_count=%u action_table_off=%u\n", action_count, action_off);
     printf("        crc32=0x%08X (%s)\n", crc, crc == crc_calc ? "ok" : "MISMATCH");
 
     for (uint32_t i = 0; i < n; i++) {
@@ -550,6 +977,36 @@ void gsp_dump(const uint8_t *buf, size_t size)
         printf("blob[%u] %ux%u cf=0x%02X codec=%s raw=%uB comp=%uB (%.1f%%) data@%u\n",
                k, w, h, cf, codec_name, raw_size, comp_size, ratio, data_off);
     }
+
+    for (uint32_t k = 0; k < action_count && action_off != 0; k++) {
+        const uint8_t *e = buf + action_off + (size_t)k * GSP_ACTION_SIZE;
+        const uint16_t src = gsp_rd_u16(e + 0);
+        const uint16_t ev = gsp_rd_u16(e + 2);
+        const uint16_t act = gsp_rd_u16(e + 4);
+        const uint16_t tgt = gsp_rd_u16(e + 6);
+        const uint32_t name_off = gsp_rd_u32(e + 8);
+        const uint32_t param_off = gsp_rd_u32(e + 12);
+        const uint32_t arg = gsp_rd_u32(e + 20);
+        static const char *ev_names[] = { "none", "click", "press", "release", "long", "value" };
+        static const char *act_names[] = { "none", "show", "hide", "toggle", "set_text",
+                                           "set_bg_color", "set_opacity", "call", "goto", "back" };
+        const char *evn = (ev < sizeof(ev_names) / sizeof(ev_names[0])) ? ev_names[ev] : "?";
+        const char *actn = (act < sizeof(act_names) / sizeof(act_names[0])) ? act_names[act] : "?";
+        printf("action[%u] src=%u on=%-7s do=%-12s", k, src, evn, actn);
+        if (name_off != 0 && name_off < size) {
+            printf(" target=\"%s\"", (const char *)(buf + name_off));
+        } else if (tgt != GSP_ACT_NO_TARGET) {
+            printf(" target=obj%u", tgt);
+        }
+        if (param_off != 0 && param_off < size) {
+            printf(" param=\"%s\"", (const char *)(buf + param_off));
+        }
+        if (arg != 0) {
+            printf(" arg=0x%06X", arg & 0xFFFFFFu);
+        }
+        printf("\n");
+    }
+
     printf("note: 结构引用全是 u32 偏移 / u16 索引；图片像素已烘焙进包并压缩，\n");
     printf("      带 codec+raw/comp 头，加载期解压 —— 同一份字节 32/64 位解析一致。\n");
     printf("=================================\n");
