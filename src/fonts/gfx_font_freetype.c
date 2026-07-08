@@ -69,6 +69,10 @@ static gfx_err_t gfx_font_ft_lib_create_internal(void)
 {
     FT_Error error;
 
+    if (s_font_lib != NULL) {
+        return GFX_OK;
+    }
+
     gfx_ft_lib_t *lib = (gfx_ft_lib_t *)calloc(1, sizeof(gfx_ft_lib_t));
     GFX_RETURN_ON_FALSE(lib, GFX_ERR_NO_MEM, TAG, "no mem for FT library");
 
@@ -197,6 +201,10 @@ static gfx_err_t gfx_font_ft_new_internal(const gfx_label_cfg_t *cfg, gfx_font_t
     FT_Error error;
     gfx_err_t ret = GFX_OK;
 
+    if (s_font_lib == NULL) {
+        GFX_RETURN_ON_ERROR(gfx_font_ft_lib_create_internal(), TAG, "create FreeType library failed");
+    }
+
     gfx_ft_lib_t *lib = s_font_lib;
     GFX_RETURN_ON_FALSE(lib, GFX_ERR_INVALID_STATE, TAG, "font library is NULL");
 
@@ -269,10 +277,6 @@ err:
 static gfx_err_t gfx_font_ft_delete_internal(gfx_font_t font)
 {
     GFX_RETURN_ON_FALSE(font, GFX_ERR_INVALID_ARG, TAG, "font is NULL");
-
-    if (gfx_is_lvgl_font(font)) {
-        return GFX_OK;
-    }
 
     gfx_font_ft_t *ft_font = (gfx_font_ft_t *)font;
     if (ft_font->ft_size != NULL) {

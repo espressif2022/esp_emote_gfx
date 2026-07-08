@@ -235,6 +235,7 @@ void gfx_host_font_init_adapter(gfx_font_handle_t font_adapter, const void *font
     font_adapter->get_advance_width = gfx_host_font_get_advance_width;
 }
 
+#ifndef CONFIG_GFX_FONT_FREETYPE_SUPPORT
 gfx_err_t gfx_label_font_create(const gfx_label_cfg_t *cfg, gfx_font_t *ret_font)
 {
     (void)cfg;
@@ -250,3 +251,4 @@ gfx_err_t gfx_label_font_delete(gfx_font_t font)
     (void)font;
     return GFX_OK;
 }
+#endif

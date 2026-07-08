@@ -98,6 +98,7 @@ set(GFX_HOST_CORE_SRCS
     "src/codecs/anim/gfx_anim_decoder_eaf.c"
     "src/codecs/image/gfx_image_decoder.c"
     "src/fonts/gfx_font_adapter.c"
+    "src/fonts/gfx_font_freetype.c"
     "src/fonts/gfx_font_lvgl.c"
     "src/render/gfx_render.c"
     "src/render/sw/gfx_blend.c"
@@ -136,21 +137,31 @@ set(GFX_HOST_CORE_SRCS
     "${GFX_HEATSHRINK_ROOT}/heatshrink_decoder.c"
 )
 
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(FREETYPE REQUIRED freetype2)
+else()
+    message(FATAL_ERROR "PkgConfig is required to find freetype2 for host FreeType font support.")
+endif()
+
 add_library(gfx_host_core STATIC ${GFX_HOST_CORE_SRCS})
 target_include_directories(gfx_host_core
     PUBLIC
         "include"
+        ${FREETYPE_INCLUDE_DIRS}
     PRIVATE
         "src"
         "simulation/port/include"
         "${GFX_HEATSHRINK_ROOT}/include"
 )
-target_compile_definitions(gfx_host_core PUBLIC GFX_HOST_BUILD=1)
+target_compile_definitions(gfx_host_core PUBLIC GFX_HOST_BUILD=1 CONFIG_GFX_FONT_FREETYPE_SUPPORT=1)
 target_compile_features(gfx_host_core PUBLIC c_std_11)
-target_link_libraries(gfx_host_core PUBLIC pthread m)
+if(FREETYPE_LIBRARY_DIRS)
+    target_link_directories(gfx_host_core PUBLIC ${FREETYPE_LIBRARY_DIRS})
+endif()
+target_link_libraries(gfx_host_core PUBLIC pthread m ${FREETYPE_LIBRARIES})
 
 if(GFX_BUILD_HOST_SDL)
-    find_package(PkgConfig QUIET)
     if(PkgConfig_FOUND)
         pkg_check_modules(SDL3 QUIET sdl3)
         pkg_check_modules(SDL2 QUIET sdl2)
@@ -294,6 +305,24 @@ if(GFX_BUILD_HOST_SDL)
     target_compile_features(gfx_host_tween_smoke PRIVATE c_std_11)
     target_link_libraries(gfx_host_tween_smoke PRIVATE gfx_host_core)
 
+    add_executable(gfx_ai_scene_pkg_demo
+        "examples/ai_scene_pkg/ai_scene_pkg_demo.c"
+        "examples/ai_scene_pkg/gsp_pack.c"
+        "examples/ai_scene_pkg/gsp_load.c"
+        "examples/common/gfx_display_port.c"
+    )
+    target_include_directories(gfx_ai_scene_pkg_demo
+        PRIVATE
+            "include"
+            "src"
+            "simulation/host"
+            "simulation/port/include"
+            "examples/common"
+            "examples/ai_scene_pkg"
+    )
+    target_compile_features(gfx_ai_scene_pkg_demo PRIVATE c_std_11)
+    target_link_libraries(gfx_ai_scene_pkg_demo PRIVATE gfx_host_core gfx_backend_sdl gfx_host_runner)
+
     include(CTest)
     if(BUILD_TESTING)
         add_test(NAME gfx_host_fs_smoke
@@ -315,6 +344,9 @@ if(GFX_BUILD_HOST_SDL)
                 -D GFX_HOST_SDL_DEMO=$<TARGET_FILE:gfx_host_sdl_demo>
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/simulation/host/run_sdl_dummy_smoke.cmake
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        add_test(NAME gfx_ai_scene_pkg_demo COMMAND gfx_ai_scene_pkg_demo)
+        set_tests_properties(gfx_ai_scene_pkg_demo PROPERTIES
+            ENVIRONMENT "GSP_HEADLESS=1;SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
     endif()
 
     add_custom_target(gfx_host_smoke
