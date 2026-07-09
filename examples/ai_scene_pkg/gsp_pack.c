@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "gsp_format.h"
+#include "gfx/scene/gsp.h"
 
 /* 简单字符串内表：把字符串追加进 str 区并去重，返回相对 str 区起点的偏移。*/
 typedef struct {
@@ -63,7 +63,7 @@ static uint8_t *rle16_encode(const uint8_t *raw, uint32_t raw_size, uint32_t *ou
         const uint16_t px = gsp_rd_u16(raw + (size_t)i * 2u);
         uint32_t run = 1;
         while (i + run < npix && run < 0xFFFFu &&
-               gsp_rd_u16(raw + (size_t)(i + run) * 2u) == px) {
+                gsp_rd_u16(raw + (size_t)(i + run) * 2u) == px) {
             run++;
         }
         gsp_wr_u16(out + o, (uint16_t)run);

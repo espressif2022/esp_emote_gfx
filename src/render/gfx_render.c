@@ -16,6 +16,8 @@
 #include "common/gfx_log_priv.h"
 
 #include "core/display/gfx_refresh_priv.h"
+#include "gfx/scene/arena_draw.h"
+#include "gfx/scene/arena_scene.h"
 #include "render/gfx_render_priv.h"
 #include "render/sw/gfx_blend_priv.h"
 #include "core/runtime/gfx_timer_priv.h"
@@ -1296,7 +1298,20 @@ void gfx_render_part_area(gfx_display_t *disp, gfx_area_t *area, uint8_t area_id
             gfx_area_t fill_area = { chunk_x1, chunk_y1, chunk_x2, chunk_y2 };
             gfx_render_fill_area(disp, &draw_ctx, &fill_area, disp->style.bg_color, GFX_RENDER_OPA_COVER);
         }
-        gfx_render_draw_child_objects(disp, &draw_ctx);
+        /* Package UI: draw arena into dirty clip. Hand-written object tree unchanged. */
+        if (disp->arena_scene != NULL) {
+            gfx_arena_scene_t *ascene = (gfx_arena_scene_t *)disp->arena_scene;
+            gfx_render_surface_t surf = {
+                .buf = draw_ctx.buf,
+                .buf_area = draw_ctx.buf_area,
+                .clip_area = draw_ctx.clip_area,
+                .stride = draw_ctx.stride,
+                .format = draw_ctx.format,
+            };
+            (void)arena_draw_clipped(disp, &ascene->arena, &surf);
+        } else {
+            gfx_render_draw_child_objects(disp, &draw_ctx);
+        }
         disp->render.render_time_us += (uint64_t)(gfx_platform_time_us() - render_start_us);
 
         if (disp->backend != NULL) {

@@ -6,7 +6,7 @@
  * The package contains no native pointers. Object references are u16 indexes;
  * strings and blob data are u32 byte offsets from the package base.
  */
-#include "gsp_format.h"
+#include "gfx/scene/gsp.h"
 
 #define HOME_SCREEN_W       480
 #define HOME_SCREEN_H       480

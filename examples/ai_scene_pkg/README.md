@@ -9,7 +9,7 @@ Host 侧「位置无关二进制场景包」概念验证：把 UI 描述编译�
 ## 1. 立身之本（改代码别破坏这两条）
 
 1. **包内永远只有 u32 偏移 / u16 索引，禁止原生指针** —— 保证 32/64 位解析一致，无需把 host 降成 32 位、无需冻结 widget struct 布局。
-2. **loader 必须全程边界校验，坏包只返回错误码、绝不崩** —— 见 `gsp_load.c` 对 header / offset / count / parent / blob / action / crc 的逐项校验。
+2. **loader 必须全程边界校验，坏包只返回错误码、绝不崩** —— 见库实现 `src/scene/gsp_load.c` 对 header / offset / count / parent / blob / action / crc 的逐项校验。
 
 ---
 
@@ -118,9 +118,9 @@ GSP_HEADLESS=1 SDL_VIDEODRIVER=dummy ./build-host-sdl/gfx_ai_scene_pkg_demo
 
 | 文件 | 职责 |
 |---|---|
-| `gsp_format.h` | GSP **v4**：56B header、Obj(64B)、Blob(20B)、Action(24B)、list/wheel params-v1 |
-| `gsp_pack.c` | host 打包：`gsp_scene_desc_t` → 二进制（字符串去重、blob 压缩、动作表、crc） |
-| `gsp_load.c` | host/device loader：校验 → 工厂建树 → blob 解压 → 动作表 trampoline → `gsp_dump` |
+| `../../include/gfx/scene/gsp.h` | 公共 GSP API：v4 格式常量、错误码、字体/回调绑定、loader scene handle |
+| `../../src/scene/gsp_load.c` | host/device loader：校验 → 工厂建树 → blob 解压 → 动作表 trampoline → `gsp_dump` |
+| `gsp_pack.c` | host 打包：`gsp_scene_desc_t` → 二进制（字符串去重、blob 压缩、动作表、crc）；暂留示例/host 工具侧 |
 | `gsp_export/gsp_export_home.c` | 内置 demo 场景 → `gsp_export/home.gsp` |
 | `gsp_export/gsp_package_tools.py` | `.gsp` → `inc/*.inc` / manifest / 预览 BMP |
 | `ai_scene_pkg_demo.c` | 加载选定 `.inc` → dump → load → 自检 → SDL 渲染 |
@@ -156,7 +156,7 @@ GSP_HEADLESS=1 SDL_VIDEODRIVER=dummy ./build-host-sdl/gfx_ai_scene_pkg_demo
 - ActionEntry 24B：`src_idx / event / action / target_idx|name / param / arg`
 - BlobEntry 20B：codec + raw/comp size，加载期解压
 
-字段全集以 `gsp_format.h` 与 [`gsp_protocol/gsp_binary_protocol_zh.md`](gsp_protocol/gsp_binary_protocol_zh.md) 为准。
+字段全集以公共头 `include/gfx/scene/gsp.h` 与 [`gsp_protocol/gsp_binary_protocol_zh.md`](gsp_protocol/gsp_binary_protocol_zh.md) 为准。
 
 ---
 
@@ -180,13 +180,17 @@ GSP_HEADLESS=1 SDL_VIDEODRIVER=dummy ./build-host-sdl/gfx_ai_scene_pkg_demo
 | 路径 | 作用 |
 |---|---|
 | `ai_scene_pkg_demo.c` | SDL demo |
-| `gsp_format.h` / `gsp_pack.c` / `gsp_load.c` | 格式 / 打包 / 加载 |
+| `../../include/gfx/scene/gsp.h` / `../../src/scene/gsp_load.c` | 库 API / 加载实现 |
+| `gsp_pack.c` | host 打包器（不进 ESP 固件） |
 | `gsp_export/` | 导出工具 + `.gsp` / manifest / 预览 |
 | `gsp_export/gsp_export_home.c` | C 侧作者场景 → `.gsp` |
 | `gsp_export/gsp_package_tools.py` | `.gsp` → `.inc` 等衍生物 |
 | `inc/*.inc` | 编译期嵌入的场景包 |
 | `gsp_protocol/` | 二进制协议文档 |
 | `gsp_scene_package_skill.md` | AI 改包时的 skill 规范 |
+| `arena_model/` | arena 同构/直画验证（smoke / draw / bridge / bench） |
+| `arena_model/ARENA_UPGRADE_PLAN_C.md` | **档位 C 升级计划**（Todo 含 [√] 进度） |
+| `arena_model/ARENA_ABI_v1.md` | Arena 包 ABI v1 冻结说明 |
 
 ---
 
@@ -261,3 +265,7 @@ S1 运行时读包 → S2 坏包测试
 - [GSP 二进制协议（English）](gsp_protocol/gsp_binary_protocol_en.md)
 - [协议目录索引](gsp_protocol/README.md)
 - [Scene package skill 说明](gsp_scene_package_skill.md)
+- [arena 验证说明](arena_model/README.md)
+- [Arena 升级计划 C（渲染/输入吃 arena）](arena_model/ARENA_UPGRADE_PLAN_C.md)
+- [Host 可视仿真](arena_model/README.md)（`ARENA_SDL=1 ./build-host-sdl/gfx_arena_sdl_demo`）
+- [ESP 设备 arena demo](../esp/arena_demo/README.md)

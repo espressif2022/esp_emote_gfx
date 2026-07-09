@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "gsp_format.h"
+#include "gfx/scene/gsp.h"
 
 #include "gfx/input.h"
 #include "gfx/object.h"
@@ -401,7 +401,7 @@ static void action_exec(gsp_scene_t *s, const gsp_action_rt_t *a,
         if (a->target_name != NULL) {
             for (size_t k = 0; k < s->cb_count; k++) {
                 if (s->cbs != NULL && s->cbs[k].name != NULL &&
-                    strcmp(s->cbs[k].name, a->target_name) == 0) {
+                        strcmp(s->cbs[k].name, a->target_name) == 0) {
                     if (s->cbs[k].cb != NULL) {
                         s->cbs[k].cb(src, ev, s->cbs[k].user_data);
                     }
@@ -775,7 +775,7 @@ int gsp_load_with_fonts(const uint8_t *buf, size_t size, gfx_display_t *disp,
                      * 使 GSP_F_CALLBACK 与 v4 动作表能在同一控件上共存。*/
                     for (size_t k = 0; k < cb_count; k++) {
                         if (cbs != NULL && cbs[k].name != NULL &&
-                            strcmp(cbs[k].name, cbname) == 0) {
+                                strcmp(cbs[k].name, cbname) == 0) {
                             user_cb = cbs[k].cb;
                             user_cb_data = cbs[k].user_data;
                             break;
@@ -1015,11 +1015,14 @@ void gsp_dump(const uint8_t *buf, size_t size)
     printf("header: magic=%c%c%c%c version=%u screen=%ux%u bg=#%06X\n",
            (char)(magic & 0xFF), (char)((magic >> 8) & 0xFF),
            (char)((magic >> 16) & 0xFF), (char)((magic >> 24) & 0xFF),
-           version, sw, sh, sbg & 0xFFFFFFu);
-    printf("        obj_count=%u obj_table_off=%u str_table_off=%u\n", n, obj_off, str_off);
-    printf("        blob_count=%u blob_table_off=%u total=%u\n", blob_count, blob_off, total);
-    printf("        action_count=%u action_table_off=%u\n", action_count, action_off);
-    printf("        crc32=0x%08X (%s)\n", crc, crc == crc_calc ? "ok" : "MISMATCH");
+           (unsigned)version, (unsigned)sw, (unsigned)sh, (unsigned)(sbg & 0xFFFFFFu));
+    printf("        obj_count=%u obj_table_off=%u str_table_off=%u\n",
+           (unsigned)n, (unsigned)obj_off, (unsigned)str_off);
+    printf("        blob_count=%u blob_table_off=%u total=%u\n",
+           (unsigned)blob_count, (unsigned)blob_off, (unsigned)total);
+    printf("        action_count=%u action_table_off=%u\n",
+           (unsigned)action_count, (unsigned)action_off);
+    printf("        crc32=0x%08X (%s)\n", (unsigned)crc, crc == crc_calc ? "ok" : "MISMATCH");
 
     for (uint32_t i = 0; i < n; i++) {
         const uint8_t *e = buf + obj_off + (size_t)i * GSP_OBJ_SIZE;
@@ -1043,18 +1046,19 @@ void gsp_dump(const uint8_t *buf, size_t size)
             snprintf(parent_buf, sizeof(parent_buf), "%u", parent);
         }
         printf("obj[%u] %-9s parent=%-4s rect=(%d,%d %ux%u) flags=0x%03X",
-               i, type_name(type), parent_buf, x, y, w, h, flags);
+               (unsigned)i, type_name(type), parent_buf, x, y,
+               (unsigned)w, (unsigned)h, (unsigned)flags);
         if ((flags & GSP_F_TEXT) && text_off < size) {
-            printf(" text@%u=\"%s\"", text_off, (const char *)(buf + text_off));
+            printf(" text@%u=\"%s\"", (unsigned)text_off, (const char *)(buf + text_off));
         }
         if ((flags & GSP_F_CALLBACK) && cb_off < size) {
-            printf(" cb@%u=\"%s\"", cb_off, (const char *)(buf + cb_off));
+            printf(" cb@%u=\"%s\"", (unsigned)cb_off, (const char *)(buf + cb_off));
         }
         if ((flags & GSP_F_NAME) && name_off < size) {
-            printf(" name@%u=\"%s\"", name_off, (const char *)(buf + name_off));
+            printf(" name@%u=\"%s\"", (unsigned)name_off, (const char *)(buf + name_off));
         }
         if (flags & GSP_F_IMAGE) {
-            printf(" blob=%u", blob_idx);
+            printf(" blob=%u", (unsigned)blob_idx);
         }
         if (type == GSP_OBJ_LABEL || type == GSP_OBJ_BUTTON) {
             printf(" font=%u", font_id);
@@ -1078,7 +1082,8 @@ void gsp_dump(const uint8_t *buf, size_t size)
                                  (codec == GSP_CODEC_STORE) ? "store" : "?";
         double ratio = raw_size ? (100.0 * comp_size / raw_size) : 0.0;
         printf("blob[%u] %ux%u cf=0x%02X codec=%s raw=%uB comp=%uB (%.1f%%) data@%u\n",
-               k, w, h, cf, codec_name, raw_size, comp_size, ratio, data_off);
+               (unsigned)k, (unsigned)w, (unsigned)h, (unsigned)cf, codec_name,
+               (unsigned)raw_size, (unsigned)comp_size, ratio, (unsigned)data_off);
     }
 
     for (uint32_t k = 0; k < action_count && action_off != 0; k++) {
@@ -1092,10 +1097,12 @@ void gsp_dump(const uint8_t *buf, size_t size)
         const uint32_t arg = gsp_rd_u32(e + 20);
         static const char *ev_names[] = { "none", "click", "press", "release", "long", "value" };
         static const char *act_names[] = { "none", "show", "hide", "toggle", "set_text",
-                                           "set_bg_color", "set_opacity", "call", "goto", "back" };
+                                           "set_bg_color", "set_opacity", "call", "goto", "back"
+                                         };
         const char *evn = (ev < sizeof(ev_names) / sizeof(ev_names[0])) ? ev_names[ev] : "?";
         const char *actn = (act < sizeof(act_names) / sizeof(act_names[0])) ? act_names[act] : "?";
-        printf("action[%u] src=%u on=%-7s do=%-12s", k, src, evn, actn);
+        printf("action[%u] src=%u on=%-7s do=%-12s",
+               (unsigned)k, (unsigned)src, evn, actn);
         if (name_off != 0 && name_off < size) {
             printf(" target=\"%s\"", (const char *)(buf + name_off));
         } else if (tgt != GSP_ACT_NO_TARGET) {
@@ -1105,7 +1112,7 @@ void gsp_dump(const uint8_t *buf, size_t size)
             printf(" param=\"%s\"", (const char *)(buf + param_off));
         }
         if (arg != 0) {
-            printf(" arg=0x%06X", arg & 0xFFFFFFu);
+            printf(" arg=0x%06X", (unsigned)(arg & 0xFFFFFFu));
         }
         printf("\n");
     }

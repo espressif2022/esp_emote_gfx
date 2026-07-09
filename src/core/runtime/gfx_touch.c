@@ -19,6 +19,7 @@
 #include "core/object/gfx_object_priv.h"
 #include "core/runtime/gfx_core_priv.h"
 #include "core/runtime/gfx_touch_priv.h"
+#include "gfx/scene/arena_scene.h"
 #include "platform/gfx_platform.h"
 #include "platform/gfx_touch_port.h"
 
@@ -140,13 +141,17 @@ static void gfx_touch_dispatch_event(gfx_touch_t *touch, gfx_display_t *disp, co
     }
 
     if (disp != NULL) {
-        gfx_touch_update_capture(touch, disp, evt, &hit_obj);
-        if (hit_obj != NULL) {
-            if (hit_obj->vfunc.touch_event) {
-                hit_obj->vfunc.touch_event(hit_obj, evt);
-            }
-            if (hit_obj->user_touch_cb) {
-                hit_obj->user_touch_cb(hit_obj, evt, hit_obj->user_touch_data);
+        if (disp->arena_scene != NULL && arena_scene_handle_touch(disp, evt) != 0) {
+            /* Arena package path handled press/release; skip object hit-test. */
+        } else {
+            gfx_touch_update_capture(touch, disp, evt, &hit_obj);
+            if (hit_obj != NULL) {
+                if (hit_obj->vfunc.touch_event) {
+                    hit_obj->vfunc.touch_event(hit_obj, evt);
+                }
+                if (hit_obj->user_touch_cb) {
+                    hit_obj->user_touch_cb(hit_obj, evt, hit_obj->user_touch_data);
+                }
             }
         }
     }
@@ -161,6 +166,10 @@ static void gfx_touch_dispatch_injected_event(gfx_display_t *disp, const gfx_tou
     gfx_object_t *hit_obj = NULL;
 
     if (disp == NULL || evt == NULL) {
+        return;
+    }
+
+    if (disp->arena_scene != NULL && arena_scene_handle_touch(disp, evt) != 0) {
         return;
     }
 

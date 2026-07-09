@@ -66,6 +66,7 @@ cmake_minimum_required(VERSION 3.16)
 project(esp_emote_gfx_host C)
 
 option(GFX_BUILD_HOST_SDL "Build the Linux host SDL simulator target" ON)
+set(GFX_AI_SCENE_INC "inc/home.inc" CACHE STRING "GSP scene .inc used by gfx_ai_scene_pkg_demo")
 
 set(GFX_HEATSHRINK_ROOT "${CMAKE_CURRENT_LIST_DIR}/test_apps/managed_components/laride__heatshrink")
 if(NOT EXISTS "${GFX_HEATSHRINK_ROOT}/heatshrink_decoder.c")
@@ -103,6 +104,11 @@ set(GFX_HOST_CORE_SRCS
     "src/render/gfx_render.c"
     "src/render/sw/gfx_blend.c"
     "src/render/sw/gfx_sw_draw.c"
+    "src/scene/gsp_load.c"
+    "src/scene/gsp_to_arena.c"
+    "src/scene/arena_model.c"
+    "src/scene/arena_draw.c"
+    "src/scene/arena_scene.c"
     "src/lib/eaf/gfx_eaf_dec.c"
     "src/widgets/anim/gfx_anim.c"
     "src/widgets/basic/gfx_button.c"
@@ -307,7 +313,6 @@ if(GFX_BUILD_HOST_SDL)
 
     add_executable(gfx_ai_scene_pkg_demo
         "examples/ai_scene_pkg/ai_scene_pkg_demo.c"
-        "examples/ai_scene_pkg/gsp_load.c"
         "examples/common/gfx_display_port.c"
     )
     target_include_directories(gfx_ai_scene_pkg_demo
@@ -320,10 +325,11 @@ if(GFX_BUILD_HOST_SDL)
             "examples/ai_scene_pkg"
     )
     target_compile_features(gfx_ai_scene_pkg_demo PRIVATE c_std_11)
+    target_compile_definitions(gfx_ai_scene_pkg_demo PRIVATE "GSP_SCENE_INC=\"${GFX_AI_SCENE_INC}\"")
     target_link_libraries(gfx_ai_scene_pkg_demo PRIVATE gfx_host_core gfx_backend_sdl gfx_host_runner)
 
     add_executable(gfx_ai_scene_pkg_export_home
-        "examples/ai_scene_pkg/gsp_export_home.c"
+        "examples/ai_scene_pkg/gsp_export/gsp_export_home.c"
         "examples/ai_scene_pkg/gsp_pack.c"
     )
     target_include_directories(gfx_ai_scene_pkg_export_home
@@ -333,6 +339,106 @@ if(GFX_BUILD_HOST_SDL)
             "examples/ai_scene_pkg"
     )
     target_compile_features(gfx_ai_scene_pkg_export_home PRIVATE c_std_11)
+
+    # Relative-offset arena model: address-model smoke + renderer bridge demo.
+    # Core lives in src/scene (gfx_host_core); examples keep test entrypoints.
+    add_executable(gfx_arena_model_smoke
+        "examples/ai_scene_pkg/arena_model/arena_model_smoke.c"
+    )
+    target_include_directories(gfx_arena_model_smoke PRIVATE
+        "include"
+        "examples/ai_scene_pkg/arena_model")
+    target_compile_features(gfx_arena_model_smoke PRIVATE c_std_11)
+    target_link_libraries(gfx_arena_model_smoke PRIVATE gfx_host_core)
+
+    # Direct arena → framebuffer draw (no gfx_object_t at all).
+    add_executable(gfx_arena_draw_demo
+        "examples/ai_scene_pkg/arena_model/arena_draw_demo.c"
+    )
+    target_include_directories(gfx_arena_draw_demo
+        PRIVATE
+            "include"
+            "src"
+            "examples/ai_scene_pkg/arena_model"
+    )
+    target_compile_features(gfx_arena_draw_demo PRIVATE c_std_11)
+    target_link_libraries(gfx_arena_draw_demo PRIVATE gfx_host_core)
+
+    # Dirty + render-branch + touch/action + label/button text (Phase 2/3/4).
+    add_executable(gfx_arena_dirty_demo
+        "examples/ai_scene_pkg/arena_model/arena_dirty_demo.c"
+        "examples/format_playground/assets/font_puhui_16_4.c"
+    )
+    target_include_directories(gfx_arena_dirty_demo
+        PRIVATE
+            "include"
+            "src"
+            "simulation/port/include"
+            "examples/ai_scene_pkg/arena_model"
+    )
+    target_compile_features(gfx_arena_dirty_demo PRIVATE c_std_11)
+    target_compile_definitions(gfx_arena_dirty_demo PRIVATE GFX_HOST_BUILD=1)
+    target_link_libraries(gfx_arena_dirty_demo PRIVATE gfx_host_core)
+
+    # Visual SDL simulation of formal arena path (ARENA_SDL=1).
+    add_executable(gfx_arena_sdl_demo
+        "examples/ai_scene_pkg/arena_model/arena_sdl_demo.c"
+        "examples/ai_scene_pkg/arena_model/arena_demo_scene.c"
+        "examples/common/gfx_display_port.c"
+        "examples/format_playground/assets/font_puhui_16_4.c"
+    )
+    target_include_directories(gfx_arena_sdl_demo
+        PRIVATE
+            "include"
+            "src"
+            "simulation/host"
+            "simulation/port/include"
+            "examples/common"
+            "examples/ai_scene_pkg/arena_model"
+    )
+    target_compile_features(gfx_arena_sdl_demo PRIVATE c_std_11)
+    target_compile_definitions(gfx_arena_sdl_demo PRIVATE GFX_HOST_BUILD=1)
+    target_link_libraries(gfx_arena_sdl_demo PRIVATE gfx_host_core gfx_backend_sdl gfx_host_runner)
+
+    # GSP → ARN materializer closed loop (home.inc subset).
+    add_executable(gfx_gsp_to_arena_demo
+        "examples/ai_scene_pkg/arena_model/gsp_to_arena_demo.c"
+        "examples/common/gfx_display_port.c"
+        "examples/format_playground/assets/font_puhui_16_4.c"
+    )
+    target_include_directories(gfx_gsp_to_arena_demo
+        PRIVATE
+            "include"
+            "src"
+            "simulation/host"
+            "simulation/port/include"
+            "examples/common"
+            "examples/ai_scene_pkg"
+            "examples/ai_scene_pkg/arena_model"
+    )
+    target_compile_features(gfx_gsp_to_arena_demo PRIVATE c_std_11)
+    target_compile_definitions(gfx_gsp_to_arena_demo PRIVATE
+        GFX_HOST_BUILD=1
+        "GSP_SCENE_INC=\"inc/home.inc\"")
+    target_link_libraries(gfx_gsp_to_arena_demo PRIVATE gfx_host_core gfx_backend_sdl gfx_host_runner)
+
+    # A/B: formal arena_draw_clipped vs object bridge draw_child_objects.
+    add_executable(gfx_arena_compare_demo
+        "examples/ai_scene_pkg/arena_model/arena_compare_demo.c"
+        "examples/ai_scene_pkg/arena_model/arena_compare_run.c"
+        "examples/ai_scene_pkg/arena_model/arena_gfx_bridge.c"
+        "examples/format_playground/assets/font_puhui_16_4.c"
+    )
+    target_include_directories(gfx_arena_compare_demo
+        PRIVATE
+            "include"
+            "src"
+            "simulation/port/include"
+            "examples/ai_scene_pkg/arena_model"
+    )
+    target_compile_features(gfx_arena_compare_demo PRIVATE c_std_11)
+    target_compile_definitions(gfx_arena_compare_demo PRIVATE GFX_HOST_BUILD=1)
+    target_link_libraries(gfx_arena_compare_demo PRIVATE gfx_host_core)
 
     include(CTest)
     if(BUILD_TESTING)
@@ -358,6 +464,14 @@ if(GFX_BUILD_HOST_SDL)
         add_test(NAME gfx_ai_scene_pkg_demo COMMAND gfx_ai_scene_pkg_demo)
         set_tests_properties(gfx_ai_scene_pkg_demo PROPERTIES
             ENVIRONMENT "GSP_HEADLESS=1;SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+        add_test(NAME gfx_arena_model_smoke COMMAND gfx_arena_model_smoke)
+        add_test(NAME gfx_arena_draw_demo COMMAND gfx_arena_draw_demo)
+        add_test(NAME gfx_arena_dirty_demo COMMAND gfx_arena_dirty_demo)
+        add_test(NAME gfx_arena_sdl_demo COMMAND gfx_arena_sdl_demo)
+        add_test(NAME gfx_gsp_to_arena_demo COMMAND gfx_gsp_to_arena_demo)
+        add_test(NAME gfx_arena_compare_demo COMMAND gfx_arena_compare_demo)
+        set_tests_properties(gfx_arena_compare_demo PROPERTIES
+            ENVIRONMENT "ARENA_COMPARE_ITERS=20")
     endif()
 
     add_custom_target(gfx_host_smoke

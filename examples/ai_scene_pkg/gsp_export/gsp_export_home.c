@@ -18,7 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "gsp_format.h"
+#include "gfx/scene/gsp.h"
 
 #define HOME_SCREEN_W 480
 #define HOME_SCREEN_H 480
@@ -214,8 +214,8 @@ int main(int argc, char **argv)
     item_params_t wheel_params = {0};
     if (build_item_params(list_items, 4, 1, 34, 4, GSP_ITEM_PARAMS_F_SNAP_TO_ITEM,
                           &list_params) != 0 ||
-        build_item_params(wheel_items, 4, 0, 30, 5, GSP_ITEM_PARAMS_F_CYCLIC,
-                          &wheel_params) != 0) {
+            build_item_params(wheel_items, 4, 0, 30, 5, GSP_ITEM_PARAMS_F_CYCLIC,
+                              &wheel_params) != 0) {
         free_item_params(&list_params);
         free_item_params(&wheel_params);
         free(image_pixels);
@@ -223,69 +223,93 @@ int main(int argc, char **argv)
     }
 
     const gsp_desc_t descs[HOME_OBJ_COUNT] = {
-        { .type = GSP_OBJ_CONTAINER, .parent_idx = GSP_NO_PARENT,
-          .flags = GSP_F_BG_COLOR, .x = 0, .y = 0, .w = 480, .h = 480,
-          .bg_color = 0x0E1116 },
-        { .type = GSP_OBJ_LAYER, .parent_idx = 0,
-          .flags = GSP_F_BG_COLOR | GSP_F_BORDER | GSP_F_RADIUS | GSP_F_NAME,
-          .x = 36, .y = 68, .w = 408, .h = 344, .name = "homeLayer",
-          .bg_color = 0x171C24, .border_color = 0x2E3A47, .border_width = 2,
-          .radius = 18 },
-        { .type = GSP_OBJ_LABEL, .parent_idx = 1,
-          .flags = GSP_F_FG_COLOR | GSP_F_TEXT | GSP_F_NAME,
-          .x = 30, .y = 30, .w = 340, .h = 32,
-          .fg_color = 0xFFFFFF, .font_id = 0,
-          .text = "AI Scene · u32-offset pkg", .name = "title" },
-        { .type = GSP_OBJ_LABEL, .parent_idx = 1,
-          .flags = GSP_F_FG_COLOR | GSP_F_TEXT | GSP_F_NAME,
-          .x = 30, .y = 72, .w = 340, .h = 26,
-          .fg_color = 0x8AA0B4, .font_id = 1,
-          .text = "page 1: image + callback + action", .name = "subtitle" },
-        { .type = GSP_OBJ_LABEL, .parent_idx = 1,
-          .flags = GSP_F_FG_COLOR | GSP_F_TEXT,
-          .x = 30, .y = 106, .w = 340, .h = 30,
-          .fg_color = 0x6FE0A8, .font_id = 2,
-          .text = "温度 23.5°C 数据绑定", .bind_id = 1 },
-        { .type = GSP_OBJ_IMAGE, .parent_idx = 1,
-          .flags = GSP_F_IMAGE,
-          .x = 30, .y = 150, .w = HOME_IMG_W, .h = HOME_IMG_H,
-          .image_src = &preview_image },
-        { .type = GSP_OBJ_BUTTON, .parent_idx = 1,
-          .flags = GSP_F_BG_COLOR | GSP_F_FG_COLOR | GSP_F_BORDER |
-                   GSP_F_RADIUS | GSP_F_TEXT | GSP_F_CALLBACK | GSP_F_NAME,
-          .x = 238, .y = 246, .w = 140, .h = 60,
-          .bg_color = 0x2F8CFF, .fg_color = 0xFFFFFF, .border_color = 0x76B7E8,
-          .border_width = 2, .radius = 12, .font_id = 3,
-          .text = "Next", .callback = "on_ok", .name = "homeNext" },
-        { .type = GSP_OBJ_LAYER, .parent_idx = 0,
-          .flags = GSP_F_BG_COLOR | GSP_F_BORDER | GSP_F_RADIUS | GSP_F_NAME | GSP_F_HIDDEN,
-          .x = 36, .y = 68, .w = 408, .h = 344,
-          .bg_color = 0x171C24, .border_color = 0x2E3A47, .border_width = 2,
-          .radius = 18, .name = "selectorLayer" },
-        { .type = GSP_OBJ_LABEL, .parent_idx = 7,
-          .flags = GSP_F_FG_COLOR | GSP_F_TEXT,
-          .x = 30, .y = 28, .w = 340, .h = 32,
-          .fg_color = 0xFFFFFF, .font_id = 0,
-          .text = "Page 2 · List + Wheel" },
-        { .type = GSP_OBJ_LIST, .parent_idx = 7,
-          .flags = GSP_F_BG_COLOR | GSP_F_FG_COLOR | GSP_F_BORDER | GSP_F_NAME | GSP_F_PARAMS,
-          .x = 30, .y = 78, .w = 168, .h = 170,
-          .bg_color = 0x101923, .fg_color = 0xF3F7FA, .border_color = 0x2F8CFF,
-          .border_width = 1, .font_id = 1, .name = "featureList",
-          .params = list_params.data, .params_len = list_params.len },
-        { .type = GSP_OBJ_WHEEL, .parent_idx = 7,
-          .flags = GSP_F_BG_COLOR | GSP_F_FG_COLOR | GSP_F_BORDER | GSP_F_NAME | GSP_F_PARAMS,
-          .x = 220, .y = 78, .w = 158, .h = 170,
-          .bg_color = 0x101923, .fg_color = 0xF3F7FA, .border_color = 0x6FE0A8,
-          .border_width = 1, .font_id = 1, .name = "formatWheel",
-          .params = wheel_params.data, .params_len = wheel_params.len },
-        { .type = GSP_OBJ_BUTTON, .parent_idx = 7,
-          .flags = GSP_F_BG_COLOR | GSP_F_FG_COLOR | GSP_F_BORDER |
-                   GSP_F_RADIUS | GSP_F_TEXT | GSP_F_NAME,
-          .x = 238, .y = 246, .w = 140, .h = 60,
-          .bg_color = 0x6FE0A8, .fg_color = 0x102033, .border_color = 0xA9F0C8,
-          .border_width = 2, .radius = 12, .font_id = 3,
-          .text = "Next", .name = "selectorNext" },
+        {
+            .type = GSP_OBJ_CONTAINER, .parent_idx = GSP_NO_PARENT,
+            .flags = GSP_F_BG_COLOR, .x = 0, .y = 0, .w = 480, .h = 480,
+            .bg_color = 0x0E1116
+        },
+        {
+            .type = GSP_OBJ_LAYER, .parent_idx = 0,
+            .flags = GSP_F_BG_COLOR | GSP_F_BORDER | GSP_F_RADIUS | GSP_F_NAME,
+            .x = 36, .y = 68, .w = 408, .h = 344, .name = "homeLayer",
+            .bg_color = 0x171C24, .border_color = 0x2E3A47, .border_width = 2,
+            .radius = 18
+        },
+        {
+            .type = GSP_OBJ_LABEL, .parent_idx = 1,
+            .flags = GSP_F_FG_COLOR | GSP_F_TEXT | GSP_F_NAME,
+            .x = 30, .y = 30, .w = 340, .h = 32,
+            .fg_color = 0xFFFFFF, .font_id = 0,
+            .text = "AI Scene · u32-offset pkg", .name = "title"
+        },
+        {
+            .type = GSP_OBJ_LABEL, .parent_idx = 1,
+            .flags = GSP_F_FG_COLOR | GSP_F_TEXT | GSP_F_NAME,
+            .x = 30, .y = 72, .w = 340, .h = 26,
+            .fg_color = 0x8AA0B4, .font_id = 1,
+            .text = "page 1: image + callback + action", .name = "subtitle"
+        },
+        {
+            .type = GSP_OBJ_LABEL, .parent_idx = 1,
+            .flags = GSP_F_FG_COLOR | GSP_F_TEXT,
+            .x = 30, .y = 106, .w = 340, .h = 30,
+            .fg_color = 0x6FE0A8, .font_id = 2,
+            .text = "温度 23.5°C 数据绑定", .bind_id = 1
+        },
+        {
+            .type = GSP_OBJ_IMAGE, .parent_idx = 1,
+            .flags = GSP_F_IMAGE,
+            .x = 30, .y = 150, .w = HOME_IMG_W, .h = HOME_IMG_H,
+            .image_src = &preview_image
+        },
+        {
+            .type = GSP_OBJ_BUTTON, .parent_idx = 1,
+            .flags = GSP_F_BG_COLOR | GSP_F_FG_COLOR | GSP_F_BORDER |
+            GSP_F_RADIUS | GSP_F_TEXT | GSP_F_CALLBACK | GSP_F_NAME,
+            .x = 238, .y = 246, .w = 140, .h = 60,
+            .bg_color = 0x2F8CFF, .fg_color = 0xFFFFFF, .border_color = 0x76B7E8,
+            .border_width = 2, .radius = 12, .font_id = 3,
+            .text = "Next", .callback = "on_ok", .name = "homeNext"
+        },
+        {
+            .type = GSP_OBJ_LAYER, .parent_idx = 0,
+            .flags = GSP_F_BG_COLOR | GSP_F_BORDER | GSP_F_RADIUS | GSP_F_NAME | GSP_F_HIDDEN,
+            .x = 36, .y = 68, .w = 408, .h = 344,
+            .bg_color = 0x171C24, .border_color = 0x2E3A47, .border_width = 2,
+            .radius = 18, .name = "selectorLayer"
+        },
+        {
+            .type = GSP_OBJ_LABEL, .parent_idx = 7,
+            .flags = GSP_F_FG_COLOR | GSP_F_TEXT,
+            .x = 30, .y = 28, .w = 340, .h = 32,
+            .fg_color = 0xFFFFFF, .font_id = 0,
+            .text = "Page 2 · List + Wheel"
+        },
+        {
+            .type = GSP_OBJ_LIST, .parent_idx = 7,
+            .flags = GSP_F_BG_COLOR | GSP_F_FG_COLOR | GSP_F_BORDER | GSP_F_NAME | GSP_F_PARAMS,
+            .x = 30, .y = 78, .w = 168, .h = 170,
+            .bg_color = 0x101923, .fg_color = 0xF3F7FA, .border_color = 0x2F8CFF,
+            .border_width = 1, .font_id = 1, .name = "featureList",
+            .params = list_params.data, .params_len = list_params.len
+        },
+        {
+            .type = GSP_OBJ_WHEEL, .parent_idx = 7,
+            .flags = GSP_F_BG_COLOR | GSP_F_FG_COLOR | GSP_F_BORDER | GSP_F_NAME | GSP_F_PARAMS,
+            .x = 220, .y = 78, .w = 158, .h = 170,
+            .bg_color = 0x101923, .fg_color = 0xF3F7FA, .border_color = 0x6FE0A8,
+            .border_width = 1, .font_id = 1, .name = "formatWheel",
+            .params = wheel_params.data, .params_len = wheel_params.len
+        },
+        {
+            .type = GSP_OBJ_BUTTON, .parent_idx = 7,
+            .flags = GSP_F_BG_COLOR | GSP_F_FG_COLOR | GSP_F_BORDER |
+            GSP_F_RADIUS | GSP_F_TEXT | GSP_F_NAME,
+            .x = 238, .y = 246, .w = 140, .h = 60,
+            .bg_color = 0x6FE0A8, .fg_color = 0x102033, .border_color = 0xA9F0C8,
+            .border_width = 2, .radius = 12, .font_id = 3,
+            .text = "Next", .name = "selectorNext"
+        },
     };
 
     /*
@@ -307,14 +331,20 @@ int main(int argc, char **argv)
      */
     const gsp_action_desc_t actions[HOME_ACTION_COUNT] = {
         /* [0] homeNext click → homeLayer 换底色 */
-        { .src_idx = 6, .event = GSP_EV_CLICK, .action = GSP_ACT_SET_BG_COLOR,
-          .target_idx = 1, .arg = 0x1E3A5F },
+        {
+            .src_idx = 6, .event = GSP_EV_CLICK, .action = GSP_ACT_SET_BG_COLOR,
+            .target_idx = 1, .arg = 0x1E3A5F
+        },
         /* [1] homeNext click → 跳到 selectorLayer（第 2 页）*/
-        { .src_idx = 6, .event = GSP_EV_CLICK, .action = GSP_ACT_GOTO,
-          .target_name = "selectorLayer" },
+        {
+            .src_idx = 6, .event = GSP_EV_CLICK, .action = GSP_ACT_GOTO,
+            .target_name = "selectorLayer"
+        },
         /* [2] selectorNext click → 跳回 homeLayer（第 1 页）*/
-        { .src_idx = 11, .event = GSP_EV_CLICK, .action = GSP_ACT_GOTO,
-          .target_name = "homeLayer" },
+        {
+            .src_idx = 11, .event = GSP_EV_CLICK, .action = GSP_ACT_GOTO,
+            .target_name = "homeLayer"
+        },
     };
 
     const gsp_scene_desc_t scene = {

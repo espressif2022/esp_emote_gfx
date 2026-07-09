@@ -109,6 +109,13 @@ struct gfx_display {
         uint8_t pressed_id;
     } injected_touch;
 
+    /**
+     * Optional arena scene backend (package UI path).
+     * When non-NULL, render/touch prefer arena over child object list.
+     * Typed as void* to avoid pulling arena headers into every display user.
+     */
+    void *arena_scene;
+
 };
 
 /*********************
