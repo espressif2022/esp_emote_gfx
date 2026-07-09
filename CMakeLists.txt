@@ -66,6 +66,39 @@ cmake_minimum_required(VERSION 3.16)
 project(esp_emote_gfx_host C)
 
 option(GFX_BUILD_HOST_SDL "Build the Linux host SDL simulator target" ON)
+option(GSP_BUILD_ONLY "Build only standalone GSP parser/renderer targets" OFF)
+
+add_executable(gsp_wasm_smoke
+    "examples/ai_scene_pkg/wasm/standalone/gsp_wasm_smoke.c"
+    "examples/ai_scene_pkg/wasm/standalone/gsp_core.c"
+    "examples/ai_scene_pkg/wasm/standalone/gsp_render.c"
+)
+target_include_directories(gsp_wasm_smoke PRIVATE
+    "examples/ai_scene_pkg"
+    "examples/ai_scene_pkg/wasm/standalone"
+)
+target_compile_features(gsp_wasm_smoke PRIVATE c_std_11)
+
+add_library(gsp_wasm_native STATIC
+    "examples/ai_scene_pkg/wasm/standalone/gsp_core.c"
+    "examples/ai_scene_pkg/wasm/standalone/gsp_render.c"
+    "examples/ai_scene_pkg/wasm/standalone/gsp_wasm.c"
+)
+target_include_directories(gsp_wasm_native PRIVATE
+    "examples/ai_scene_pkg"
+    "examples/ai_scene_pkg/wasm/standalone"
+)
+target_compile_features(gsp_wasm_native PRIVATE c_std_11)
+
+if(GSP_BUILD_ONLY)
+    include(CTest)
+    if(BUILD_TESTING)
+        add_test(NAME gsp_wasm_smoke COMMAND gsp_wasm_smoke)
+        set_tests_properties(gsp_wasm_smoke PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+    endif()
+    return()
+endif()
 
 set(GFX_HEATSHRINK_ROOT "${CMAKE_CURRENT_LIST_DIR}/test_apps/managed_components/laride__heatshrink")
 if(NOT EXISTS "${GFX_HEATSHRINK_ROOT}/heatshrink_decoder.c")
@@ -350,6 +383,9 @@ if(GFX_BUILD_HOST_SDL)
         add_test(NAME gfx_host_wheel_smoke COMMAND gfx_host_wheel_smoke)
         add_test(NAME gfx_host_container_smoke COMMAND gfx_host_container_smoke)
         add_test(NAME gfx_host_tween_smoke COMMAND gfx_host_tween_smoke)
+        add_test(NAME gsp_wasm_smoke COMMAND gsp_wasm_smoke)
+        set_tests_properties(gsp_wasm_smoke PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
         add_test(NAME gfx_host_sdl_dummy_smoke
             COMMAND ${CMAKE_COMMAND}
                 -D GFX_HOST_SDL_DEMO=$<TARGET_FILE:gfx_host_sdl_demo>

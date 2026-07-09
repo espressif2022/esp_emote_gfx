@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GSP WASM Viewer</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #101318;
+      color: #edf2f7;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) 320px;
+    }
+    main {
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      overflow: auto;
+    }
+    aside {
+      border-left: 1px solid #2a3442;
+      background: #151a21;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    canvas {
+      image-rendering: pixelated;
+      max-width: min(100%, 900px);
+      max-height: calc(100vh - 48px);
+      background: #000;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, .28);
+    }
+    button, input::file-selector-button {
+      border: 1px solid #3b4756;
+      background: #202936;
+      color: #edf2f7;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    input {
+      max-width: 100%;
+    }
+    pre {
+      margin: 0;
+      padding: 10px;
+      min-height: 96px;
+      overflow: auto;
+      border: 1px solid #2a3442;
+      background: #0d1117;
+      border-radius: 6px;
+      color: #b9c5d4;
+      white-space: pre-wrap;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <canvas id="stage"></canvas>
+  </main>
+  <aside>
+    <div class="row">
+      <input id="file" type="file" accept=".gsp,application/octet-stream">
+      <button id="loadSample">Sample</button>
+    </div>
+    <pre id="status">Build first: bash examples/ai_scene_pkg/wasm/build_wasm.sh</pre>
+  </aside>
+
+  <script src="./gsp_wasm.js"></script>
+  <script>
+    const stage = document.getElementById("stage");
+    const ctx = stage.getContext("2d");
+    const statusEl = document.getElementById("status");
+    const fileEl = document.getElementById("file");
+    const loadSampleEl = document.getElementById("loadSample");
+
+    let wasm;
+    let pkgPtr = 0;
+    let pkgLen = 0;
+    let fbPtr = 0;
+    let fbLen = 0;
+    let runtime = 0;
+    let width = 0;
+    let height = 0;
+    let pointerActive = false;
+    let lastPointerHit = -1;
+    let pointerMoved = false;
+    let pointerStart = { x: 0, y: 0 };
+
+    function log(text) {
+      statusEl.textContent = text;
+    }
+
+    function freeScene() {
+      if (!wasm) return;
+      if (runtime) wasm._gsp_wasm_runtime_destroy(runtime);
+      if (fbPtr) wasm._gsp_wasm_free(fbPtr);
+      if (pkgPtr) wasm._gsp_wasm_free(pkgPtr);
+      runtime = 0;
+      fbPtr = 0;
+      pkgPtr = 0;
+      pkgLen = 0;
+      fbLen = 0;
+    }
+
+    function render() {
+      if (!runtime || !fbPtr) return;
+      const rc = wasm._gsp_wasm_runtime_render_into(runtime, fbPtr, width, height, width * 4);
+      if (rc !== 0) {
+        log(`render failed: ${rc}`);
+        return;
+      }
+      const rgba = wasm.HEAPU8.slice(fbPtr, fbPtr + fbLen);
+      const image = new ImageData(new Uint8ClampedArray(rgba), width, height);
+      ctx.putImageData(image, 0, 0);
+      const callPtr = wasm._gsp_wasm_runtime_last_call(runtime);
+      const call = callPtr ? wasm.UTF8ToString(callPtr) : "";
+      log(`GSP ${width}x${height}\npackage: ${pkgLen} bytes\nlast call: ${call || "-"}`);
+    }
+
+    function loadPackage(bytes) {
+      freeScene();
+      pkgLen = bytes.byteLength;
+      pkgPtr = wasm._gsp_wasm_malloc(pkgLen);
+      wasm.HEAPU8.set(bytes, pkgPtr);
+      const rc = wasm._gsp_wasm_validate(pkgPtr, pkgLen);
+      if (rc !== 0) {
+        log(`validate failed: ${rc}`);
+        freeScene();
+        return;
+      }
+      width = wasm._gsp_wasm_get_width(pkgPtr, pkgLen);
+      height = wasm._gsp_wasm_get_height(pkgPtr, pkgLen);
+      fbLen = width * height * 4;
+      fbPtr = wasm._gsp_wasm_malloc(fbLen);
+      runtime = wasm._gsp_wasm_runtime_create(pkgPtr, pkgLen);
+      if (!fbPtr || !runtime) {
+        log("allocation/runtime create failed");
+        freeScene();
+        return;
+      }
+      stage.width = width;
+      stage.height = height;
+      stage.style.touchAction = "none";
+      render();
+    }
+
+    function canvasPoint(ev) {
+      const rect = stage.getBoundingClientRect();
+      return {
+        x: Math.floor((ev.clientX - rect.left) * width / rect.width),
+        y: Math.floor((ev.clientY - rect.top) * height / rect.height),
+      };
+    }
+
+    function dispatchPointer(ev, label, fnName) {
+      if (!runtime) return;
+      const { x, y } = canvasPoint(ev);
+      const hit = wasm[fnName](runtime, x, y);
+      lastPointerHit = hit;
+      render();
+      statusEl.textContent += `\n${label}: ${x},${y} hit=${hit}`;
+    }
+
+    stage.addEventListener("pointerdown", (ev) => {
+      if (!runtime) return;
+      pointerActive = true;
+      pointerMoved = false;
+      pointerStart = canvasPoint(ev);
+      stage.setPointerCapture(ev.pointerId);
+      const hit = wasm._gsp_wasm_runtime_pointer_down(runtime, pointerStart.x, pointerStart.y);
+      lastPointerHit = hit;
+      render();
+      statusEl.textContent += `\ndown: ${pointerStart.x},${pointerStart.y} hit=${hit}`;
+    });
+
+    stage.addEventListener("pointermove", (ev) => {
+      if (!runtime || !pointerActive) return;
+      const point = canvasPoint(ev);
+      if (Math.abs(point.x - pointerStart.x) + Math.abs(point.y - pointerStart.y) < 2) {
+        return;
+      }
+      pointerMoved = true;
+      dispatchPointer(ev, "drag", "_gsp_wasm_runtime_pointer_move");
+    });
+
+    stage.addEventListener("pointerup", (ev) => {
+      if (!runtime || !pointerActive) return;
+      pointerActive = false;
+      dispatchPointer(ev, "up", "_gsp_wasm_runtime_pointer_up");
+    });
+
+    stage.addEventListener("pointercancel", () => {
+      pointerActive = false;
+    });
+
+    fileEl.addEventListener("change", async () => {
+      const file = fileEl.files && fileEl.files[0];
+      if (!file) return;
+      loadPackage(new Uint8Array(await file.arrayBuffer()));
+    });
+
+    loadSampleEl.addEventListener("click", async () => {
+      const res = await fetch("../gsp_export/home.gsp");
+      loadPackage(new Uint8Array(await res.arrayBuffer()));
+    });
+
+    createGspWasm().then((mod) => {
+      wasm = mod;
+      log("WASM loaded. Choose a .gsp file or load the sample.");
+    }).catch((err) => {
+      log(`WASM load failed: ${err.message}`);
+    });
+  </script>
+</body>
+</html>
