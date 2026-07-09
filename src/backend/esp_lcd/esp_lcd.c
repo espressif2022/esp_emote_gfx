@@ -443,6 +443,7 @@ static void gfx_backend_esp_lcd_apply_config(gfx_backend_esp_lcd_t *lcd,
     lcd->pipeline_enabled = false;
     lcd->pending_pipeline_swap = false;
     lcd->disp_fb_valid = false;
+    lcd->draw_fb_stale = false;
     lcd->disp_fb = NULL;
     lcd->draw_fb = NULL;
     lcd->notify_task = cfg->notify_task;

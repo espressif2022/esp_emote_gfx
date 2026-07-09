@@ -170,6 +170,23 @@ static int arena_text_width(gfx_font_handle_t font, const char *text)
     return w;
 }
 
+/** Reusable glyph alpha buffer owned by the scene; NULL = caller mallocs. */
+static uint8_t *arena_glyph_scratch_get(gfx_arena_scene_t *scene, size_t bytes)
+{
+    if (scene == NULL) {
+        return NULL;
+    }
+    if (scene->glyph_scratch_cap < bytes) {
+        uint8_t *grown = (uint8_t *)realloc(scene->glyph_scratch, bytes);
+        if (grown == NULL) {
+            return NULL;
+        }
+        scene->glyph_scratch = grown;
+        scene->glyph_scratch_cap = bytes;
+    }
+    return scene->glyph_scratch;
+}
+
 /** True if [abs_x,abs_y,w,h) overlaps both clip and buffer (exclusive areas). */
 static bool arena_area_in_clip(const gfx_render_surface_t *surf,
                                int abs_x, int abs_y, int w, int h)
@@ -189,7 +206,7 @@ static bool arena_area_in_clip(const gfx_render_surface_t *surf,
 }
 
 static void arena_fill_bg(gfx_display_t *disp, const gfx_render_surface_t *surf,
-                          int abs_x, int abs_y, int w, int h, uint32_t rgb, bool round)
+                          int abs_x, int abs_y, int w, int h, uint32_t rgb, uint16_t radius)
 {
     if (w <= 0 || h <= 0) {
         return;
@@ -205,11 +222,11 @@ static void arena_fill_bg(gfx_display_t *disp, const gfx_render_surface_t *surf,
             !gfx_area_intersect_exclusive(&clipped, &clipped, &surf->buf_area)) {
         return;
     }
-    if (round) {
+    if (radius > 0) {
         gfx_round_rect_fill_dsc_t dsc = {
             .color = GFX_COLOR_HEX(rgb),
             .opa = 0xFFU,
-            .radius = ARENA_BUTTON_RADIUS,
+            .radius = radius,
         };
         gfx_render_surface_round_rect_fill(disp, surf, &area, &dsc);
     } else {
@@ -254,15 +271,20 @@ static void arena_draw_text_n(gfx_display_t *disp, const gfx_render_surface_t *s
         return;
     }
 
-    const int text_w = arena_text_width(font, tmp);
+    /* Left-aligned text never needs the measuring pass. */
     int pen_x = box_x;
-    if (center && text_w < box_w) {
-        pen_x = box_x + (box_w - text_w) / 2;
+    if (center) {
+        const int text_w = arena_text_width(font, tmp);
+        if (text_w < box_w) {
+            pen_x = box_x + (box_w - text_w) / 2;
+        }
     }
     int pen_y = box_y;
     if (line_h < box_h) {
         pen_y = box_y + (box_h - line_h) / 2;
     }
+
+    gfx_arena_scene_t *scene = arena_scene_from_disp(disp);
 
     const char *p = tmp;
     while (*p) {
@@ -275,14 +297,13 @@ static void arena_draw_text_n(gfx_display_t *disp, const gfx_render_surface_t *s
         if (!font->get_glyph_dsc(font, &dsc, unicode, 0)) {
             continue;
         }
-        const uint8_t *bitmap = font->get_glyph_bitmap(font, unicode, &dsc);
         const int adv = font->get_advance_width(font, &dsc);
         int ofs_y = dsc.ofs_y;
         if (font->adjust_baseline_offset != NULL) {
             ofs_y = font->adjust_baseline_offset(font, &dsc);
         }
 
-        if (bitmap != NULL && dsc.box_w > 0 && dsc.box_h > 0) {
+        if (dsc.box_w > 0 && dsc.box_h > 0) {
             const int gx0 = pen_x + dsc.ofs_x;
             const int gy0 = pen_y + ofs_y;
             gfx_area_t glyph_area = {
@@ -292,25 +313,36 @@ static void arena_draw_text_n(gfx_display_t *disp, const gfx_render_surface_t *s
                 .y2 = (gfx_coord_t)(gy0 + (int)dsc.box_h),
             };
             gfx_area_t clipped;
+            /* Clip first: fetching/converting the bitmap is the expensive part. */
             if (gfx_area_intersect_exclusive(&clipped, &glyph_area, &surf->clip_area) &&
                     gfx_area_intersect_exclusive(&clipped, &clipped, &surf->buf_area)) {
-                const size_t alpha_bytes = (size_t)dsc.box_w * (size_t)dsc.box_h;
-                uint8_t *alpha = (uint8_t *)malloc(alpha_bytes);
-                if (alpha != NULL) {
-                    for (int gy = 0; gy < (int)dsc.box_h; gy++) {
-                        for (int gx = 0; gx < (int)dsc.box_w; gx++) {
-                            alpha[gy * dsc.box_w + gx] =
-                                font->get_pixel_value(font, bitmap, gx, gy, dsc.box_w);
+                const uint8_t *bitmap = font->get_glyph_bitmap(font, unicode, &dsc);
+                if (bitmap != NULL) {
+                    const size_t alpha_bytes = (size_t)dsc.box_w * (size_t)dsc.box_h;
+                    bool alpha_owned = false;
+                    uint8_t *alpha = arena_glyph_scratch_get(scene, alpha_bytes);
+                    if (alpha == NULL) {
+                        alpha = (uint8_t *)malloc(alpha_bytes);
+                        alpha_owned = true;
+                    }
+                    if (alpha != NULL) {
+                        for (int gy = 0; gy < (int)dsc.box_h; gy++) {
+                            for (int gx = 0; gx < (int)dsc.box_w; gx++) {
+                                alpha[gy * dsc.box_w + gx] =
+                                    font->get_pixel_value(font, bitmap, gx, gy, dsc.box_w);
+                            }
+                        }
+                        /* draw_mask expects area in screen space; mask origin at glyph_area.x1/y1 */
+                        const gfx_coord_t mask_stride = (gfx_coord_t)dsc.box_w;
+                        const int off_x = (int)clipped.x1 - gx0;
+                        const int off_y = (int)clipped.y1 - gy0;
+                        const gfx_opa_t *mask_ptr = alpha + off_y * dsc.box_w + off_x;
+                        gfx_render_surface_draw_mask(disp, surf, &clipped, mask_ptr, mask_stride,
+                                                     GFX_COLOR_HEX(rgb), 0xFFU);
+                        if (alpha_owned) {
+                            free(alpha);
                         }
                     }
-                    /* draw_mask expects area in screen space; mask origin at glyph_area.x1/y1 */
-                    const gfx_coord_t mask_stride = (gfx_coord_t)dsc.box_w;
-                    const int off_x = (int)clipped.x1 - gx0;
-                    const int off_y = (int)clipped.y1 - gy0;
-                    const gfx_opa_t *mask_ptr = alpha + off_y * dsc.box_w + off_x;
-                    gfx_render_surface_draw_mask(disp, surf, &clipped, mask_ptr, mask_stride,
-                                                 GFX_COLOR_HEX(rgb), 0xFFU);
-                    free(alpha);
                 }
             }
         }
@@ -345,13 +377,13 @@ static void arena_draw_items(gfx_display_t *disp, arena_t *a, arena_node_t *n,
     const arena_items_hdr_t *ih = arena_items(a, n->reserved);
     if (ih == NULL || ih->item_count == 0) {
         if ((n->flags & ARENA_F_BG) != 0) {
-            arena_fill_bg(disp, surf, abs_x, abs_y, (int)n->w, (int)n->h, n->bg_rgb, false);
+            arena_fill_bg(disp, surf, abs_x, abs_y, (int)n->w, (int)n->h, n->bg_rgb, 0);
         }
         return;
     }
 
     if ((n->flags & ARENA_F_BG) != 0) {
-        arena_fill_bg(disp, surf, abs_x, abs_y, (int)n->w, (int)n->h, n->bg_rgb, false);
+        arena_fill_bg(disp, surf, abs_x, abs_y, (int)n->w, (int)n->h, n->bg_rgb, 0);
     }
 
     const int row_h = (ih->item_height > 0) ? (int)ih->item_height : 24;
@@ -390,7 +422,7 @@ static void arena_draw_items(gfx_display_t *disp, arena_t *a, arena_node_t *n,
         const bool selected = (ih->selected != ARENA_ITEMS_SELECTED_NONE &&
                                (int)ih->selected == idx);
         if (selected) {
-            arena_fill_bg(disp, surf, abs_x, y, (int)n->w, row_h, sel_bg, false);
+            arena_fill_bg(disp, surf, abs_x, y, (int)n->w, row_h, sel_bg, 0);
         }
         uint16_t len = 0;
         const char *txt = arena_item_text(a, n->reserved, (uint16_t)idx, &len);
@@ -481,13 +513,18 @@ static void draw_node_disp(gfx_display_t *disp, arena_t *a, uint32_t node_off,
             }
 
             if (n->type == ARENA_NODE_CONTAINER && (n->flags & ARENA_F_BG) != 0) {
-                arena_fill_bg(disp, surf, abs_x, abs_y, (int)n->w, (int)n->h, n->bg_rgb, false);
+                arena_fill_bg(disp, surf, abs_x, abs_y, (int)n->w, (int)n->h, n->bg_rgb,
+                              arena_node_radius(n));
             } else if (n->type == ARENA_NODE_BUTTON && (n->flags & ARENA_F_BG) != 0) {
                 uint32_t rgb = n->bg_rgb;
                 if ((n->flags & ARENA_F_PRESSED) != 0) {
                     rgb = ((rgb >> 1) & 0x7F7F7Fu);
                 }
-                arena_fill_bg(disp, surf, abs_x, abs_y, (int)n->w, (int)n->h, rgb, true);
+                uint16_t radius = arena_node_radius(n);
+                if (radius == 0U) {
+                    radius = ARENA_BUTTON_RADIUS;
+                }
+                arena_fill_bg(disp, surf, abs_x, abs_y, (int)n->w, (int)n->h, rgb, radius);
                 const char *caption = arena_str(a, n->name_off);
                 if (caption != NULL) {
                     arena_draw_text(disp, surf, font, caption, abs_x, abs_y,
@@ -515,6 +552,30 @@ static void draw_node_disp(gfx_display_t *disp, arena_t *a, uint32_t node_off,
     }
 }
 
+bool arena_draw_covers_clip(gfx_display_t *disp, const gfx_area_t *clip)
+{
+    gfx_arena_scene_t *scene = arena_scene_from_disp(disp);
+
+    if (scene == NULL || clip == NULL || clip->x2 <= clip->x1 || clip->y2 <= clip->y1) {
+        return false;
+    }
+    if (scene->arena.base == NULL) {
+        return false;
+    }
+
+    const arena_hdr_t *hdr = arena_hdr(&scene->arena);
+    arena_node_t *root = arena_node(&scene->arena, hdr->root_off);
+    if (root == NULL || root->type != ARENA_NODE_CONTAINER ||
+            (root->flags & ARENA_F_VISIBLE) == 0 || (root->flags & ARENA_F_BG) == 0 ||
+            arena_node_radius(root) != 0) {
+        return false;
+    }
+    /* Bottom-most root; anything above only adds pixels. */
+    return (int)root->x <= (int)clip->x1 && (int)root->y <= (int)clip->y1 &&
+           (int)root->x + (int)root->w >= (int)clip->x2 &&
+           (int)root->y + (int)root->h >= (int)clip->y2;
+}
+
 int arena_draw_clipped(gfx_display_t *disp, const arena_t *arena, const void *render_surface)
 {
     if (disp == NULL || arena == NULL || arena->base == NULL || render_surface == NULL) {
@@ -523,15 +584,16 @@ int arena_draw_clipped(gfx_display_t *disp, const arena_t *arena, const void *re
 
     const gfx_render_surface_t *surf = (const gfx_render_surface_t *)render_surface;
     arena_t *a = (arena_t *)arena;
-    const arena_hdr_t *hdr = arena_hdr(a);
-    if (hdr->root_off == ARENA_NO_NODE) {
-        return 0;
-    }
 
     gfx_font_handle_t font = NULL;
     gfx_arena_scene_t *scene = arena_scene_from_disp(disp);
     if (scene != NULL) {
         font = (gfx_font_handle_t)scene->font_adapter;
+    }
+
+    const arena_hdr_t *hdr = arena_hdr(a);
+    if (hdr->root_off == ARENA_NO_NODE) {
+        return 0;
     }
 
     draw_node_disp(disp, a, hdr->root_off, 0, 0, surf, font);

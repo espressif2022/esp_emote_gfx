@@ -51,6 +51,7 @@ struct gfx_backend_esp_lcd {
     bool pipeline_enabled;
     bool pending_pipeline_swap;
     bool disp_fb_valid;      ///< false until the first blit; skip copy_unrendered before that
+    bool draw_fb_stale;      ///< FULL modes: draw_fb misses the last frame; sync lazily at next flush
     void *disp_fb;
     void *draw_fb;
     gfx_buf_pipeline_t pipeline;

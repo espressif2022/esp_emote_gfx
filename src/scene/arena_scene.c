@@ -43,6 +43,9 @@ void arena_scene_detach(gfx_arena_scene_t *scene)
     }
     arena_scene_set_font(scene, NULL);
     arena_free(&scene->arena);
+    free(scene->glyph_scratch);
+    scene->glyph_scratch = NULL;
+    scene->glyph_scratch_cap = 0;
     scene->disp = NULL;
     scene->actions = NULL;
     scene->action_count = 0;

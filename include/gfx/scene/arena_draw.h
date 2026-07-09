@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "gfx/scene/arena.h"
@@ -33,6 +34,13 @@ int arena_draw(const arena_t *arena, arena_fb_t *fb);
  */
 int arena_draw_clipped(gfx_display_t *disp, const arena_t *arena,
                        const void *render_surface /* gfx_render_surface_t* */);
+
+/**
+ * True if the attached arena scene is guaranteed to paint every pixel of
+ * clip (half-open) opaquely: when the bottom root is an opaque square
+ * container covering clip. Lets the render core skip the background clear.
+ */
+bool arena_draw_covers_clip(gfx_display_t *disp, const gfx_area_t *clip);
 
 #ifdef __cplusplus
 }

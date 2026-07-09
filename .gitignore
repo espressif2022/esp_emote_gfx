@@ -90,6 +90,9 @@ $RECYCLE.BIN/
 
 # ESP32
 build/
+# Host / local CMake out-of-tree builds (e.g. SDL preview)
+build-host-sdl/
+build-*/
 sdkconfig
 managed_components/
 *.lock

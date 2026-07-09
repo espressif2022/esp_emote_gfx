@@ -44,6 +44,9 @@ typedef struct gfx_arena_scene {
     uint8_t                 pressed_track;
     gfx_font_t              font;        /* optional; label/button text */
     void                   *font_adapter; /* gfx_font_handle_t, owned */
+    /* Glyph alpha scratch reused across draws (owned, freed on detach). */
+    uint8_t                *glyph_scratch;
+    size_t                  glyph_scratch_cap;
 } gfx_arena_scene_t;
 
 /** Attach writable arena as the display's scene backend (takes ownership of arena bytes). */

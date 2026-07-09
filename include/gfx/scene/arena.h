@@ -42,6 +42,14 @@ extern "C" {
 #define ARENA_F_CLICKABLE (1u << 2)
 #define ARENA_F_PRESSED   (1u << 3)
 
+/*
+ * flags bits 8..15 carry an optional per-node corner radius in pixels.
+ * 0 keeps the type default (BUTTON: 6, others: square), so v1 packages
+ * with these bits zero render unchanged. No ARENA_VERSION bump needed.
+ */
+#define ARENA_F_RADIUS_SHIFT 8u
+#define ARENA_F_RADIUS_MASK  (0xFFu << ARENA_F_RADIUS_SHIFT)
+
 /** Image blob pixel format (arena_img_hdr_t.format). */
 #define ARENA_IMG_FMT_RGB565 0u
 
@@ -106,6 +114,12 @@ typedef struct {
 } arena_items_hdr_t;
 #pragma pack(pop)
 
+/** Per-node corner radius from flags bits 8..15; 0 = type default. */
+static inline uint8_t arena_node_radius(const arena_node_t *n)
+{
+    return (uint8_t)((n->flags & ARENA_F_RADIUS_MASK) >> ARENA_F_RADIUS_SHIFT);
+}
+
 typedef struct {
     uint8_t *base;
     size_t   size;
@@ -120,6 +134,7 @@ typedef struct {
     const char *name;
     int      parent;
     const char *action; /* BUTTON: action name; ignored for IMAGE/LIST/WHEEL */
+    uint8_t  radius;    /* corner radius px; 0 = type default (BUTTON 6, others square) */
     /** IMAGE: optional RGB565 pixels (w*h*2 bytes). Packed after string table. */
     const uint16_t *img_rgb565;
     uint16_t img_w;

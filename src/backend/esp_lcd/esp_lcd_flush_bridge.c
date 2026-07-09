@@ -16,7 +16,6 @@
 #include "backend/esp_lcd/esp_lcd_copy_unrendered.h"
 #include "backend/esp_lcd/esp_lcd_priv.h"
 #include "core/display/gfx_display_priv.h"
-#include "platform/esp_idf/esp_idf_async_fbcpy.h"
 #include "platform/esp_idf/esp_idf_flush_staging.h"
 
 static const char *const TAG = "esp_lcd_bridge";
@@ -192,6 +191,21 @@ static gfx_err_t gfx_backend_esp_lcd_flush_full(gfx_backend_esp_lcd_t *lcd,
     }
 
     /*
+     * Lazy sync-back: the newly rendered buffer still misses last frame's
+     * content outside this frame's dirty areas. Copy only those regions from
+     * the current front buffer; a full-screen dirty frame copies nothing.
+     */
+    if (lcd->pipeline_enabled && lcd->disp_fb_valid && lcd->draw_fb_stale) {
+        gfx_copy_unrendered_areas(disp,
+                                  lcd->disp_fb,
+                                  (void *)pixels,
+                                  h_res,
+                                  v_res,
+                                  disp->format.output_pixel_size);
+    }
+    lcd->draw_fb_stale = false;
+
+    /*
      * Commit the current front buffer BEFORE draw_bitmap so that the panel
      * ISR (which fires after the blit and calls retire_isr) finds a buffer
      * in the inflight queue to retire and can give the semaphore.
@@ -270,6 +284,7 @@ void gfx_backend_esp_lcd_flush_bridge_deinit(gfx_backend_esp_lcd_t *lcd)
     lcd->pipeline_enabled = false;
     lcd->pending_pipeline_swap = false;
     lcd->disp_fb_valid = false;
+    lcd->draw_fb_stale = false;
     lcd->disp_fb = NULL;
     lcd->draw_fb = NULL;
 }
@@ -296,26 +311,19 @@ void gfx_backend_esp_lcd_post_flush_buf_update(gfx_backend_esp_lcd_t *lcd, gfx_d
             lcd->draw_fb = next->buffer;
 
             /*
-             * Sync-back for FULL pipeline modes: copy the current front
-             * buffer (disp_fb, just sent to the panel) into the newly
-             * acquired draw buffer so that dirty-region rendering has a
-             * valid background for non-dirty screen areas.
+             * Sync-back for FULL pipeline modes is deferred: the acquired
+             * draw buffer misses the frame just shown, so mark it stale and
+             * let the next flush copy only the regions that frame will not
+             * redraw (copy_unrendered_areas). A full-screen redraw — the
+             * common case for pager drags and full invalidations — then
+             * skips the copy entirely.
              *
              * PARTIAL pipeline modes handle this via copy_unrendered_areas
              * inside flush_staging before each blit; no sync-back needed here.
              */
             if (lcd->tear_mode == GFX_TEAR_DOUBLE_FULL ||
                     lcd->tear_mode == GFX_TEAR_TRIPLE_FULL) {
-                uint32_t h_res = gfx_display_get_h_res(disp);
-                uint32_t v_res = gfx_display_get_v_res(disp);
-                size_t   px    = disp->format.output_pixel_size;
-
-                gfx_platform_async_fbcpy_cache_msync(lcd->disp_fb,
-                                                     (size_t)h_res * v_res * px);
-                (void)gfx_platform_async_fbcpy_region(lcd->disp_fb,
-                                                      lcd->draw_fb,
-                                                      h_res, v_res, h_res,
-                                                      0, 0, h_res, v_res, px);
+                lcd->draw_fb_stale = true;
             }
         }
 
