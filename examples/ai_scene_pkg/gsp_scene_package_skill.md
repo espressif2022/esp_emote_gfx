@@ -48,4 +48,4 @@ If the package contains image data, expand the blob table in the manifest. Inclu
 5. Run the headless demo or loader test.
 6. Record the exact validation result in the manifest.
 
-For `home.inc`, the companion manifest is `home.manifest.md`.
+For `home.inc`, the companion manifest is `gsp_export/home.manifest.md`.

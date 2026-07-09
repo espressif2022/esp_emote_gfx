@@ -1,9 +1,10 @@
 # `home.inc` GSP Scene Package Manifest
 
-This file explains the binary bytes in `home.inc`. Keep it synchronized whenever `home_scene_pkg[]` changes.
+This file is generated from `home.gsp` by `gsp_package_tools.py`. It explains the binary bytes that are wrapped by the companion `.inc`.
 
 ## Export Summary
 
+- Source package: `home.gsp`
 - Package include: `home.inc`
 - Runtime package symbol: `home_scene_pkg[]`
 - Package length symbol: `home_scene_pkg_len`
@@ -11,7 +12,6 @@ This file explains the binary bytes in `home.inc`. Keep it synchronized whenever
 - Source preview image: `home_preview.bmp`
 - Format: GSP1 v4, little-endian, pointer-free runtime package
 - Loader: `gsp_load_with_fonts(home_scene_pkg, home_scene_pkg_len, ...)`
-- Current change: enlarged the main container and replaced the placeholder with a baked image blob.
 
 ## Header
 
@@ -59,20 +59,20 @@ Parent rule: entries are preorder; every non-root object must reference an earli
 
 ## Object Table
 
-| Idx | Role | Type | Parent | Rect | Flags | Name / Text / Callback / Blob | Font | Bind | Notes |
+| Idx | Role | Type | Parent | Rect | Flags | Name / Text / Callback / Blob / Params | Font | Bind | Notes |
 |---:|---|---|---:|---|---:|---|---:|---:|---|
-| `0` | screen root | container | root | `(0,0 480x480)` | `0x004` | none | `0` | `0` | Background 0x0E1116; flags: BG_COLOR |
-| `1` | home layer | layer | `0` | `(36,68 408x344)` | `0x09C` | name@`1029` `homeLayer` | `0` | `0` | First page layer; flags: BG_COLOR|BORDER|RADIUS|NAME |
-| `2` | title | label | `1` | `(30,30 340x32)` | `0x083` | name@`1066` `title`, text@`1039` `AI Scene · u32-offset pkg` | `0` | `0` | Main scene title; flags: TEXT|FG_COLOR|NAME |
-| `3` | subtitle | label | `1` | `(30,72 340x26)` | `0x083` | name@`1106` `subtitle`, text@`1072` `page 1: image + callback + action` | `1` | `0` | Package invariance note; flags: TEXT|FG_COLOR|NAME |
-| `4` | data label | label | `1` | `(30,106 340x30)` | `0x003` | text@`1115` `温度 23.5°C 数据绑定` | `2` | `1` | Demo bind_id 1; flags: TEXT|FG_COLOR |
-| `5` | baked image | image | `1` | `(30,150 96x72)` | `0x040` | blob `0` | `0` | `0` | RGB565 preview image baked into blob table; flags: IMAGE |
-| `6` | home Next | button | `1` | `(238,246 140x60)` | `0x0BF` | name@`1154` `homeNext`, text@`1143` `Next`, cb@`1148` `on_ok` | `3` | `0` | Callback on_ok + GOTO selectorLayer; flags: TEXT|FG_COLOR|BG_COLOR|BORDER|RADIUS|CALLBACK|NAME |
-| `7` | selector layer | layer | `0` | `(36,68 408x344)` | `0x19C` | name@`1163` `selectorLayer` | `0` | `0` | Second page layer, initially hidden; flags: BG_COLOR|BORDER|RADIUS|NAME|HIDDEN |
-| `8` | selector title | label | `7` | `(30,28 340x32)` | `0x003` | text@`1177` `Page 2 · List + Wheel` | `0` | `0` | Second page title; flags: TEXT|FG_COLOR |
-| `9` | feature list | list | `7` | `(30,78 168x170)` | `0x88E` | name@`1200` `featureList` | `1` | `0` | List widget with params-v1 items; flags: FG_COLOR|BG_COLOR|BORDER|NAME|PARAMS |
-| `10` | format wheel | wheel | `7` | `(220,78 158x170)` | `0x88E` | name@`1212` `formatWheel` | `1` | `0` | Wheel widget with params-v1 items; flags: FG_COLOR|BG_COLOR|BORDER|NAME|PARAMS |
-| `11` | selector Next | button | `7` | `(238,246 140x60)` | `0x09F` | name@`1224` `selectorNext`, text@`1143` `Next` | `3` | `0` | GOTO homeLayer; flags: TEXT|FG_COLOR|BG_COLOR|BORDER|RADIUS|NAME |
+| `0` | container | container | root | `(0,0 480x480)` | `0x004` | none | `0` | `0` | screen background 0x0E1116; flags: BG_COLOR |
+| `1` | homeLayer | layer | `0` | `(36,68 408x344)` | `0x09C` | name@`1029` `homeLayer` | `0` | `0` | layer; flags: BG_COLOR|BORDER|RADIUS|NAME |
+| `2` | title | label | `1` | `(30,30 340x32)` | `0x083` | name@`1066` `title`, text@`1039` `AI Scene · u32-offset pkg` | `0` | `0` | -; flags: TEXT|FG_COLOR|NAME |
+| `3` | subtitle | label | `1` | `(30,72 340x26)` | `0x083` | name@`1106` `subtitle`, text@`1072` `page 1: image + callback + action` | `1` | `0` | -; flags: TEXT|FG_COLOR|NAME |
+| `4` | 温度 23.5°C 数据绑定 | label | `1` | `(30,106 340x30)` | `0x003` | text@`1115` `温度 23.5°C 数据绑定` | `2` | `1` | bind_id 1; flags: TEXT|FG_COLOR |
+| `5` | image | image | `1` | `(30,150 96x72)` | `0x040` | blob `0` | `0` | `0` | uses baked image blob; flags: IMAGE |
+| `6` | homeNext | button | `1` | `(238,246 140x60)` | `0x0BF` | name@`1154` `homeNext`, text@`1143` `Next`, cb@`1148` `on_ok` | `3` | `0` | C callback `on_ok`; flags: TEXT|FG_COLOR|BG_COLOR|BORDER|RADIUS|CALLBACK|NAME |
+| `7` | selectorLayer | layer | `0` | `(36,68 408x344)` | `0x19C` | name@`1163` `selectorLayer` | `0` | `0` | layer; initially hidden; flags: BG_COLOR|BORDER|RADIUS|NAME|HIDDEN |
+| `8` | Page 2 · List + Wheel | label | `7` | `(30,28 340x32)` | `0x003` | text@`1177` `Page 2 · List + Wheel` | `0` | `0` | -; flags: TEXT|FG_COLOR |
+| `9` | featureList | list | `7` | `(30,78 168x170)` | `0x88E` | name@`1200` `featureList`, params@`916` `67B` | `1` | `0` | items=4, selected=1, item_height=34, rows/page=4, flags=0x0001, values=[`Layer model`, `Wheel widget`, `List widget`, `Binary params`]; flags: FG_COLOR|BG_COLOR|BORDER|NAME|PARAMS |
+| `10` | formatWheel | wheel | `7` | `(220,78 158x170)` | `0x88E` | name@`1212` `formatWheel`, params@`983` `46B` | `1` | `0` | items=4, selected=0, item_height=30, rows/page=5, flags=0x0001, values=[`RGB565`, `RGB888`, `BGR888`, `ARGB8888`]; flags: FG_COLOR|BG_COLOR|BORDER|NAME|PARAMS |
+| `11` | selectorNext | button | `7` | `(238,246 140x60)` | `0x09F` | name@`1224` `selectorNext`, text@`1143` `Next` | `3` | `0` | -; flags: TEXT|FG_COLOR|BG_COLOR|BORDER|RADIUS|NAME |
 
 ## Action Table (v4)
 
@@ -105,12 +105,12 @@ Position-independent `event -> action` records (24B each). No inline structs, no
 
 ## Resource Bindings
 
-Fonts are currently outside the binary package as a C binding table in the same `.inc`. Objects refer to these by `font_id`.
+Fonts are currently outside the binary package as a C binding table in the generated `.inc`. Objects refer to these by `font_id`.
 
 | Font Id | Family | Path | Size | Weight | Style | Used By |
 |---:|---|---|---:|---:|---:|---|
 | `0` | `NotoSansCJK` | `fonts/NotoSansCJK-Regular.ttc` | `22` | `400` | `0` | object `2`, object `8` |
-| `1` | `NotoSansCJK` | `fonts/NotoSansCJK-Regular.ttc` | `17` | `400` | `0` | object `3` |
+| `1` | `NotoSansCJK` | `fonts/NotoSansCJK-Regular.ttc` | `17` | `400` | `0` | object `3`, object `9`, object `10` |
 | `2` | `NotoSansCJK` | `fonts/NotoSansCJK-Regular.ttc` | `20` | `400` | `0` | object `4` |
 | `3` | `NotoSansCJK` | `fonts/NotoSansCJK-Regular.ttc` | `21` | `700` | `0` | object `6`, object `11` |
 
@@ -130,9 +130,11 @@ home.inc
       object table scan
       string offset resolution
       runtime refs: object name / bind_id -> gfx_object_t
+      list/wheel params-v1 decode -> widget items
       blob table resolution -> image blob decode/cache
       gfx_*_create + setter
       callback name binding: "on_ok" -> on_ok_cb
+      action table dispatch: Next buttons -> layer GOTO
       render through normal GFX object tree
 ```
 
@@ -156,5 +158,5 @@ Latest result:
 ## Known Limits
 
 - Font descriptions are still C-side binding metadata, not binary package records.
-- Image blob is baked into the package, but the source authoring image is generated by this exporter for now.
-- No params block is included yet.
+- Image preview is extracted from the first RGB565 blob in the package.
+- List/wheel params-v1 is currently a compact demo format; future widgets should define their own params profile.

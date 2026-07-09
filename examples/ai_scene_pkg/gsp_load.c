@@ -234,6 +234,91 @@ static int apply_item_params(const uint8_t *buf, size_t size, const uint8_t *par
 /* v4 动作表：运行期分发（源对象 touch 回调 -> 目标对象操作）           */
 /* ------------------------------------------------------------------ */
 
+static const char *trace_type_name(uint16_t type)
+{
+    switch (type) {
+    case GSP_OBJ_CONTAINER: return "container";
+    case GSP_OBJ_LABEL: return "label";
+    case GSP_OBJ_BUTTON: return "button";
+    case GSP_OBJ_IMAGE: return "image";
+    case GSP_OBJ_LIST: return "list";
+    case GSP_OBJ_WHEEL: return "wheel";
+    case GSP_OBJ_LAYER: return "layer";
+    default: return "?";
+    }
+}
+
+static const gsp_object_ref_t *trace_ref_from_obj(const gsp_scene_t *s, const gfx_object_t *obj)
+{
+    if (s == NULL || s->refs == NULL || obj == NULL) {
+        return NULL;
+    }
+    for (uint16_t i = 0; i < s->ref_count; i++) {
+        if (s->refs[i].obj == obj) {
+            return &s->refs[i];
+        }
+    }
+    return NULL;
+}
+
+static void trace_obj_event(gsp_scene_t *s, gfx_object_t *obj,
+                            const char *event, const char *detail)
+{
+    const gsp_object_ref_t *ref = trace_ref_from_obj(s, obj);
+    const char *name = (ref != NULL && ref->name != NULL) ? ref->name : "-";
+    uint16_t idx = ref != NULL ? ref->obj_idx : GSP_ACT_NO_TARGET;
+    uint16_t type = ref != NULL ? ref->type : 0;
+
+    printf("[gsp-event] obj[%u] %s name=\"%s\" event=%s%s%s\n",
+           idx, trace_type_name(type), name, event,
+           detail != NULL && detail[0] != '\0' ? " " : "",
+           detail != NULL ? detail : "");
+}
+
+static void trace_list_focus_cb(gfx_object_t *obj, int32_t focused_index, void *user_data)
+{
+    char detail[48];
+
+    snprintf(detail, sizeof(detail), "focused=%ld", (long)focused_index);
+    trace_obj_event((gsp_scene_t *)user_data, obj, "list_focus", detail);
+}
+
+static void trace_list_select_cb(gfx_object_t *obj, int32_t selected_index,
+                                 bool confirmed, void *user_data)
+{
+    char detail[72];
+
+    snprintf(detail, sizeof(detail), "selected=%ld confirmed=%s",
+             (long)selected_index, confirmed ? "true" : "false");
+    trace_obj_event((gsp_scene_t *)user_data, obj, "list_select", detail);
+}
+
+static void trace_list_page_cb(gfx_object_t *obj, uint16_t page_index,
+                               uint16_t items_per_page, void *user_data)
+{
+    char detail[72];
+
+    snprintf(detail, sizeof(detail), "page=%u items_per_page=%u",
+             page_index, items_per_page);
+    trace_obj_event((gsp_scene_t *)user_data, obj, "list_page", detail);
+}
+
+static void trace_wheel_value_cb(gfx_object_t *obj, int32_t selected_index, void *user_data)
+{
+    char detail[48];
+
+    snprintf(detail, sizeof(detail), "selected=%ld", (long)selected_index);
+    trace_obj_event((gsp_scene_t *)user_data, obj, "wheel_value", detail);
+}
+
+static void trace_wheel_confirm_cb(gfx_object_t *obj, int32_t selected_index, void *user_data)
+{
+    char detail[48];
+
+    snprintf(detail, sizeof(detail), "selected=%ld", (long)selected_index);
+    trace_obj_event((gsp_scene_t *)user_data, obj, "wheel_confirm", detail);
+}
+
 static gfx_object_t *action_target(const gsp_scene_t *s, const gsp_action_rt_t *a)
 {
     if (a->target_name != NULL) {
@@ -264,7 +349,14 @@ static int show_layer_object(gsp_scene_t *s, gfx_object_t *layer)
 
     for (uint16_t i = 0; i < s->ref_count; i++) {
         if (s->refs[i].type == GSP_OBJ_LAYER && s->refs[i].parent_idx == target->parent_idx) {
-            (void)gfx_object_set_visible(s->refs[i].obj, s->refs[i].obj == layer);
+            bool next_visible = s->refs[i].obj == layer;
+            bool was_visible = gfx_object_get_visible(s->refs[i].obj);
+
+            if (was_visible != next_visible) {
+                trace_obj_event(s, s->refs[i].obj,
+                                next_visible ? "layer_enter" : "layer_exit", NULL);
+            }
+            (void)gfx_object_set_visible(s->refs[i].obj, next_visible);
         }
     }
     return GSP_OK;
@@ -768,6 +860,17 @@ int gsp_load_with_fonts(const uint8_t *buf, size_t size, gfx_display_t *disp,
     out->refs = refs;
     out->ref_count = (uint16_t)obj_count;
     out->root = objs[0];
+
+    for (uint16_t i = 0; i < out->ref_count; i++) {
+        if (out->refs[i].type == GSP_OBJ_LIST) {
+            (void)gfx_list_set_focus_cb(out->refs[i].obj, trace_list_focus_cb, out);
+            (void)gfx_list_set_select_cb(out->refs[i].obj, trace_list_select_cb, out);
+            (void)gfx_list_set_page_load_cb(out->refs[i].obj, trace_list_page_cb, out);
+        } else if (out->refs[i].type == GSP_OBJ_WHEEL) {
+            (void)gfx_wheel_set_value_cb(out->refs[i].obj, trace_wheel_value_cb, out);
+            (void)gfx_wheel_set_confirm_cb(out->refs[i].obj, trace_wheel_confirm_cb, out);
+        }
+    }
 
     /* v4：解析动作表（坏包只返回错误码）*/
     rc = parse_actions(buf, size, total, action_count, action_off, obj_count, out);

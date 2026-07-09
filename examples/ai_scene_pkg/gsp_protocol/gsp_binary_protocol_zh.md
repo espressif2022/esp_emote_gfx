@@ -394,8 +394,8 @@ loader 约束：
 
 ```text
 home.inc
-home.manifest.md
-可选源图预览，例如 home_preview.bmp
+gsp_export/home.manifest.md
+可选源图预览，例如 gsp_export/home_preview.bmp
 ```
 
 导出器必须：
@@ -405,7 +405,7 @@ home.manifest.md
 3. 在最终布局确定后计算所有 table offset。
 4. 在整包组装完成后计算 CRC。
 5. 输出 `home_scene_pkg_len = sizeof(home_scene_pkg)`。
-6. 输出或更新 `home.manifest.md`。
+6. 输出或更新 `gsp_export/home.manifest.md`。
 7. 导出后运行 loader 校验。
 
 manifest 必须包含：
@@ -490,7 +490,7 @@ GSP_VERSION = 4
 - blob 数量和资源含义
 - 实际颜色、尺寸和位置
 
-例如，当前 `home.inc` 有自己的 object table 和 blob table，但这些细节不属于通用二进制协议。它们应该只出现在 `home.manifest.md` 中。
+例如，当前 `home.inc` 有自己的 object table 和 blob table，但这些细节不属于通用二进制协议。它们应该只出现在 `gsp_export/home.manifest.md` 中。
 
 协议只定义任意 package 如何描述这些信息：
 

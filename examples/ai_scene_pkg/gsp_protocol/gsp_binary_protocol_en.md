@@ -394,8 +394,8 @@ Required outputs:
 
 ```text
 home.inc
-home.manifest.md
-optional source previews, e.g. home_preview.bmp
+gsp_export/home.manifest.md
+optional source previews, e.g. gsp_export/home_preview.bmp
 ```
 
 Exporter must:
@@ -405,7 +405,7 @@ Exporter must:
 3. Compute table offsets after final layout is known.
 4. Compute CRC after the full package is assembled.
 5. Emit `home_scene_pkg_len = sizeof(home_scene_pkg)`.
-6. Emit or update `home.manifest.md`.
+6. Emit or update `gsp_export/home.manifest.md`.
 7. Run loader validation after export.
 
 Manifest must include:
@@ -492,7 +492,7 @@ The following are scene-specific and must be described by each package manifest,
 - blob count and resource meaning
 - actual colors, sizes, and positions
 
-For example, `home.inc` currently has its own object table and blob table, but those details are not part of the general binary protocol. They belong in `home.manifest.md`.
+For example, `home.inc` currently has its own object table and blob table, but those details are not part of the general binary protocol. They belong in `gsp_export/home.manifest.md`.
 
 The protocol only defines how an arbitrary package describes those things:
 
