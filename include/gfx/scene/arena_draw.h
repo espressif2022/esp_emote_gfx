@@ -37,8 +37,9 @@ int arena_draw_clipped(gfx_display_t *disp, const arena_t *arena,
 
 /**
  * True if the attached arena scene is guaranteed to paint every pixel of
- * clip (half-open) opaquely: when the bottom root is an opaque square
- * container covering clip. Lets the render core skip the background clear.
+ * clip (half-open) opaquely: pager compose frames always do; node-tree
+ * frames do when the bottom root is an opaque square container covering
+ * clip. Lets the render core skip the background clear.
  */
 bool arena_draw_covers_clip(gfx_display_t *disp, const gfx_area_t *clip);
 

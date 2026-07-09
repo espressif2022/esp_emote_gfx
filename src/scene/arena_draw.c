@@ -552,12 +552,71 @@ static void draw_node_disp(gfx_display_t *disp, arena_t *a, uint32_t node_off,
     }
 }
 
+/*
+ * Pager compose: copy shifted rows from the two page snapshots instead of
+ * redrawing the node tree. Snapshots share the surface's 16bpp render
+ * format, so rows move with raw memcpy at PSRAM bandwidth.
+ */
+static int arena_draw_pager_compose(gfx_arena_scene_t *scene, const gfx_render_surface_t *surf)
+{
+    const int32_t w = (int32_t)scene->pager.w;
+    const int32_t h = (int32_t)scene->pager.h;
+    const uint16_t *cur = scene->pager.snap[scene->pager.current];
+    const uint16_t *nb = scene->pager.snap[scene->pager.current ^ 1U];
+    const int32_t dx = scene->pager.drag_dx;
+
+    if (cur == NULL || nb == NULL || w <= 0 || h <= 0) {
+        return -1;
+    }
+
+    gfx_area_t lim;
+    if (!gfx_area_intersect_exclusive(&lim, &surf->clip_area, &surf->buf_area)) {
+        return 0;
+    }
+
+    /* Current page occupies screen x in [max(0,dx), min(w,w+dx)); the
+     * neighbor fills the remaining strip on the opposite side. */
+    const int32_t cur_x1 = (dx > 0) ? dx : 0;
+    const int32_t cur_x2 = (dx < 0) ? (w + dx) : w;
+    const int32_t nb_x1 = (dx < 0) ? (w + dx) : 0;
+    const int32_t nb_x2 = (dx < 0) ? w : dx;
+    const int32_t nb_src_shift = (dx < 0) ? -(w + dx) : (w - dx);
+
+    uint16_t *dst_base = (uint16_t *)surf->buf;
+
+    for (int32_t y = lim.y1; y < lim.y2 && y < h; y++) {
+        uint16_t *dst_row = dst_base +
+                            (size_t)(y - surf->buf_area.y1) * (size_t)surf->stride;
+        const uint16_t *cur_row = cur + (size_t)y * (size_t)w;
+        const uint16_t *nb_row = nb + (size_t)y * (size_t)w;
+
+        int32_t x1 = (cur_x1 > lim.x1) ? cur_x1 : lim.x1;
+        int32_t x2 = (cur_x2 < lim.x2) ? cur_x2 : lim.x2;
+        if (x2 > x1) {
+            memcpy(dst_row + (x1 - surf->buf_area.x1), cur_row + (x1 - dx),
+                   (size_t)(x2 - x1) * sizeof(uint16_t));
+        }
+
+        x1 = (nb_x1 > lim.x1) ? nb_x1 : lim.x1;
+        x2 = (nb_x2 < lim.x2) ? nb_x2 : lim.x2;
+        if (x2 > x1) {
+            memcpy(dst_row + (x1 - surf->buf_area.x1), nb_row + (x1 + nb_src_shift),
+                   (size_t)(x2 - x1) * sizeof(uint16_t));
+        }
+    }
+    return 0;
+}
+
 bool arena_draw_covers_clip(gfx_display_t *disp, const gfx_area_t *clip)
 {
     gfx_arena_scene_t *scene = arena_scene_from_disp(disp);
 
     if (scene == NULL || clip == NULL || clip->x2 <= clip->x1 || clip->y2 <= clip->y1) {
         return false;
+    }
+    /* Compose copies snapshot pixels over the whole clip. */
+    if (arena_scene_pager_composing(scene)) {
+        return true;
     }
     if (scene->arena.base == NULL) {
         return false;
@@ -589,6 +648,9 @@ int arena_draw_clipped(gfx_display_t *disp, const arena_t *arena, const void *re
     gfx_arena_scene_t *scene = arena_scene_from_disp(disp);
     if (scene != NULL) {
         font = (gfx_font_handle_t)scene->font_adapter;
+        if (arena_scene_pager_composing(scene)) {
+            return arena_draw_pager_compose(scene, surf);
+        }
     }
 
     const arena_hdr_t *hdr = arena_hdr(a);

@@ -12,11 +12,13 @@
  * Hand-written object UI does not use this API.
  */
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include "gfx/input.h"
 #include "gfx/scene/arena.h"
+#include "gfx/timer.h"
 #include "gfx/types.h"
 #include "gfx/widgets/label.h" /* gfx_font_t */
 
@@ -35,6 +37,28 @@ typedef struct {
     void             *user_data;
 } arena_action_entry_t;
 
+/**
+ * Full-screen horizontal pager (drag between pages).
+ *
+ * Pages are pre-rendered into full-frame snapshots at enable time; drag and
+ * snap frames compose the two snapshots row-wise instead of redrawing the
+ * node tree, so drag cost is independent of scene complexity.
+ *
+ * load_page rebuilds the arena content for a page (e.g. arena_pack +
+ * arena_load + arena_scene_replace_arena). It runs in gfx task context on
+ * page settle and in the caller's context during enable; it must NOT take
+ * the gfx core lock. Pages are rebuilt on switch (widget state resets).
+ */
+typedef struct {
+    gfx_handle_t gfx;          /* core handle (snap animation timer) */
+    uint8_t  page_count;       /* current implementation requires 2 */
+    uint8_t  current;          /* page currently loaded in the arena */
+    uint16_t drag_threshold;   /* px to enter drag mode; 0 = 8 */
+    uint16_t snap_ms;          /* snap animation length; 0 = 200 */
+    int (*load_page)(uint8_t page, void *user_data);
+    void *user_data;
+} arena_pager_config_t;
+
 typedef struct gfx_arena_scene {
     arena_t                 arena;
     gfx_display_t          *disp;
@@ -47,7 +71,36 @@ typedef struct gfx_arena_scene {
     /* Glyph alpha scratch reused across draws (owned, freed on detach). */
     uint8_t                *glyph_scratch;
     size_t                  glyph_scratch_cap;
+    /* Pager state; internal, mutated on the gfx task (touch/timer/render). */
+    struct {
+        bool     enabled;
+        bool     touch_active;  /* finger down since PRESS */
+        bool     dragging;      /* past threshold: compose mode */
+        bool     animating;     /* snap animation running */
+        bool     snap_stale;    /* current page mutated since snapshot */
+        uint8_t  track;
+        uint8_t  current;
+        uint16_t drag_threshold;
+        uint16_t snap_ms;
+        uint16_t w, h;          /* snapshot dimensions (display res) */
+        int16_t  start_x, start_y;
+        int32_t  drag_dx;       /* current page shift; <0 next page, >0 prev */
+        int32_t  snap_from, snap_to;
+        uint32_t snap_start;    /* gfx_timer_tick_get() at snap start */
+        gfx_handle_t gfx;
+        gfx_timer_handle_t snap_timer;
+        uint16_t *snap[2];      /* per-page RGB565 snapshots (owned) */
+        int (*load_page)(uint8_t page, void *user_data);
+        void *user_data;
+    } pager;
 } gfx_arena_scene_t;
+
+/** True while draw must compose pager snapshots instead of the node tree. */
+static inline bool arena_scene_pager_composing(const gfx_arena_scene_t *scene)
+{
+    return scene->pager.enabled &&
+           (scene->pager.dragging || scene->pager.animating || scene->pager.drag_dx != 0);
+}
 
 /** Attach writable arena as the display's scene backend (takes ownership of arena bytes). */
 int arena_scene_attach(gfx_display_t *disp, arena_t *arena, gfx_arena_scene_t *out);
@@ -82,6 +135,35 @@ uint32_t arena_scene_hit_test(gfx_arena_scene_t *scene, uint16_t x, uint16_t y);
  * Returns 1 if handled by arena scene, 0 if no arena / not handled.
  */
 int arena_scene_handle_touch(gfx_display_t *disp, const gfx_touch_event_t *event);
+
+/**
+ * Replace scene arena content in place (frees the old arena, takes ownership
+ * of the new one; font/actions/pager state are kept). Caller must hold the
+ * gfx core lock or run in gfx task context.
+ */
+int arena_scene_replace_arena(gfx_arena_scene_t *scene, arena_t *arena);
+
+/* ---- pager (full-screen horizontal drag between 2 pages) ---- */
+
+/**
+ * Enable the pager and pre-render both page snapshots. The arena must
+ * already hold cfg->current, and the display render format must be 16bpp.
+ * Allocates 2 * w * h * 2 bytes for snapshots (freed on disable/detach).
+ * Caller must hold the gfx core lock.
+ */
+int arena_scene_pager_enable(gfx_arena_scene_t *scene, const arena_pager_config_t *cfg);
+
+/** Free snapshots/timer and return to normal node-tree rendering. */
+void arena_scene_pager_disable(gfx_arena_scene_t *scene);
+
+/**
+ * Programmatic drag for benches: set the page shift directly (clamped to the
+ * valid direction) and mark the screen dirty. Caller must hold the gfx lock.
+ */
+int arena_scene_pager_set_offset(gfx_arena_scene_t *scene, int32_t dx);
+
+/** End a programmatic drag: offset 0, compose mode off, screen dirty. */
+int arena_scene_pager_cancel(gfx_arena_scene_t *scene);
 
 /* ---- test / debug hooks (keep for CI demos) ---- */
 uint8_t arena_scene_test_dirty_count(gfx_display_t *disp);
