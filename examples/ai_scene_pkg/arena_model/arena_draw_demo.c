@@ -5,12 +5,12 @@
  */
 
 /*
- * arena_draw_demo — prove pixels come from arena without any gfx_object_t
+ * gfx_arena_draw_demo — prove pixels come from arena without any gfx_object_t
  * =====================================================================
- *   pack arena → memcpy load → arena_draw() into memory-backend FB
+ *   pack arena → memcpy load → gfx_arena_draw() into memory-backend FB
  *
  * Explicitly does NOT call:
- *   gfx_core_init / gfx_display_add / gfx_*_create / arena_gfx_bind
+ *   gfx_core_init / gfx_display_add / gfx_*_create / gfx_arena_gfx_bind
  *
  *   cmake --build build-host-sdl --target gfx_arena_draw_demo
  *   ./build-host-sdl/gfx_arena_draw_demo
@@ -20,10 +20,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "arena_draw.h"
-#include "arena_model.h"
-
 #include "gfx/backends/memory.h"
+#include "gfx/scene/arena.h"
+#include "gfx/scene/arena_draw.h"
 
 #define SCREEN_W 320
 #define SCREEN_H 240
@@ -56,28 +55,28 @@ int main(void)
 
     printf("arena_draw_demo: draw arena directly (no gfx_object_t)\n");
 
-    const arena_desc_t descs[] = {
+    const gfx_arena_desc_t descs[] = {
         {
-            ARENA_NODE_CONTAINER, ARENA_F_VISIBLE | ARENA_F_BG, 0, 0, SCREEN_W, SCREEN_H,
+            GFX_ARENA_NODE_CONTAINER, GFX_ARENA_F_VISIBLE | GFX_ARENA_F_BG, 0, 0, SCREEN_W, SCREEN_H,
             0x1c1f2e, "root", -1
         },
-        /* label present in tree but must NOT be drawn by arena_draw */
+        /* label present in tree but must NOT be drawn by gfx_arena_draw */
         {
-            ARENA_NODE_LABEL, ARENA_F_VISIBLE, 16, 16, 180, 28,
+            GFX_ARENA_NODE_LABEL, GFX_ARENA_F_VISIBLE, 16, 16, 180, 28,
             0xffffff, "title", 0
         },
         {
-            ARENA_NODE_BUTTON, ARENA_F_VISIBLE | ARENA_F_BG, 200, 180, 96, 40,
+            GFX_ARENA_NODE_BUTTON, GFX_ARENA_F_VISIBLE | GFX_ARENA_F_BG, 200, 180, 96, 40,
             0x2f8cff, "ok", 0
         },
     };
 
     size_t pkg_size = 0;
-    uint8_t *pkg = arena_pack(descs, (uint16_t)(sizeof(descs) / sizeof(descs[0])), &pkg_size);
+    uint8_t *pkg = gfx_arena_pack(descs, (uint16_t)(sizeof(descs) / sizeof(descs[0])), &pkg_size);
     CHECK(pkg != NULL, "pack");
 
-    arena_t arena = {0};
-    CHECK(arena_load(pkg, pkg_size, &arena) == 0, "load arena");
+    gfx_arena_t arena = {0};
+    CHECK(gfx_arena_load(pkg, pkg_size, &arena) == 0, "load arena");
 
     /* Only use memory backend as an RGB565 framebuffer owner — no display/objects. */
     gfx_backend_t *backend = gfx_memory_backend_create(&(gfx_memory_backend_config_t) {
@@ -91,13 +90,13 @@ int main(void)
     CHECK(gfx_memory_backend_get_buffer_pixels(backend) == (size_t)SCREEN_W * SCREEN_H,
           "framebuffer size");
 
-    arena_fb_t fb = {
+    gfx_arena_fb_t fb = {
         .pixels = pixels,
         .width = SCREEN_W,
         .height = SCREEN_H,
         .clear_rgb565 = 0x0000,
     };
-    CHECK(arena_draw(&arena, &fb) == 0, "arena_draw");
+    CHECK(gfx_arena_draw(&arena, &fb) == 0, "arena_draw");
 
     const uint16_t root_c = rgb888_to_rgb565(0x1c1f2e);
     const uint16_t btn_c = rgb888_to_rgb565(0x2f8cff);
@@ -108,23 +107,23 @@ int main(void)
     CHECK(sample_px(pixels, 20, 20) == root_c, "label region still root bg (label skipped)");
 
     /* In-place mutate arena, redraw, prove FB tracks arena (not object state). */
-    arena_node_t *ok = arena_find_by_name(&arena, "ok");
+    gfx_arena_node_t *ok = gfx_arena_find_by_name(&arena, "ok");
     CHECK(ok != NULL, "find ok node");
     if (ok != NULL) {
         ok->bg_rgb = 0xff6644;
     }
-    CHECK(arena_draw(&arena, &fb) == 0, "redraw after in-place mutate");
+    CHECK(gfx_arena_draw(&arena, &fb) == 0, "redraw after in-place mutate");
     CHECK(sample_px(pixels, 220, 190) == rgb888_to_rgb565(0xff6644),
           "button pixel follows arena mutate (no gfx_object_t)");
 
     printf("\nProof checklist:\n");
     printf("  [x] no gfx_core / gfx_display / gfx_*_create\n");
-    printf("  [x] pixels filled by arena_draw from arena nodes\n");
+    printf("  [x] pixels filled by gfx_arena_draw from arena nodes\n");
     printf("  [x] label skipped\n");
     printf("  [x] in-place arena mutate reflected on next draw\n");
 
     gfx_memory_backend_delete(backend);
-    arena_free(&arena);
+    gfx_arena_free(&arena);
     free(pkg);
 
     printf(fails == 0 ? "PASS\n" : "FAIL\n");

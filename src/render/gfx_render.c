@@ -1298,9 +1298,12 @@ void gfx_render_part_area(gfx_display_t *disp, gfx_area_t *area, uint8_t area_id
             gfx_area_t fill_area = { chunk_x1, chunk_y1, chunk_x2, chunk_y2 };
             gfx_render_fill_area(disp, &draw_ctx, &fill_area, disp->style.bg_color, GFX_RENDER_OPA_COVER);
         }
-        /* Package UI: draw arena into dirty clip. Hand-written object tree unchanged. */
-        if (disp->arena_scene != NULL) {
-            gfx_arena_scene_t *ascene = (gfx_arena_scene_t *)disp->arena_scene;
+        /*
+         * Package UI draws first. Object tree may overlay (Anim/Motion hosted
+         * beside arena panels). Pure object path when no arena is attached.
+         */
+        if (disp->gfx_arena_scene != NULL) {
+            gfx_arena_scene_t *ascene = (gfx_arena_scene_t *)disp->gfx_arena_scene;
             gfx_render_surface_t surf = {
                 .buf = draw_ctx.buf,
                 .buf_area = draw_ctx.buf_area,
@@ -1308,10 +1311,9 @@ void gfx_render_part_area(gfx_display_t *disp, gfx_area_t *area, uint8_t area_id
                 .stride = draw_ctx.stride,
                 .format = draw_ctx.format,
             };
-            (void)arena_draw_clipped(disp, &ascene->arena, &surf);
-        } else {
-            gfx_render_draw_child_objects(disp, &draw_ctx);
+            (void)gfx_arena_draw_clipped(disp, &ascene->arena, &surf);
         }
+        gfx_render_draw_child_objects(disp, &draw_ctx);
         disp->render.render_time_us += (uint64_t)(gfx_platform_time_us() - render_start_us);
 
         if (disp->backend != NULL) {
@@ -1426,12 +1428,18 @@ bool gfx_render_handler(gfx_core_context_t *ctx)
         int64_t frame_start_us = gfx_platform_time_us();
         gfx_refresh_update_layout_dirty(disp);
 
+        /* Arena list inertia must tick even when dirty was cleared last frame. */
+        if (disp->gfx_arena_scene != NULL) {
+            (void)gfx_arena_scene_tick((gfx_arena_scene_t *)disp->gfx_arena_scene);
+        }
+
         if (disp->dirty.count > 1) {
             gfx_refresh_merge_areas(disp);
         } else if (disp->dirty.count == 0) {
             continue;
         }
 
+        /* Anim/Motion timers invalidate objects even when arena is attached. */
         gfx_render_update_child_objects(disp);
 
         uint32_t dirty_px = gfx_render_area_summary(disp);

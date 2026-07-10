@@ -5,9 +5,9 @@
  */
 
 /*
- * arena_dirty_demo — Phase2/3/4 closed-loop test (keep as CI interface)
+ * gfx_arena_dirty_demo — Phase2/3/4 closed-loop test (keep as CI interface)
  * =====================================================================
- *   pack → load → arena_scene_attach + set_font
+ *   pack → load → gfx_arena_scene_attach + set_font
  *   → mark_dirty(node)  (must NOT fullscreen by default)
  *   → gfx_core_refresh_now (render arena: bg + label/button text)
  *   → touch inject → action callback
@@ -42,7 +42,7 @@ extern const lv_font_t font_puhui_16_4;
 
 static int s_action_hits;
 
-static void on_ok_action(arena_t *arena, arena_node_t *node,
+static void on_ok_action(gfx_arena_t *arena, gfx_arena_node_t *node,
                          const gfx_touch_event_t *event, void *user_data)
 {
     (void)arena;
@@ -95,40 +95,40 @@ int main(void)
         }
     }
 
-    const arena_desc_t descs[] = {
+    const gfx_arena_desc_t descs[] = {
         {
-            .type = ARENA_NODE_CONTAINER,
-            .flags = ARENA_F_VISIBLE | ARENA_F_BG,
+            .type = GFX_ARENA_NODE_CONTAINER,
+            .flags = GFX_ARENA_F_VISIBLE | GFX_ARENA_F_BG,
             .x = 0, .y = 0, .w = SCREEN_W, .h = SCREEN_H,
             .bg_rgb = 0x1c1f2e, .name = "root", .parent = -1, .action = NULL
         },
         {
-            .type = ARENA_NODE_LABEL,
-            .flags = ARENA_F_VISIBLE,
+            .type = GFX_ARENA_NODE_LABEL,
+            .flags = GFX_ARENA_F_VISIBLE,
             .x = 16, .y = 16, .w = 160, .h = 28,
             .bg_rgb = 0xF3F7FA, .name = "Hello", .parent = 0, .action = NULL
         },
         {
-            .type = ARENA_NODE_IMAGE,
-            .flags = ARENA_F_VISIBLE,
+            .type = GFX_ARENA_NODE_IMAGE,
+            .flags = GFX_ARENA_F_VISIBLE,
             .x = 16, .y = 56, .w = ICON_W, .h = ICON_H,
             .bg_rgb = 0, .name = "icon", .parent = 0, .action = NULL,
-            .img_rgb565 = icon_px, .img_w = ICON_W, .img_h = ICON_H
+            .u.image = { .rgb565 = icon_px, .w = ICON_W, .h = ICON_H }
         },
         {
-            .type = ARENA_NODE_BUTTON,
-            .flags = ARENA_F_VISIBLE | ARENA_F_BG | ARENA_F_CLICKABLE,
+            .type = GFX_ARENA_NODE_BUTTON,
+            .flags = GFX_ARENA_F_VISIBLE | GFX_ARENA_F_BG | GFX_ARENA_F_CLICKABLE,
             .x = 200, .y = 180, .w = 96, .h = 40,
             .bg_rgb = 0x2f8cff, .name = "OK", .parent = 0, .action = "on_ok"
         },
     };
 
     size_t pkg_size = 0;
-    uint8_t *pkg = arena_pack(descs, 4, &pkg_size);
+    uint8_t *pkg = gfx_arena_pack(descs, 4, &pkg_size);
     CHECK(pkg != NULL, "pack");
 
-    arena_t arena = {0};
-    CHECK(arena_load(pkg, pkg_size, &arena) == 0, "load RAM copy");
+    gfx_arena_t arena = {0};
+    CHECK(gfx_arena_load(pkg, pkg_size, &arena) == 0, "load RAM copy");
     CHECK(arena.base != pkg, "writable copy != ROM pkg");
 
     gfx_handle_t handle = gfx_core_init(&(gfx_core_config_t) {
@@ -152,21 +152,21 @@ int main(void)
     CHECK(disp != NULL, "display add");
 
     gfx_arena_scene_t scene;
-    CHECK(arena_scene_attach(disp, &arena, &scene) == 0, "arena_scene_attach");
-    arena_scene_set_font(&scene, (gfx_font_t)&font_puhui_16_4);
+    CHECK(gfx_arena_scene_attach(disp, &arena, &scene) == 0, "arena_scene_attach");
+    gfx_arena_scene_set_font(&scene, (gfx_font_t)&font_puhui_16_4);
     CHECK(scene.font_adapter != NULL, "font adapter ready");
 
-    const arena_action_entry_t actions[] = {
+    const gfx_arena_action_entry_t actions[] = {
         { .name = "on_ok", .cb = on_ok_action, .user_data = NULL },
     };
-    arena_scene_set_actions(&scene, actions, 1);
+    gfx_arena_scene_set_actions(&scene, actions, 1);
 
-    arena_node_t *ok = arena_find_by_name(&scene.arena, "OK");
-    arena_node_t *title = arena_find_by_name(&scene.arena, "Hello");
+    gfx_arena_node_t *ok = gfx_arena_find_by_name(&scene.arena, "OK");
+    gfx_arena_node_t *title = gfx_arena_find_by_name(&scene.arena, "Hello");
     CHECK(ok != NULL && title != NULL, "find ok + Hello");
-    uint32_t ok_off = arena_node_offset(&scene.arena, ok);
-    uint32_t title_off = arena_node_offset(&scene.arena, title);
-    CHECK(ok_off != ARENA_NO_NODE && title_off != ARENA_NO_NODE, "offsets");
+    uint32_t ok_off = gfx_arena_node_offset(&scene.arena, ok);
+    uint32_t title_off = gfx_arena_node_offset(&scene.arena, title);
+    CHECK(ok_off != GFX_ARENA_NO_NODE && title_off != GFX_ARENA_NO_NODE, "offsets");
 
     gfx_display_refresh_all(disp);
     CHECK(gfx_core_refresh_now(handle) == GFX_OK, "initial refresh");
@@ -193,11 +193,11 @@ int main(void)
     uint16_t btn_px = sample_px(pixels, 205, 198);
     CHECK(btn_px == btn_c, "button fill pixel");
 
-    CHECK(arena_scene_mark_dirty(&scene, ok_off) == 0, "mark_dirty button");
-    CHECK(arena_scene_test_dirty_count(disp) >= 1, "dirty count >= 1");
+    CHECK(gfx_arena_scene_mark_dirty(&scene, ok_off) == 0, "mark_dirty button");
+    CHECK(gfx_arena_scene_test_dirty_count(disp) >= 1, "dirty count >= 1");
 
     gfx_area_t dirty0;
-    CHECK(arena_scene_test_dirty_area(disp, 0, &dirty0) == 0, "read dirty[0]");
+    CHECK(gfx_arena_scene_test_dirty_area(disp, 0, &dirty0) == 0, "read dirty[0]");
     const int dirty_w = (int)dirty0.x2 - (int)dirty0.x1 + 1;
     const int dirty_h = (int)dirty0.y2 - (int)dirty0.y1 + 1;
     CHECK(dirty_w <= 120 && dirty_h <= 60, "dirty is local (not fullscreen)");
@@ -205,7 +205,7 @@ int main(void)
            dirty0.x1, dirty0.y1, dirty0.x2, dirty0.y2, dirty_w, dirty_h);
 
     ok->bg_rgb = 0x44cc88;
-    CHECK(arena_scene_mark_dirty(&scene, ok_off) == 0, "mark after color change");
+    CHECK(gfx_arena_scene_mark_dirty(&scene, ok_off) == 0, "mark after color change");
     CHECK(gfx_core_refresh_now(handle) == GFX_OK, "refresh dirty chunk");
 
     const uint16_t expect = rgb888_to_rgb565(0x44cc88);
@@ -229,22 +229,22 @@ int main(void)
     CHECK(sample_px(pixels, 205, 198) == rgb888_to_rgb565(0xff6644),
           "pixel after action");
 
-    CHECK(arena_scene_hit_test(&scene, 10, 10) == ARENA_NO_NODE, "root not clickable");
-    CHECK(arena_scene_hit_test(&scene, 220, 190) == ok_off, "hit button");
+    CHECK(gfx_arena_scene_hit_test(&scene, 10, 10) == GFX_ARENA_NO_NODE, "root not clickable");
+    CHECK(gfx_arena_scene_hit_test(&scene, 220, 190) == ok_off, "hit button");
 
     /* Label color mutate + dirty */
     title->bg_rgb = 0xffcc00;
-    CHECK(arena_scene_mark_dirty(&scene, title_off) == 0, "mark label dirty");
+    CHECK(gfx_arena_scene_mark_dirty(&scene, title_off) == 0, "mark label dirty");
     CHECK(gfx_core_refresh_now(handle) == GFX_OK, "refresh label");
     int label_ink2 = count_non_bg_in_rect(pixels, 16, 16, 16 + 80, 16 + 24, root_bg);
     CHECK(label_ink2 > 20, "label still has ink after recolor");
 
-    arena_scene_detach(&scene);
+    gfx_arena_scene_detach(&scene);
     gfx_core_deinit(handle);
     free(pkg);
 
     if (fails == 0) {
-        printf("PASS arena_dirty_demo\n");
+        printf("PASS gfx_arena_dirty_demo\n");
         return 0;
     }
     fprintf(stderr, "%d failure(s)\n", fails);

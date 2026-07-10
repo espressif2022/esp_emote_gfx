@@ -21,10 +21,10 @@
 #define NODE_COUNT (1u + (uint16_t)GRID_ROWS + (uint16_t)(GRID_COLS * GRID_ROWS))
 #define DIRTY_ROW_CELLS GRID_COLS
 
-uint8_t *arena_compare_pack_grid(uint16_t screen_w, uint16_t screen_h,
+uint8_t *gfx_arena_compare_pack_grid(uint16_t screen_w, uint16_t screen_h,
                                  size_t *out_size, uint16_t *out_count)
 {
-    arena_desc_t *descs = (arena_desc_t *)calloc(NODE_COUNT, sizeof(arena_desc_t));
+    gfx_arena_desc_t *descs = (gfx_arena_desc_t *)calloc(NODE_COUNT, sizeof(gfx_arena_desc_t));
     char *names = (char *)calloc((size_t)(GRID_COLS * GRID_ROWS), NAME_SLOT);
     if (descs == NULL || names == NULL) {
         free(descs);
@@ -33,9 +33,9 @@ uint8_t *arena_compare_pack_grid(uint16_t screen_w, uint16_t screen_h,
     }
 
     uint16_t n = 0;
-    descs[n++] = (arena_desc_t) {
-        .type = ARENA_NODE_CONTAINER,
-        .flags = ARENA_F_VISIBLE | ARENA_F_BG,
+    descs[n++] = (gfx_arena_desc_t) {
+        .type = GFX_ARENA_NODE_CONTAINER,
+        .flags = GFX_ARENA_F_VISIBLE | GFX_ARENA_F_BG,
         .x = 0, .y = 0, .w = screen_w, .h = screen_h,
         .bg_rgb = 0x1c1f2e, .name = "root", .parent = -1,
     };
@@ -50,9 +50,9 @@ uint8_t *arena_compare_pack_grid(uint16_t screen_w, uint16_t screen_h,
 
     const uint16_t row0 = n;
     for (int row = 0; row < GRID_ROWS; row++) {
-        descs[n++] = (arena_desc_t) {
-            .type = ARENA_NODE_CONTAINER,
-            .flags = ARENA_F_VISIBLE,
+        descs[n++] = (gfx_arena_desc_t) {
+            .type = GFX_ARENA_NODE_CONTAINER,
+            .flags = GFX_ARENA_F_VISIBLE,
             .x = 0,
             .y = (int16_t)(row * cell_h),
             .w = screen_w,
@@ -70,9 +70,9 @@ uint8_t *arena_compare_pack_grid(uint16_t screen_w, uint16_t screen_h,
             char *slot = names + (size_t)cell_i * NAME_SLOT;
             (void)snprintf(slot, NAME_SLOT, "B%03u", (unsigned)cell_i);
             const int pad = 1;
-            descs[n++] = (arena_desc_t) {
-                .type = ARENA_NODE_BUTTON,
-                .flags = ARENA_F_VISIBLE | ARENA_F_BG | ARENA_F_CLICKABLE,
+            descs[n++] = (gfx_arena_desc_t) {
+                .type = GFX_ARENA_NODE_BUTTON,
+                .flags = GFX_ARENA_F_VISIBLE | GFX_ARENA_F_BG | GFX_ARENA_F_CLICKABLE,
                 .x = (int16_t)(col * cell_w + pad),
                 .y = (int16_t)pad,
                 .w = (uint16_t)(cell_w - pad * 2),
@@ -89,43 +89,43 @@ uint8_t *arena_compare_pack_grid(uint16_t screen_w, uint16_t screen_h,
     if (out_count != NULL) {
         *out_count = n;
     }
-    uint8_t *pkg = arena_pack(descs, n, out_size);
+    uint8_t *pkg = gfx_arena_pack(descs, n, out_size);
     free(descs);
     free(names);
     return pkg;
 }
 
-static uint32_t node_off_at(arena_t *arena, uint16_t idx)
+static uint32_t node_off_at(gfx_arena_t *arena, uint16_t idx)
 {
-    const arena_hdr_t *hdr = arena_hdr(arena);
-    return hdr->nodes_off + (uint32_t)idx * (uint32_t)sizeof(arena_node_t);
+    const gfx_arena_hdr_t *hdr = gfx_arena_hdr(arena);
+    return hdr->nodes_off + (uint32_t)idx * (uint32_t)sizeof(gfx_arena_node_t);
 }
 
-uint32_t arena_compare_row_container_off(arena_t *arena, int row)
+uint32_t gfx_arena_compare_row_container_off(gfx_arena_t *arena, int row)
 {
     if (arena == NULL || row < 0 || row >= GRID_ROWS) {
-        return ARENA_NO_NODE;
+        return GFX_ARENA_NO_NODE;
     }
     /* indices: 0=root, 1..GRID_ROWS = row containers */
     return node_off_at(arena, (uint16_t)(1 + row));
 }
 
-static uint32_t first_cell_off_of_row(arena_t *arena, int row)
+static uint32_t first_cell_off_of_row(gfx_arena_t *arena, int row)
 {
     /* after root + GRID_ROWS containers */
     const uint16_t idx = (uint16_t)(1u + (uint16_t)GRID_ROWS + (uint16_t)row * (uint16_t)GRID_COLS);
     return node_off_at(arena, idx);
 }
 
-void arena_compare_recolor_row(arena_t *arena, int row, uint32_t color_base)
+void gfx_arena_compare_recolor_row(gfx_arena_t *arena, int row, uint32_t color_base)
 {
     if (arena == NULL || row < 0 || row >= GRID_ROWS) {
         return;
     }
     const uint32_t base = first_cell_off_of_row(arena, row);
     for (int i = 0; i < DIRTY_ROW_CELLS; i++) {
-        const uint32_t off = base + (uint32_t)i * (uint32_t)sizeof(arena_node_t);
-        arena_node_t *btn = arena_node(arena, off);
+        const uint32_t off = base + (uint32_t)i * (uint32_t)sizeof(gfx_arena_node_t);
+        gfx_arena_node_t *btn = gfx_arena_node(arena, off);
         if (btn != NULL) {
             btn->bg_rgb = color_base + (uint32_t)i;
         }
@@ -144,23 +144,23 @@ static void accum_perf(gfx_display_t *disp, int64_t *render_sum, int64_t *flush_
 
 static void dirty_first_row_arena(gfx_arena_scene_t *scene, int iter)
 {
-    arena_compare_recolor_row(&scene->arena, 0, 0xff0000u + (uint32_t)(iter & 0xff));
-    (void)arena_scene_mark_dirty(scene, arena_compare_row_container_off(&scene->arena, 0));
+    gfx_arena_compare_recolor_row(&scene->arena, 0, 0xff0000u + (uint32_t)(iter & 0xff));
+    (void)gfx_arena_scene_mark_dirty(scene, gfx_arena_compare_row_container_off(&scene->arena, 0));
 }
 
-static void dirty_first_row_object(arena_gfx_scene_t *scene, int iter)
+static void dirty_first_row_object(gfx_arena_gfx_scene_t *scene, int iter)
 {
-    arena_compare_recolor_row(&scene->arena, 0, 0xff0000u + (uint32_t)(iter & 0xff));
+    gfx_arena_compare_recolor_row(&scene->arena, 0, 0xff0000u + (uint32_t)(iter & 0xff));
     const uint32_t base = first_cell_off_of_row(&scene->arena, 0);
     for (int i = 0; i < DIRTY_ROW_CELLS; i++) {
-        const uint32_t off = base + (uint32_t)i * (uint32_t)sizeof(arena_node_t);
-        (void)arena_gfx_sync_node(scene, off);
+        const uint32_t off = base + (uint32_t)i * (uint32_t)sizeof(gfx_arena_node_t);
+        (void)gfx_arena_gfx_sync_node(scene, off);
     }
 }
 
 static int run_arena(gfx_handle_t gfx, gfx_display_t *disp, gfx_font_t font,
                      const uint8_t *pkg, size_t pkg_size, int iters,
-                     arena_compare_path_stats_t *out)
+                     gfx_arena_compare_path_stats_t *out)
 {
     memset(out, 0, sizeof(*out));
     gfx_arena_scene_t scene;
@@ -169,17 +169,17 @@ static int run_arena(gfx_handle_t gfx, gfx_display_t *disp, gfx_font_t font,
     int64_t load_sum = 0;
     for (int i = 0; i < iters; i++) {
         if (i > 0) {
-            arena_scene_detach(&scene);
+            gfx_arena_scene_detach(&scene);
         }
-        arena_t arena = {0};
+        gfx_arena_t arena = {0};
         const int64_t t0 = gfx_platform_time_us();
-        if (arena_load(pkg, pkg_size, &arena) != 0 ||
-                arena_scene_attach(disp, &arena, &scene) != 0) {
-            arena_free(&arena);
+        if (gfx_arena_load(pkg, pkg_size, &arena) != 0 ||
+                gfx_arena_scene_attach(disp, &arena, &scene) != 0) {
+            gfx_arena_free(&arena);
             return -1;
         }
-        arena_scene_set_font(&scene, font);
-        (void)arena_scene_mark_dirty_all(&scene);
+        gfx_arena_scene_set_font(&scene, font);
+        (void)gfx_arena_scene_mark_dirty_all(&scene);
         load_sum += gfx_platform_time_us() - t0;
     }
     out->load_us = load_sum;
@@ -188,7 +188,7 @@ static int run_arena(gfx_handle_t gfx, gfx_display_t *disp, gfx_font_t font,
 
     const int64_t f0 = gfx_platform_time_us();
     for (int i = 0; i < iters; i++) {
-        (void)arena_scene_mark_dirty_all(&scene);
+        (void)gfx_arena_scene_mark_dirty_all(&scene);
         (void)gfx_core_refresh_now(gfx);
         accum_perf(disp, &out->full_render_us, &out->full_flush_us);
     }
@@ -202,25 +202,25 @@ static int run_arena(gfx_handle_t gfx, gfx_display_t *disp, gfx_font_t font,
     }
     out->dirty_wall_us = gfx_platform_time_us() - d0;
 
-    arena_scene_detach(&scene);
+    gfx_arena_scene_detach(&scene);
     return 0;
 }
 
 static int run_object(gfx_handle_t gfx, gfx_display_t *disp, gfx_font_t font,
                       const uint8_t *pkg, size_t pkg_size, int iters,
-                      arena_compare_path_stats_t *out)
+                      gfx_arena_compare_path_stats_t *out)
 {
     memset(out, 0, sizeof(*out));
-    arena_gfx_scene_t scene;
+    gfx_arena_gfx_scene_t scene;
     memset(&scene, 0, sizeof(scene));
 
     int64_t load_sum = 0;
     for (int i = 0; i < iters; i++) {
         if (i > 0) {
-            arena_gfx_free(&scene);
+            gfx_arena_gfx_free(&scene);
         }
         const int64_t t0 = gfx_platform_time_us();
-        if (arena_gfx_bind(pkg, pkg_size, disp, font, &scene) != 0) {
+        if (gfx_arena_gfx_bind(pkg, pkg_size, disp, font, &scene) != 0) {
             return -1;
         }
         (void)gfx_core_lock(gfx);
@@ -250,13 +250,13 @@ static int run_object(gfx_handle_t gfx, gfx_display_t *disp, gfx_font_t font,
     }
     out->dirty_wall_us = gfx_platform_time_us() - d0;
 
-    arena_gfx_free(&scene);
+    gfx_arena_gfx_free(&scene);
     return 0;
 }
 
-int arena_compare_run(gfx_handle_t gfx, gfx_display_t *disp, gfx_font_t font,
-                      const arena_compare_config_t *cfg,
-                      arena_compare_result_t *out)
+int gfx_arena_compare_run(gfx_handle_t gfx, gfx_display_t *disp, gfx_font_t font,
+                      const gfx_arena_compare_config_t *cfg,
+                      gfx_arena_compare_result_t *out)
 {
     if (gfx == NULL || disp == NULL || cfg == NULL || out == NULL ||
             cfg->screen_w == 0 || cfg->screen_h == 0 || cfg->iters <= 0) {
@@ -266,7 +266,7 @@ int arena_compare_run(gfx_handle_t gfx, gfx_display_t *disp, gfx_font_t font,
     memset(out, 0, sizeof(*out));
     out->iters = cfg->iters;
 
-    uint8_t *pkg = arena_compare_pack_grid(cfg->screen_w, cfg->screen_h,
+    uint8_t *pkg = gfx_arena_compare_pack_grid(cfg->screen_w, cfg->screen_h,
                                            &out->pkg_size, &out->node_count);
     if (pkg == NULL) {
         return -2;

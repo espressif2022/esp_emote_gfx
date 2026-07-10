@@ -7,14 +7,20 @@
 /**
  * ESP arena formal-path demo
  * --------------------------
- * Default: hand-packed ARN demo scene (arena_demo_pack).
+ * Default: hand-packed ARN demo scene (gfx_arena_demo_pack).
  * Optional:
- *   ARENA_DEMO_FROM_GSP=1  — GSP home.inc → ARN
- *   ARENA_DEMO_COMPARE=1   — A/B timing: arena_draw_clipped vs object bridge
+ *   ARENA_DEMO_PLAYGROUND=1 — Arena P0 playground shell (nav + static previews)
+ *   ARENA_DEMO_FROM_GSP=1  — GSP .inc → ARN (formal arena path)
+ *     -DARENA_GSP_SCENE=home     — inc/home.inc (12 objs, default)
+ *     -DARENA_GSP_SCENE=control  — inc/home_control_v4.inc (69 objs, 800x480)
+ *   ARENA_DEMO_COMPARE=1   — A/B timing: gfx_arena_draw_clipped vs object bridge
  *   ARENA_DEMO_SWEEP=1     — dual-board visual: row-by-row recolor loop
  *     -DARENA_DEMO_PATH=A  — formal arena (board 1)
  *     -DARENA_DEMO_PATH=B  — object bridge (board 2)
  *     (no artificial delay — refresh as fast as the path allows)
+ *
+ * Priority: SWEEP > COMPARE > PLAYGROUND > FROM_GSP > default.
+ * Full object playground remains examples/esp/format_rgb565.
  *
  * Dual-board visual (same scene, side-by-side):
  *   # board 1 — arena
@@ -57,8 +63,14 @@
 #ifndef ARENA_DEMO_SWEEP
 #define ARENA_DEMO_SWEEP 0
 #endif
+#ifndef ARENA_DEMO_PLAYGROUND
+#define ARENA_DEMO_PLAYGROUND 0
+#endif
 #ifndef ARENA_DEMO_PATH_IS_OBJECT
 #define ARENA_DEMO_PATH_IS_OBJECT 0
+#endif
+#ifndef ARENA_GSP_SCENE_IS_CONTROL
+#define ARENA_GSP_SCENE_IS_CONTROL 0
 #endif
 #ifndef ARENA_COMPARE_ITERS
 #define ARENA_COMPARE_ITERS 30
@@ -67,13 +79,30 @@
 #include "arena_compare_run.h"
 #include "arena_gfx_bridge.h"
 #endif
-
-#if ARENA_DEMO_FROM_GSP && !ARENA_DEMO_COMPARE && !ARENA_DEMO_SWEEP
-#ifndef GSP_SCENE_INC
-#define GSP_SCENE_INC "inc/home.inc"
+#if ARENA_DEMO_PLAYGROUND && !ARENA_DEMO_COMPARE && !ARENA_DEMO_SWEEP
+#include "arena_playground_scene.h"
 #endif
-#include GSP_SCENE_INC
+
+#if ARENA_DEMO_FROM_GSP && !ARENA_DEMO_COMPARE && !ARENA_DEMO_SWEEP && !ARENA_DEMO_PLAYGROUND
+#if ARENA_GSP_SCENE_IS_CONTROL
+#define GFX_GSP_SCENE_INC "inc/home_control_v4.inc"
+#else
+#ifndef GFX_GSP_SCENE_INC
+#define GFX_GSP_SCENE_INC "inc/home.inc"
+#endif
+#endif
+#include GFX_GSP_SCENE_INC
 #include "gfx/scene/gsp_to_arena.h"
+
+#if defined(HOME_CONTROL_SCREEN_W)
+#define ARENA_GSP_PKG      home_control_scene_pkg
+#define ARENA_GSP_PKG_SIZE sizeof(home_control_scene_pkg)
+#define ARENA_GSP_HINT     "home_control_v4: tap AC/humid/purify/more actions"
+#else
+#define ARENA_GSP_PKG      home_scene_pkg
+#define ARENA_GSP_PKG_SIZE sizeof(home_scene_pkg)
+#define ARENA_GSP_HINT     "home: tap Next (on_ok) to recolor"
+#endif
 #endif
 
 extern const lv_font_t font_puhui_16_4;
@@ -88,19 +117,22 @@ typedef struct {
     void *panel_fbs[2];
     gfx_arena_scene_t scene;
 #if ARENA_DEMO_SWEEP
-    arena_gfx_scene_t obj_scene;
+    gfx_arena_gfx_scene_t obj_scene;
     int sweep_use_object;
     int sweep_row;
     uint32_t sweep_tick;
 #endif
+#if ARENA_DEMO_PLAYGROUND
+    gfx_arena_playground_t playground;
+#endif
     uint8_t *pkg;
     size_t pkg_size;
     uint32_t ok_count;
-} arena_demo_app_t;
+} gfx_arena_demo_app_t;
 
-static arena_demo_app_t s_app;
+static gfx_arena_demo_app_t s_app;
 
-static esp_err_t board_init(arena_demo_app_t *app)
+static esp_err_t board_init(gfx_arena_demo_app_t *app)
 {
     ESP_RETURN_ON_ERROR(hmi_rgb_board_backlight_init(), TAG, "backlight init failed");
     hmi_rgb_board_backlight_set(false);
@@ -122,7 +154,7 @@ static esp_err_t board_init(arena_demo_app_t *app)
     return ESP_OK;
 }
 
-static esp_err_t gfx_init(arena_demo_app_t *app)
+static esp_err_t gfx_init(gfx_arena_demo_app_t *app)
 {
     gfx_backend_esp_lcd_config_t backend_cfg = {
         .panel = app->panel,
@@ -183,15 +215,37 @@ static esp_err_t gfx_init(arena_demo_app_t *app)
     return ESP_OK;
 }
 
-#if ARENA_DEMO_SWEEP
-static esp_err_t scene_load(arena_demo_app_t *app)
+#if ARENA_DEMO_PLAYGROUND && !ARENA_DEMO_COMPARE && !ARENA_DEMO_SWEEP
+static esp_err_t scene_load(gfx_arena_demo_app_t *app)
+{
+    app->pkg = gfx_arena_playground_pack(&app->pkg_size);
+    ESP_RETURN_ON_FALSE(app->pkg != NULL, ESP_ERR_NO_MEM, TAG, "playground pack failed");
+
+    ESP_LOGI(TAG, "arena P0 playground: %u B  %ux%u",
+             (unsigned)app->pkg_size,
+             (unsigned)HMI_RGB_LCD_H_RES, (unsigned)HMI_RGB_LCD_V_RES);
+
+    ESP_RETURN_ON_FALSE(gfx_core_lock(app->port.gfx) == GFX_OK, ESP_FAIL, TAG, "gfx lock failed");
+    int rc = gfx_arena_playground_bind(app->port.disp, app->pkg, app->pkg_size,
+                                   (gfx_font_t)&font_puhui_16_4,
+                                   &app->scene, &app->playground);
+    (void)gfx_core_unlock(app->port.gfx);
+    ESP_RETURN_ON_FALSE(rc == 0, ESP_FAIL, TAG, "playground bind failed: %d", rc);
+
+    (void)gfx_core_refresh_now(app->port.gfx);
+    ESP_LOGI(TAG, "tap left nav to switch panels; Button/List/Wheel interactive");
+    return ESP_OK;
+}
+
+#elif ARENA_DEMO_SWEEP
+static esp_err_t scene_load(gfx_arena_demo_app_t *app)
 {
     app->sweep_use_object = ARENA_DEMO_PATH_IS_OBJECT;
     app->sweep_row = 0;
     app->sweep_tick = 0;
 
     uint16_t nodes = 0;
-    app->pkg = arena_compare_pack_grid(HMI_RGB_LCD_H_RES, HMI_RGB_LCD_V_RES,
+    app->pkg = gfx_arena_compare_pack_grid(HMI_RGB_LCD_H_RES, HMI_RGB_LCD_V_RES,
                                        &app->pkg_size, &nodes);
     ESP_RETURN_ON_FALSE(app->pkg != NULL, ESP_ERR_NO_MEM, TAG, "pack grid failed");
 
@@ -203,7 +257,7 @@ static esp_err_t scene_load(arena_demo_app_t *app)
     ESP_RETURN_ON_FALSE(gfx_core_lock(app->port.gfx) == GFX_OK, ESP_FAIL, TAG, "gfx lock failed");
 
     if (app->sweep_use_object) {
-        if (arena_gfx_bind(app->pkg, app->pkg_size, app->port.disp,
+        if (gfx_arena_gfx_bind(app->pkg, app->pkg_size, app->port.disp,
                            (gfx_font_t)&font_puhui_16_4, &app->obj_scene) != 0) {
             (void)gfx_core_unlock(app->port.gfx);
             ESP_LOGE(TAG, "arena_gfx_bind failed");
@@ -211,16 +265,16 @@ static esp_err_t scene_load(arena_demo_app_t *app)
         }
         gfx_display_refresh_all(app->port.disp);
     } else {
-        arena_t arena = {0};
-        if (arena_load(app->pkg, app->pkg_size, &arena) != 0 ||
-                arena_scene_attach(app->port.disp, &arena, &app->scene) != 0) {
+        gfx_arena_t arena = {0};
+        if (gfx_arena_load(app->pkg, app->pkg_size, &arena) != 0 ||
+                gfx_arena_scene_attach(app->port.disp, &arena, &app->scene) != 0) {
             (void)gfx_core_unlock(app->port.gfx);
-            arena_free(&arena);
+            gfx_arena_free(&arena);
             ESP_LOGE(TAG, "arena load/attach failed");
             return ESP_FAIL;
         }
-        arena_scene_set_font(&app->scene, (gfx_font_t)&font_puhui_16_4);
-        (void)arena_scene_mark_dirty_all(&app->scene);
+        gfx_arena_scene_set_font(&app->scene, (gfx_font_t)&font_puhui_16_4);
+        (void)gfx_arena_scene_mark_dirty_all(&app->scene);
     }
 
     (void)gfx_core_unlock(app->port.gfx);
@@ -229,27 +283,27 @@ static esp_err_t scene_load(arena_demo_app_t *app)
     return ESP_OK;
 }
 
-static void sweep_step(arena_demo_app_t *app)
+static void sweep_step(gfx_arena_demo_app_t *app)
 {
     const int row = app->sweep_row;
     const uint32_t color = 0xff0040u + ((app->sweep_tick * 0x030507u) & 0x00ffffu);
 
     if (app->sweep_use_object) {
-        arena_compare_recolor_row(&app->obj_scene.arena, row, color);
-        const arena_hdr_t *hdr = arena_hdr(&app->obj_scene.arena);
+        gfx_arena_compare_recolor_row(&app->obj_scene.arena, row, color);
+        const gfx_arena_hdr_t *hdr = gfx_arena_hdr(&app->obj_scene.arena);
         const uint16_t first =
             (uint16_t)(1u + (uint16_t)ARENA_COMPARE_GRID_ROWS +
                        (uint16_t)row * (uint16_t)ARENA_COMPARE_GRID_COLS);
         for (int c = 0; c < ARENA_COMPARE_GRID_COLS; c++) {
             const uint32_t off =
                 hdr->nodes_off +
-                (uint32_t)(first + (uint16_t)c) * (uint32_t)sizeof(arena_node_t);
-            (void)arena_gfx_sync_node(&app->obj_scene, off);
+                (uint32_t)(first + (uint16_t)c) * (uint32_t)sizeof(gfx_arena_node_t);
+            (void)gfx_arena_gfx_sync_node(&app->obj_scene, off);
         }
     } else {
-        arena_compare_recolor_row(&app->scene.arena, row, color);
-        (void)arena_scene_mark_dirty(
-            &app->scene, arena_compare_row_container_off(&app->scene.arena, row));
+        gfx_arena_compare_recolor_row(&app->scene.arena, row, color);
+        (void)gfx_arena_scene_mark_dirty(
+            &app->scene, gfx_arena_compare_row_container_off(&app->scene.arena, row));
     }
 
     (void)gfx_core_refresh_now(app->port.gfx);
@@ -268,18 +322,18 @@ static void log_avg(const char *label, int iters, int64_t us)
              label, (long long)us, (double)us / (double)iters);
 }
 
-static void log_ratio(const char *label, int64_t arena_us, int64_t object_us)
+static void log_ratio(const char *label, int64_t gfx_arena_us, int64_t object_us)
 {
-    if (arena_us <= 0) {
+    if (gfx_arena_us <= 0) {
         ESP_LOGI(TAG, "  %-14s  n/a", label);
         return;
     }
     ESP_LOGI(TAG, "  %-14s  object/arena = %.2fx  (>1 ⇒ arena faster)",
-             label, (double)object_us / (double)arena_us);
+             label, (double)object_us / (double)gfx_arena_us);
 }
 
 static void log_path(const char *title, const char *load_name,
-                     const arena_compare_path_stats_t *s, int iters)
+                     const gfx_arena_compare_path_stats_t *s, int iters)
 {
     ESP_LOGI(TAG, "=== %s ===", title);
     log_avg(load_name, iters, s->load_us);
@@ -291,19 +345,19 @@ static void log_path(const char *title, const char *load_name,
     log_avg("dirty flush", iters, s->dirty_flush_us);
 }
 
-static esp_err_t scene_load(arena_demo_app_t *app)
+static esp_err_t scene_load(gfx_arena_demo_app_t *app)
 {
     const int iters = ARENA_COMPARE_ITERS;
     ESP_LOGI(TAG, "A/B compare on device: %ux%u, iters=%d",
              (unsigned)HMI_RGB_LCD_H_RES, (unsigned)HMI_RGB_LCD_V_RES, iters);
-    ESP_LOGI(TAG, "A=arena_draw_clipped  B=object bridge (draw_child_objects)");
+    ESP_LOGI(TAG, "A=gfx_arena_draw_clipped  B=object bridge (draw_child_objects)");
     ESP_LOGI(TAG, "wall=refresh_now; render/flush from display perf stats");
 
-    arena_compare_result_t r = {0};
+    gfx_arena_compare_result_t r = {0};
     ESP_RETURN_ON_FALSE(gfx_core_lock(app->port.gfx) == GFX_OK, ESP_FAIL, TAG, "gfx lock failed");
-    int rc = arena_compare_run(app->port.gfx, app->port.disp,
+    int rc = gfx_arena_compare_run(app->port.gfx, app->port.disp,
                                (gfx_font_t)&font_puhui_16_4,
-    &(arena_compare_config_t) {
+    &(gfx_arena_compare_config_t) {
         .screen_w = HMI_RGB_LCD_H_RES,
         .screen_h = HMI_RGB_LCD_V_RES,
         .iters = iters,
@@ -328,55 +382,74 @@ static esp_err_t scene_load(arena_demo_app_t *app)
 }
 
 #elif ARENA_DEMO_FROM_GSP
-static void on_ok_gsp(arena_t *arena, arena_node_t *node,
-                      const gfx_touch_event_t *event, void *user_data)
+static void on_gsp_action(gfx_arena_t *arena, gfx_arena_node_t *node,
+                          const gfx_touch_event_t *event, void *user_data)
 {
-    arena_demo_app_t *app = (arena_demo_app_t *)user_data;
+    gfx_arena_demo_app_t *app = (gfx_arena_demo_app_t *)user_data;
     (void)arena;
     if (app == NULL || event == NULL || event->type != GFX_TOUCH_EVENT_RELEASE) {
         return;
     }
     if (node != NULL) {
         node->bg_rgb = 0xff6644;
-        (void)arena_scene_mark_dirty(&app->scene, arena_node_offset(&app->scene.arena, node));
+        (void)gfx_arena_scene_mark_dirty(&app->scene, gfx_arena_node_offset(&app->scene.arena, node));
     }
     app->ok_count++;
 }
 
-static esp_err_t scene_load(arena_demo_app_t *app)
+static esp_err_t scene_load(gfx_arena_demo_app_t *app)
 {
-    gsp_to_arena_info_t info = {0};
+    gfx_gsp_to_arena_info_t info = {0};
     int64_t t_pack0 = esp_timer_get_time();
-    int rc = gsp_to_arena(home_scene_pkg, sizeof(home_scene_pkg),
+    int rc = gfx_gsp_to_arena(ARENA_GSP_PKG, ARENA_GSP_PKG_SIZE,
                           &app->pkg, &app->pkg_size, &info);
     int64_t t_pack1 = esp_timer_get_time();
-    ESP_RETURN_ON_FALSE(rc == GSP_TO_ARENA_OK && app->pkg != NULL, ESP_FAIL, TAG,
+    ESP_RETURN_ON_FALSE(rc == GFX_GSP_TO_ARENA_OK && app->pkg != NULL, ESP_FAIL, TAG,
                         "gsp_to_arena failed: %d", rc);
 
-    ESP_LOGI(TAG, "GSP→ARN: %u nodes (skip %u) %u B, pack=%lld us",
-             info.out_node_count, info.skipped, (unsigned)app->pkg_size,
+    ESP_LOGI(TAG, "GSP→ARN (%s): %u nodes (skip %u) %u B, pack=%lld us",
+             GFX_GSP_SCENE_INC, info.out_node_count, info.skipped, (unsigned)app->pkg_size,
              (long long)(t_pack1 - t_pack0));
 
     ESP_RETURN_ON_FALSE(gfx_core_lock(app->port.gfx) == GFX_OK, ESP_FAIL, TAG, "gfx lock failed");
 
-    arena_t arena = {0};
+    gfx_arena_t arena = {0};
     int64_t t_bind0 = esp_timer_get_time();
-    if (arena_load(app->pkg, app->pkg_size, &arena) != 0 ||
-            arena_scene_attach(app->port.disp, &arena, &app->scene) != 0) {
+    if (gfx_arena_load(app->pkg, app->pkg_size, &arena) != 0 ||
+            gfx_arena_scene_attach(app->port.disp, &arena, &app->scene) != 0) {
         (void)gfx_core_unlock(app->port.gfx);
-        arena_free(&arena);
+        gfx_arena_free(&arena);
         ESP_LOGE(TAG, "arena load/attach failed");
         return ESP_FAIL;
     }
-    arena_scene_set_font(&app->scene, (gfx_font_t)&font_puhui_16_4);
-    static arena_action_entry_t actions[1];
-    actions[0] = (arena_action_entry_t) {
+    gfx_arena_scene_set_font(&app->scene, (gfx_font_t)&font_puhui_16_4);
+
+#if defined(HOME_CONTROL_SCREEN_W)
+    static gfx_arena_action_entry_t actions[9];
+    static const char *const action_names[9] = {
+        "on_ac_power", "on_ac_temp_up", "on_ac_temp_down",
+        "on_humid_power", "on_humid_up", "on_humid_down",
+        "on_purify_power", "on_more_devices", "on_more_info",
+    };
+    for (int i = 0; i < 9; i++) {
+        actions[i] = (gfx_arena_action_entry_t) {
+            .name = action_names[i],
+            .cb = on_gsp_action,
+            .user_data = app,
+        };
+    }
+    gfx_arena_scene_set_actions(&app->scene, actions, 9);
+#else
+    static gfx_arena_action_entry_t actions[1];
+    actions[0] = (gfx_arena_action_entry_t) {
         .name = "on_ok",
-        .cb = on_ok_gsp,
+        .cb = on_gsp_action,
         .user_data = app,
     };
-    arena_scene_set_actions(&app->scene, actions, 1);
-    (void)arena_scene_mark_dirty_all(&app->scene);
+    gfx_arena_scene_set_actions(&app->scene, actions, 1);
+#endif
+
+    (void)gfx_arena_scene_mark_dirty_all(&app->scene);
     int64_t t_bind1 = esp_timer_get_time();
 
     (void)gfx_core_unlock(app->port.gfx);
@@ -388,15 +461,15 @@ static esp_err_t scene_load(arena_demo_app_t *app)
     ESP_LOGI(TAG, "timing: bind(load+attach)=%lld us  first_refresh=%lld us",
              (long long)(t_bind1 - t_bind0),
              (long long)(t_draw1 - t_draw0));
-    ESP_LOGI(TAG, "GSP home via arena; tap Next (on_ok) to recolor");
+    ESP_LOGI(TAG, "GSP via arena; %s", ARENA_GSP_HINT);
     return ESP_OK;
 }
 
 #else
-static esp_err_t scene_load(arena_demo_app_t *app)
+static esp_err_t scene_load(gfx_arena_demo_app_t *app)
 {
     int64_t t_pack0 = esp_timer_get_time();
-    app->pkg = arena_demo_pack(&app->pkg_size);
+    app->pkg = gfx_arena_demo_pack(&app->pkg_size);
     int64_t t_pack1 = esp_timer_get_time();
     ESP_RETURN_ON_FALSE(app->pkg != NULL, ESP_ERR_NO_MEM, TAG, "arena_demo_pack failed");
 
@@ -409,7 +482,7 @@ static esp_err_t scene_load(arena_demo_app_t *app)
     ESP_RETURN_ON_FALSE(gfx_core_lock(app->port.gfx) == GFX_OK, ESP_FAIL, TAG, "gfx lock failed");
 
     int64_t t_bind0 = esp_timer_get_time();
-    int rc = arena_demo_bind(app->port.disp, app->pkg, app->pkg_size,
+    int rc = gfx_arena_demo_bind(app->port.disp, app->pkg, app->pkg_size,
                              (gfx_font_t)&font_puhui_16_4,
                              &app->scene, &app->ok_count);
     int64_t t_bind1 = esp_timer_get_time();
@@ -442,6 +515,8 @@ void app_main(void)
              ARENA_DEMO_PATH_IS_OBJECT ? "B object" : "A arena");
 #elif ARENA_DEMO_COMPARE
     ESP_LOGI(TAG, "start ESP arena A/B compare");
+#elif ARENA_DEMO_PLAYGROUND
+    ESP_LOGI(TAG, "start ESP arena P0 playground");
 #else
     ESP_LOGI(TAG, "start ESP arena formal-path demo");
 #endif
@@ -458,6 +533,14 @@ void app_main(void)
 #elif ARENA_DEMO_COMPARE
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+#elif ARENA_DEMO_PLAYGROUND
+    while (1) {
+        if (gfx_arena_playground_poll_nav(&s_app.playground)) {
+            (void)gfx_core_refresh_now(s_app.port.gfx);
+            ESP_LOGI(TAG, "nav focus=%u", (unsigned)s_app.playground.focus);
+        }
+        vTaskDelay(pdMS_TO_TICKS(33));
     }
 #else
     uint32_t last_ok = 0;

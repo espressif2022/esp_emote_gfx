@@ -8,7 +8,7 @@
 #define HOME_CONTROL_FONT_COUNT 11
 #define HOME_CONTROL_ACTION_COUNT 9
 
-static const gsp_font_desc_t home_control_fonts[] = {
+static const gfx_gsp_font_desc_t home_control_fonts[] = {
     { .id = 0, .family = "NotoSansCJK-Regular.ttc", .path = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", .size_px = 14, .weight = 400, .style = 0 },
     { .id = 1, .family = "NotoSansCJK-Regular.ttc", .path = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", .size_px = 20, .weight = 400, .style = 0 },
     { .id = 2, .family = "NotoSansCJK-Regular.ttc", .path = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", .size_px = 16, .weight = 400, .style = 0 },

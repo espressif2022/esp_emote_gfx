@@ -23,6 +23,7 @@
 #include "gfx/input.h"
 #include "platform/gfx_platform.h"
 #include "gfx/widgets/list.h"
+#include "gfx/widgets/list_core.h"
 #include "widgets/label/gfx_label_draw_priv.h"
 #include "widgets/label/gfx_label_priv.h"
 
@@ -36,11 +37,8 @@
 #define GFX_LIST_DEFAULT_ITEM_HEIGHT  36U
 #define GFX_LIST_DEFAULT_PAD_X         0U
 #define GFX_LIST_DEFAULT_PAD_Y         4U
-#define GFX_LIST_DEFAULT_DRAG_THRESHOLD 6U
-#define GFX_LIST_DEFAULT_OVERSCROLL_PX 36
-#define GFX_LIST_INERTIA_MIN_VELOCITY  80
-#define GFX_LIST_INERTIA_FRICTION      880
-#define GFX_LIST_BOUNCE_STEP_DIV       4
+#define GFX_LIST_DEFAULT_DRAG_THRESHOLD GFX_LIST_CORE_DRAG_THRESHOLD
+#define GFX_LIST_INERTIA_MIN_VELOCITY   GFX_LIST_CORE_INERTIA_MIN_V
 
 /**********************
  *      TYPEDEFS
@@ -257,51 +255,30 @@ static void gfx_list_clamp_top_index(gfx_object_t *obj, gfx_list_t *list)
 
 static int32_t gfx_list_max_scroll_y(const gfx_object_t *obj, const gfx_list_t *list)
 {
-    int32_t content_h;
-
-    if (obj == NULL || list == NULL || list->item_height == 0U || list->item_count == 0U) {
+    if (obj == NULL || list == NULL) {
         return 0;
     }
-
-    content_h = (int32_t)list->item_count * (int32_t)list->item_height;
-    if (content_h <= (int32_t)obj->geometry.height) {
-        return 0;
-    }
-    return content_h - (int32_t)obj->geometry.height;
+    return gfx_list_core_max_scroll_y((int32_t)obj->geometry.height, list->item_height,
+                                      list->item_count);
 }
 
 static int32_t gfx_list_clamp_scroll_y(const gfx_object_t *obj, const gfx_list_t *list, int32_t scroll_y)
 {
-    int32_t max_scroll_y = gfx_list_max_scroll_y(obj, list);
-
-    if (scroll_y < 0) {
-        return 0;
+    if (obj == NULL || list == NULL) {
+        return scroll_y;
     }
-    if (scroll_y > max_scroll_y) {
-        return max_scroll_y;
-    }
-    return scroll_y;
+    return gfx_list_core_clamp_scroll_y((int32_t)obj->geometry.height, list->item_height,
+                                        list->item_count, scroll_y, false);
 }
 
-static int32_t gfx_list_clamp_scroll_y_overscroll(const gfx_object_t *obj, const gfx_list_t *list, int32_t scroll_y)
+static int32_t gfx_list_clamp_scroll_y_overscroll(const gfx_object_t *obj, const gfx_list_t *list,
+        int32_t scroll_y)
 {
-    int32_t max_scroll_y = gfx_list_max_scroll_y(obj, list);
-    int32_t overscroll = GFX_LIST_DEFAULT_OVERSCROLL_PX;
-
-    if (obj != NULL) {
-        overscroll = MIN(overscroll, (int32_t)obj->geometry.height / 3);
+    if (obj == NULL || list == NULL) {
+        return scroll_y;
     }
-    if (overscroll < 0) {
-        overscroll = 0;
-    }
-
-    if (scroll_y < -overscroll) {
-        return -overscroll;
-    }
-    if (scroll_y > max_scroll_y + overscroll) {
-        return max_scroll_y + overscroll;
-    }
-    return scroll_y;
+    return gfx_list_core_clamp_scroll_y((int32_t)obj->geometry.height, list->item_height,
+                                        list->item_count, scroll_y, true);
 }
 
 static void gfx_list_sync_top_index(gfx_list_t *list)
@@ -428,77 +405,29 @@ static void gfx_list_start_inertia(gfx_list_t *list, int32_t velocity_y)
 
 static bool gfx_list_anim_step(gfx_object_t *obj, gfx_list_t *list)
 {
-    uint32_t now;
-    uint32_t dt;
-    int32_t min_scroll;
-    int32_t max_scroll;
     bool changed = false;
+    bool animating;
+    int32_t before;
 
     if (obj == NULL || list == NULL) {
         return false;
     }
 
-    min_scroll = 0;
-    max_scroll = gfx_list_max_scroll_y(obj, list);
-    now = gfx_list_now_ms();
-    if (list->inertia.last_ms == 0U) {
-        list->inertia.last_ms = now;
-    }
-    dt = now - list->inertia.last_ms;
-    if (dt == 0U) {
-        dt = 16U;
-    }
-    if (dt > 48U) {
-        dt = 48U;
-    }
-    list->inertia.last_ms = now;
-
-    if (list->inertia.active) {
-        int32_t delta = (list->inertia.velocity_y * (int32_t)dt) / 1000;
-        int32_t friction = (GFX_LIST_INERTIA_FRICTION * (int32_t)dt) / 1000;
-
-        if (delta != 0) {
-            gfx_list_set_scroll_y_raw(obj, list, list->scroll_y + delta, true);
-            changed = true;
-        }
-        if (list->inertia.velocity_y > 0) {
-            list->inertia.velocity_y = MAX(0, list->inertia.velocity_y - friction);
-        } else {
-            list->inertia.velocity_y = MIN(0, list->inertia.velocity_y + friction);
-        }
-        if (gfx_list_abs_i32(list->inertia.velocity_y) < GFX_LIST_INERTIA_MIN_VELOCITY ||
-                list->scroll_y < min_scroll || list->scroll_y > max_scroll) {
-            list->inertia.active = false;
-        }
-    }
-
-    if (!list->touch.pressed && (list->scroll_y < min_scroll || list->scroll_y > max_scroll)) {
-        int32_t target = list->scroll_y < min_scroll ? min_scroll : max_scroll;
-        int32_t diff = target - list->scroll_y;
-        int32_t step = diff / GFX_LIST_BOUNCE_STEP_DIV;
-        if (step == 0) {
-            step = diff > 0 ? 1 : -1;
-        }
-        if (gfx_list_abs_i32(diff) <= 1) {
-            gfx_list_set_scroll_y(obj, list, target);
-            if (list->behavior.snap_to_item) {
-                gfx_list_snap_scroll(obj, list);
-            }
-        } else {
-            gfx_list_set_scroll_y_raw(obj, list, list->scroll_y + step, true);
-        }
+    before = list->scroll_y;
+    animating = gfx_list_core_anim_step((int32_t)obj->geometry.height, list->item_height,
+                                        list->item_count, &list->scroll_y, &list->inertia.velocity_y,
+                                        &list->inertia.last_ms, &list->inertia.active,
+                                        list->touch.pressed, list->behavior.snap_to_item,
+                                        gfx_list_now_ms(), &changed);
+    if (list->scroll_y != before) {
+        gfx_list_sync_top_index(list);
+        gfx_list_sync_page_index(obj, list, true);
         changed = true;
-    } else if (!list->inertia.active && !list->touch.pressed && list->behavior.snap_to_item) {
-        int32_t before = list->scroll_y;
-        gfx_list_snap_scroll(obj, list);
-        changed = changed || before != list->scroll_y;
     }
-
     if (changed) {
         gfx_object_invalidate(obj);
     }
-    return changed || list->inertia.active ||
-           (!list->touch.pressed && (list->scroll_y < min_scroll || list->scroll_y > max_scroll));
+    return animating || changed;
 }
 
 static void gfx_list_set_selected_internal(gfx_object_t *obj, gfx_list_t *list, int32_t index, bool confirmed)
@@ -527,27 +456,17 @@ static void gfx_list_snap_scroll(gfx_object_t *obj, gfx_list_t *list)
         return;
     }
 
-    snapped = ((list->scroll_y + (int32_t)list->item_height / 2) / (int32_t)list->item_height) *
-              (int32_t)list->item_height;
+    snapped = gfx_list_core_snap_scroll_y(list->scroll_y, list->item_height);
     gfx_list_set_scroll_y(obj, list, snapped);
 }
 
 static int32_t gfx_list_index_from_point(const gfx_area_t *obj_area, const gfx_list_t *list, uint16_t y)
 {
-    int32_t local_y;
-    int32_t index;
-
-    if (obj_area == NULL || list == NULL || list->item_height == 0U || list->item_count == 0U) {
+    if (obj_area == NULL || list == NULL) {
         return -1;
     }
-
-    local_y = (int32_t)y - (int32_t)obj_area->y1 + list->scroll_y;
-    if (local_y < 0) {
-        return -1;
-    }
-
-    index = local_y / (int32_t)list->item_height;
-    return (index >= 0 && index < (int32_t)list->item_count) ? index : -1;
+    return gfx_list_core_index_from_point((int32_t)obj_area->y1, (int32_t)y, list->scroll_y,
+                                          list->item_height, list->item_count);
 }
 
 static gfx_err_t gfx_list_call_label_update(gfx_object_t *obj, gfx_list_t *list,

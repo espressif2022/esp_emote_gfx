@@ -5,7 +5,7 @@
  */
 
 /*
- * gsp_pack — host 侧“编译器”：scene 描述 -> u32-offset 字节包。
+ * gfx_gsp_pack — host 侧“编译器”：scene 描述 -> u32-offset 字节包。
  * 演示用，不追求极致压缩；只保证：位置无关、字符串去重、逐字节确定。
  *
  * v2：图片像素也烘焙进包（blob 表）。每个 blob 按 ITE 思路带压缩头
@@ -23,9 +23,9 @@ typedef struct {
     uint8_t *bytes;
     size_t   len;
     size_t   cap;
-} gsp_strtab_t;
+} gfx_gsp_strtab_t;
 
-static uint32_t strtab_intern(gsp_strtab_t *st, const char *s)
+static uint32_t strtab_intern(gfx_gsp_strtab_t *st, const char *s)
 {
     if (s == NULL) {
         return 0; /* 调用方用 flags 判定是否有效；0 视为“无” */
@@ -60,15 +60,15 @@ static uint8_t *rle16_encode(const uint8_t *raw, uint32_t raw_size, uint32_t *ou
     }
     uint32_t o = 0, i = 0;
     while (i < npix) {
-        const uint16_t px = gsp_rd_u16(raw + (size_t)i * 2u);
+        const uint16_t px = gfx_gsp_rd_u16(raw + (size_t)i * 2u);
         uint32_t run = 1;
         while (i + run < npix && run < 0xFFFFu &&
-                gsp_rd_u16(raw + (size_t)(i + run) * 2u) == px) {
+                gfx_gsp_rd_u16(raw + (size_t)(i + run) * 2u) == px) {
             run++;
         }
-        gsp_wr_u16(out + o, (uint16_t)run);
+        gfx_gsp_wr_u16(out + o, (uint16_t)run);
         o += 2;
-        gsp_wr_u16(out + o, px);
+        gfx_gsp_wr_u16(out + o, px);
         o += 2;
         i += run;
     }
@@ -99,7 +99,7 @@ static int blob_compress(const gfx_image_dsc_t *d, blob_build_t *b)
     uint16_t stride = (uint16_t)d->header.stride;
     uint32_t raw_size = d->data_size;
     if (raw_size == 0) {
-        const uint8_t bpp = gsp_bpp(cf);
+        const uint8_t bpp = gfx_gsp_bpp(cf);
         if (bpp == 0) {
             return -1;
         }
@@ -109,7 +109,7 @@ static int blob_compress(const gfx_image_dsc_t *d, blob_build_t *b)
         raw_size = (uint32_t)stride * h;
     }
 
-    uint8_t  codec = GSP_CODEC_STORE;
+    uint8_t  codec = GFX_GSP_CODEC_STORE;
     uint8_t *comp = NULL;
     uint32_t comp_size = raw_size;
 
@@ -121,14 +121,14 @@ static int blob_compress(const gfx_image_dsc_t *d, blob_build_t *b)
         uint32_t rs = 0;
         uint8_t *r = rle16_encode(d->data, raw_size, &rs);
         if (r != NULL && rs < raw_size) {
-            codec = GSP_CODEC_RLE16;
+            codec = GFX_GSP_CODEC_RLE16;
             comp = r;
             comp_size = rs;
         } else {
             free(r);
         }
     }
-    if (codec == GSP_CODEC_STORE) {
+    if (codec == GFX_GSP_CODEC_STORE) {
         comp = (uint8_t *)malloc(raw_size ? raw_size : 1u);
         if (comp == NULL) {
             return -1;
@@ -149,7 +149,7 @@ static int blob_compress(const gfx_image_dsc_t *d, blob_build_t *b)
     return 0;
 }
 
-uint8_t *gsp_pack(const gsp_scene_desc_t *scene, size_t *out_size)
+uint8_t *gfx_gsp_pack(const gfx_gsp_scene_desc_t *scene, size_t *out_size)
 {
     if (scene == NULL || out_size == NULL || scene->objs == NULL || scene->obj_count == 0) {
         return NULL;
@@ -167,8 +167,8 @@ uint8_t *gsp_pack(const gsp_scene_desc_t *scene, size_t *out_size)
     }
     uint16_t blob_count = 0;
     for (uint16_t i = 0; i < n; i++) {
-        const gsp_desc_t *d = &scene->objs[i];
-        if (!(d->flags & GSP_F_IMAGE) || d->image_src == NULL) {
+        const gfx_gsp_desc_t *d = &scene->objs[i];
+        if (!(d->flags & GFX_GSP_F_IMAGE) || d->image_src == NULL) {
             continue;
         }
         int found = -1;
@@ -205,7 +205,7 @@ uint8_t *gsp_pack(const gsp_scene_desc_t *scene, size_t *out_size)
         if (scene->objs[i].name) {
             strcap += strlen(scene->objs[i].name) + 1;
         }
-        if ((scene->objs[i].flags & GSP_F_PARAMS) && scene->objs[i].params != NULL) {
+        if ((scene->objs[i].flags & GFX_GSP_F_PARAMS) && scene->objs[i].params != NULL) {
             params_total += scene->objs[i].params_len;
         }
     }
@@ -222,14 +222,14 @@ uint8_t *gsp_pack(const gsp_scene_desc_t *scene, size_t *out_size)
     /* ---- 布局：各表基址均可提前算出 ----
      *   [header][obj 表][blob 表][action 表][params 区][string 区][blob 数据]
      */
-    const uint32_t obj_table_off = GSP_HEADER_SIZE;
-    const uint32_t blob_table_off = obj_table_off + (uint32_t)n * GSP_OBJ_SIZE;
-    const uint32_t action_table_off = blob_table_off + (uint32_t)blob_count * GSP_BLOB_SIZE;
-    const uint32_t params_base = action_table_off + (uint32_t)action_count * GSP_ACTION_SIZE;
+    const uint32_t obj_table_off = GFX_GSP_HEADER_SIZE;
+    const uint32_t blob_table_off = obj_table_off + (uint32_t)n * GFX_GSP_OBJ_SIZE;
+    const uint32_t action_table_off = blob_table_off + (uint32_t)blob_count * GFX_GSP_BLOB_SIZE;
+    const uint32_t params_base = action_table_off + (uint32_t)action_count * GFX_GSP_ACTION_SIZE;
     const uint32_t str_table_off = params_base + params_total;
 
-    gsp_strtab_t st = { .bytes = (uint8_t *)malloc(strcap), .len = 0, .cap = strcap };
-    uint8_t *obj_bytes = (uint8_t *)calloc(n, GSP_OBJ_SIZE);
+    gfx_gsp_strtab_t st = { .bytes = (uint8_t *)malloc(strcap), .len = 0, .cap = strcap };
+    uint8_t *obj_bytes = (uint8_t *)calloc(n, GFX_GSP_OBJ_SIZE);
     uint8_t *params_bytes = (uint8_t *)malloc(params_total ? params_total : 1u);
     uint32_t params_cursor = 0;
     if (st.bytes == NULL || obj_bytes == NULL || params_bytes == NULL) {
@@ -245,61 +245,61 @@ uint8_t *gsp_pack(const gsp_scene_desc_t *scene, size_t *out_size)
     }
 
     for (uint16_t i = 0; i < n; i++) {
-        const gsp_desc_t *d = &scene->objs[i];
-        uint8_t *e = obj_bytes + (size_t)i * GSP_OBJ_SIZE;
+        const gfx_gsp_desc_t *d = &scene->objs[i];
+        uint8_t *e = obj_bytes + (size_t)i * GFX_GSP_OBJ_SIZE;
 
         uint32_t text_off = 0;
-        if (d->flags & GSP_F_TEXT) {
+        if (d->flags & GFX_GSP_F_TEXT) {
             text_off = str_table_off + strtab_intern(&st, d->text);
         }
         uint32_t cb_off = 0;
-        if (d->flags & GSP_F_CALLBACK) {
+        if (d->flags & GFX_GSP_F_CALLBACK) {
             cb_off = str_table_off + strtab_intern(&st, d->callback);
         }
         uint32_t name_off = 0;
-        if (d->flags & GSP_F_NAME) {
+        if (d->flags & GFX_GSP_F_NAME) {
             name_off = str_table_off + strtab_intern(&st, d->name);
         }
         uint32_t blob_idx = 0;
-        if ((d->flags & GSP_F_IMAGE) && d->image_src != NULL) {
+        if ((d->flags & GFX_GSP_F_IMAGE) && d->image_src != NULL) {
             blob_idx = obj_blob[i];
         }
         uint32_t params_off = 0;
         uint16_t params_len = 0;
-        if ((d->flags & GSP_F_PARAMS) && d->params != NULL && d->params_len > 0) {
+        if ((d->flags & GFX_GSP_F_PARAMS) && d->params != NULL && d->params_len > 0) {
             params_off = params_base + params_cursor;
             params_len = d->params_len;
             memcpy(params_bytes + params_cursor, d->params, params_len);
             params_cursor += params_len;
         }
 
-        gsp_wr_u16(e + 0, d->type);
-        gsp_wr_u16(e + 2, d->parent_idx);
-        gsp_wr_u16(e + 4, (uint16_t)d->x);
-        gsp_wr_u16(e + 6, (uint16_t)d->y);
-        gsp_wr_u16(e + 8, d->w);
-        gsp_wr_u16(e + 10, d->h);
-        gsp_wr_u32(e + 12, d->flags);
-        gsp_wr_u32(e + 16, d->fg_color);
-        gsp_wr_u32(e + 20, d->bg_color);
-        gsp_wr_u32(e + 24, d->border_color);
-        gsp_wr_u16(e + 28, d->border_width);
-        gsp_wr_u16(e + 30, d->radius);
-        gsp_wr_u32(e + 32, text_off);
-        gsp_wr_u32(e + 36, cb_off);
-        gsp_wr_u32(e + 40, name_off);
-        gsp_wr_u32(e + 44, blob_idx);
-        gsp_wr_u32(e + 48, params_off);
-        gsp_wr_u16(e + 52, params_len);
+        gfx_gsp_wr_u16(e + 0, d->type);
+        gfx_gsp_wr_u16(e + 2, d->parent_idx);
+        gfx_gsp_wr_u16(e + 4, (uint16_t)d->x);
+        gfx_gsp_wr_u16(e + 6, (uint16_t)d->y);
+        gfx_gsp_wr_u16(e + 8, d->w);
+        gfx_gsp_wr_u16(e + 10, d->h);
+        gfx_gsp_wr_u32(e + 12, d->flags);
+        gfx_gsp_wr_u32(e + 16, d->fg_color);
+        gfx_gsp_wr_u32(e + 20, d->bg_color);
+        gfx_gsp_wr_u32(e + 24, d->border_color);
+        gfx_gsp_wr_u16(e + 28, d->border_width);
+        gfx_gsp_wr_u16(e + 30, d->radius);
+        gfx_gsp_wr_u32(e + 32, text_off);
+        gfx_gsp_wr_u32(e + 36, cb_off);
+        gfx_gsp_wr_u32(e + 40, name_off);
+        gfx_gsp_wr_u32(e + 44, blob_idx);
+        gfx_gsp_wr_u32(e + 48, params_off);
+        gfx_gsp_wr_u16(e + 52, params_len);
         e[54] = d->opacity;
         e[55] = d->text_align;
-        gsp_wr_u16(e + 56, d->font_id);
-        gsp_wr_u16(e + 58, d->bind_id);
-        gsp_wr_u32(e + 60, 0u);
+        gfx_gsp_wr_u16(e + 56, d->font_id);
+        gfx_gsp_wr_u16(e + 58, d->bind_id);
+        gfx_gsp_wr_u32(e + 60, 0u);
     }
 
     /* ---- action 表：event -> action，全部用 u16 索引 / u32 偏移 ---- */
-    uint8_t *action_bytes = (uint8_t *)calloc(action_count ? action_count : 1, GSP_ACTION_SIZE);
+    uint8_t *action_bytes = (uint8_t *)calloc(action_count ? action_count : 1, GFX_GSP_ACTION_SIZE);
     if (action_bytes == NULL) {
         free(st.bytes);
         free(obj_bytes);
@@ -312,8 +312,8 @@ uint8_t *gsp_pack(const gsp_scene_desc_t *scene, size_t *out_size)
         return NULL;
     }
     for (uint16_t i = 0; i < action_count; i++) {
-        const gsp_action_desc_t *a = &scene->actions[i];
-        uint8_t *e = action_bytes + (size_t)i * GSP_ACTION_SIZE;
+        const gfx_gsp_action_desc_t *a = &scene->actions[i];
+        uint8_t *e = action_bytes + (size_t)i * GFX_GSP_ACTION_SIZE;
 
         uint32_t name_off = 0;
         if (a->target_name) {
@@ -326,15 +326,15 @@ uint8_t *gsp_pack(const gsp_scene_desc_t *scene, size_t *out_size)
             param_len = (uint16_t)(strlen(a->param) + 1u);
         }
 
-        gsp_wr_u16(e + 0, a->src_idx);
-        gsp_wr_u16(e + 2, a->event);
-        gsp_wr_u16(e + 4, a->action);
-        gsp_wr_u16(e + 6, a->target_name ? GSP_ACT_NO_TARGET : a->target_idx);
-        gsp_wr_u32(e + 8, name_off);
-        gsp_wr_u32(e + 12, param_off);
-        gsp_wr_u16(e + 16, param_len);
-        gsp_wr_u16(e + 18, 0u);        /* flags 预留 */
-        gsp_wr_u32(e + 20, a->arg);
+        gfx_gsp_wr_u16(e + 0, a->src_idx);
+        gfx_gsp_wr_u16(e + 2, a->event);
+        gfx_gsp_wr_u16(e + 4, a->action);
+        gfx_gsp_wr_u16(e + 6, a->target_name ? GFX_GSP_ACT_NO_TARGET : a->target_idx);
+        gfx_gsp_wr_u32(e + 8, name_off);
+        gfx_gsp_wr_u32(e + 12, param_off);
+        gfx_gsp_wr_u16(e + 16, param_len);
+        gfx_gsp_wr_u16(e + 18, 0u);        /* flags 预留 */
+        gfx_gsp_wr_u32(e + 20, a->arg);
     }
 
     /* blob data 紧跟 string 区之后 */
@@ -345,7 +345,7 @@ uint8_t *gsp_pack(const gsp_scene_desc_t *scene, size_t *out_size)
     }
 
     /* blob table 字节（data_off 用绝对偏移）*/
-    uint8_t *blob_bytes = (uint8_t *)calloc(blob_count ? blob_count : 1, GSP_BLOB_SIZE);
+    uint8_t *blob_bytes = (uint8_t *)calloc(blob_count ? blob_count : 1, GFX_GSP_BLOB_SIZE);
     if (blob_bytes == NULL) {
         free(action_bytes);
         free(st.bytes);
@@ -360,15 +360,15 @@ uint8_t *gsp_pack(const gsp_scene_desc_t *scene, size_t *out_size)
     }
     uint32_t cursor = blob_data_off;
     for (uint16_t k = 0; k < blob_count; k++) {
-        uint8_t *e = blob_bytes + (size_t)k * GSP_BLOB_SIZE;
-        gsp_wr_u16(e + 0, blobs[k].w);
-        gsp_wr_u16(e + 2, blobs[k].h);
+        uint8_t *e = blob_bytes + (size_t)k * GFX_GSP_BLOB_SIZE;
+        gfx_gsp_wr_u16(e + 0, blobs[k].w);
+        gfx_gsp_wr_u16(e + 2, blobs[k].h);
         e[4] = blobs[k].cf;
         e[5] = blobs[k].codec;
-        gsp_wr_u16(e + 6, blobs[k].stride);
-        gsp_wr_u32(e + 8, blobs[k].raw_size);
-        gsp_wr_u32(e + 12, blobs[k].comp_size);
-        gsp_wr_u32(e + 16, cursor);
+        gfx_gsp_wr_u16(e + 6, blobs[k].stride);
+        gfx_gsp_wr_u32(e + 8, blobs[k].raw_size);
+        gfx_gsp_wr_u32(e + 12, blobs[k].comp_size);
+        gfx_gsp_wr_u32(e + 16, cursor);
         cursor += blobs[k].comp_size;
     }
 
@@ -389,25 +389,25 @@ uint8_t *gsp_pack(const gsp_scene_desc_t *scene, size_t *out_size)
     }
 
     /* header */
-    gsp_wr_u32(buf + 0, GSP_MAGIC);
-    gsp_wr_u32(buf + 4, GSP_VERSION);
-    gsp_wr_u16(buf + 8, scene->screen_w);
-    gsp_wr_u16(buf + 10, scene->screen_h);
-    gsp_wr_u32(buf + 12, scene->screen_bg);
-    gsp_wr_u32(buf + 16, n);
-    gsp_wr_u32(buf + 20, obj_table_off);
-    gsp_wr_u32(buf + 24, str_table_off);
-    gsp_wr_u32(buf + 28, blob_count);
-    gsp_wr_u32(buf + 32, blob_table_off);
-    gsp_wr_u32(buf + 36, total);
-    gsp_wr_u32(buf + 40, 0u);   /* crc32 占位，稍后回填 */
-    gsp_wr_u32(buf + 44, action_count);
-    gsp_wr_u32(buf + 48, action_count ? action_table_off : 0u);
-    gsp_wr_u32(buf + 52, 0u);   /* reserved */
+    gfx_gsp_wr_u32(buf + 0, GFX_GSP_MAGIC);
+    gfx_gsp_wr_u32(buf + 4, GFX_GSP_VERSION);
+    gfx_gsp_wr_u16(buf + 8, scene->screen_w);
+    gfx_gsp_wr_u16(buf + 10, scene->screen_h);
+    gfx_gsp_wr_u32(buf + 12, scene->screen_bg);
+    gfx_gsp_wr_u32(buf + 16, n);
+    gfx_gsp_wr_u32(buf + 20, obj_table_off);
+    gfx_gsp_wr_u32(buf + 24, str_table_off);
+    gfx_gsp_wr_u32(buf + 28, blob_count);
+    gfx_gsp_wr_u32(buf + 32, blob_table_off);
+    gfx_gsp_wr_u32(buf + 36, total);
+    gfx_gsp_wr_u32(buf + 40, 0u);   /* crc32 占位，稍后回填 */
+    gfx_gsp_wr_u32(buf + 44, action_count);
+    gfx_gsp_wr_u32(buf + 48, action_count ? action_table_off : 0u);
+    gfx_gsp_wr_u32(buf + 52, 0u);   /* reserved */
 
-    memcpy(buf + obj_table_off, obj_bytes, (size_t)n * GSP_OBJ_SIZE);
-    memcpy(buf + blob_table_off, blob_bytes, (size_t)blob_count * GSP_BLOB_SIZE);
-    memcpy(buf + action_table_off, action_bytes, (size_t)action_count * GSP_ACTION_SIZE);
+    memcpy(buf + obj_table_off, obj_bytes, (size_t)n * GFX_GSP_OBJ_SIZE);
+    memcpy(buf + blob_table_off, blob_bytes, (size_t)blob_count * GFX_GSP_BLOB_SIZE);
+    memcpy(buf + action_table_off, action_bytes, (size_t)action_count * GFX_GSP_ACTION_SIZE);
     memcpy(buf + params_base, params_bytes, params_total);
     memcpy(buf + str_table_off, st.bytes, st.len);
     cursor = blob_data_off;
@@ -417,7 +417,7 @@ uint8_t *gsp_pack(const gsp_scene_desc_t *scene, size_t *out_size)
     }
 
     /* 全包装配完成后回填 crc32 */
-    gsp_wr_u32(buf + 40, gsp_crc32_scene(buf, total));
+    gfx_gsp_wr_u32(buf + 40, gfx_gsp_crc32_scene(buf, total));
 
     free(action_bytes);
     free(blob_bytes);

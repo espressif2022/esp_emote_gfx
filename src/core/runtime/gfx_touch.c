@@ -141,7 +141,7 @@ static void gfx_touch_dispatch_event(gfx_touch_t *touch, gfx_display_t *disp, co
     }
 
     if (disp != NULL) {
-        if (disp->arena_scene != NULL && arena_scene_handle_touch(disp, evt) != 0) {
+        if (disp->gfx_arena_scene != NULL && gfx_arena_scene_handle_touch(disp, evt) != 0) {
             /* Arena package path handled press/release; skip object hit-test. */
         } else {
             gfx_touch_update_capture(touch, disp, evt, &hit_obj);
@@ -169,7 +169,7 @@ static void gfx_touch_dispatch_injected_event(gfx_display_t *disp, const gfx_tou
         return;
     }
 
-    if (disp->arena_scene != NULL && arena_scene_handle_touch(disp, evt) != 0) {
+    if (disp->gfx_arena_scene != NULL && gfx_arena_scene_handle_touch(disp, evt) != 0) {
         return;
     }
 

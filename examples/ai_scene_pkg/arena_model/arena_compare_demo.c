@@ -5,7 +5,7 @@
  */
 
 /*
- * arena_compare_demo — A/B: formal arena path vs object tree path (host)
+ * gfx_arena_compare_demo — A/B: formal arena path vs object tree path (host)
  * =====================================================================
  *   cmake --build build-host-sdl --target gfx_arena_compare_demo
  *   ./build-host-sdl/gfx_arena_compare_demo
@@ -46,18 +46,18 @@ static void print_avg(const char *label, int iters, int64_t us)
            label, (double)us / 1000.0, (double)us / (double)iters);
 }
 
-static void print_ratio(const char *label, int64_t arena_us, int64_t object_us)
+static void print_ratio(const char *label, int64_t gfx_arena_us, int64_t object_us)
 {
-    if (arena_us <= 0) {
+    if (gfx_arena_us <= 0) {
         printf("  %-22s  n/a\n", label);
         return;
     }
     printf("  %-22s  object/arena = %.2fx  ( >1 ⇒ arena faster )\n",
-           label, (double)object_us / (double)arena_us);
+           label, (double)object_us / (double)gfx_arena_us);
 }
 
 static void print_path(const char *title, const char *load_name,
-                       const arena_compare_path_stats_t *s, int iters)
+                       const gfx_arena_compare_path_stats_t *s, int iters)
 {
     printf("=== %s ===\n", title);
     print_avg(load_name, iters, s->load_us);
@@ -93,9 +93,9 @@ int main(void)
         return 1;
     }
 
-    arena_compare_result_t r = {0};
-    const int rc = arena_compare_run(handle, disp, (gfx_font_t)&font_puhui_16_4,
-    &(arena_compare_config_t) {
+    gfx_arena_compare_result_t r = {0};
+    const int rc = gfx_arena_compare_run(handle, disp, (gfx_font_t)&font_puhui_16_4,
+    &(gfx_arena_compare_config_t) {
         .screen_w = SCREEN_W,
         .screen_h = SCREEN_H,
         .iters = iters,

@@ -2,18 +2,24 @@
 
 包场景正式路径：`load → attach → draw / dirty / touch`，**不建** `gfx_object_t` 树。
 
-板级与 `ai_scene_pkg` 相同：RGB565 HMI（800×480）+ GT1151。
+板级：RGB565 HMI（800×480）+ GT1151。
 
 ## 模式一览
 
 | 宏 | 作用 |
 |---|---|
 | （默认） | 手写 ARN demo：顶栏 + OK / Idle，可点 |
+| `ARENA_DEMO_PLAYGROUND=1` | **Arena P0 游乐场壳**：左导航 + 静态预览 |
 | `ARENA_DEMO_SWEEP=1` | 双板目视：16×12 网格逐行扫变色（尽力刷） |
 | `ARENA_DEMO_COMPARE=1` | 单板 A/B 计时（UART 打 wall/render/flush） |
-| `ARENA_DEMO_FROM_GSP=1` | `home.inc` → ARN，点 Next 变色 |
+| `ARENA_DEMO_FROM_GSP=1` | GSP `.inc` → ARN（可选复杂家控场景） |
 
-优先级：`SWEEP` > `COMPARE` > `FROM_GSP` > 默认。
+优先级：`SWEEP` > `COMPARE` > `PLAYGROUND` > `FROM_GSP` > 默认。
+
+> **和 `format_rgb565` playground 的关系**  
+> - **Arena P0**（本 demo `PLAYGROUND`）：导航 + Button/Label/Image/List/Wheel；Motion/Anim/Coverflow 等为 stub。  
+> - **Object 完整版**：`examples/esp/format_rgb565`（含 Motion/Anim/Coverflow/Pageflow…）。  
+> - **复杂包场景**：`ARENA_GSP_SCENE=control`（`home_control_v4`）。
 
 ---
 
@@ -29,67 +35,104 @@ idf.py -B build build flash monitor
 
 ---
 
+## Arena P0 playground（format_playground 壳）
+
+左导航 list 切换右侧预览。  
+已接：Button / Label / Image / List（拖拽+惯性+snap）/ Wheel / Image Button / Progress。  
+未接（stub）：Motion / Anim / Coverflow / Pageflow（用 `format_rgb565`）。
+
+```bash
+cd examples/esp/arena_demo
+idf.py -B build \
+  -DARENA_DEMO_COMPARE=0 -DARENA_DEMO_SWEEP=0 -DARENA_DEMO_FROM_GSP=0 \
+  -DARENA_DEMO_PLAYGROUND=1 \
+  reconfigure build flash monitor
+```
+
+操作：点左侧项切换面板；Button 可点变色；List/Wheel 可点选行。
+
+### PC 仿真（SDL）
+
+```bash
+# 在仓库根目录（已有 build-host-sdl 时可跳过 configure）
+cmake -S . -B build-host-sdl   # 默认 GFX_BUILD_HOST_SDL=ON
+cmake --build build-host-sdl --target gfx_arena_playground_sdl_demo
+
+# 无头自检
+./build-host-sdl/gfx_arena_playground_sdl_demo
+
+# 开窗交互
+ARENA_SDL=1 ./build-host-sdl/gfx_arena_playground_sdl_demo
+```
+
+---
+
+## GSP → ARN（含复杂家控）
+
+```bash
+cd examples/esp/arena_demo
+
+# 简单 home（12 对象）— 务必关掉 COMPARE/SWEEP 缓存
+idf.py -B build \
+  -DARENA_DEMO_COMPARE=0 -DARENA_DEMO_SWEEP=0 \
+  -DARENA_DEMO_FROM_GSP=1 -DARENA_GSP_SCENE=home \
+  reconfigure build flash monitor
+
+# 复杂家控 home_control_v4（69 对象，800×480）
+idf.py -B build \
+  -DARENA_DEMO_COMPARE=0 -DARENA_DEMO_SWEEP=0 \
+  -DARENA_DEMO_FROM_GSP=1 -DARENA_GSP_SCENE=control \
+  reconfigure build flash monitor
+```
+
+| `ARENA_GSP_SCENE` | 文件 | 规模 |
+|---|---|---|
+| `home`（默认） | `inc/home.inc` | 12 对象；点 Next（`on_ok`） |
+| `control` | `inc/home_control_v4.inc` | 69 对象；空调/加湿/净化等按钮可点变色 |
+
+串口应看到 `GSP→ARN (inc/…)`，而不是 `A/B compare`。
+
+---
+
 ## 双板目视：逐行扫变色（比效率）
 
 同一 16×12 带文案 button 网格。每帧只改 **一行** 颜色并局部 `refresh_now`，从上往下循环。  
 **无人为延时**，两边都尽力刷；并排看谁扫得更快。
 
-| 板 | 路径 | 宏 |
-|---|---|---|
-| 板 1 | A formal arena（`arena_draw_clipped`） | `-DARENA_DEMO_PATH=A` |
-| 板 2 | B object bridge（`draw_child_objects`） | `-DARENA_DEMO_PATH=B` |
-
 ```bash
 cd examples/esp/arena_demo
 
-# 板 1 — arena（建议独立 build 目录）
+# 板 1 — arena
 idf.py -B build-a -DARENA_DEMO_SWEEP=1 -DARENA_DEMO_PATH=A reconfigure build flash
 
-# 板 2 — object（换板 / 串口后再烧）
+# 板 2 — object
 idf.py -B build-b -DARENA_DEMO_SWEEP=1 -DARENA_DEMO_PATH=B reconfigure build flash
 ```
-
-串口应看到：
-
-- `path=A formal arena` 或
-- `path=B object bridge`
-- 以及 `(max rate)`
-
-怎么看：扫行越快 → 该路径局部刷新越高效（含 render + flush）。
 
 ---
 
 ## 单板 A/B 计时
 
-同压力场景，先跑 A 再跑 B，UART 打印 load 与 full/dirty 的 **wall / render / flush** 及比值（`object/arena`，>1 表示 arena 更快）。
-
 ```bash
 idf.py -B build -DARENA_DEMO_COMPARE=1 reconfigure build flash monitor
-
-# 可选：迭代次数（默认 30）
-idf.py -B build -DARENA_DEMO_COMPARE=1 -DARENA_COMPARE_ITERS=50 reconfigure build flash monitor
+# 可选：-DARENA_COMPARE_ITERS=50
 ```
 
-- 看画路径差异 → **render**
-- 看一帧体感 → **wall**（设备上 flush 常占大头）
-- 结束后屏可能停在 B 最后一帧，以日志为准
-
-若平时用 `build-qspi`：
-
-```bash
-idf.py -B build-qspi -DARENA_DEMO_COMPARE=1 reconfigure build flash monitor
-```
+看 **render** 比画路径；**wall** 看体感（设备上 flush 常占大头）。
 
 ---
 
-## GSP → ARN
+## Object 路径：RGB565 format_playground
+
+要完整控件游乐场（非 ARN），跑现有工程：
 
 ```bash
-idf.py -B build -DARENA_DEMO_FROM_GSP=1 reconfigure build flash monitor
+cd examples/esp/format_rgb565
+idf.py -B build set-target esp32s31
+idf.py -B build build flash monitor
 ```
 
-显示 `home.inc` 物化结果；点 **Next**（`on_ok`）变色。  
-与 `SWEEP` / `COMPARE` 互斥（后两者优先）。
+左侧列表切换 Motion / Anim / Coverflow / Image / Button / List / Wheel 等。
 
 ---
 
@@ -98,9 +141,10 @@ idf.py -B build -DARENA_DEMO_FROM_GSP=1 reconfigure build flash monitor
 ```bash
 # 仓库根目录
 cmake -S . -B build-host-sdl -DGFX_BUILD_HOST_SDL=ON
-cmake --build build-host-sdl --target gfx_arena_sdl_demo gfx_arena_compare_demo
+cmake --build build-host-sdl --target gfx_arena_sdl_demo gfx_arena_compare_demo gfx_gsp_to_arena_demo
 ARENA_SDL=1 ./build-host-sdl/gfx_arena_sdl_demo
 ./build-host-sdl/gfx_arena_compare_demo
+./build-host-sdl/gfx_gsp_to_arena_demo
 ```
 
-更多工具链说明见 `examples/ai_scene_pkg/arena_model/ARENA_TOOLCHAIN.md`。
+更多见 [`docs/scene/`](../../../docs/scene/README.md)（toolchain / parity / plan）。

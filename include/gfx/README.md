@@ -10,5 +10,7 @@ All public API headers live under `include/gfx/`.
 | `fs.h` | Asset filesystem |
 | `backends/*.h` | Display backend factories |
 | `widgets/*.h` | Widget APIs |
+| `scene/*.h` | Opt-in scene packages (ARN / GSP); see [`scene/README.md`](scene/README.md) |
 
 Top-level `include/gfx.h` includes the full `gfx/all.h` bundle.
+`scene/` is **not** in `all.h` — include explicitly for package UI.

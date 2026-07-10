@@ -13,9 +13,10 @@
 
 #include "esp_mmap_assets.h"
 
-#define MMAP_FONTS_FILES           1
-#define MMAP_FONTS_CHECKSUM        0xCBE1
+#define MMAP_FONTS_FILES           2
+#define MMAP_FONTS_CHECKSUM        0xC1AC
 
 enum MMAP_FONTS_LISTS {
-    MMAP_FONTS_KAITI_TTF = 0,        /*!< KaiTi.ttf */
+    MMAP_FONTS_FONT_PUHUI_COMMON_20_4_BIN = 0,        /*!< font_puhui_common_20_4.bin */
+    MMAP_FONTS_KAITI_TTF = 1,        /*!< KaiTi.ttf */
 };

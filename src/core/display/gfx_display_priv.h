@@ -114,7 +114,7 @@ struct gfx_display {
      * When non-NULL, render/touch prefer arena over child object list.
      * Typed as void* to avoid pulling arena headers into every display user.
      */
-    void *arena_scene;
+    void *gfx_arena_scene;
 
 };
 

@@ -92,6 +92,7 @@ set(GFX_HOST_CORE_SRCS
     "src/core/runtime/gfx_core.c"
     "src/core/runtime/gfx_timer.c"
     "src/core/runtime/gfx_touch.c"
+    "src/core/tween/gfx_ease.c"
     "src/core/tween/gfx_tween.c"
     "src/backend/custom/custom_backend.c"
     "src/backend/memory/memory_backend.c"
@@ -114,12 +115,17 @@ set(GFX_HOST_CORE_SRCS
     "src/widgets/basic/gfx_button.c"
     "src/widgets/basic/gfx_container.c"
     "src/widgets/basic/gfx_coverflow.c"
+    "src/widgets/basic/gfx_coverflow_core.c"
     "src/widgets/basic/gfx_image_button.c"
     "src/widgets/basic/gfx_list.c"
+    "src/widgets/basic/gfx_list_core.c"
     "src/widgets/basic/gfx_pageflow.c"
+    "src/widgets/basic/gfx_pageflow_core.c"
     "src/widgets/basic/gfx_progress_bar.c"
+    "src/widgets/basic/gfx_progress_core.c"
     "src/widgets/basic/gfx_qrcode.c"
     "src/widgets/basic/gfx_wheel.c"
+    "src/widgets/basic/gfx_wheel_core.c"
     "src/widgets/img/gfx_img.c"
     "src/widgets/img/gfx_image_resource.c"
     "src/widgets/img/gfx_mesh_img.c"
@@ -383,7 +389,7 @@ if(GFX_BUILD_HOST_SDL)
     # Visual SDL simulation of formal arena path (ARENA_SDL=1).
     add_executable(gfx_arena_sdl_demo
         "examples/ai_scene_pkg/arena_model/arena_sdl_demo.c"
-        "examples/ai_scene_pkg/arena_model/arena_demo_scene.c"
+        "examples/esp/arena_demo/main/arena_demo_scene.c"
         "examples/common/gfx_display_port.c"
         "examples/format_playground/assets/font_puhui_16_4.c"
     )
@@ -395,10 +401,38 @@ if(GFX_BUILD_HOST_SDL)
             "simulation/port/include"
             "examples/common"
             "examples/ai_scene_pkg/arena_model"
+            "examples/esp/arena_demo/main"
     )
     target_compile_features(gfx_arena_sdl_demo PRIVATE c_std_11)
     target_compile_definitions(gfx_arena_sdl_demo PRIVATE GFX_HOST_BUILD=1)
     target_link_libraries(gfx_arena_sdl_demo PRIVATE gfx_host_core gfx_backend_sdl gfx_host_runner)
+
+    # Arena P0 playground SDL (ARENA_SDL=1).
+    add_executable(gfx_arena_playground_sdl_demo
+        "examples/ai_scene_pkg/arena_model/arena_playground_sdl_demo.c"
+        "examples/esp/arena_demo/main/arena_playground_scene.c"
+        "examples/common/gfx_display_port.c"
+        "examples/format_playground/assets/font_puhui_16_4.c"
+        "examples/format_playground/assets/font_match_bogle_oblique_20_4.c"
+        "examples/format_playground/assets/font_match_bogle_oblique_27_4.c"
+        "examples/format_playground/assets/my_pick_stamp.c"
+    )
+    target_include_directories(gfx_arena_playground_sdl_demo
+        PRIVATE
+            "include"
+            "src"
+            "simulation/host"
+            "simulation/port/include"
+            "examples/common"
+            "examples/ai_scene_pkg/arena_model"
+            "examples/esp/arena_demo/main"
+            "examples/motion"
+    )
+    target_compile_features(gfx_arena_playground_sdl_demo PRIVATE c_std_11)
+    target_compile_definitions(gfx_arena_playground_sdl_demo PRIVATE
+        GFX_HOST_BUILD=1
+        "ARENA_PG_ASSETS_DIR=\"${CMAKE_SOURCE_DIR}/examples/assets/format\"")
+    target_link_libraries(gfx_arena_playground_sdl_demo PRIVATE gfx_host_core gfx_backend_sdl gfx_host_runner)
 
     # GSP → ARN materializer closed loop (home.inc subset).
     add_executable(gfx_gsp_to_arena_demo
@@ -425,8 +459,8 @@ if(GFX_BUILD_HOST_SDL)
     # A/B: formal arena_draw_clipped vs object bridge draw_child_objects.
     add_executable(gfx_arena_compare_demo
         "examples/ai_scene_pkg/arena_model/arena_compare_demo.c"
-        "examples/ai_scene_pkg/arena_model/arena_compare_run.c"
-        "examples/ai_scene_pkg/arena_model/arena_gfx_bridge.c"
+        "examples/esp/arena_demo/main/arena_compare_run.c"
+        "examples/esp/arena_demo/main/arena_gfx_bridge.c"
         "examples/format_playground/assets/font_puhui_16_4.c"
     )
     target_include_directories(gfx_arena_compare_demo
@@ -435,6 +469,7 @@ if(GFX_BUILD_HOST_SDL)
             "src"
             "simulation/port/include"
             "examples/ai_scene_pkg/arena_model"
+            "examples/esp/arena_demo/main"
     )
     target_compile_features(gfx_arena_compare_demo PRIVATE c_std_11)
     target_compile_definitions(gfx_arena_compare_demo PRIVATE GFX_HOST_BUILD=1)
@@ -468,6 +503,7 @@ if(GFX_BUILD_HOST_SDL)
         add_test(NAME gfx_arena_draw_demo COMMAND gfx_arena_draw_demo)
         add_test(NAME gfx_arena_dirty_demo COMMAND gfx_arena_dirty_demo)
         add_test(NAME gfx_arena_sdl_demo COMMAND gfx_arena_sdl_demo)
+        add_test(NAME gfx_arena_playground_sdl_demo COMMAND gfx_arena_playground_sdl_demo)
         add_test(NAME gfx_gsp_to_arena_demo COMMAND gfx_gsp_to_arena_demo)
         add_test(NAME gfx_arena_compare_demo COMMAND gfx_arena_compare_demo)
         set_tests_properties(gfx_arena_compare_demo PROPERTIES

@@ -10,8 +10,13 @@ Runnable demos and shared assets. Host SDL entry points live under `simulation/h
 | `assets/format/` | Binary assets for format playground (`GFX_FS_ROOT` default) |
 | `assets/fonts/` | Font fixtures used by host smoke tests |
 | `motion/` | Generated motion scene data (`claw_motion.inc`) |
+| `ai_scene_pkg/` | Host GSP/ARN package demos & export tools |
+| `esp/arena_demo/` | ESP-IDF ARN package-scene demo |
 | `esp/format_rgb565/` | ESP-IDF RGB565 HMI board demo |
 | `esp/format_rgb888/` | ESP-IDF BGR888 HMI board demo |
+
+Scene design / plan / ABI：**[`docs/scene/`](../docs/scene/README.md)**
+
 
 ## Host (SDL)
 

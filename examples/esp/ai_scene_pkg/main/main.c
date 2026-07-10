@@ -23,9 +23,9 @@
 #include "gfx/base.h"
 #include "gfx/fs.h"
 #include "gfx/input.h"
+#include "gfx/scene/gsp.h"
 #include "gfx/widgets/label.h"
 #include "gfx_display_port.h"
-#include "gfx/scene/gsp.h"
 #include "hmi_rgb_board.h"
 
 #ifndef GSP_SCENE_INC
@@ -62,8 +62,8 @@ typedef struct {
     esp_lcd_panel_handle_t panel;
     esp_lcd_touch_handle_t touch_panel;
     void *panel_fbs[2];
-    gsp_scene_t scene;
-    gsp_font_binding_t font_bindings[GSP_DEMO_FONT_COUNT];
+    gfx_gsp_scene_t scene;
+    gfx_gsp_font_binding_t font_bindings[GSP_DEMO_FONT_COUNT];
     gfx_font_t fonts[GSP_DEMO_FONT_COUNT];
     gfx_fs_blob_t font_blobs[GSP_DEMO_FONT_COUNT];
     const char *font_blob_names[GSP_DEMO_FONT_COUNT];
@@ -75,7 +75,7 @@ typedef struct {
 
 static ai_scene_pkg_app_t s_app;
 
-static void on_ok_cb(gfx_object_t *obj, const gfx_touch_event_t *event, void *user_data)
+static void on_action_cb(gfx_object_t *obj, const gfx_touch_event_t *event, void *user_data)
 {
     ai_scene_pkg_app_t *app = (ai_scene_pkg_app_t *)user_data;
 
@@ -85,11 +85,12 @@ static void on_ok_cb(gfx_object_t *obj, const gfx_touch_event_t *event, void *us
     }
 
     app->ok_count++;
-    ESP_LOGI(TAG, "callback on_ok release, count=%lu", (unsigned long)app->ok_count);
+    ESP_LOGI(TAG, "GSP action release, count=%lu", (unsigned long)app->ok_count);
 
-    gfx_object_t *title = gsp_scene_find_by_name(&app->scene, "title");
+    gfx_object_t *title = gfx_gsp_scene_find_by_name(&app->scene, "title");
     if (title != NULL) {
-        (void)gfx_label_set_text_fmt(title, "ESP GSP scene #%lu", (unsigned long)app->ok_count);
+        (void)gfx_label_set_text_fmt(title, "ESP GSP scene #%lu",
+                                     (unsigned long)app->ok_count);
     }
 }
 
@@ -139,8 +140,6 @@ static esp_err_t gfx_init(ai_scene_pkg_app_t *app)
         .backend = backend,
         .runtime = {
             .core = {
-                /* FreeType gray_convert_glyph() keeps a large TCell[] on stack.
-                 * Default 7KB gfx_render stack overflows on CJK glyphs; 24KB is safe. */
                 .task = {
                     .task_priority = 4,
                     .task_stack = 24 * 1024,
@@ -200,7 +199,8 @@ static gfx_err_t load_font_blob(ai_scene_pkg_app_t *app, const char *name,
     }
 
     for (uint16_t i = 0; i < app->font_blob_count; i++) {
-        if (app->font_blob_names[i] != NULL && strcmp(app->font_blob_names[i], name) == 0) {
+        if (app->font_blob_names[i] != NULL &&
+                strcmp(app->font_blob_names[i], name) == 0) {
             *out_blob = &app->font_blobs[i];
             return GFX_OK;
         }
@@ -223,7 +223,7 @@ static gfx_err_t load_font_blob(ai_scene_pkg_app_t *app, const char *name,
 }
 
 static gfx_font_t create_freetype_font(ai_scene_pkg_app_t *app,
-                                       const gsp_font_desc_t *desc,
+                                       const gfx_gsp_font_desc_t *desc,
                                        const char **out_asset_name)
 {
     static const char *const fallback_font_name = "KaiTi.ttf";
@@ -240,7 +240,6 @@ static gfx_font_t create_freetype_font(ai_scene_pkg_app_t *app,
         if (asset_name == NULL || asset_name[0] == '\0') {
             continue;
         }
-        /* Family names can be extensionless, e.g. "NotoSansCJK". */
         if (strchr(asset_name, '.') == NULL) {
             continue;
         }
@@ -255,7 +254,7 @@ static gfx_font_t create_freetype_font(ai_scene_pkg_app_t *app,
             .name = asset_name,
             .mem = blob->data,
             .mem_size = blob->size,
-            .font_size = desc->size_px,
+            .font_size = desc != NULL ? desc->size_px : 16,
         };
 
         err = gfx_label_font_create(&cfg, &font);
@@ -267,7 +266,9 @@ static gfx_font_t create_freetype_font(ai_scene_pkg_app_t *app,
         }
 
         ESP_LOGW(TAG, "create FreeType font failed: %s size=%u err=%d",
-                 asset_name, (unsigned)desc->size_px, (int)err);
+                 asset_name,
+                 (unsigned)(desc != NULL ? desc->size_px : 16),
+                 (int)err);
     }
 
     return NULL;
@@ -277,13 +278,17 @@ static void init_font_assets(ai_scene_pkg_app_t *app)
 {
     gfx_err_t err = gfx_fs_open_partition("fonts", &app->font_fs);
     if (err != GFX_OK) {
-        ESP_LOGW(TAG, "font partition open failed: %d; fallback to font_puhui_16_4", (int)err);
+        ESP_LOGW(TAG, "font partition open failed: %d; fallback to font_puhui_16_4",
+                 (int)err);
         return;
     }
 
     err = gfx_fs_mount("/fonts", app->font_fs);
     if (err != GFX_OK) {
-        ESP_LOGW(TAG, "font partition mount failed: %d; fallback to font_puhui_16_4", (int)err);
+        ESP_LOGW(TAG, "font partition mount failed: %d; fallback to font_puhui_16_4",
+                 (int)err);
+        gfx_fs_close(app->font_fs);
+        app->font_fs = NULL;
         return;
     }
 }
@@ -291,7 +296,7 @@ static void init_font_assets(ai_scene_pkg_app_t *app)
 static void init_font_bindings(ai_scene_pkg_app_t *app)
 {
     for (uint16_t i = 0; i < GSP_DEMO_FONT_COUNT; i++) {
-        const gsp_font_desc_t *desc = &GSP_DEMO_FONT_DESCS[i];
+        const gfx_gsp_font_desc_t *desc = &GSP_DEMO_FONT_DESCS[i];
         const char *asset_name = NULL;
         gfx_font_t font = (gfx_font_t)&font_puhui_16_4;
 
@@ -325,8 +330,17 @@ static void init_font_bindings(ai_scene_pkg_app_t *app)
 
 static esp_err_t scene_load(ai_scene_pkg_app_t *app)
 {
-    const gsp_cb_binding_t callbacks[] = {
-        { .name = "on_ok", .cb = on_ok_cb, .user_data = app },
+    static const gfx_gsp_cb_binding_t callbacks[] = {
+        { .name = "on_ok", .cb = on_action_cb, .user_data = &s_app },
+        { .name = "on_ac_power", .cb = on_action_cb, .user_data = &s_app },
+        { .name = "on_ac_temp_up", .cb = on_action_cb, .user_data = &s_app },
+        { .name = "on_ac_temp_down", .cb = on_action_cb, .user_data = &s_app },
+        { .name = "on_humid_power", .cb = on_action_cb, .user_data = &s_app },
+        { .name = "on_humid_up", .cb = on_action_cb, .user_data = &s_app },
+        { .name = "on_humid_down", .cb = on_action_cb, .user_data = &s_app },
+        { .name = "on_purify_power", .cb = on_action_cb, .user_data = &s_app },
+        { .name = "on_more_devices", .cb = on_action_cb, .user_data = &s_app },
+        { .name = "on_more_info", .cb = on_action_cb, .user_data = &s_app },
     };
 
     init_font_assets(app);
@@ -338,21 +352,21 @@ static esp_err_t scene_load(ai_scene_pkg_app_t *app)
              (unsigned)GSP_DEMO_SCENE_PKG_LEN,
              (unsigned)GSP_DEMO_FONT_COUNT);
 
-    /* The render task starts after display_port_open().
-     * Keep scene construction atomic, then invalidate and refresh once. */
-    ESP_RETURN_ON_FALSE(gfx_core_lock(app->port.gfx) == GFX_OK, ESP_FAIL, TAG, "gfx lock failed");
+    ESP_RETURN_ON_FALSE(gfx_core_lock(app->port.gfx) == GFX_OK,
+                        ESP_FAIL, TAG, "gfx lock failed");
 
-    int rc = gsp_load_with_fonts(GSP_DEMO_SCENE_PKG, GSP_DEMO_SCENE_PKG_LEN,
-                                 app->port.disp,
-                                 app->font_bindings,
-                                 GSP_DEMO_FONT_COUNT,
-                                 app->default_font != NULL ? app->default_font : (gfx_font_t)&font_puhui_16_4,
-                                 callbacks,
-                                 sizeof(callbacks) / sizeof(callbacks[0]),
-                                 &app->scene);
-    if (rc != GSP_OK) {
+    int rc = gfx_gsp_load_with_fonts(GSP_DEMO_SCENE_PKG, GSP_DEMO_SCENE_PKG_LEN,
+                                     app->port.disp,
+                                     app->font_bindings,
+                                     GSP_DEMO_FONT_COUNT,
+                                     app->default_font != NULL ?
+                                     app->default_font : (gfx_font_t)&font_puhui_16_4,
+                                     callbacks,
+                                     sizeof(callbacks) / sizeof(callbacks[0]),
+                                     &app->scene);
+    if (rc != GFX_GSP_OK) {
         (void)gfx_core_unlock(app->port.gfx);
-        ESP_LOGE(TAG, "gsp_load failed: %d", rc);
+        ESP_LOGE(TAG, "gfx_gsp_load failed: %d", rc);
         return ESP_FAIL;
     }
 
@@ -369,7 +383,7 @@ static esp_err_t scene_load(ai_scene_pkg_app_t *app)
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "start ESP ai_scene_pkg demo");
+    ESP_LOGI(TAG, "start ESP ai_scene_pkg legacy GSP object-loader");
     ESP_LOGI(TAG, "scene include: %s", GSP_SCENE_INC);
 
     ESP_ERROR_CHECK(board_init(&s_app));

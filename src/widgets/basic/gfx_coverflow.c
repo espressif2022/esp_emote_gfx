@@ -17,6 +17,7 @@
 #include "core/object/gfx_object_priv.h"
 #include "gfx/tween.h"
 #include "gfx/widgets/coverflow.h"
+#include "gfx/widgets/coverflow_core.h"
 #include "gfx/widgets/mesh_image.h"
 #include "render/gfx_render_priv.h"
 #include "render/sw/gfx_blend_priv.h"
@@ -27,15 +28,15 @@
 #define CHECK_OBJ_TYPE_COVERFLOW(obj) CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_COVERFLOW, TAG)
 #define GFX_COVERFLOW_DEFAULT_WIDTH 320U
 #define GFX_COVERFLOW_DEFAULT_HEIGHT 180U
-#define GFX_COVERFLOW_DEFAULT_DRAG_THRESHOLD 6U
-#define GFX_COVERFLOW_DEFAULT_PAGE_THRESHOLD 42U
-#define GFX_COVERFLOW_DEFAULT_CENTER_ZOOM 100U
-#define GFX_COVERFLOW_DEFAULT_SIDE_ZOOM 64U
-#define GFX_COVERFLOW_DEFAULT_SPACING 34U
-#define GFX_COVERFLOW_DEFAULT_SIDE_DIM_OPA 80U
-#define GFX_COVERFLOW_POS_Q 1024
-#define GFX_COVERFLOW_VISIBLE_SIDE_COUNT 2
-#define GFX_COVERFLOW_TWEEN_MS 180U
+#define GFX_COVERFLOW_DEFAULT_DRAG_THRESHOLD GFX_COVERFLOW_CORE_DRAG_THRESHOLD
+#define GFX_COVERFLOW_DEFAULT_PAGE_THRESHOLD GFX_COVERFLOW_CORE_PAGE_THRESHOLD
+#define GFX_COVERFLOW_DEFAULT_CENTER_ZOOM GFX_COVERFLOW_CORE_CENTER_ZOOM
+#define GFX_COVERFLOW_DEFAULT_SIDE_ZOOM GFX_COVERFLOW_CORE_SIDE_ZOOM
+#define GFX_COVERFLOW_DEFAULT_SPACING GFX_COVERFLOW_CORE_SPACING_PCT
+#define GFX_COVERFLOW_DEFAULT_SIDE_DIM_OPA GFX_COVERFLOW_CORE_SIDE_DIM_OPA
+#define GFX_COVERFLOW_POS_Q GFX_COVERFLOW_CORE_POS_Q
+#define GFX_COVERFLOW_VISIBLE_SIDE_COUNT GFX_COVERFLOW_CORE_VISIBLE_SIDE
+#define GFX_COVERFLOW_TWEEN_MS GFX_COVERFLOW_CORE_TWEEN_MS
 
 typedef struct {
     int32_t index;
@@ -45,20 +46,6 @@ typedef struct {
     gfx_area_t area;
     bool centerish;
 } gfx_coverflow_card_state_t;
-
-typedef struct {
-    uint16_t center_zoom;
-    uint16_t side_zoom;
-    uint16_t spacing_pct;
-    gfx_opa_t side_dim_opa;
-} gfx_coverflow_effect_t;
-
-typedef struct {
-    int32_t pos_q;
-    uint16_t zoom;
-    gfx_opa_t dim_opa;
-    bool centerish;
-} gfx_coverflow_effect_state_t;
 
 typedef struct {
     gfx_label_t label;
@@ -202,16 +189,10 @@ static void gfx_coverflow_cancel_tween(gfx_coverflow_t *flow)
 
 static int32_t gfx_coverflow_clamp_index(const gfx_coverflow_t *flow, int32_t index)
 {
-    if (flow == NULL || flow->item_count == 0U) {
+    if (flow == NULL) {
         return 0;
     }
-    if (index < 0) {
-        return 0;
-    }
-    if (index >= (int32_t)flow->item_count) {
-        return (int32_t)flow->item_count - 1;
-    }
-    return index;
+    return gfx_coverflow_core_clamp_index(flow->item_count, index);
 }
 
 static void gfx_coverflow_set_selected_internal(gfx_object_t *obj, gfx_coverflow_t *flow, int32_t index, bool emit)
@@ -288,33 +269,25 @@ static void gfx_coverflow_start_tween(gfx_object_t *obj, gfx_coverflow_t *flow, 
                                       int32_t start_offset)
 {
     int32_t spacing;
-    int32_t end_offset = 0;
+    gfx_coverflow_core_tween_plan_t plan;
 
     if (obj == NULL || flow == NULL) {
         return;
     }
 
-    target_index = gfx_coverflow_clamp_index(flow, target_index);
-    spacing = ((int32_t)obj->geometry.width * (int32_t)flow->style.spacing_pct) / 100;
-    if (spacing <= 0) {
-        spacing = (int32_t)flow->page_threshold;
-    }
+    spacing = gfx_coverflow_core_spacing((int32_t)obj->geometry.width, flow->style.spacing_pct,
+                                         (int32_t)flow->page_threshold);
+    gfx_coverflow_core_plan_tween(flow->item_count, flow->selected_index, target_index,
+                                  spacing, start_offset, &plan);
 
-    flow->tween_target_index = target_index;
-    flow->tween_commit_pending = (target_index != flow->selected_index);
-
-    if (flow->tween_commit_pending) {
-        end_offset = (target_index > flow->selected_index) ? -spacing : spacing;
-        if (start_offset == end_offset) {
-            start_offset += (end_offset < 0) ? 1 : -1;
-        }
-    }
+    flow->tween_target_index = plan.target_index;
+    flow->tween_commit_pending = plan.commit_pending;
 
     if (flow->tween == NULL) {
         flow->tween = gfx_tween_create(obj);
     }
     if (flow->tween == NULL ||
-            gfx_tween_start_i32(flow->tween, start_offset, end_offset, GFX_COVERFLOW_TWEEN_MS,
+            gfx_tween_start_i32(flow->tween, plan.start_offset, plan.end_offset, GFX_COVERFLOW_TWEEN_MS,
                                 GFX_TWEEN_EASE_OUT_QUAD,
                                 gfx_coverflow_tween_value_cb, gfx_coverflow_tween_done_cb, flow) != GFX_OK) {
         if (flow->tween_commit_pending) {
@@ -503,125 +476,6 @@ static void gfx_coverflow_draw_image_scaled(gfx_object_t *obj, const gfx_draw_ct
                                     color_format, 0xFF);
 }
 
-static int32_t gfx_coverflow_abs_i32(int32_t value)
-{
-    return value < 0 ? -value : value;
-}
-
-static int32_t gfx_coverflow_clamp_i32(int32_t value, int32_t min_value, int32_t max_value)
-{
-    if (value < min_value) {
-        return min_value;
-    }
-    if (value > max_value) {
-        return max_value;
-    }
-    return value;
-}
-
-static gfx_opa_t gfx_coverflow_effect_dim_from_zoom(const gfx_coverflow_effect_t *effect, uint16_t zoom)
-{
-    if (effect == NULL) {
-        return 0;
-    }
-    if (effect->center_zoom <= effect->side_zoom || zoom >= effect->center_zoom) {
-        return 0;
-    }
-    if (zoom <= effect->side_zoom) {
-        return effect->side_dim_opa;
-    }
-
-    return (gfx_opa_t)(((uint32_t)(effect->center_zoom - zoom) * effect->side_dim_opa) /
-                       (uint32_t)(effect->center_zoom - effect->side_zoom));
-}
-
-static void gfx_coverflow_effect_calc(const gfx_coverflow_effect_t *effect, int32_t rel_slot,
-                                      int32_t drag_offset, int32_t spacing,
-                                      gfx_coverflow_effect_state_t *state)
-{
-    int32_t pos_q;
-    int32_t progress_q;
-    int32_t abs_pos_q;
-    int32_t zoom_delta;
-    int32_t zoom;
-
-    if (effect == NULL || state == NULL) {
-        return;
-    }
-
-    pos_q = rel_slot * GFX_COVERFLOW_POS_Q;
-    progress_q = spacing > 0 ? (drag_offset * GFX_COVERFLOW_POS_Q) / spacing : 0;
-    pos_q += progress_q;
-    abs_pos_q = gfx_coverflow_abs_i32(pos_q);
-    if (abs_pos_q > GFX_COVERFLOW_POS_Q) {
-        abs_pos_q = GFX_COVERFLOW_POS_Q;
-    }
-
-    zoom_delta = (int32_t)effect->center_zoom - (int32_t)effect->side_zoom;
-    zoom = (int32_t)effect->center_zoom -
-           (zoom_delta * abs_pos_q + GFX_COVERFLOW_POS_Q / 2) / GFX_COVERFLOW_POS_Q;
-    zoom = gfx_coverflow_clamp_i32(zoom, effect->side_zoom, effect->center_zoom);
-
-    state->pos_q = pos_q;
-    state->zoom = (uint16_t)zoom;
-    state->dim_opa = gfx_coverflow_effect_dim_from_zoom(effect, (uint16_t)zoom);
-    state->centerish = abs_pos_q < (GFX_COVERFLOW_POS_Q / 2);
-}
-
-static bool gfx_coverflow_effect_should_swap(const gfx_coverflow_card_state_t *a,
-        const gfx_coverflow_card_state_t *b)
-{
-    if (a == NULL || b == NULL) {
-        return false;
-    }
-
-    return a->zoom > b->zoom;
-}
-
-static void gfx_coverflow_calc_card_state(const gfx_coverflow_t *flow, const gfx_area_t *obj_area,
-        int32_t index, int32_t rel_slot,
-        gfx_coverflow_card_state_t *state)
-{
-    gfx_coverflow_effect_t effect;
-    gfx_coverflow_effect_state_t effect_state = {0};
-    int32_t w = obj_area->x2 - obj_area->x1;
-    int32_t h = obj_area->y2 - obj_area->y1;
-    int32_t center_x = (obj_area->x1 + obj_area->x2) / 2;
-    int32_t center_y = (obj_area->y1 + obj_area->y2) / 2;
-    int32_t base_w = (w * 58) / 100;
-    int32_t base_h = (h * 76) / 100;
-    int32_t spacing = (w * flow->style.spacing_pct) / 100;
-    int32_t card_w;
-    int32_t card_h;
-    int32_t card_cx;
-
-    effect.center_zoom = flow->style.center_zoom;
-    effect.side_zoom = flow->style.side_zoom;
-    effect.spacing_pct = flow->style.spacing_pct;
-    effect.side_dim_opa = flow->style.side_dim_opa;
-    gfx_coverflow_effect_calc(&effect, rel_slot, flow->drag_offset, spacing, &effect_state);
-
-    card_w = (base_w * effect_state.zoom) / 100;
-    card_h = (base_h * effect_state.zoom) / 100;
-    if (card_w < 1) {
-        card_w = 1;
-    }
-    if (card_h < 1) {
-        card_h = 1;
-    }
-
-    card_cx = center_x + (effect_state.pos_q * spacing) / GFX_COVERFLOW_POS_Q;
-    state->index = index;
-    state->pos_q = effect_state.pos_q;
-    state->zoom = effect_state.zoom;
-    state->dim_opa = effect_state.dim_opa;
-    state->centerish = effect_state.centerish;
-    state->area.x1 = (gfx_coord_t)(card_cx - card_w / 2);
-    state->area.x2 = (gfx_coord_t)(card_cx + card_w / 2);
-    state->area.y1 = (gfx_coord_t)(center_y - card_h / 2);
-    state->area.y2 = (gfx_coord_t)(center_y + card_h / 2);
-}
-
 static void gfx_coverflow_draw_card_state(gfx_object_t *obj, gfx_coverflow_t *flow, const gfx_draw_ctx_t *ctx,
         const gfx_coverflow_card_state_t *state)
 {
@@ -779,34 +633,42 @@ static uint8_t gfx_coverflow_collect_card_states(gfx_object_t *obj, gfx_coverflo
         gfx_coverflow_card_state_t *cards, uint8_t max_cards,
         bool sort_by_zoom)
 {
-    uint8_t card_count = 0;
+    gfx_coverflow_core_effect_t effect;
+    gfx_coverflow_core_card_t core_cards[GFX_COVERFLOW_VISIBLE_SIDE_COUNT * 2 + 1];
+    uint8_t card_count;
+    int32_t w;
+    int32_t h;
 
     if (obj == NULL || flow == NULL || obj_area == NULL ||
             cards == NULL || max_cards == 0U || flow->item_count == 0U) {
         return 0;
     }
 
-    for (int32_t slot = -GFX_COVERFLOW_VISIBLE_SIDE_COUNT; slot <= GFX_COVERFLOW_VISIBLE_SIDE_COUNT; slot++) {
-        int32_t index = flow->selected_index + slot;
-        if (index < 0 || index >= (int32_t)flow->item_count || card_count >= max_cards) {
-            continue;
-        }
-        gfx_coverflow_calc_card_state(flow, obj_area, index, slot, &cards[card_count]);
-        card_count++;
-    }
+    w = obj_area->x2 - obj_area->x1;
+    h = obj_area->y2 - obj_area->y1;
+    effect.center_zoom = flow->style.center_zoom;
+    effect.side_zoom = flow->style.side_zoom;
+    effect.spacing_pct = flow->style.spacing_pct;
+    effect.side_dim_opa = flow->style.side_dim_opa;
 
-    if (sort_by_zoom) {
-        for (uint8_t i = 0; i < card_count; i++) {
-            for (uint8_t j = (uint8_t)(i + 1U); j < card_count; j++) {
-                if (gfx_coverflow_effect_should_swap(&cards[i], &cards[j])) {
-                    gfx_coverflow_card_state_t tmp = cards[i];
-                    cards[i] = cards[j];
-                    cards[j] = tmp;
-                }
-            }
-        }
+    card_count = gfx_coverflow_core_collect_cards(flow->item_count, flow->selected_index,
+                 flow->drag_offset, obj_area->x1, obj_area->y1, w, h, &effect,
+                 core_cards, (uint8_t)(sizeof(core_cards) / sizeof(core_cards[0])),
+                 sort_by_zoom);
+    if (card_count > max_cards) {
+        card_count = max_cards;
     }
-
+    for (uint8_t i = 0; i < card_count; i++) {
+        cards[i].index = core_cards[i].index;
+        cards[i].pos_q = core_cards[i].pos_q;
+        cards[i].zoom = core_cards[i].zoom;
+        cards[i].dim_opa = core_cards[i].dim_opa;
+        cards[i].centerish = core_cards[i].centerish;
+        cards[i].area.x1 = (gfx_coord_t)core_cards[i].x;
+        cards[i].area.y1 = (gfx_coord_t)core_cards[i].y;
+        cards[i].area.x2 = (gfx_coord_t)(core_cards[i].x + core_cards[i].w);
+        cards[i].area.y2 = (gfx_coord_t)(core_cards[i].y + core_cards[i].h);
+    }
     return card_count;
 }
 
@@ -995,11 +857,9 @@ static void gfx_coverflow_touch_event(gfx_object_t *obj, const void *event_data)
             flow->touch.dragging = true;
         }
         if (flow->touch.dragging) {
-            int32_t limit = ((int32_t)obj->geometry.width * (int32_t)flow->style.spacing_pct) / 100;
-            if (limit <= 0) {
-                limit = (int32_t)flow->page_threshold;
-            }
-            flow->drag_offset = gfx_coverflow_clamp_i32(dx, -limit, limit);
+            int32_t limit = gfx_coverflow_core_spacing((int32_t)obj->geometry.width,
+                            flow->style.spacing_pct, (int32_t)flow->page_threshold);
+            flow->drag_offset = gfx_coverflow_core_clamp_i32(dx, -limit, limit);
             gfx_object_invalidate(obj);
         }
         return;
@@ -1007,12 +867,10 @@ static void gfx_coverflow_touch_event(gfx_object_t *obj, const void *event_data)
     if (event->type != GFX_TOUCH_EVENT_RELEASE || !was_pressed) {
         return;
     }
-    if (flow->drag_offset <= -(int32_t)flow->page_threshold) {
-        gfx_coverflow_start_tween(obj, flow, flow->selected_index + 1, flow->drag_offset);
-    } else if (flow->drag_offset >= (int32_t)flow->page_threshold) {
-        gfx_coverflow_start_tween(obj, flow, flow->selected_index - 1, flow->drag_offset);
-    } else {
-        gfx_coverflow_start_tween(obj, flow, flow->selected_index, flow->drag_offset);
+    {
+        int32_t target = gfx_coverflow_core_page_target(flow->item_count, flow->selected_index,
+                         flow->drag_offset, flow->page_threshold);
+        gfx_coverflow_start_tween(obj, flow, target, flow->drag_offset);
     }
 }
 

@@ -1,8 +1,21 @@
-# GSP Binary Scene Package Protocol
+# gsp_protocol
 
-This file is an index for the bilingual protocol documents:
+Protocol documentation for the GSP binary scene package.
 
-- English: [gsp_binary_protocol_en.md](gsp_binary_protocol_en.md)
-- 中文: [gsp_binary_protocol_zh.md](gsp_binary_protocol_zh.md)
+| File | Purpose |
+|---|---|
+| `gsp_binary_protocol_zh.md` | Chinese protocol reference. |
+| `gsp_binary_protocol_en.md` | English protocol reference. |
 
-Keep both versions synchronized when the package layout, loader validation rules, object fields, blob fields, or exporter requirements change.
+Keep both files synchronized when any of these change:
+
+- package layout or field sizes
+- loader validation rules
+- object/action/blob semantics
+- exporter requirements
+- manifest expectations
+
+The implementation reference is `include/gfx/scene/gsp.h` plus
+`src/scene/gsp_load.c`.
+
+ARN / 产品默认路径与计划见 [`docs/scene/`](../../../docs/scene/README.md)。

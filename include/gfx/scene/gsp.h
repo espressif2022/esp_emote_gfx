@@ -20,7 +20,7 @@
  *   - 无需冻结任何 widget struct 布局（不像 ITU 指针内存镜像）。
  *
  * 加载走“工厂建树”：loader 按 type 调 gfx_*_create + setter，
- * 不做指针重定位。详见 gsp_load.c。
+ * 不做指针重定位。详见 gfx_gsp_load.c。
  */
 
 #pragma once
@@ -39,38 +39,38 @@ extern "C" {
 #endif
 
 /* 'G''S''P''1' little-endian */
-#define GSP_MAGIC   0x31505347u
-#define GSP_VERSION 4u   /* v4：header 扩到 56B，新增位置无关的“动作表”(event->action) */
+#define GFX_GSP_MAGIC   0x31505347u
+#define GFX_GSP_VERSION 4u   /* v4：header 扩到 56B，新增位置无关的“动作表”(event->action) */
 
 /* 固定记录尺寸（字节）——与任何 C struct 布局无关 */
-#define GSP_HEADER_SIZE  56u
-#define GSP_OBJ_SIZE     64u
-#define GSP_BLOB_SIZE    20u
-#define GSP_ACTION_SIZE  24u
+#define GFX_GSP_HEADER_SIZE  56u
+#define GFX_GSP_OBJ_SIZE     64u
+#define GFX_GSP_BLOB_SIZE    20u
+#define GFX_GSP_ACTION_SIZE  24u
 
 /* blob（烘焙位图）压缩编码 */
 enum {
-    GSP_CODEC_STORE = 0,   /* 原样存储（未压缩）*/
-    GSP_CODEC_RLE16 = 1,   /* 16bpp 像素游程编码：token = u16 count + u16 pixel */
+    GFX_GSP_CODEC_STORE = 0,   /* 原样存储（未压缩）*/
+    GFX_GSP_CODEC_RLE16 = 1,   /* 16bpp 像素游程编码：token = u16 count + u16 pixel */
 };
 
 /* 文字对齐（与 gfx_text_align_t 对应）*/
 enum {
-    GSP_ALIGN_AUTO = 0,
-    GSP_ALIGN_LEFT = 1,
-    GSP_ALIGN_CENTER = 2,
-    GSP_ALIGN_RIGHT = 3,
+    GFX_GSP_ALIGN_AUTO = 0,
+    GFX_GSP_ALIGN_LEFT = 1,
+    GFX_GSP_ALIGN_CENTER = 2,
+    GFX_GSP_ALIGN_RIGHT = 3,
 };
 
 /* object 类型 */
 enum {
-    GSP_OBJ_CONTAINER = 1,
-    GSP_OBJ_LABEL     = 2,
-    GSP_OBJ_BUTTON    = 3,
-    GSP_OBJ_IMAGE     = 4,
-    GSP_OBJ_LIST      = 5,
-    GSP_OBJ_WHEEL     = 6,
-    GSP_OBJ_LAYER     = 7,
+    GFX_GSP_OBJ_CONTAINER = 1,
+    GFX_GSP_OBJ_LABEL     = 2,
+    GFX_GSP_OBJ_BUTTON    = 3,
+    GFX_GSP_OBJ_IMAGE     = 4,
+    GFX_GSP_OBJ_LIST      = 5,
+    GFX_GSP_OBJ_WHEEL     = 6,
+    GFX_GSP_OBJ_LAYER     = 7,
 };
 
 /* ---------- 动作表（v4）：位置无关的 event -> action ---------- *
@@ -79,57 +79,57 @@ enum {
  * 把每条 action 解析成“源对象 touch 回调 + 目标对象操作”。
  * 两个枚举均为 append-only：新值只能追加，禁止改动既有数值。            */
 
-/* 触发事件 GSP_EV_*（ActionEntry.event）*/
+/* 触发事件 GFX_GSP_EV_*（ActionEntry.event）*/
 enum {
-    GSP_EV_NONE    = 0,
-    GSP_EV_CLICK   = 1,   /* 源控件被点击（按下后在其内抬起）*/
-    GSP_EV_PRESS   = 2,   /* 按下 */
-    GSP_EV_RELEASE = 3,   /* 抬起 */
-    GSP_EV_LONG    = 4,   /* 长按（预留）*/
-    GSP_EV_VALUE   = 5,   /* 值变化（预留）*/
+    GFX_GSP_EV_NONE    = 0,
+    GFX_GSP_EV_CLICK   = 1,   /* 源控件被点击（按下后在其内抬起）*/
+    GFX_GSP_EV_PRESS   = 2,   /* 按下 */
+    GFX_GSP_EV_RELEASE = 3,   /* 抬起 */
+    GFX_GSP_EV_LONG    = 4,   /* 长按（预留）*/
+    GFX_GSP_EV_VALUE   = 5,   /* 值变化（预留）*/
 };
 
-/* 动作类型 GSP_ACT_*（ActionEntry.action）*/
+/* 动作类型 GFX_GSP_ACT_*（ActionEntry.action）*/
 enum {
-    GSP_ACT_NONE          = 0,
-    GSP_ACT_SHOW          = 1,   /* 目标可见 */
-    GSP_ACT_HIDE          = 2,   /* 目标隐藏 */
-    GSP_ACT_TOGGLE        = 3,   /* 目标可见性翻转（预留）*/
-    GSP_ACT_SET_TEXT      = 4,   /* 目标文字 = param 字符串 */
-    GSP_ACT_SET_BG_COLOR  = 5,   /* 目标底色 = arg (RGB888) */
-    GSP_ACT_SET_OPACITY   = 6,   /* 目标不透明度 = arg (0..255)（预留）*/
-    GSP_ACT_CALL          = 7,   /* 调用 target_name 绑定的 C 回调 */
-    GSP_ACT_GOTO          = 8,   /* 场景跳转（预留）*/
-    GSP_ACT_BACK          = 9,   /* 返回上一场景（预留）*/
+    GFX_GSP_ACT_NONE          = 0,
+    GFX_GSP_ACT_SHOW          = 1,   /* 目标可见 */
+    GFX_GSP_ACT_HIDE          = 2,   /* 目标隐藏 */
+    GFX_GSP_ACT_TOGGLE        = 3,   /* 目标可见性翻转（预留）*/
+    GFX_GSP_ACT_SET_TEXT      = 4,   /* 目标文字 = param 字符串 */
+    GFX_GSP_ACT_SET_BG_COLOR  = 5,   /* 目标底色 = arg (RGB888) */
+    GFX_GSP_ACT_SET_OPACITY   = 6,   /* 目标不透明度 = arg (0..255)（预留）*/
+    GFX_GSP_ACT_CALL          = 7,   /* 调用 target_name 绑定的 C 回调 */
+    GFX_GSP_ACT_GOTO          = 8,   /* 场景跳转（预留）*/
+    GFX_GSP_ACT_BACK          = 9,   /* 返回上一场景（预留）*/
 };
 
 /* target_idx / src_idx 哨兵 */
-#define GSP_ACT_NO_TARGET  0xFFFFu   /* 该动作不作用于具体对象（如 GOTO/BACK）*/
+#define GFX_GSP_ACT_NO_TARGET  0xFFFFu   /* 该动作不作用于具体对象（如 GOTO/BACK）*/
 
 /* ObjEntry.flags 位 */
-#define GSP_F_TEXT      (1u << 0)   /* text_off 有效 */
-#define GSP_F_FG_COLOR  (1u << 1)   /* fg_color 有效（label 文字色 / button 文字色）*/
-#define GSP_F_BG_COLOR  (1u << 2)   /* bg_color 有效 */
-#define GSP_F_BORDER    (1u << 3)   /* border_color + border_width 有效 */
-#define GSP_F_RADIUS    (1u << 4)   /* radius 有效 */
-#define GSP_F_CALLBACK  (1u << 5)   /* callback_off 有效 */
-#define GSP_F_IMAGE     (1u << 6)   /* blob_idx 有效（烘焙进包的图片）*/
-#define GSP_F_NAME      (1u << 7)   /* name_off 有效（控件名，供按名查找/绑定）*/
-#define GSP_F_HIDDEN    (1u << 8)   /* 初始隐藏 */
-#define GSP_F_OPACITY   (1u << 9)   /* opacity 有效（0..255）*/
-#define GSP_F_ALIGN     (1u << 10)  /* text_align 有效 */
-#define GSP_F_PARAMS    (1u << 11)  /* params_off + params_len 有效（每控件私有参数块）*/
+#define GFX_GSP_F_TEXT      (1u << 0)   /* text_off 有效 */
+#define GFX_GSP_F_FG_COLOR  (1u << 1)   /* fg_color 有效（label 文字色 / button 文字色）*/
+#define GFX_GSP_F_BG_COLOR  (1u << 2)   /* bg_color 有效 */
+#define GFX_GSP_F_BORDER    (1u << 3)   /* border_color + border_width 有效 */
+#define GFX_GSP_F_RADIUS    (1u << 4)   /* radius 有效 */
+#define GFX_GSP_F_CALLBACK  (1u << 5)   /* callback_off 有效 */
+#define GFX_GSP_F_IMAGE     (1u << 6)   /* blob_idx 有效（烘焙进包的图片）*/
+#define GFX_GSP_F_NAME      (1u << 7)   /* name_off 有效（控件名，供按名查找/绑定）*/
+#define GFX_GSP_F_HIDDEN    (1u << 8)   /* 初始隐藏 */
+#define GFX_GSP_F_OPACITY   (1u << 9)   /* opacity 有效（0..255）*/
+#define GFX_GSP_F_ALIGN     (1u << 10)  /* text_align 有效 */
+#define GFX_GSP_F_PARAMS    (1u << 11)  /* params_off + params_len 有效（每控件私有参数块）*/
 
-/* list / wheel params v1（GSP_F_PARAMS）：header 12B + repeated length-prefixed UTF-8 items */
-#define GSP_ITEM_PARAMS_SELECTED_NONE 0xFFFFu
-#define GSP_ITEM_PARAMS_F_CYCLIC      (1u << 0)  /* wheel: cyclic */
-#define GSP_ITEM_PARAMS_F_SNAP_TO_ITEM (1u << 0) /* list: snap to item */
+/* list / wheel params v1（GFX_GSP_F_PARAMS）：header 12B + repeated length-prefixed UTF-8 items */
+#define GFX_GSP_ITEM_PARAMS_SELECTED_NONE 0xFFFFu
+#define GFX_GSP_ITEM_PARAMS_F_CYCLIC      (1u << 0)  /* wheel: cyclic */
+#define GFX_GSP_ITEM_PARAMS_F_SNAP_TO_ITEM (1u << 0) /* list: snap to item */
 
 /* parent_idx 哨兵：根对象（直接挂 display）*/
-#define GSP_NO_PARENT   0xFFFFu
+#define GFX_GSP_NO_PARENT   0xFFFFu
 
 /*
- * Header 字节布局（GSP_HEADER_SIZE = 56）：
+ * Header 字节布局（GFX_GSP_HEADER_SIZE = 56）：
  *   off  0  u32 magic
  *   off  4  u32 version
  *   off  8  u16 screen_w
@@ -146,20 +146,20 @@ enum {
  *   off 48  u32 action_table_off  动作表绝对偏移（v4）
  *   off 52  u32 reserved
  *
- * ActionEntry 字节布局（GSP_ACTION_SIZE = 24）：
- *   off  0  u16 src_idx         触发源对象索引（GSP_ACT_NO_TARGET = 全局）
- *   off  2  u16 event           GSP_EV_*
- *   off  4  u16 action          GSP_ACT_*
- *   off  6  u16 target_idx      目标对象索引（GSP_ACT_NO_TARGET = 无 / 用 name）
+ * ActionEntry 字节布局（GFX_GSP_ACTION_SIZE = 24）：
+ *   off  0  u16 src_idx         触发源对象索引（GFX_GSP_ACT_NO_TARGET = 全局）
+ *   off  2  u16 event           GFX_GSP_EV_*
+ *   off  4  u16 action          GFX_GSP_ACT_*
+ *   off  6  u16 target_idx      目标对象索引（GFX_GSP_ACT_NO_TARGET = 无 / 用 name）
  *   off  8  u32 target_name_off -> 目标控件名字符串；0 = 无（优先于 target_idx）
  *   off 12  u32 param_off       -> 动作参数字节块偏移（如 SET_TEXT 的字符串）；0 = 无
  *   off 16  u16 param_len       param 字节数
  *   off 18  u16 flags           预留
  *   off 20  u32 arg             标量参数（如 SET_BG_COLOR 的 RGB888 / SET_OPACITY）
  *
- * ObjEntry 字节布局（GSP_OBJ_SIZE = 64），先序排列、parent_idx < 自身索引：
+ * ObjEntry 字节布局（GFX_GSP_OBJ_SIZE = 64），先序排列、parent_idx < 自身索引：
  *   off  0  u16 type
- *   off  2  u16 parent_idx     GSP_NO_PARENT = 根
+ *   off  2  u16 parent_idx     GFX_GSP_NO_PARENT = 根
  *   off  4  i16 x
  *   off  6  i16 y
  *   off  8  u16 w
@@ -173,16 +173,16 @@ enum {
  *   off 32  u32 text_off       -> string table 内 NUL 结尾字符串；0 = 无
  *   off 36  u32 callback_off   -> 回调名字符串；0 = 无
  *   off 40  u32 name_off       -> 控件名字符串；0 = 无
- *   off 44  u32 blob_idx       -> 图片 blob 索引（GSP_F_IMAGE 时有效）
- *   off 48  u32 params_off     -> 每控件私有参数块偏移（GSP_F_PARAMS 时有效）
+ *   off 44  u32 blob_idx       -> 图片 blob 索引（GFX_GSP_F_IMAGE 时有效）
+ *   off 48  u32 params_off     -> 每控件私有参数块偏移（GFX_GSP_F_PARAMS 时有效）
  *   off 52  u16 params_len     私有参数块字节数
- *   off 54  u8  opacity        0..255（GSP_F_OPACITY 时有效）
- *   off 55  u8  text_align     GSP_ALIGN_*（GSP_F_ALIGN 时有效）
- *   off 56  u16 font_id        运行期字体表 id（gsp_font_binding_t.id）
+ *   off 54  u8  opacity        0..255（GFX_GSP_F_OPACITY 时有效）
+ *   off 55  u8  text_align     GFX_GSP_ALIGN_*（GFX_GSP_F_ALIGN 时有效）
+ *   off 56  u16 font_id        运行期字体表 id（gfx_gsp_font_binding_t.id）
  *   off 58  u16 bind_id        数据绑定 id（预留）
  *   off 60  u32 reserved0
  *
- * List/Wheel params v1（GSP_F_PARAMS，全部小端）：
+ * List/Wheel params v1（GFX_GSP_F_PARAMS，全部小端）：
  *   off  0  u16 item_count
  *   off  2  u16 selected       0xFFFF = none
  *   off  4  u16 item_height    0 = widget default
@@ -192,11 +192,11 @@ enum {
  *   off 12  repeated item_count times:
  *           u16 byte_len + byte_len bytes UTF-8 text（不要求 NUL 结尾）
  *
- * BlobEntry 字节布局（GSP_BLOB_SIZE = 20），烘焙进包的位图：
+ * BlobEntry 字节布局（GFX_GSP_BLOB_SIZE = 20），烘焙进包的位图：
  *   off  0  u16 w
  *   off  2  u16 h
  *   off  4  u8  cf            gfx_color_format_t
- *   off  5  u8  codec         GSP_CODEC_*
+ *   off  5  u8  codec         GFX_GSP_CODEC_*
  *   off  6  u16 stride        每行字节（0 = w*bpp）
  *   off  8  u32 raw_size      解压后字节数
  *   off 12  u32 comp_size     压缩后字节数（STORE 时 == raw_size）
@@ -213,13 +213,13 @@ enum {
 
 /* ---------- 小端 / 固定宽度 编解码（与 struct 布局无关）---------- */
 
-static inline void gsp_wr_u16(uint8_t *p, uint16_t v)
+static inline void gfx_gsp_wr_u16(uint8_t *p, uint16_t v)
 {
     p[0] = (uint8_t)(v & 0xFFu);
     p[1] = (uint8_t)((v >> 8) & 0xFFu);
 }
 
-static inline void gsp_wr_u32(uint8_t *p, uint32_t v)
+static inline void gfx_gsp_wr_u32(uint8_t *p, uint32_t v)
 {
     p[0] = (uint8_t)(v & 0xFFu);
     p[1] = (uint8_t)((v >> 8) & 0xFFu);
@@ -227,24 +227,24 @@ static inline void gsp_wr_u32(uint8_t *p, uint32_t v)
     p[3] = (uint8_t)((v >> 24) & 0xFFu);
 }
 
-static inline uint16_t gsp_rd_u16(const uint8_t *p)
+static inline uint16_t gfx_gsp_rd_u16(const uint8_t *p)
 {
     return (uint16_t)((uint16_t)p[0] | ((uint16_t)p[1] << 8));
 }
 
-static inline int16_t gsp_rd_i16(const uint8_t *p)
+static inline int16_t gfx_gsp_rd_i16(const uint8_t *p)
 {
-    return (int16_t)gsp_rd_u16(p);
+    return (int16_t)gfx_gsp_rd_u16(p);
 }
 
-static inline uint32_t gsp_rd_u32(const uint8_t *p)
+static inline uint32_t gfx_gsp_rd_u32(const uint8_t *p)
 {
     return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
            ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
 }
 
 /* 每像素字节数（仅覆盖本 demo 用到的格式；0 = 不支持）。*/
-static inline uint8_t gsp_bpp(uint8_t cf)
+static inline uint8_t gfx_gsp_bpp(uint8_t cf)
 {
     switch (cf) {
     case GFX_COLOR_FORMAT_RGB565:
@@ -262,7 +262,7 @@ static inline uint8_t gsp_bpp(uint8_t cf)
 
 /* ---------- CRC32（IEEE，table-less；两端一致，无依赖）---------- */
 
-static inline uint32_t gsp_crc32_feed(uint32_t crc, const uint8_t *p, size_t n)
+static inline uint32_t gfx_gsp_crc32_feed(uint32_t crc, const uint8_t *p, size_t n)
 {
     for (size_t i = 0; i < n; i++) {
         crc ^= p[i];
@@ -274,23 +274,23 @@ static inline uint32_t gsp_crc32_feed(uint32_t crc, const uint8_t *p, size_t n)
 }
 
 /* 覆盖整包、但把 header 里的 crc32 字段（off 40..43）当作 0 计算。*/
-static inline uint32_t gsp_crc32_scene(const uint8_t *buf, uint32_t total)
+static inline uint32_t gfx_gsp_crc32_scene(const uint8_t *buf, uint32_t total)
 {
     static const uint8_t zero4[4] = { 0, 0, 0, 0 };
     uint32_t c = 0xFFFFFFFFu;
-    c = gsp_crc32_feed(c, buf, 40);              /* [0, 40) */
-    c = gsp_crc32_feed(c, zero4, 4);             /* [40, 44) 视为 0 */
+    c = gfx_gsp_crc32_feed(c, buf, 40);              /* [0, 40) */
+    c = gfx_gsp_crc32_feed(c, zero4, 4);             /* [40, 44) 视为 0 */
     if (total > 44u) {
-        c = gsp_crc32_feed(c, buf + 44, total - 44u);   /* [44, total) */
+        c = gfx_gsp_crc32_feed(c, buf + 44, total - 44u);   /* [44, total) */
     }
     return c ^ 0xFFFFFFFFu;
 }
 
 /* 编译期锁死记录尺寸（字节偏移式无需 struct，但断言可防手滑改错）*/
-_Static_assert(GSP_HEADER_SIZE == 56u, "GSP header size drift");
-_Static_assert(GSP_OBJ_SIZE == 64u, "GSP object entry size drift");
-_Static_assert(GSP_BLOB_SIZE == 20u, "GSP blob entry size drift");
-_Static_assert(GSP_ACTION_SIZE == 24u, "GSP action entry size drift");
+_Static_assert(GFX_GSP_HEADER_SIZE == 56u, "GSP header size drift");
+_Static_assert(GFX_GSP_OBJ_SIZE == 64u, "GSP object entry size drift");
+_Static_assert(GFX_GSP_BLOB_SIZE == 20u, "GSP blob entry size drift");
+_Static_assert(GFX_GSP_ACTION_SIZE == 24u, "GSP action entry size drift");
 
 /* ---------- 作者侧描述（打包输入）---------- */
 
@@ -302,14 +302,14 @@ typedef struct {
     uint16_t    weight;        /* 400=regular, 700=bold; advisory for now */
     uint8_t     style;         /* 0=normal, 1=italic; advisory for now */
     uint8_t     reserved;
-} gsp_font_desc_t;
+} gfx_gsp_font_desc_t;
 
 typedef struct {
-    uint16_t    type;          /* GSP_OBJ_* */
-    uint16_t    parent_idx;    /* GSP_NO_PARENT = 根 */
+    uint16_t    type;          /* GFX_GSP_OBJ_* */
+    uint16_t    parent_idx;    /* GFX_GSP_NO_PARENT = 根 */
     int16_t     x, y;
     uint16_t    w, h;
-    uint32_t    flags;         /* GSP_F_* */
+    uint32_t    flags;         /* GFX_GSP_F_* */
     const char *text;          /* NULL 若无 */
     uint32_t    fg_color;      /* RGB888 */
     uint32_t    bg_color;      /* RGB888 */
@@ -317,37 +317,37 @@ typedef struct {
     uint16_t    border_width;
     uint16_t    radius;
     const char *callback;      /* NULL 若无 */
-    const gfx_image_dsc_t *image_src;  /* 源位图；GSP_F_IMAGE 时打包器把像素烘焙进包 */
-    const char *name;          /* 控件名（GSP_F_NAME）；NULL 若无 */
-    uint8_t     opacity;       /* 0..255（GSP_F_OPACITY）*/
-    uint8_t     text_align;    /* GSP_ALIGN_*（GSP_F_ALIGN）*/
-    uint16_t    font_id;       /* References gsp_font_desc_t.id / gsp_font_binding_t.id */
+    const gfx_image_dsc_t *image_src;  /* 源位图；GFX_GSP_F_IMAGE 时打包器把像素烘焙进包 */
+    const char *name;          /* 控件名（GFX_GSP_F_NAME）；NULL 若无 */
+    uint8_t     opacity;       /* 0..255（GFX_GSP_F_OPACITY）*/
+    uint8_t     text_align;    /* GFX_GSP_ALIGN_*（GFX_GSP_F_ALIGN）*/
+    uint16_t    font_id;       /* References gfx_gsp_font_desc_t.id / gfx_gsp_font_binding_t.id */
     uint16_t    bind_id;       /* 预留 */
-    const void *params;        /* 每控件私有参数块（GSP_F_PARAMS）；NULL 若无 */
+    const void *params;        /* 每控件私有参数块（GFX_GSP_F_PARAMS）；NULL 若无 */
     uint16_t    params_len;    /* params 字节数 */
-} gsp_desc_t;
+} gfx_gsp_desc_t;
 
 /* 作者侧动作描述（打包输入）。索引/名字二选一定位目标。*/
 typedef struct {
     uint16_t    src_idx;       /* 触发源对象索引 */
-    uint16_t    event;         /* GSP_EV_* */
-    uint16_t    action;        /* GSP_ACT_* */
-    uint16_t    target_idx;    /* 目标对象索引；GSP_ACT_NO_TARGET = 无 */
+    uint16_t    event;         /* GFX_GSP_EV_* */
+    uint16_t    action;        /* GFX_GSP_ACT_* */
+    uint16_t    target_idx;    /* 目标对象索引；GFX_GSP_ACT_NO_TARGET = 无 */
     const char *target_name;   /* 目标控件名（优先于 target_idx）；NULL 若无 */
     const char *param;         /* 字符串参数（如 SET_TEXT）；NULL 若无 */
     uint32_t    arg;           /* 标量参数（如 SET_BG_COLOR 的 RGB888）*/
-} gsp_action_desc_t;
+} gfx_gsp_action_desc_t;
 
 typedef struct {
     uint16_t          screen_w, screen_h;
     uint32_t          screen_bg;   /* RGB888 */
-    const gsp_desc_t *objs;
+    const gfx_gsp_desc_t *objs;
     uint16_t          obj_count;
-    const gsp_font_desc_t *fonts;
+    const gfx_gsp_font_desc_t *fonts;
     uint16_t          font_count;
-    const gsp_action_desc_t *actions;   /* v4 动作表；NULL/0 = 无 */
+    const gfx_gsp_action_desc_t *actions;   /* v4 动作表；NULL/0 = 无 */
     uint16_t          action_count;
-} gsp_scene_desc_t;
+} gfx_gsp_scene_desc_t;
 
 /* ---------- packer（host “编译器”）---------- */
 
@@ -355,10 +355,10 @@ typedef struct {
  * 把 scene 描述打包成一段位置无关的 u32-offset 字节。
  * 返回 malloc 的 buffer；*out_size 为字节数；失败返回 NULL。调用者 free()。
  */
-uint8_t *gsp_pack(const gsp_scene_desc_t *scene, size_t *out_size);
+uint8_t *gfx_gsp_pack(const gfx_gsp_scene_desc_t *scene, size_t *out_size);
 
 /** 把包内容（header / object table / string table）打印到 stdout。*/
-void gsp_dump(const uint8_t *buf, size_t size);
+void gfx_gsp_dump(const uint8_t *buf, size_t size);
 
 /* ---------- loader（host/device 共用）---------- */
 
@@ -366,73 +366,73 @@ typedef struct {
     const char           *name;
     gfx_object_touch_cb_t cb;
     void                 *user_data;
-} gsp_cb_binding_t;
+} gfx_gsp_cb_binding_t;
 
 typedef struct {
     uint16_t   id;             /* Matches ObjEntry.font_id */
     gfx_font_t font;
-} gsp_font_binding_t;
+} gfx_gsp_font_binding_t;
 
 typedef struct {
     uint16_t      obj_idx;      /* Index in ObjEntry table */
-    uint16_t      type;         /* GSP_OBJ_* */
+    uint16_t      type;         /* GFX_GSP_OBJ_* */
     uint16_t      parent_idx;   /* ObjEntry.parent_idx */
     uint16_t      bind_id;      /* ObjEntry.bind_id */
     const char   *name;         /* Points into package string table; valid while package bytes live */
     gfx_object_t *obj;          /* Runtime object handle */
-    /* GSP_F_CALLBACK 解析出的用户回调（由内部 trampoline 调用，与动作表共存）*/
+    /* GFX_GSP_F_CALLBACK 解析出的用户回调（由内部 trampoline 调用，与动作表共存）*/
     gfx_object_touch_cb_t user_cb;
     void         *user_cb_data;
-} gsp_object_ref_t;
+} gfx_gsp_object_ref_t;
 
 /* 运行期动作记录：从动作表解析而来，字符串/名字指向包字节。*/
 typedef struct {
     uint16_t      src_idx;
-    uint16_t      event;        /* GSP_EV_* */
-    uint16_t      action;       /* GSP_ACT_* */
-    uint16_t      target_idx;   /* GSP_ACT_NO_TARGET = 无 */
+    uint16_t      event;        /* GFX_GSP_EV_* */
+    uint16_t      action;       /* GFX_GSP_ACT_* */
+    uint16_t      target_idx;   /* GFX_GSP_ACT_NO_TARGET = 无 */
     const char   *target_name;  /* NULL 若无 */
     const char   *param;        /* NULL 若无 */
     uint16_t      param_len;
     uint32_t      arg;
-} gsp_action_rt_t;
+} gfx_gsp_action_rt_t;
 
 typedef struct {
     gfx_object_t  *root;       /* 第一个根对象 */
     gfx_object_t **objs;       /* 每个 entry 对应的 handle（malloc）*/
     uint16_t       obj_count;
-    gsp_object_ref_t *refs;    /* Runtime lookup table for name/bind_id/object refs */
+    gfx_gsp_object_ref_t *refs;    /* Runtime lookup table for name/bind_id/object refs */
     uint16_t       ref_count;
-    /* 加载期从 blob 解压出来的位图（随场景生命周期，gsp_scene_free 释放）*/
+    /* 加载期从 blob 解压出来的位图（随场景生命周期，gfx_gsp_scene_free 释放）*/
     gfx_image_dsc_t *img_dscs; /* [blob_count]，image 对象的 source 指向这里 */
     uint8_t        **img_bufs; /* [blob_count]，解压后的像素缓冲 */
     uint16_t         blob_count;
     /* v4 动作表（运行期分发用）*/
-    gsp_action_rt_t *actions;    /* [action_count]，malloc */
+    gfx_gsp_action_rt_t *actions;    /* [action_count]，malloc */
     uint16_t         action_count;
     /* CALL 动作用的回调绑定表（指向调用者所有的表，需活到场景销毁）*/
-    const gsp_cb_binding_t *cbs;
+    const gfx_gsp_cb_binding_t *cbs;
     size_t                  cb_count;
-} gsp_scene_t;
+} gfx_gsp_scene_t;
 
-/* gsp_load 返回码 */
+/* gfx_gsp_load 返回码 */
 enum {
-    GSP_OK = 0,
-    GSP_ERR_SIZE = -1,
-    GSP_ERR_MAGIC = -2,
-    GSP_ERR_VERSION = -3,
-    GSP_ERR_BOUNDS = -4,
-    GSP_ERR_COUNT = -5,
-    GSP_ERR_PARENT = -6,
-    GSP_ERR_STRING = -7,
-    GSP_ERR_TYPE = -8,
-    GSP_ERR_CREATE = -9,
-    GSP_ERR_ALLOC = -10,
-    GSP_ERR_IMAGE = -11,
-    GSP_ERR_BLOB = -12,
-    GSP_ERR_CODEC = -13,
-    GSP_ERR_CRC = -14,
-    GSP_ERR_ACTION = -15,
+    GFX_GSP_OK = 0,
+    GFX_GSP_ERR_SIZE = -1,
+    GFX_GSP_ERR_MAGIC = -2,
+    GFX_GSP_ERR_VERSION = -3,
+    GFX_GSP_ERR_BOUNDS = -4,
+    GFX_GSP_ERR_COUNT = -5,
+    GFX_GSP_ERR_PARENT = -6,
+    GFX_GSP_ERR_STRING = -7,
+    GFX_GSP_ERR_TYPE = -8,
+    GFX_GSP_ERR_CREATE = -9,
+    GFX_GSP_ERR_ALLOC = -10,
+    GFX_GSP_ERR_IMAGE = -11,
+    GFX_GSP_ERR_BLOB = -12,
+    GFX_GSP_ERR_CODEC = -13,
+    GFX_GSP_ERR_CRC = -14,
+    GFX_GSP_ERR_ACTION = -15,
 };
 
 /**
@@ -443,36 +443,36 @@ enum {
  * @param disp     目标 display
  * @param font     label/button 使用的字体
  * @param cbs/cb_count  回调名 -> 函数绑定表
- * @param out      输出场景句柄（需 gsp_scene_free 释放）
- * @return GSP_OK(0) 成功，否则 GSP_ERR_*
+ * @param out      输出场景句柄（需 gfx_gsp_scene_free 释放）
+ * @return GFX_GSP_OK(0) 成功，否则 GFX_GSP_ERR_*
  */
-int gsp_load(const uint8_t *buf, size_t size, gfx_display_t *disp, gfx_font_t font,
-             const gsp_cb_binding_t *cbs, size_t cb_count, gsp_scene_t *out);
+int gfx_gsp_load(const uint8_t *buf, size_t size, gfx_display_t *disp, gfx_font_t font,
+             const gfx_gsp_cb_binding_t *cbs, size_t cb_count, gfx_gsp_scene_t *out);
 
 /**
  * Load a package with a runtime font binding table. If an object's font_id is
  * not found, default_font is used.
  */
-int gsp_load_with_fonts(const uint8_t *buf, size_t size, gfx_display_t *disp,
-                        const gsp_font_binding_t *fonts, size_t font_count,
+int gfx_gsp_load_with_fonts(const uint8_t *buf, size_t size, gfx_display_t *disp,
+                        const gfx_gsp_font_binding_t *fonts, size_t font_count,
                         gfx_font_t default_font,
-                        const gsp_cb_binding_t *cbs, size_t cb_count,
-                        gsp_scene_t *out);
+                        const gfx_gsp_cb_binding_t *cbs, size_t cb_count,
+                        gfx_gsp_scene_t *out);
 
 /** 删除整棵已加载的对象树并释放句柄数组。*/
-void gsp_scene_free(gsp_scene_t *scene);
+void gfx_gsp_scene_free(gfx_gsp_scene_t *scene);
 
 /** 按 object table index 取运行期对象。*/
-gfx_object_t *gsp_scene_get_obj(const gsp_scene_t *scene, uint16_t index);
+gfx_object_t *gfx_gsp_scene_get_obj(const gfx_gsp_scene_t *scene, uint16_t index);
 
-/** 按 GSP_F_NAME 控件名取运行期对象，供 C 回调像 ITE 一样定位 widget。*/
-gfx_object_t *gsp_scene_find_by_name(const gsp_scene_t *scene, const char *name);
+/** 按 GFX_GSP_F_NAME 控件名取运行期对象，供 C 回调像 ITE 一样定位 widget。*/
+gfx_object_t *gfx_gsp_scene_find_by_name(const gfx_gsp_scene_t *scene, const char *name);
 
 /** 按 bind_id 取运行期对象；bind_id=0 是未绑定，不参与查找。*/
-gfx_object_t *gsp_scene_find_by_bind_id(const gsp_scene_t *scene, uint16_t bind_id);
+gfx_object_t *gfx_gsp_scene_find_by_bind_id(const gfx_gsp_scene_t *scene, uint16_t bind_id);
 
 /** 显示指定 layer，并隐藏同 parent 下的其它 layer。*/
-int gsp_scene_show_layer(gsp_scene_t *scene, const char *name);
+int gfx_gsp_scene_show_layer(gfx_gsp_scene_t *scene, const char *name);
 
 #ifdef __cplusplus
 }

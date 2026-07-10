@@ -5,7 +5,7 @@
  */
 
 /*
- * arena_sdl_demo — visual host simulation (arena formal path)
+ * gfx_arena_sdl_demo — visual host simulation (arena formal path)
  * ===========================================================
  *   ARENA_SDL=1 ./build-host-sdl/gfx_arena_sdl_demo
  *
@@ -46,7 +46,7 @@ static int run_headless(void)
     uint32_t ok_count = 0;
 
     size_t pkg_size = 0;
-    uint8_t *pkg = arena_demo_pack(&pkg_size);
+    uint8_t *pkg = gfx_arena_demo_pack(&pkg_size);
     CHECK(pkg != NULL, "pack");
 
     gfx_handle_t handle = gfx_core_init(&(gfx_core_config_t) {
@@ -70,7 +70,7 @@ static int run_headless(void)
     CHECK(disp != NULL, "display");
 
     gfx_arena_scene_t scene;
-    CHECK(arena_demo_bind(disp, pkg, pkg_size, (gfx_font_t)&font_puhui_16_4,
+    CHECK(gfx_arena_demo_bind(disp, pkg, pkg_size, (gfx_font_t)&font_puhui_16_4,
                           &scene, &ok_count) == 0, "bind");
     CHECK(gfx_core_refresh_now(handle) == GFX_OK, "refresh");
 
@@ -91,7 +91,7 @@ static int run_headless(void)
     CHECK(ok_count == 1, "ok_count");
     CHECK(gfx_core_refresh_now(handle) == GFX_OK, "refresh after click");
 
-    arena_scene_detach(&scene);
+    gfx_arena_scene_detach(&scene);
     gfx_core_deinit(handle);
     free(pkg);
     return fails == 0 ? 0 : 1;
@@ -100,7 +100,7 @@ static int run_headless(void)
 static int run_sdl(void)
 {
     size_t pkg_size = 0;
-    uint8_t *pkg = arena_demo_pack(&pkg_size);
+    uint8_t *pkg = gfx_arena_demo_pack(&pkg_size);
     if (pkg == NULL) {
         fprintf(stderr, "pack failed\n");
         return 1;
@@ -135,7 +135,7 @@ static int run_sdl(void)
     }
 
     gfx_arena_scene_t scene;
-    if (arena_demo_bind(port.disp, pkg, pkg_size, (gfx_font_t)&font_puhui_16_4,
+    if (gfx_arena_demo_bind(port.disp, pkg, pkg_size, (gfx_font_t)&font_puhui_16_4,
                         &scene, &ok_count) != 0) {
         fprintf(stderr, "arena_demo_bind failed\n");
         gfx_display_port_close(&port);
@@ -151,7 +151,7 @@ static int run_sdl(void)
     });
 
     printf("ok_count=%lu\n", (unsigned long)ok_count);
-    arena_scene_detach(&scene);
+    gfx_arena_scene_detach(&scene);
     gfx_display_port_close(&port);
     free(pkg);
     return 0;

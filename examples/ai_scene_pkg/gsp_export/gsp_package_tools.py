@@ -442,7 +442,7 @@ def write_inc(path: Path, pkg: bytes, h: Header, prefix: str) -> None:
             f'#define {prefix.upper()}_ACTION_COUNT   {h.action_count}\n'
             f'#define {prefix.upper()}_FONT_CJK_REGULAR_PATH "{HOME_FONT_CJK_REGULAR_PATH}"\n\n'
         )
-        fp.write(f'static const gsp_font_desc_t {prefix}_fonts[{prefix.upper()}_FONT_COUNT] = {{\n')
+        fp.write(f'static const gfx_gsp_font_desc_t {prefix}_fonts[{prefix.upper()}_FONT_COUNT] = {{\n')
         for font in HOME_FONTS:
             fp.write(
                 f"    {{ .id = {font['id']}, .family = \"{font['family']}\", "

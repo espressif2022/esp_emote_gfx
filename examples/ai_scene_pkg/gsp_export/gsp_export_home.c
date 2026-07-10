@@ -8,9 +8,9 @@
  * Host exporter for the demo home scene.
  *
  * This is intentionally small and boring: build an author-side scene, call the
- * same gsp_pack() compiler, then emit only the raw .gsp package. Formatting that
+ * same gfx_gsp_pack() compiler, then emit only the raw .gsp package. Formatting that
  * package as .inc, extracting previews, and writing a readable manifest are tool
- * pipeline jobs handled by gsp_package_tools.py.
+ * pipeline jobs handled by gfx_gsp_package_tools.py.
  */
 
 #include <errno.h>
@@ -133,18 +133,18 @@ static int build_item_params(const char *const *items, uint16_t item_count,
         return 1;
     }
 
-    gsp_wr_u16(buf + 0, item_count);
-    gsp_wr_u16(buf + 2, selected);
-    gsp_wr_u16(buf + 4, item_height);
-    gsp_wr_u16(buf + 6, rows_or_page);
-    gsp_wr_u16(buf + 8, flags);
-    gsp_wr_u16(buf + 10, 0u);
+    gfx_gsp_wr_u16(buf + 0, item_count);
+    gfx_gsp_wr_u16(buf + 2, selected);
+    gfx_gsp_wr_u16(buf + 4, item_height);
+    gfx_gsp_wr_u16(buf + 6, rows_or_page);
+    gfx_gsp_wr_u16(buf + 8, flags);
+    gfx_gsp_wr_u16(buf + 10, 0u);
 
     uint32_t cursor = 12u;
     for (uint16_t i = 0; i < item_count; i++) {
         const char *item = items[i] != NULL ? items[i] : "";
         uint16_t len = (uint16_t)strlen(item);
-        gsp_wr_u16(buf + cursor, len);
+        gfx_gsp_wr_u16(buf + cursor, len);
         cursor += 2u;
         memcpy(buf + cursor, item, len);
         cursor += len;
@@ -176,9 +176,9 @@ static int write_file(const char *path, const uint8_t *data, size_t size)
 int main(int argc, char **argv)
 {
     const char *out_dir = argc > 1 ? argv[1] : "examples/ai_scene_pkg/gsp_export";
-    char gsp_path[512];
+    char gfx_gsp_path[512];
 
-    snprintf(gsp_path, sizeof(gsp_path), "%s/home.gsp", out_dir);
+    snprintf(gfx_gsp_path, sizeof(gfx_gsp_path), "%s/home.gsp", out_dir);
 
     uint8_t *image_pixels = (uint8_t *)malloc((size_t)HOME_IMG_W * HOME_IMG_H * 2u);
     if (image_pixels == NULL) {
@@ -212,9 +212,9 @@ int main(int argc, char **argv)
     };
     item_params_t list_params = {0};
     item_params_t wheel_params = {0};
-    if (build_item_params(list_items, 4, 1, 34, 4, GSP_ITEM_PARAMS_F_SNAP_TO_ITEM,
+    if (build_item_params(list_items, 4, 1, 34, 4, GFX_GSP_ITEM_PARAMS_F_SNAP_TO_ITEM,
                           &list_params) != 0 ||
-            build_item_params(wheel_items, 4, 0, 30, 5, GSP_ITEM_PARAMS_F_CYCLIC,
+            build_item_params(wheel_items, 4, 0, 30, 5, GFX_GSP_ITEM_PARAMS_F_CYCLIC,
                               &wheel_params) != 0) {
         free_item_params(&list_params);
         free_item_params(&wheel_params);
@@ -222,89 +222,89 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    const gsp_desc_t descs[HOME_OBJ_COUNT] = {
+    const gfx_gsp_desc_t descs[HOME_OBJ_COUNT] = {
         {
-            .type = GSP_OBJ_CONTAINER, .parent_idx = GSP_NO_PARENT,
-            .flags = GSP_F_BG_COLOR, .x = 0, .y = 0, .w = 480, .h = 480,
+            .type = GFX_GSP_OBJ_CONTAINER, .parent_idx = GFX_GSP_NO_PARENT,
+            .flags = GFX_GSP_F_BG_COLOR, .x = 0, .y = 0, .w = 480, .h = 480,
             .bg_color = 0x0E1116
         },
         {
-            .type = GSP_OBJ_LAYER, .parent_idx = 0,
-            .flags = GSP_F_BG_COLOR | GSP_F_BORDER | GSP_F_RADIUS | GSP_F_NAME,
+            .type = GFX_GSP_OBJ_LAYER, .parent_idx = 0,
+            .flags = GFX_GSP_F_BG_COLOR | GFX_GSP_F_BORDER | GFX_GSP_F_RADIUS | GFX_GSP_F_NAME,
             .x = 36, .y = 68, .w = 408, .h = 344, .name = "homeLayer",
             .bg_color = 0x171C24, .border_color = 0x2E3A47, .border_width = 2,
             .radius = 18
         },
         {
-            .type = GSP_OBJ_LABEL, .parent_idx = 1,
-            .flags = GSP_F_FG_COLOR | GSP_F_TEXT | GSP_F_NAME,
+            .type = GFX_GSP_OBJ_LABEL, .parent_idx = 1,
+            .flags = GFX_GSP_F_FG_COLOR | GFX_GSP_F_TEXT | GFX_GSP_F_NAME,
             .x = 30, .y = 30, .w = 340, .h = 32,
             .fg_color = 0xFFFFFF, .font_id = 0,
             .text = "AI Scene · u32-offset pkg", .name = "title"
         },
         {
-            .type = GSP_OBJ_LABEL, .parent_idx = 1,
-            .flags = GSP_F_FG_COLOR | GSP_F_TEXT | GSP_F_NAME,
+            .type = GFX_GSP_OBJ_LABEL, .parent_idx = 1,
+            .flags = GFX_GSP_F_FG_COLOR | GFX_GSP_F_TEXT | GFX_GSP_F_NAME,
             .x = 30, .y = 72, .w = 340, .h = 26,
             .fg_color = 0x8AA0B4, .font_id = 1,
             .text = "page 1: image + callback + action", .name = "subtitle"
         },
         {
-            .type = GSP_OBJ_LABEL, .parent_idx = 1,
-            .flags = GSP_F_FG_COLOR | GSP_F_TEXT,
+            .type = GFX_GSP_OBJ_LABEL, .parent_idx = 1,
+            .flags = GFX_GSP_F_FG_COLOR | GFX_GSP_F_TEXT,
             .x = 30, .y = 106, .w = 340, .h = 30,
             .fg_color = 0x6FE0A8, .font_id = 2,
             .text = "温度 23.5°C 数据绑定", .bind_id = 1
         },
         {
-            .type = GSP_OBJ_IMAGE, .parent_idx = 1,
-            .flags = GSP_F_IMAGE,
+            .type = GFX_GSP_OBJ_IMAGE, .parent_idx = 1,
+            .flags = GFX_GSP_F_IMAGE,
             .x = 30, .y = 150, .w = HOME_IMG_W, .h = HOME_IMG_H,
             .image_src = &preview_image
         },
         {
-            .type = GSP_OBJ_BUTTON, .parent_idx = 1,
-            .flags = GSP_F_BG_COLOR | GSP_F_FG_COLOR | GSP_F_BORDER |
-            GSP_F_RADIUS | GSP_F_TEXT | GSP_F_CALLBACK | GSP_F_NAME,
+            .type = GFX_GSP_OBJ_BUTTON, .parent_idx = 1,
+            .flags = GFX_GSP_F_BG_COLOR | GFX_GSP_F_FG_COLOR | GFX_GSP_F_BORDER |
+            GFX_GSP_F_RADIUS | GFX_GSP_F_TEXT | GFX_GSP_F_CALLBACK | GFX_GSP_F_NAME,
             .x = 238, .y = 246, .w = 140, .h = 60,
             .bg_color = 0x2F8CFF, .fg_color = 0xFFFFFF, .border_color = 0x76B7E8,
             .border_width = 2, .radius = 12, .font_id = 3,
             .text = "Next", .callback = "on_ok", .name = "homeNext"
         },
         {
-            .type = GSP_OBJ_LAYER, .parent_idx = 0,
-            .flags = GSP_F_BG_COLOR | GSP_F_BORDER | GSP_F_RADIUS | GSP_F_NAME | GSP_F_HIDDEN,
+            .type = GFX_GSP_OBJ_LAYER, .parent_idx = 0,
+            .flags = GFX_GSP_F_BG_COLOR | GFX_GSP_F_BORDER | GFX_GSP_F_RADIUS | GFX_GSP_F_NAME | GFX_GSP_F_HIDDEN,
             .x = 36, .y = 68, .w = 408, .h = 344,
             .bg_color = 0x171C24, .border_color = 0x2E3A47, .border_width = 2,
             .radius = 18, .name = "selectorLayer"
         },
         {
-            .type = GSP_OBJ_LABEL, .parent_idx = 7,
-            .flags = GSP_F_FG_COLOR | GSP_F_TEXT,
+            .type = GFX_GSP_OBJ_LABEL, .parent_idx = 7,
+            .flags = GFX_GSP_F_FG_COLOR | GFX_GSP_F_TEXT,
             .x = 30, .y = 28, .w = 340, .h = 32,
             .fg_color = 0xFFFFFF, .font_id = 0,
             .text = "Page 2 · List + Wheel"
         },
         {
-            .type = GSP_OBJ_LIST, .parent_idx = 7,
-            .flags = GSP_F_BG_COLOR | GSP_F_FG_COLOR | GSP_F_BORDER | GSP_F_NAME | GSP_F_PARAMS,
+            .type = GFX_GSP_OBJ_LIST, .parent_idx = 7,
+            .flags = GFX_GSP_F_BG_COLOR | GFX_GSP_F_FG_COLOR | GFX_GSP_F_BORDER | GFX_GSP_F_NAME | GFX_GSP_F_PARAMS,
             .x = 30, .y = 78, .w = 168, .h = 170,
             .bg_color = 0x101923, .fg_color = 0xF3F7FA, .border_color = 0x2F8CFF,
             .border_width = 1, .font_id = 1, .name = "featureList",
             .params = list_params.data, .params_len = list_params.len
         },
         {
-            .type = GSP_OBJ_WHEEL, .parent_idx = 7,
-            .flags = GSP_F_BG_COLOR | GSP_F_FG_COLOR | GSP_F_BORDER | GSP_F_NAME | GSP_F_PARAMS,
+            .type = GFX_GSP_OBJ_WHEEL, .parent_idx = 7,
+            .flags = GFX_GSP_F_BG_COLOR | GFX_GSP_F_FG_COLOR | GFX_GSP_F_BORDER | GFX_GSP_F_NAME | GFX_GSP_F_PARAMS,
             .x = 220, .y = 78, .w = 158, .h = 170,
             .bg_color = 0x101923, .fg_color = 0xF3F7FA, .border_color = 0x6FE0A8,
             .border_width = 1, .font_id = 1, .name = "formatWheel",
             .params = wheel_params.data, .params_len = wheel_params.len
         },
         {
-            .type = GSP_OBJ_BUTTON, .parent_idx = 7,
-            .flags = GSP_F_BG_COLOR | GSP_F_FG_COLOR | GSP_F_BORDER |
-            GSP_F_RADIUS | GSP_F_TEXT | GSP_F_NAME,
+            .type = GFX_GSP_OBJ_BUTTON, .parent_idx = 7,
+            .flags = GFX_GSP_F_BG_COLOR | GFX_GSP_F_FG_COLOR | GFX_GSP_F_BORDER |
+            GFX_GSP_F_RADIUS | GFX_GSP_F_TEXT | GFX_GSP_F_NAME,
             .x = 238, .y = 246, .w = 140, .h = 60,
             .bg_color = 0x6FE0A8, .fg_color = 0x102033, .border_color = 0xA9F0C8,
             .border_width = 2, .radius = 12, .font_id = 3,
@@ -317,8 +317,8 @@ int main(int argc, char **argv)
      *
      * 对象索引对照：
      *   obj1  = homeLayer      （第 1 页 layer）
-     *   obj6  = homeNext       （第 1 页底部 Next 按钮，另有 GSP_F_CALLBACK "on_ok"）
-     *   obj7  = selectorLayer  （第 2 页 layer，初始 GSP_F_HIDDEN）
+     *   obj6  = homeNext       （第 1 页底部 Next 按钮，另有 GFX_GSP_F_CALLBACK "on_ok"）
+     *   obj7  = selectorLayer  （第 2 页 layer，初始 GFX_GSP_F_HIDDEN）
      *   obj11 = selectorNext   （第 2 页底部 Next 按钮）
      *
      * 点击 homeNext (obj6)：
@@ -329,25 +329,25 @@ int main(int argc, char **argv)
      * 点击 selectorNext (obj11)：
      *   3) GOTO         → 显示 homeLayer，回到第 1 页
      */
-    const gsp_action_desc_t actions[HOME_ACTION_COUNT] = {
+    const gfx_gsp_action_desc_t actions[HOME_ACTION_COUNT] = {
         /* [0] homeNext click → homeLayer 换底色 */
         {
-            .src_idx = 6, .event = GSP_EV_CLICK, .action = GSP_ACT_SET_BG_COLOR,
+            .src_idx = 6, .event = GFX_GSP_EV_CLICK, .action = GFX_GSP_ACT_SET_BG_COLOR,
             .target_idx = 1, .arg = 0x1E3A5F
         },
         /* [1] homeNext click → 跳到 selectorLayer（第 2 页）*/
         {
-            .src_idx = 6, .event = GSP_EV_CLICK, .action = GSP_ACT_GOTO,
+            .src_idx = 6, .event = GFX_GSP_EV_CLICK, .action = GFX_GSP_ACT_GOTO,
             .target_name = "selectorLayer"
         },
         /* [2] selectorNext click → 跳回 homeLayer（第 1 页）*/
         {
-            .src_idx = 11, .event = GSP_EV_CLICK, .action = GSP_ACT_GOTO,
+            .src_idx = 11, .event = GFX_GSP_EV_CLICK, .action = GFX_GSP_ACT_GOTO,
             .target_name = "homeLayer"
         },
     };
 
-    const gsp_scene_desc_t scene = {
+    const gfx_gsp_scene_desc_t scene = {
         .screen_w = HOME_SCREEN_W,
         .screen_h = HOME_SCREEN_H,
         .screen_bg = 0x0E1116,
@@ -358,7 +358,7 @@ int main(int argc, char **argv)
     };
 
     size_t pkg_size = 0;
-    uint8_t *pkg = gsp_pack(&scene, &pkg_size);
+    uint8_t *pkg = gfx_gsp_pack(&scene, &pkg_size);
     if (pkg == NULL) {
         free_item_params(&list_params);
         free_item_params(&wheel_params);
@@ -366,9 +366,9 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    int rc = write_file(gsp_path, pkg, pkg_size);
+    int rc = write_file(gfx_gsp_path, pkg, pkg_size);
 
-    printf("exported %s (%zu bytes)\n", gsp_path, pkg_size);
+    printf("exported %s (%zu bytes)\n", gfx_gsp_path, pkg_size);
 
     free(pkg);
     free_item_params(&list_params);

@@ -103,6 +103,7 @@
 - 中文文档：<https://espressif2022.github.io/esp_emote_gfx/zh_CN/index.html>
 - English docs: <https://espressif2022.github.io/esp_emote_gfx/en/index.html>
 - Component Registry: <https://components.espressif.com/components/espressif2022/esp_emote_gfx>
+- Scene 包（ARN/GSP）设计与计划：[docs/scene/](docs/scene/README.md)
 
 ## English
 

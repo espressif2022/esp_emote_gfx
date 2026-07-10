@@ -17,6 +17,7 @@
 #include "core/object/gfx_object_priv.h"
 #include "gfx/tween.h"
 #include "gfx/widgets/pageflow.h"
+#include "gfx/widgets/pageflow_core.h"
 #include "render/gfx_render_priv.h"
 #include "render/sw/gfx_blend_priv.h"
 #include "widgets/label/gfx_label_draw_priv.h"
@@ -26,11 +27,11 @@
 #define CHECK_OBJ_TYPE_PAGEFLOW(obj) CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_PAGEFLOW, TAG)
 #define GFX_PAGEFLOW_DEFAULT_WIDTH 300U
 #define GFX_PAGEFLOW_DEFAULT_HEIGHT 180U
-#define GFX_PAGEFLOW_DEFAULT_DRAG_THRESHOLD 6U
-#define GFX_PAGEFLOW_DEFAULT_PAGE_THRESHOLD 48U
+#define GFX_PAGEFLOW_DEFAULT_DRAG_THRESHOLD GFX_PAGEFLOW_CORE_DRAG_THRESHOLD
+#define GFX_PAGEFLOW_DEFAULT_PAGE_THRESHOLD GFX_PAGEFLOW_CORE_PAGE_THRESHOLD
 #define GFX_PAGEFLOW_PAD_X 12U
 #define GFX_PAGEFLOW_PAD_Y 8U
-#define GFX_PAGEFLOW_TWEEN_MS 180U
+#define GFX_PAGEFLOW_TWEEN_MS GFX_PAGEFLOW_CORE_TWEEN_MS
 
 typedef struct {
     gfx_label_t label;
@@ -151,13 +152,7 @@ static int32_t gfx_pageflow_clamp_page(const gfx_pageflow_t *flow, int32_t page)
     if (flow == NULL || flow->page_count == 0U) {
         return 0;
     }
-    if (page < 0) {
-        return 0;
-    }
-    if (page >= (int32_t)flow->page_count) {
-        return (int32_t)flow->page_count - 1;
-    }
-    return page;
+    return gfx_pageflow_core_clamp_page(flow->page_count, page);
 }
 
 static void gfx_pageflow_set_page_internal(gfx_object_t *obj, gfx_pageflow_t *flow, int32_t page, bool emit)
@@ -195,23 +190,21 @@ static void gfx_pageflow_tween_value_cb(gfx_tween_t *tween, gfx_object_t *obj, i
 static void gfx_pageflow_start_tween(gfx_object_t *obj, gfx_pageflow_t *flow, int32_t target_page,
                                      int32_t start_offset)
 {
-    int32_t next;
+    gfx_pageflow_core_tween_plan_t plan;
+    int32_t span;
 
     if (obj == NULL || flow == NULL) {
         return;
     }
 
-    next = gfx_pageflow_clamp_page(flow, target_page);
-    if (next != flow->page_index) {
-        int32_t span = (flow->dir == GFX_PAGEFLOW_DIR_HORIZONTAL) ? (int32_t)obj->geometry.width :
-                       (int32_t)obj->geometry.height;
-        if (span <= 0) {
-            span = (int32_t)flow->page_threshold;
-        }
-        start_offset = (next > flow->page_index) ? span + start_offset : start_offset - span;
-        flow->page_index = next;
+    span = (flow->dir == GFX_PAGEFLOW_DIR_HORIZONTAL) ? (int32_t)obj->geometry.width :
+           (int32_t)obj->geometry.height;
+    gfx_pageflow_core_plan_tween(flow->page_count, flow->page_index, target_page,
+                                 span, start_offset, &plan);
+    if (plan.page_changed) {
+        flow->page_index = plan.page_index;
         if (flow->changed_cb != NULL) {
-            flow->changed_cb(obj, next, flow->changed_user_data);
+            flow->changed_cb(obj, plan.page_index, flow->changed_user_data);
         }
     }
 
@@ -219,7 +212,7 @@ static void gfx_pageflow_start_tween(gfx_object_t *obj, gfx_pageflow_t *flow, in
         flow->tween = gfx_tween_create(obj);
     }
     if (flow->tween == NULL ||
-            gfx_tween_start_i32(flow->tween, start_offset, 0, GFX_PAGEFLOW_TWEEN_MS,
+            gfx_tween_start_i32(flow->tween, plan.start_offset, plan.end_offset, GFX_PAGEFLOW_TWEEN_MS,
                                 GFX_TWEEN_EASE_OUT_QUAD,
                                 gfx_pageflow_tween_value_cb, NULL, flow) != GFX_OK) {
         flow->drag_offset = 0;
@@ -369,11 +362,13 @@ static void gfx_pageflow_draw_one(gfx_object_t *obj, gfx_pageflow_t *flow, const
     }
 
     if (flow->dir == GFX_PAGEFLOW_DIR_HORIZONTAL) {
-        int32_t x_ofs = slot * (int32_t)(obj_area->x2 - obj_area->x1) + flow->drag_offset;
+        int32_t x_ofs = gfx_pageflow_core_slot_offset(slot,
+                        (int32_t)(obj_area->x2 - obj_area->x1), flow->drag_offset);
         page_area.x1 = (gfx_coord_t)(page_area.x1 + x_ofs);
         page_area.x2 = (gfx_coord_t)(page_area.x2 + x_ofs);
     } else {
-        int32_t y_ofs = slot * (int32_t)(obj_area->y2 - obj_area->y1) + flow->drag_offset;
+        int32_t y_ofs = gfx_pageflow_core_slot_offset(slot,
+                        (int32_t)(obj_area->y2 - obj_area->y1), flow->drag_offset);
         page_area.y1 = (gfx_coord_t)(page_area.y1 + y_ofs);
         page_area.y2 = (gfx_coord_t)(page_area.y2 + y_ofs);
     }
@@ -540,13 +535,10 @@ static void gfx_pageflow_touch_event(gfx_object_t *obj, const void *event_data)
         return;
     }
     main_delta = flow->drag_offset;
-    if (main_delta <= -(int32_t)flow->page_threshold) {
-        gfx_pageflow_start_tween(obj, flow, flow->page_index + 1, main_delta);
-    } else if (main_delta >= (int32_t)flow->page_threshold) {
-        gfx_pageflow_start_tween(obj, flow, flow->page_index - 1, main_delta);
-    } else {
-        gfx_pageflow_start_tween(obj, flow, flow->page_index, main_delta);
-    }
+    gfx_pageflow_start_tween(obj, flow,
+                             gfx_pageflow_core_page_target(flow->page_count, flow->page_index,
+                                                           main_delta, flow->page_threshold),
+                             main_delta);
 }
 
 gfx_object_t *gfx_pageflow_create(gfx_display_t *disp)

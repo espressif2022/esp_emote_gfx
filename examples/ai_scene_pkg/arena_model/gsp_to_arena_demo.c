@@ -5,7 +5,7 @@
  */
 
 /*
- * gsp_to_arena_demo — materialize GSP home.inc → ARN1, then formal arena path
+ * gfx_gsp_to_arena_demo — materialize GSP home.inc → ARN1, then formal arena path
  * ==========================================================================
  *   ./build-host-sdl/gfx_gsp_to_arena_demo              # headless
  *   ARENA_SDL=1 ./build-host-sdl/gfx_gsp_to_arena_demo  # visual
@@ -24,10 +24,10 @@
 #include "gfx_display_port.h"
 #include "gfx_host_runner.h"
 
-#ifndef GSP_SCENE_INC
-#define GSP_SCENE_INC "inc/home.inc"
+#ifndef GFX_GSP_SCENE_INC
+#define GFX_GSP_SCENE_INC "inc/home.inc"
 #endif
-#include GSP_SCENE_INC
+#include GFX_GSP_SCENE_INC
 
 extern const lv_font_t font_puhui_16_4;
 
@@ -42,7 +42,7 @@ extern const lv_font_t font_puhui_16_4;
 
 static uint32_t s_ok_count;
 
-static void on_ok(arena_t *arena, arena_node_t *node,
+static void on_ok(gfx_arena_t *arena, gfx_arena_node_t *node,
                   const gfx_touch_event_t *event, void *user_data)
 {
     (void)arena;
@@ -59,14 +59,14 @@ static int run_headless(void)
     int fails = 0;
     s_ok_count = 0;
 
-    printf("gsp_to_arena_demo: %s → ARN1\n", GSP_SCENE_INC);
+    printf("gsp_to_arena_demo: %s → ARN1\n", GFX_GSP_SCENE_INC);
 
     uint8_t *arn = NULL;
     size_t arn_size = 0;
-    gsp_to_arena_info_t info = {0};
-    int rc = gsp_to_arena(home_scene_pkg, sizeof(home_scene_pkg),
+    gfx_gsp_to_arena_info_t info = {0};
+    int rc = gfx_gsp_to_arena(home_scene_pkg, sizeof(home_scene_pkg),
                           &arn, &arn_size, &info);
-    CHECK(rc == GSP_TO_ARENA_OK, "gsp_to_arena");
+    CHECK(rc == GFX_GSP_TO_ARENA_OK, "gsp_to_arena");
     CHECK(arn != NULL && arn_size > 0, "arn package");
     CHECK(info.out_node_count == info.src_obj_count, "all GSP objs converted");
     CHECK(info.skipped == 0, "no skipped types");
@@ -74,27 +74,27 @@ static int run_headless(void)
            info.screen_w, info.screen_h,
            info.src_obj_count, info.out_node_count, info.skipped, arn_size);
 
-    arena_t arena = {0};
-    CHECK(arena_load(arn, arn_size, &arena) == 0, "arena_load");
+    gfx_arena_t arena = {0};
+    CHECK(gfx_arena_load(arn, arn_size, &arena) == 0, "arena_load");
     free(arn);
     arn = NULL;
 
     {
-        const arena_hdr_t *hdr0 = arena_hdr(&arena);
+        const gfx_arena_hdr_t *hdr0 = gfx_arena_hdr(&arena);
         int has_img = 0, has_list = 0, has_wheel = 0;
         for (uint16_t i = 0; i < hdr0->node_count; i++) {
-            uint32_t off = hdr0->nodes_off + (uint32_t)i * (uint32_t)sizeof(arena_node_t);
-            arena_node_t *n = arena_node(&arena, off);
+            uint32_t off = hdr0->nodes_off + (uint32_t)i * (uint32_t)sizeof(gfx_arena_node_t);
+            gfx_arena_node_t *n = gfx_arena_node(&arena, off);
             if (n == NULL) {
                 continue;
             }
-            if (n->type == ARENA_NODE_IMAGE && arena_img_pixels(&arena, n->reserved) != NULL) {
+            if (n->type == GFX_ARENA_NODE_IMAGE && gfx_arena_img_pixels(&arena, n->reserved) != NULL) {
                 has_img = 1;
             }
-            if (n->type == ARENA_NODE_LIST && arena_items(&arena, n->reserved) != NULL) {
+            if (n->type == GFX_ARENA_NODE_LIST && gfx_arena_items(&arena, n->reserved) != NULL) {
                 has_list = 1;
             }
-            if (n->type == ARENA_NODE_WHEEL && arena_items(&arena, n->reserved) != NULL) {
+            if (n->type == GFX_ARENA_NODE_WHEEL && gfx_arena_items(&arena, n->reserved) != NULL) {
                 has_wheel = 1;
             }
         }
@@ -124,33 +124,33 @@ static int run_headless(void)
     CHECK(disp != NULL, "display");
 
     gfx_arena_scene_t scene;
-    CHECK(arena_scene_attach(disp, &arena, &scene) == 0, "attach");
-    arena_scene_set_font(&scene, (gfx_font_t)&font_puhui_16_4);
+    CHECK(gfx_arena_scene_attach(disp, &arena, &scene) == 0, "attach");
+    gfx_arena_scene_set_font(&scene, (gfx_font_t)&font_puhui_16_4);
 
-    const arena_action_entry_t actions[] = {
+    const gfx_arena_action_entry_t actions[] = {
         { .name = "on_ok", .cb = on_ok, .user_data = NULL },
     };
-    arena_scene_set_actions(&scene, actions, 1);
+    gfx_arena_scene_set_actions(&scene, actions, 1);
 
-    (void)arena_scene_mark_dirty_all(&scene);
+    (void)gfx_arena_scene_mark_dirty_all(&scene);
     CHECK(gfx_core_refresh_now(handle) == GFX_OK, "refresh");
 
     /* Find a clickable button if any */
-    const arena_hdr_t *hdr = arena_hdr(&scene.arena);
-    uint32_t btn_off = ARENA_NO_NODE;
+    const gfx_arena_hdr_t *hdr = gfx_arena_hdr(&scene.arena);
+    uint32_t btn_off = GFX_ARENA_NO_NODE;
     for (uint16_t i = 0; i < hdr->node_count; i++) {
-        uint32_t off = hdr->nodes_off + (uint32_t)i * (uint32_t)sizeof(arena_node_t);
-        arena_node_t *n = arena_node(&scene.arena, off);
-        if (n != NULL && n->type == ARENA_NODE_BUTTON &&
-                (n->flags & ARENA_F_CLICKABLE) != 0) {
+        uint32_t off = hdr->nodes_off + (uint32_t)i * (uint32_t)sizeof(gfx_arena_node_t);
+        gfx_arena_node_t *n = gfx_arena_node(&scene.arena, off);
+        if (n != NULL && n->type == GFX_ARENA_NODE_BUTTON &&
+                (n->flags & GFX_ARENA_F_CLICKABLE) != 0) {
             btn_off = off;
             break;
         }
     }
-    CHECK(btn_off != ARENA_NO_NODE, "has clickable button");
+    CHECK(btn_off != GFX_ARENA_NO_NODE, "has clickable button");
 
     int16_t x1, y1, x2, y2;
-    CHECK(arena_node_abs_area(&scene.arena, btn_off, &x1, &y1, &x2, &y2) == 0,
+    CHECK(gfx_arena_node_abs_area(&scene.arena, btn_off, &x1, &y1, &x2, &y2) == 0,
           "button abs area");
     const uint16_t cx = (uint16_t)((x1 + x2) / 2);
     const uint16_t cy = (uint16_t)((y1 + y2) / 2);
@@ -165,7 +165,7 @@ static int run_headless(void)
     CHECK(gfx_touch_inject(disp, &release) == GFX_OK, "release");
     CHECK(s_ok_count == 1, "on_ok action from GSP callback_off");
 
-    arena_scene_detach(&scene);
+    gfx_arena_scene_detach(&scene);
     gfx_core_deinit(handle);
 
     return fails == 0 ? 0 : 1;
@@ -175,9 +175,9 @@ static int run_sdl(void)
 {
     uint8_t *arn = NULL;
     size_t arn_size = 0;
-    gsp_to_arena_info_t info = {0};
-    if (gsp_to_arena(home_scene_pkg, sizeof(home_scene_pkg),
-                     &arn, &arn_size, &info) != GSP_TO_ARENA_OK) {
+    gfx_gsp_to_arena_info_t info = {0};
+    if (gfx_gsp_to_arena(home_scene_pkg, sizeof(home_scene_pkg),
+                     &arn, &arn_size, &info) != GFX_GSP_TO_ARENA_OK) {
         fprintf(stderr, "gsp_to_arena failed\n");
         return 1;
     }
@@ -202,8 +202,8 @@ static int run_sdl(void)
         return 1;
     }
 
-    arena_t arena = {0};
-    if (arena_load(arn, arn_size, &arena) != 0) {
+    gfx_arena_t arena = {0};
+    if (gfx_arena_load(arn, arn_size, &arena) != 0) {
         gfx_display_port_close(&port);
         free(arn);
         return 1;
@@ -212,17 +212,17 @@ static int run_sdl(void)
     arn = NULL;
 
     gfx_arena_scene_t scene;
-    if (arena_scene_attach(port.disp, &arena, &scene) != 0) {
-        arena_free(&arena);
+    if (gfx_arena_scene_attach(port.disp, &arena, &scene) != 0) {
+        gfx_arena_free(&arena);
         gfx_display_port_close(&port);
         return 1;
     }
-    arena_scene_set_font(&scene, (gfx_font_t)&font_puhui_16_4);
-    const arena_action_entry_t actions[] = {
+    gfx_arena_scene_set_font(&scene, (gfx_font_t)&font_puhui_16_4);
+    const gfx_arena_action_entry_t actions[] = {
         { .name = "on_ok", .cb = on_ok, .user_data = NULL },
     };
-    arena_scene_set_actions(&scene, actions, 1);
-    (void)arena_scene_mark_dirty_all(&scene);
+    gfx_arena_scene_set_actions(&scene, actions, 1);
+    (void)gfx_arena_scene_mark_dirty_all(&scene);
     (void)gfx_core_refresh_now(port.gfx);
 
     printf("SDL: GSP home subset via arena. Close window to exit.\n");
@@ -230,7 +230,7 @@ static int run_sdl(void)
         .frame_delay_ms = 16,
     });
 
-    arena_scene_detach(&scene);
+    gfx_arena_scene_detach(&scene);
     gfx_display_port_close(&port);
     return 0;
 }

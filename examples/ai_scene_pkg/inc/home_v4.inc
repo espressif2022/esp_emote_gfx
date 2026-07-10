@@ -8,7 +8,7 @@
 #define HOME_FONT_COUNT 4
 #define HOME_ACTION_COUNT 1
 
-static const gsp_font_desc_t home_fonts[] = {
+static const gfx_gsp_font_desc_t home_fonts[] = {
     { .id = 0, .family = "DejaVuSans.ttf", .path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", .size_px = 18, .weight = 400, .style = 0 },
     { .id = 1, .family = "DejaVuSans.ttf", .path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", .size_px = 14, .weight = 400, .style = 0 },
     { .id = 2, .family = "NotoSansCJK-Regular.ttc", .path = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", .size_px = 20, .weight = 400, .style = 0 },

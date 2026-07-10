@@ -17,6 +17,7 @@
 #include "core/object/gfx_object_priv.h"
 #include "gfx/tween.h"
 #include "gfx/widgets/wheel.h"
+#include "gfx/widgets/wheel_core.h"
 #include "render/gfx_render_priv.h"
 #include "render/sw/gfx_blend_priv.h"
 #include "widgets/label/gfx_label_draw_priv.h"
@@ -25,12 +26,12 @@
 #define CHECK_OBJ_TYPE_WHEEL(obj) CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_WHEEL, TAG)
 
 #define GFX_WHEEL_DEFAULT_WIDTH          220U
-#define GFX_WHEEL_DEFAULT_ITEM_HEIGHT     40U
-#define GFX_WHEEL_DEFAULT_VISIBLE_ROWS     5U
-#define GFX_WHEEL_DEFAULT_DRAG_THRESHOLD   6U
+#define GFX_WHEEL_DEFAULT_ITEM_HEIGHT     GFX_WHEEL_CORE_DEFAULT_ITEM_H
+#define GFX_WHEEL_DEFAULT_VISIBLE_ROWS     GFX_WHEEL_CORE_DEFAULT_ROWS
+#define GFX_WHEEL_DEFAULT_DRAG_THRESHOLD   GFX_WHEEL_CORE_DRAG_THRESHOLD
 #define GFX_WHEEL_PAD_X                   10U
 #define GFX_WHEEL_PAD_Y                    4U
-#define GFX_WHEEL_TWEEN_MS                160U
+#define GFX_WHEEL_TWEEN_MS                GFX_WHEEL_CORE_TWEEN_MS
 
 typedef struct {
     gfx_label_t label;
@@ -160,58 +161,34 @@ static int32_t gfx_wheel_center_scroll_y(const gfx_object_t *obj, const gfx_whee
         return 0;
     }
 
-    return index * (int32_t)wheel->item_height - ((int32_t)obj->geometry.height - (int32_t)wheel->item_height) / 2;
+    return gfx_wheel_core_center_scroll_y((int32_t)obj->geometry.height, wheel->item_height, index);
 }
 
 static int32_t gfx_wheel_max_scroll_y(const gfx_object_t *obj, const gfx_wheel_t *wheel)
 {
-    int32_t max;
-
-    if (obj == NULL || wheel == NULL || wheel->item_count == 0U) {
+    if (obj == NULL || wheel == NULL) {
         return 0;
     }
 
-    max = gfx_wheel_center_scroll_y(obj, wheel, (int32_t)wheel->item_count - 1);
-    return max > 0 ? max : 0;
+    return gfx_wheel_core_max_scroll_y((int32_t)obj->geometry.height, wheel->item_height,
+                                       wheel->item_count);
 }
 
 static int32_t gfx_wheel_clamp_index(const gfx_wheel_t *wheel, int32_t index)
 {
-    if (wheel == NULL || wheel->item_count == 0U) {
+    if (wheel == NULL) {
         return 0;
     }
-
-    if (wheel->cyclic) {
-        int32_t count = (int32_t)wheel->item_count;
-        index %= count;
-        return index < 0 ? index + count : index;
-    }
-
-    if (index < 0) {
-        return 0;
-    }
-    if (index >= (int32_t)wheel->item_count) {
-        return (int32_t)wheel->item_count - 1;
-    }
-    return index;
+    return gfx_wheel_core_clamp_index(wheel->item_count, index, wheel->cyclic);
 }
 
 static int32_t gfx_wheel_clamp_scroll_y(const gfx_object_t *obj, const gfx_wheel_t *wheel, int32_t scroll_y)
 {
-    int32_t max_scroll_y;
-
-    if (wheel == NULL || wheel->cyclic) {
+    if (obj == NULL || wheel == NULL) {
         return scroll_y;
     }
-
-    if (scroll_y < 0) {
-        return 0;
-    }
-    max_scroll_y = gfx_wheel_max_scroll_y(obj, wheel);
-    if (scroll_y > max_scroll_y) {
-        return max_scroll_y;
-    }
-    return scroll_y;
+    return gfx_wheel_core_clamp_scroll_y((int32_t)obj->geometry.height, wheel->item_height,
+                                         wheel->item_count, wheel->cyclic, scroll_y);
 }
 
 static void gfx_wheel_set_scroll_y(gfx_object_t *obj, gfx_wheel_t *wheel, int32_t scroll_y)
@@ -239,35 +216,20 @@ static void gfx_wheel_tween_value_cb(gfx_tween_t *tween, gfx_object_t *obj, int3
 
 static int32_t gfx_wheel_index_from_scroll(const gfx_object_t *obj, const gfx_wheel_t *wheel)
 {
-    int32_t numerator;
-    int32_t index;
-
-    if (obj == NULL || wheel == NULL || wheel->item_height == 0U || wheel->item_count == 0U) {
+    if (obj == NULL || wheel == NULL) {
         return -1;
     }
-
-    numerator = wheel->scroll_y + ((int32_t)obj->geometry.height - (int32_t)wheel->item_height) / 2;
-    if (numerator >= 0) {
-        index = (numerator + (int32_t)wheel->item_height / 2) / (int32_t)wheel->item_height;
-    } else {
-        index = (numerator - (int32_t)wheel->item_height / 2) / (int32_t)wheel->item_height;
-    }
-    return gfx_wheel_clamp_index(wheel, index);
+    return gfx_wheel_core_index_from_scroll((int32_t)obj->geometry.height, wheel->item_height,
+                                            wheel->item_count, wheel->cyclic, wheel->scroll_y);
 }
 
 static int32_t gfx_wheel_raw_index_from_scroll(const gfx_object_t *obj, const gfx_wheel_t *wheel)
 {
-    int32_t numerator;
-
-    if (obj == NULL || wheel == NULL || wheel->item_height == 0U || wheel->item_count == 0U) {
+    if (obj == NULL || wheel == NULL || wheel->item_count == 0U) {
         return 0;
     }
-
-    numerator = wheel->scroll_y + ((int32_t)obj->geometry.height - (int32_t)wheel->item_height) / 2;
-    if (numerator >= 0) {
-        return (numerator + (int32_t)wheel->item_height / 2) / (int32_t)wheel->item_height;
-    }
-    return (numerator - (int32_t)wheel->item_height / 2) / (int32_t)wheel->item_height;
+    return gfx_wheel_core_raw_index_from_scroll((int32_t)obj->geometry.height, wheel->item_height,
+            wheel->scroll_y);
 }
 
 static void gfx_wheel_emit_value(gfx_object_t *obj, gfx_wheel_t *wheel, int32_t index)

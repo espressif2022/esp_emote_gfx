@@ -3,3 +3,4 @@ managed_components/
 sdkconfig
 sdkconfig.old
 dependencies.lock
+main/mmap_generate_assets_test.h

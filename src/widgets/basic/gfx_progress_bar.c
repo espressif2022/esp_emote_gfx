@@ -16,6 +16,7 @@
 #include "core/object/gfx_object_priv.h"
 #include "gfx/input.h"
 #include "gfx/widgets/progress_bar.h"
+#include "gfx/widgets/progress_core.h"
 #include "render/gfx_render_priv.h"
 
 #define CHECK_OBJ_TYPE_PROGRESS_BAR(obj) CHECK_OBJ_TYPE(obj, GFX_OBJ_TYPE_PROGRESS_BAR, TAG)
@@ -76,14 +77,9 @@ static uint16_t gfx_progress_bar_value_from_point(gfx_object_t *obj, const gfx_p
         if (track_y2 <= track_y1) {
             return 0;
         }
-        if ((gfx_coord_t)y <= track_y1) {
-            return 1000;
-        }
-        if ((gfx_coord_t)y >= track_y2) {
-            return 0;
-        }
         length = (uint32_t)(track_y2 - track_y1);
-        return (uint16_t)(((uint32_t)(track_y2 - (gfx_coord_t)y) * 1000U) / length);
+        return gfx_progress_core_from_local_y_vertical((int32_t)y - (int32_t)track_y1,
+                (int32_t)length);
     }
 
     track_x1 = (gfx_coord_t)(obj_area.x1 + (gfx_coord_t)bar->fill_pad);
@@ -91,14 +87,8 @@ static uint16_t gfx_progress_bar_value_from_point(gfx_object_t *obj, const gfx_p
     if (track_x2 <= track_x1) {
         return 0;
     }
-    if ((gfx_coord_t)x <= track_x1) {
-        return 0;
-    }
-    if ((gfx_coord_t)x >= track_x2) {
-        return 1000;
-    }
     length = (uint32_t)(track_x2 - track_x1);
-    return (uint16_t)(((uint32_t)((gfx_coord_t)x - track_x1) * 1000U) / length);
+    return gfx_progress_core_from_local_x((int32_t)x - (int32_t)track_x1, (int32_t)length);
 }
 
 static gfx_err_t gfx_progress_bar_draw(gfx_object_t *obj, const gfx_draw_ctx_t *ctx)
@@ -159,21 +149,9 @@ static gfx_err_t gfx_progress_bar_draw(gfx_object_t *obj, const gfx_draw_ctx_t *
     fill_w = 0U;
     fill_h = 0U;
     if (bar->direction == GFX_PROGRESS_BAR_DIR_VERTICAL) {
-        fill_h = (uint16_t)(((uint32_t)inner_h * bar->value_permille + 999U) / 1000U);
-        if (bar->value_permille > 0U && fill_h == 0U) {
-            fill_h = 1U;
-        }
-        if (fill_h > inner_h) {
-            fill_h = inner_h;
-        }
+        fill_h = (uint16_t)gfx_progress_core_fill_extent((int32_t)inner_h, bar->value_permille);
     } else {
-        fill_w = (uint16_t)(((uint32_t)inner_w * bar->value_permille + 999U) / 1000U);
-        if (bar->value_permille > 0U && fill_w == 0U) {
-            fill_w = 1U;
-        }
-        if (fill_w > inner_w) {
-            fill_w = inner_w;
-        }
+        fill_w = (uint16_t)gfx_progress_core_fill_extent((int32_t)inner_w, bar->value_permille);
     }
 
     if (bar->interactive) {
@@ -357,9 +335,7 @@ static gfx_err_t gfx_progress_bar_set_value_internal(gfx_object_t *obj, uint16_t
     CHECK_OBJ_TYPE_PROGRESS_BAR(obj);
     GFX_RETURN_ON_FALSE(obj->src != NULL, GFX_ERR_INVALID_STATE, TAG, "state is NULL");
 
-    if (permille > 1000U) {
-        permille = 1000U;
-    }
+    permille = gfx_progress_core_clamp(permille);
     gfx_progress_bar_t *bar = (gfx_progress_bar_t *)obj->src;
     if (bar->value_permille != permille) {
         bar->value_permille = permille;
