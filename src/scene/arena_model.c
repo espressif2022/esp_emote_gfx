@@ -228,7 +228,8 @@ uint8_t *arena_pack(const arena_desc_t *descs, uint16_t count, size_t *out_size)
     for (uint16_t i = 0; i < count; i++) {
         arena_node_t *n = (arena_node_t *)(buf + node_offs[i]);
         n->type = descs[i].type;
-        n->flags = descs[i].flags;
+        n->flags = (uint16_t)((descs[i].flags & ~ARENA_F_RADIUS_MASK) |
+                              ((uint16_t)descs[i].radius << ARENA_F_RADIUS_SHIFT));
         n->x = descs[i].x;
         n->y = descs[i].y;
         n->w = descs[i].w;

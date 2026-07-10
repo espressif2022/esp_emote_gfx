@@ -68,7 +68,9 @@ project(esp_emote_gfx_host C)
 option(GFX_BUILD_HOST_SDL "Build the Linux host SDL simulator target" ON)
 set(GFX_AI_SCENE_INC "inc/home.inc" CACHE STRING "GSP scene .inc used by gfx_ai_scene_pkg_demo")
 
-set(GFX_HEATSHRINK_ROOT "${CMAKE_CURRENT_LIST_DIR}/test_apps/managed_components/laride__heatshrink")
+if(NOT GFX_HEATSHRINK_ROOT)
+    set(GFX_HEATSHRINK_ROOT "${CMAKE_CURRENT_LIST_DIR}/test_apps/managed_components/laride__heatshrink")
+endif()
 if(NOT EXISTS "${GFX_HEATSHRINK_ROOT}/heatshrink_decoder.c")
     set(GFX_HEATSHRINK_ROOT "${CMAKE_CURRENT_LIST_DIR}/managed_components/laride__heatshrink")
 endif()
@@ -109,6 +111,7 @@ set(GFX_HOST_CORE_SRCS
     "src/scene/arena_model.c"
     "src/scene/arena_draw.c"
     "src/scene/arena_scene.c"
+    "src/scene/arena_snapshot.c"
     "src/lib/eaf/gfx_eaf_dec.c"
     "src/widgets/anim/gfx_anim.c"
     "src/widgets/basic/gfx_button.c"
@@ -166,6 +169,17 @@ if(FREETYPE_LIBRARY_DIRS)
     target_link_directories(gfx_host_core PUBLIC ${FREETYPE_LIBRARY_DIRS})
 endif()
 target_link_libraries(gfx_host_core PUBLIC pthread m ${FREETYPE_LIBRARIES})
+
+# Static-layer bake tool: renders an ARN page with the device C renderer
+# and the device LVGL font arrays (BAKE pass: fills, images, static text)
+# and emits an ARS1 RLE blob. No SDL dependency.
+add_executable(gfx_arn_bake
+    "simulation/host/gfx_arn_bake.c"
+    "examples/format_playground/assets/font_puhui_16_4.c"
+)
+target_include_directories(gfx_arn_bake PRIVATE "include" "src" "simulation/port/include")
+target_compile_features(gfx_arn_bake PRIVATE c_std_11)
+target_link_libraries(gfx_arn_bake PRIVATE gfx_host_core)
 
 if(GFX_BUILD_HOST_SDL)
     if(PkgConfig_FOUND)

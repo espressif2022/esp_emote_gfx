@@ -10,6 +10,7 @@
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define GFX_LOG_MODULE GFX_LOG_MODULE_RENDER
@@ -30,15 +31,32 @@
 #define GFX_RENDER_AA_SUBPIXELS 4
 #define GFX_RENDER_AA_SAMPLES (GFX_RENDER_AA_SUBPIXELS * GFX_RENDER_AA_SUBPIXELS)
 
+/* Corners up to this radius render through a cached coverage LUT and a single
+ * mask blend per corner; larger radii fall back to the per-pixel AA path. */
+#define GFX_RENDER_CORNER_LUT_MAX_RADIUS 32
+#define GFX_RENDER_CORNER_LUT_SLOTS 4
+
 /**********************
  *      TYPEDEFS
  **********************/
+
+typedef struct {
+    uint16_t radius;   /* 0 = empty slot */
+    uint8_t *cover;    /* [radius * radius] top-left quarter coverage */
+} gfx_render_corner_lut_t;
 
 /**********************
  *  STATIC VARIABLES
  **********************/
 
 static const char *const TAG = "render";
+
+/* Rendering runs on the single gfx core task (same assumption as the blend
+ * perf-stat binding), so the LUT cache and mask scratch need no locking. */
+static gfx_render_corner_lut_t s_corner_luts[GFX_RENDER_CORNER_LUT_SLOTS];
+static uint8_t s_corner_lut_next;
+static uint8_t s_corner_mask_scratch[GFX_RENDER_CORNER_LUT_MAX_RADIUS *
+                                                     GFX_RENDER_CORNER_LUT_MAX_RADIUS];
 
 /**********************
  *  STATIC PROTOTYPES
@@ -364,6 +382,140 @@ static uint8_t gfx_render_round_rect_corner_cover(gfx_coord_t px,
     return (uint8_t)(((uint32_t)count * 255U + (GFX_RENDER_AA_SAMPLES / 2U)) / GFX_RENDER_AA_SAMPLES);
 }
 
+/** Cached top-left quarter coverage for one radius; NULL = use per-pixel path. */
+static const uint8_t *gfx_render_corner_lut_get(gfx_coord_t radius)
+{
+    if (radius <= 0 || radius > GFX_RENDER_CORNER_LUT_MAX_RADIUS) {
+        return NULL;
+    }
+
+    for (int i = 0; i < GFX_RENDER_CORNER_LUT_SLOTS; i++) {
+        if (s_corner_luts[i].radius == (uint16_t)radius) {
+            return s_corner_luts[i].cover;
+        }
+    }
+
+    uint8_t *cover = (uint8_t *)malloc((size_t)radius * (size_t)radius);
+    if (cover == NULL) {
+        return NULL;
+    }
+    for (gfx_coord_t y = 0; y < radius; y++) {
+        for (gfx_coord_t x = 0; x < radius; x++) {
+            cover[(size_t)y * (size_t)radius + (size_t)x] =
+                gfx_render_round_rect_corner_cover(x, y, radius, true);
+        }
+    }
+
+    gfx_render_corner_lut_t *slot = &s_corner_luts[s_corner_lut_next];
+    s_corner_lut_next = (uint8_t)((s_corner_lut_next + 1U) % GFX_RENDER_CORNER_LUT_SLOTS);
+    free(slot->cover);
+    slot->cover = cover;
+    slot->radius = (uint16_t)radius;
+    return cover;
+}
+
+/**
+ * Blend one radius x radius corner as a single alpha mask.
+ * mirror_x/mirror_y map the top-left quarter LUT onto the other corners.
+ * Stroke corners pass inner_lut/inner_r/stroke_w; fill corners pass NULL/0/0.
+ */
+static void gfx_render_round_rect_corner_mask(gfx_display_t *disp,
+        const gfx_render_surface_t *dst,
+        const gfx_area_t *corner_area,
+        const uint8_t *outer_lut,
+        gfx_coord_t outer_r,
+        const uint8_t *inner_lut,
+        gfx_coord_t inner_r,
+        gfx_coord_t stroke_w,
+        bool mirror_x,
+        bool mirror_y,
+        gfx_color_t color,
+        gfx_opa_t opa)
+{
+    gfx_area_t clipped;
+
+    if (!gfx_area_intersect_exclusive(&clipped, corner_area, &dst->clip_area) ||
+            !gfx_area_intersect_exclusive(&clipped, &clipped, &dst->buf_area)) {
+        return;
+    }
+
+    const gfx_coord_t w = (gfx_coord_t)(clipped.x2 - clipped.x1);
+    const gfx_coord_t h = (gfx_coord_t)(clipped.y2 - clipped.y1);
+    uint8_t *mask = s_corner_mask_scratch;
+
+    for (gfx_coord_t y = 0; y < h; y++) {
+        const gfx_coord_t ly = (gfx_coord_t)(clipped.y1 + y - corner_area->y1);
+        const gfx_coord_t cy = mirror_y ? (gfx_coord_t)(outer_r - 1 - ly) : ly;
+        const uint8_t *lut_row = outer_lut + (size_t)cy * (size_t)outer_r;
+        uint8_t *mask_row = mask + (size_t)y * (size_t)w;
+
+        for (gfx_coord_t x = 0; x < w; x++) {
+            const gfx_coord_t lx = (gfx_coord_t)(clipped.x1 + x - corner_area->x1);
+            const gfx_coord_t cx = mirror_x ? (gfx_coord_t)(outer_r - 1 - lx) : lx;
+            uint8_t cover = lut_row[cx];
+
+            if (stroke_w > 0) {
+                const gfx_coord_t icx = (gfx_coord_t)(cx - stroke_w);
+                const gfx_coord_t icy = (gfx_coord_t)(cy - stroke_w);
+                uint8_t inner = 0U;
+                if (icx >= 0 && icy >= 0) {
+                    inner = (icx < inner_r && icy < inner_r) ?
+                            inner_lut[(size_t)icy * (size_t)inner_r + (size_t)icx] : 255U;
+                }
+                cover = (cover > inner) ? (uint8_t)(cover - inner) : 0U;
+            }
+            mask_row[x] = cover;
+        }
+    }
+
+    gfx_render_surface_draw_mask(disp, dst, &clipped, mask, w, color, opa);
+}
+
+/** Draw the 4 corners of a round rect via LUT masks; false = LUT unavailable. */
+static bool gfx_render_round_rect_corners_mask(gfx_display_t *disp,
+        const gfx_render_surface_t *dst,
+        const gfx_area_t *area,
+        gfx_coord_t radius,
+        gfx_coord_t stroke_w,
+        gfx_color_t color,
+        gfx_opa_t opa)
+{
+    const uint8_t *outer_lut = gfx_render_corner_lut_get(radius);
+    const uint8_t *inner_lut = NULL;
+    gfx_coord_t inner_r = 0;
+
+    if (outer_lut == NULL) {
+        return false;
+    }
+    if (stroke_w > 0) {
+        inner_r = (gfx_coord_t)(radius - stroke_w);
+        if (inner_r > 0) {
+            /* Re-fetch outer after the inner lookup may have evicted it. */
+            inner_lut = gfx_render_corner_lut_get(inner_r);
+            outer_lut = gfx_render_corner_lut_get(radius);
+            if (inner_lut == NULL || outer_lut == NULL) {
+                return false;
+            }
+        }
+    }
+
+    const gfx_area_t corners[4] = {
+        { area->x1, area->y1, (gfx_coord_t)(area->x1 + radius), (gfx_coord_t)(area->y1 + radius) },
+        { (gfx_coord_t)(area->x2 - radius), area->y1, area->x2, (gfx_coord_t)(area->y1 + radius) },
+        { area->x1, (gfx_coord_t)(area->y2 - radius), (gfx_coord_t)(area->x1 + radius), area->y2 },
+        { (gfx_coord_t)(area->x2 - radius), (gfx_coord_t)(area->y2 - radius), area->x2, area->y2 },
+    };
+    static const bool mirror_x[4] = { false, true, false, true };
+    static const bool mirror_y[4] = { false, false, true, true };
+
+    for (int i = 0; i < 4; i++) {
+        gfx_render_round_rect_corner_mask(disp, dst, &corners[i], outer_lut, radius,
+                                          inner_lut, inner_r, stroke_w,
+                                          mirror_x[i], mirror_y[i], color, opa);
+    }
+    return true;
+}
+
 static uint8_t gfx_render_round_rect_coverage(const gfx_area_t *area,
         gfx_coord_t radius,
         gfx_coord_t x,
@@ -608,7 +760,9 @@ void gfx_render_surface_round_rect_fill(gfx_display_t *disp,
     band.x2 = area->x2;
     gfx_render_surface_fill_clipped(disp, dst, &band, dsc->color, dsc->opa);
 
-    gfx_render_surface_round_rect_corners_aa(disp, dst, area, r, dsc->color, dsc->opa);
+    if (!gfx_render_round_rect_corners_mask(disp, dst, area, r, 0, dsc->color, dsc->opa)) {
+        gfx_render_surface_round_rect_corners_aa(disp, dst, area, r, dsc->color, dsc->opa);
+    }
 }
 
 void gfx_render_surface_round_rect_stroke(gfx_display_t *disp,
@@ -668,7 +822,10 @@ void gfx_render_surface_round_rect_stroke(gfx_display_t *disp,
     band.x2 = area->x2;
     gfx_render_surface_fill_clipped(disp, dst, &band, dsc->color, dsc->opa);
 
-    gfx_render_surface_round_rect_stroke_corners_aa(disp, dst, area, r, stroke_w, dsc->color, dsc->opa);
+    if (!gfx_render_round_rect_corners_mask(disp, dst, area, r, stroke_w, dsc->color, dsc->opa)) {
+        gfx_render_surface_round_rect_stroke_corners_aa(disp, dst, area, r, stroke_w,
+                dsc->color, dsc->opa);
+    }
 }
 
 static gfx_coord_t gfx_render_align_floor(gfx_coord_t value, uint16_t alignment)
@@ -1294,7 +1451,10 @@ void gfx_render_part_area(gfx_display_t *disp, gfx_area_t *area, uint8_t area_id
         };
 
         render_start_us = gfx_platform_time_us();
-        if (disp->style.bg_enable) {
+        /* Skip the clear when the arena scene opaquely covers this chunk. */
+        if (disp->style.bg_enable &&
+                !(disp->arena_scene != NULL &&
+                  arena_draw_covers_clip(disp, &draw_ctx.clip_area))) {
             gfx_area_t fill_area = { chunk_x1, chunk_y1, chunk_x2, chunk_y2 };
             gfx_render_fill_area(disp, &draw_ctx, &fill_area, disp->style.bg_color, GFX_RENDER_OPA_COVER);
         }

@@ -292,6 +292,10 @@ int gsp_to_arena(const uint8_t *gsp, size_t gsp_size,
         if (flags & GSP_F_HIDDEN) {
             d->flags = (uint16_t)(d->flags & ~ARENA_F_VISIBLE);
         }
+        if (flags & GSP_F_RADIUS) {
+            const uint16_t radius = gsp_rd_u16(e + 30);
+            d->radius = (radius > 0xFFu) ? 0xFFu : (uint8_t)radius;
+        }
 
         if (parent_idx == GSP_NO_PARENT) {
             d->parent = -1;
