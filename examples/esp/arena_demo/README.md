@@ -147,4 +147,5 @@ ARENA_SDL=1 ./build-host-sdl/gfx_arena_sdl_demo
 ./build-host-sdl/gfx_gsp_to_arena_demo
 ```
 
-更多见 [`docs/scene/`](../../../docs/scene/README.md)（toolchain / parity / plan）。
+Host 和其他验证入口见 [`examples/README.md`](../../README.md)，资产格式见
+[`docs/asset_spec.rst`](../../../docs/asset_spec.rst)。

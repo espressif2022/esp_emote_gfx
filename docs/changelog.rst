@@ -3,6 +3,19 @@ Changelog
 
 All notable changes to the ESP Emote GFX component will be documented in this file.
 
+[Unreleased]
+------------
+* Mark GSP/ARN Arena APIs and demos as experimental while the Object/Arena
+  rendering, resource, input, and component parity contracts are being unified.
+* Add an opt-in Host build switch for experimental Arena demos and tests.
+* Make a clean Host configure fetch the pinned heatshrink source when no local
+  ESP-IDF managed component is available.
+* Consolidate example and validation documentation, remove unused generated
+  scene artifacts, and keep stable Component Registry examples separate from
+  internal test applications.
+* Move Arena dirty-region test helpers out of the public API and expand malformed
+  ARN package validation coverage.
+
 [3.0.6] - 2026-05-19
 --------------------
 * Add `gfx_list` widget for selectable list-style UI layouts

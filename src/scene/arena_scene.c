@@ -5,6 +5,7 @@
  */
 
 #include "gfx/scene/arena_scene.h"
+#include "scene/arena_scene_test_priv.h"
 
 #include <stdlib.h>
 #include <string.h>

@@ -1,8 +1,8 @@
 # arena_model — Host 验证入口
 
-本目录**只放 demo / 测试入口**。设计、ABI、计划统一见：
-
-**[`docs/scene/`](../../../docs/scene/README.md)**（[plan](../../../docs/scene/plan.md) · [abi](../../../docs/scene/abi.md) · [parity](../../../docs/scene/parity.md) · [toolchain](../../../docs/scene/toolchain.md)）
+本目录**只放 host demo / 验证入口**。场景资产格式见
+[`docs/asset_spec.rst`](../../../docs/asset_spec.rst)，整体架构见
+[`docs/architecture.md`](../../../docs/architecture.md)。
 
 库代码：`include/gfx/scene/` + `src/scene/`。  
 ESP 辅助源码：`examples/esp/arena_demo/main/`（host demo 会复用）。
@@ -34,7 +34,7 @@ cmake --build build-host-sdl --target \
 ./build-host-sdl/gfx_arena_playground_sdl_demo
 ARENA_SDL=1 ./build-host-sdl/gfx_arena_playground_sdl_demo
 
-# FPS：只比 List / Wheel / Progress / Button / Image（见 docs/scene/parity.md 档 A）
+# FPS：只比较 List / Wheel / Progress / Button / Image
 ```
 
 ESP：[`examples/esp/arena_demo/README.md`](../../esp/arena_demo/README.md)

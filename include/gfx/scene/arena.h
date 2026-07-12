@@ -9,10 +9,11 @@
 /**
  * Arena scene package ABI (ARN1) and runtime helpers.
  *
- * Frozen layout rules:
+ * Experimental runtime API. Versioned package layout rules:
  * - Little-endian, packed structs, no native pointers in the package.
  * - Runtime arena is a writable RAM copy (gfx_arena_load memcpy).
- * - Incompatible layout changes require GFX_ARENA_VERSION bump.
+ * - Incompatible package layout changes require GFX_ARENA_VERSION bump.
+ * - C structs used by the runtime are not ABI-stable until Arena graduates.
  *
  * Dual backend:
  * - Package UI  -> arena (this API)

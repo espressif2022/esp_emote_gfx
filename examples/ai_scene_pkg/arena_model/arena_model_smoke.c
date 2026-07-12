@@ -23,6 +23,51 @@
     printf("OK  %s\n", msg); \
 } while (0)
 
+static int check_corrupt_packages(const uint8_t *pkg, size_t pkg_size)
+{
+    uint8_t *bad = (uint8_t *)malloc(pkg_size);
+    gfx_arena_t arena = {0};
+    gfx_arena_hdr_t *hdr;
+    gfx_arena_node_t *node;
+
+    CHECK(bad != NULL, "allocate corrupt-package fixture");
+
+    memcpy(bad, pkg, pkg_size);
+    hdr = (gfx_arena_hdr_t *)bad;
+    hdr->magic = 0U;
+    CHECK(gfx_arena_load(bad, pkg_size, &arena) != 0, "reject bad magic");
+
+    memcpy(bad, pkg, pkg_size);
+    hdr = (gfx_arena_hdr_t *)bad;
+    hdr->version++;
+    CHECK(gfx_arena_load(bad, pkg_size, &arena) != 0, "reject unsupported version");
+
+    memcpy(bad, pkg, pkg_size);
+    hdr = (gfx_arena_hdr_t *)bad;
+    hdr->total_size--;
+    CHECK(gfx_arena_load(bad, pkg_size, &arena) != 0, "reject mismatched total size");
+
+    memcpy(bad, pkg, pkg_size);
+    hdr = (gfx_arena_hdr_t *)bad;
+    hdr->root_off = hdr->nodes_off + 1U;
+    CHECK(gfx_arena_load(bad, pkg_size, &arena) != 0, "reject unaligned root node offset");
+
+    memcpy(bad, pkg, pkg_size);
+    hdr = (gfx_arena_hdr_t *)bad;
+    node = (gfx_arena_node_t *)(bad + hdr->nodes_off);
+    node->first_child = (uint32_t)pkg_size;
+    CHECK(gfx_arena_load(bad, pkg_size, &arena) != 0, "reject child node offset outside table");
+
+    memcpy(bad, pkg, pkg_size);
+    hdr = (gfx_arena_hdr_t *)bad;
+    node = (gfx_arena_node_t *)(bad + hdr->nodes_off);
+    node->name_off = (uint32_t)pkg_size;
+    CHECK(gfx_arena_load(bad, pkg_size, &arena) != 0, "reject string offset outside table");
+
+    free(bad);
+    return 0;
+}
+
 int main(void)
 {
     printf("arena_model_smoke: relative-offset isomorphic arena\n");
@@ -52,6 +97,7 @@ int main(void)
     gfx_arena_t arena = {0};
     CHECK(gfx_arena_load(pkg, pkg_size, &arena) == 0, "load = memcpy + validate");
     CHECK(arena.base != pkg, "runtime arena is a writable copy");
+    CHECK(check_corrupt_packages(pkg, pkg_size) == 0, "corrupt packages rejected");
 
     printf("--- tree after load ---\n");
     gfx_arena_dump_tree(&arena, gfx_arena_hdr(&arena)->root_off, 0);

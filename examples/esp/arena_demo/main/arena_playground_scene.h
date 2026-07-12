@@ -13,7 +13,7 @@
  * Pick Stamp remains an object overlay (no ARN type yet).
  *
  * FPS compare vs object path: use List / Wheel / Progress / Button / Image only
- * (tier A). Anim / Motion / Pick Stamp include object host cost — see docs/scene/parity.md.
+ * (tier A). Anim / Motion / Pick Stamp include object-host overhead.
  */
 
 #include <stddef.h>

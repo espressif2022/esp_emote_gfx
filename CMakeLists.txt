@@ -66,17 +66,32 @@ cmake_minimum_required(VERSION 3.16)
 project(esp_emote_gfx_host C)
 
 option(GFX_BUILD_HOST_SDL "Build the Linux host SDL simulator target" ON)
+option(GFX_BUILD_EXPERIMENTAL_ARENA "Build experimental GSP/ARN demos and tests" OFF)
 set(GFX_AI_SCENE_INC "inc/home.inc" CACHE STRING "GSP scene .inc used by gfx_ai_scene_pkg_demo")
 
-set(GFX_HEATSHRINK_ROOT "${CMAKE_CURRENT_LIST_DIR}/test_apps/managed_components/laride__heatshrink")
+set(GFX_HEATSHRINK_ROOT "" CACHE PATH "Path to a heatshrink 0.4.x source tree")
 if(NOT EXISTS "${GFX_HEATSHRINK_ROOT}/heatshrink_decoder.c")
-    set(GFX_HEATSHRINK_ROOT "${CMAKE_CURRENT_LIST_DIR}/managed_components/laride__heatshrink")
+    foreach(_heatshrink_candidate IN ITEMS
+            "${CMAKE_CURRENT_LIST_DIR}/test_apps/managed_components/laride__heatshrink"
+            "${CMAKE_CURRENT_LIST_DIR}/managed_components/laride__heatshrink"
+            "${CMAKE_CURRENT_LIST_DIR}/examples/esp/format_rgb565/managed_components/laride__heatshrink")
+        if(EXISTS "${_heatshrink_candidate}/heatshrink_decoder.c")
+            set(GFX_HEATSHRINK_ROOT "${_heatshrink_candidate}")
+            break()
+        endif()
+    endforeach()
 endif()
 if(NOT EXISTS "${GFX_HEATSHRINK_ROOT}/heatshrink_decoder.c")
-    set(GFX_HEATSHRINK_ROOT "${CMAKE_CURRENT_LIST_DIR}/examples/esp/format_rgb565/managed_components/laride__heatshrink")
-endif()
-if(NOT EXISTS "${GFX_HEATSHRINK_ROOT}/heatshrink_decoder.c")
-    message(FATAL_ERROR "heatshrink not found; build an ESP example first to fetch managed_components")
+    include(FetchContent)
+    FetchContent_Declare(heatshrink
+        GIT_REPOSITORY https://github.com/laride/heatshrink.git
+        GIT_TAG a0d2650edea4762ea2ba71b71a02d9ed81da1841
+        GIT_SHALLOW TRUE)
+    FetchContent_GetProperties(heatshrink)
+    if(NOT heatshrink_POPULATED)
+        FetchContent_Populate(heatshrink)
+    endif()
+    set(GFX_HEATSHRINK_ROOT "${heatshrink_SOURCE_DIR}")
 endif()
 
 set(GFX_HOST_CORE_SRCS
@@ -317,6 +332,7 @@ if(GFX_BUILD_HOST_SDL)
     target_compile_features(gfx_host_tween_smoke PRIVATE c_std_11)
     target_link_libraries(gfx_host_tween_smoke PRIVATE gfx_host_core)
 
+    if(GFX_BUILD_EXPERIMENTAL_ARENA)
     add_executable(gfx_ai_scene_pkg_demo
         "examples/ai_scene_pkg/ai_scene_pkg_demo.c"
         "examples/common/gfx_display_port.c"
@@ -474,6 +490,7 @@ if(GFX_BUILD_HOST_SDL)
     target_compile_features(gfx_arena_compare_demo PRIVATE c_std_11)
     target_compile_definitions(gfx_arena_compare_demo PRIVATE GFX_HOST_BUILD=1)
     target_link_libraries(gfx_arena_compare_demo PRIVATE gfx_host_core)
+    endif()
 
     include(CTest)
     if(BUILD_TESTING)
@@ -496,8 +513,10 @@ if(GFX_BUILD_HOST_SDL)
                 -D GFX_HOST_SDL_DEMO=$<TARGET_FILE:gfx_host_sdl_demo>
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/simulation/host/run_sdl_dummy_smoke.cmake
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        if(GFX_BUILD_EXPERIMENTAL_ARENA)
         add_test(NAME gfx_ai_scene_pkg_demo COMMAND gfx_ai_scene_pkg_demo)
         set_tests_properties(gfx_ai_scene_pkg_demo PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             ENVIRONMENT "GSP_HEADLESS=1;SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
         add_test(NAME gfx_arena_model_smoke COMMAND gfx_arena_model_smoke)
         add_test(NAME gfx_arena_draw_demo COMMAND gfx_arena_draw_demo)
@@ -508,6 +527,7 @@ if(GFX_BUILD_HOST_SDL)
         add_test(NAME gfx_arena_compare_demo COMMAND gfx_arena_compare_demo)
         set_tests_properties(gfx_arena_compare_demo PROPERTIES
             ENVIRONMENT "ARENA_COMPARE_ITERS=20")
+        endif()
     endif()
 
     add_custom_target(gfx_host_smoke

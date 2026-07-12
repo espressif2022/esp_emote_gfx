@@ -112,8 +112,8 @@ Debug checklist:
 * Check that ``stride`` is bytes, not pixels.
 * Check that alpha-plane formats append alpha after the complete color plane,
   not interleaved per pixel.
-* Use ``test_apps/main/test_image.c`` to compare RGB565, RGB565A8, RGB888, and
-  RGB888A8 rendering.
+* Use ``test_apps/visual/main/test_image.c`` for visual format comparison and
+  ``test_apps/unit/main/test_anim_decode.c`` for automatic decoder assertions.
 
 Font Assets
 -----------

@@ -24,6 +24,7 @@
 #include "gfx/backends/memory.h"
 #include "gfx/scene/arena.h"
 #include "gfx/scene/arena_scene.h"
+#include "scene/arena_scene_test_priv.h"
 #include "gfx/widgets/font_lvgl.h"
 
 extern const lv_font_t font_puhui_16_4;

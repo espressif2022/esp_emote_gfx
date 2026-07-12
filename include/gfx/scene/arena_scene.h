@@ -422,22 +422,6 @@ uint32_t gfx_arena_scene_hit_test(gfx_arena_scene_t *scene, uint16_t x, uint16_t
  */
 int gfx_arena_scene_handle_touch(gfx_display_t *disp, const gfx_touch_event_t *event);
 
-/**
- * @brief Test helper: get current dirty-region count
- * @param disp Display handle
- * @return Dirty count
- */
-uint8_t gfx_arena_scene_test_dirty_count(gfx_display_t *disp);
-
-/**
- * @brief Test helper: copy one dirty region
- * @param disp Display handle
- * @param index Dirty index
- * @param out Receives area
- * @return 0 on success, negative on error
- */
-int gfx_arena_scene_test_dirty_area(gfx_display_t *disp, uint8_t index, gfx_area_t *out);
-
 #ifdef __cplusplus
 }
 #endif

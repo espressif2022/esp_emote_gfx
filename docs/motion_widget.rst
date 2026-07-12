@@ -86,7 +86,8 @@ Minimal Example
 Interactive Example
 -------------------
 
-An end-to-end example is available in ``test_apps/main/test_motion.c``. It demonstrates:
+An end-to-end visual example is available in
+``test_apps/visual/main/test_motion.c``. It demonstrates:
 
 * full-screen motion scene preview
 * tap-to-switch action

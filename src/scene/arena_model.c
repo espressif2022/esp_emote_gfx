@@ -7,6 +7,7 @@
 #include "gfx/scene/arena.h"
 
 #include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -518,6 +519,52 @@ uint8_t *gfx_arena_pack(const gfx_arena_desc_t *descs, uint16_t count, size_t *o
     return buf;
 }
 
+static bool gfx_arena_pkg_node_off_valid(const gfx_arena_hdr_t *hdr, uint32_t off)
+{
+    size_t relative;
+
+    if (off == GFX_ARENA_NO_NODE) {
+        return true;
+    }
+    if (off < hdr->nodes_off) {
+        return false;
+    }
+    relative = (size_t)off - hdr->nodes_off;
+    return relative % sizeof(gfx_arena_node_t) == 0U &&
+           relative / sizeof(gfx_arena_node_t) < hdr->node_count;
+}
+
+static bool gfx_arena_pkg_string_valid(const uint8_t *pkg, const gfx_arena_hdr_t *hdr, uint32_t off)
+{
+    if (off == 0U) {
+        return true;
+    }
+    if (off < hdr->str_off || off >= hdr->total_size) {
+        return false;
+    }
+    return memchr(pkg + off, '\0', (size_t)hdr->total_size - off) != NULL;
+}
+
+static bool gfx_arena_pkg_refs_valid(const uint8_t *pkg, const gfx_arena_hdr_t *hdr)
+{
+    size_t nodes_end = (size_t)hdr->nodes_off +
+                       (size_t)hdr->node_count * sizeof(gfx_arena_node_t);
+
+    if (hdr->str_off < nodes_end || !gfx_arena_pkg_node_off_valid(hdr, hdr->root_off)) {
+        return false;
+    }
+    for (uint16_t i = 0; i < hdr->node_count; i++) {
+        const gfx_arena_node_t *node = (const gfx_arena_node_t *)(
+            pkg + hdr->nodes_off + (size_t)i * sizeof(gfx_arena_node_t));
+        if (!gfx_arena_pkg_node_off_valid(hdr, node->first_child) ||
+                !gfx_arena_pkg_node_off_valid(hdr, node->next_sibling) ||
+                !gfx_arena_pkg_string_valid(pkg, hdr, node->name_off)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 int gfx_arena_load(const uint8_t *pkg, size_t pkg_size, gfx_arena_t *out)
 {
     if (pkg == NULL || out == NULL || pkg_size < sizeof(gfx_arena_hdr_t)) {
@@ -532,6 +579,9 @@ int gfx_arena_load(const uint8_t *pkg, size_t pkg_size, gfx_arena_t *out)
         return -3;
     }
     if ((size_t)hdr->nodes_off + (size_t)hdr->node_count * sizeof(gfx_arena_node_t) > pkg_size) {
+        return -4;
+    }
+    if (!gfx_arena_pkg_refs_valid(pkg, hdr)) {
         return -4;
     }
 

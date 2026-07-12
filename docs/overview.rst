@@ -32,6 +32,10 @@ The public widget set currently includes:
 * QR Code: generated QR code widget with configurable size and colors.
 * Motion Scene: path-driven emote/character playback from generated scene assets.
 
+The ARN/GSP Arena package runtime is currently an experimental opt-in path.
+Its release boundary and the required Object/Arena parity checks are documented
+in :doc:`arena_stability`.
+
 Runtime Model
 -------------
 

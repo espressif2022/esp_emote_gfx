@@ -25,4 +25,5 @@ dependencies:
   laride/heatshrink:
     version: '^0.4.1'
 examples:
-  - path: ./test_apps
+  - path: ./examples/esp/format_rgb565
+  - path: ./examples/esp/format_rgb888

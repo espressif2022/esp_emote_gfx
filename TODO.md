@@ -11,6 +11,23 @@
 
 说明：本节是当前推进看板，按模块分组；下面各大章节保留详细历史和设计约束。近期优先级仍以 P0/P1/P2 为主，跨模块任务先在这里收口，再同步到对应详细章节。
 
+- [ ] P0 Release 收敛（2026-07）。
+  - [√] 干净 clone Host 构建不再依赖被忽略的 `managed_components/`；缺少本地 heatshrink 时由 CMake 获取固定 upstream commit，并允许 `GFX_HEATSHRINK_ROOT` 显式覆盖。(done: 2026-07-12)
+  - [√] 增加 `GFX_BUILD_EXPERIMENTAL_ARENA` 开关；稳定 Host demo/tests 与 GSP/ARN 实验目标分层，README 给出两种配置命令。(done: 2026-07-12)
+  - [√] Arena/GSP 在当前 release 明确标记为 experimental；ARN1 只承诺包内布局版本，不承诺 `gfx_arena_scene_t` C ABI。(done: 2026-07-12)
+  - [√] Arena dirty-list 测试 helper 从 public header 移到 `src/scene/arena_scene_test_priv.h`，避免测试接口成为发布 API。(done: 2026-07-12)
+  - [√] Arena model smoke 增加 magic/version/size/node offset/string offset 损坏包拒绝回归。(done: 2026-07-12)
+  - [√] Component Registry 示例从内部 `test_apps` 改为稳定的 RGB565/RGB888 用户示例；Arena 不进入稳定示例清单。(done: 2026-07-12)
+  - [√] Changelog 增加 Unreleased，记录 Arena experimental 边界、Host 可复现构建和示例/测试整理。(done: 2026-07-12)
+  - [ ] 下一主版本门禁：将 `gfx_arena_scene_t` 改为 opaque handle，public API 统一返回 `gfx_err_t`，容量/side-table/hosted object 全部移入 private implementation。
+  - [ ] 下一主版本门禁：定义 Object/Arena 共用的 render-node/resource/input 契约，禁止继续为同名组件复制第二套绘制和交互语义。
+  - [ ] Arena stable 门禁：建立 Object/Arena parity matrix，并为 Label/Image/Button/List/Wheel/Progress/Anim/Motion 增加同场景像素与事件序列回归。
+    - [√] 建立 release parity matrix、渲染契约、资源所有权和输入验收标准文档。(done: 2026-07-12)
+  - [ ] 资源闭环：Image/Font/Anim/Motion/Arena binding 统一经过 asset store + typed runtime resource，明确缓存、引用计数和释放责任。
+  - [ ] 输入闭环：统一 Object/Arena hit-test、capture、cancel、focus、keyboard/encoder 语义，并增加对象删除期间的输入回归。
+  - [ ] 布局闭环：先实现 parent-local geometry + row/column/padding/anchor，再评估将 Arena 固定坐标扩展为约束布局。
+  - [ ] 性能门禁：发布 RGB565/RGB888、full/partial refresh、Object/Arena 的 RAM、frame time 和 flush time 基线。
+
 - [ ] P0 资源访问 / `gfx_fs` 收尾。
   - [√] JPEG FILE 源去重 load：`gfx_image_resource_set_source()` probe 阶段保留 encoded `src_blob`，`open()` 复用同一份 bytes 解码，避免 FILE 路径 `info/open` 重复 `gfx_fs_load()`。(done: 2026-06-27)
   - [ ] 隐藏 backend view/caps：`gfx_fs_view_open_by_name/id/region` 仅供 backend 与 conformance test 使用，应用和 decoder 不再直接碰 view/flags/caps。

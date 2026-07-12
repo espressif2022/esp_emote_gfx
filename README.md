@@ -96,6 +96,12 @@
 - 图片源已支持 `RGB565`、`RGB565A8`、`RGB888`、`RGB888A8`、`XRGB8888`、`ARGB8888`。
 - 说明和阶段计划见 [docs/render_format_design.md](docs/render_format_design.md)。
 
+## 功能稳定性
+
+- Core、Display/Backend、Object Widgets、Image/Font/Anim 和 Motion 属于稳定组件范围。
+- GSP compatibility loader、ARN1 package 和 Arena runtime 当前为 experimental，需显式启用 Host 构建目标；其包格式带版本校验，但 C runtime API/ABI 尚未冻结。
+- 示例、Host 构建和验证入口见 [examples/README.md](examples/README.md)。
+
 ## 文档
 
 详细安装、API、示例、Motion 架构和测试工程说明都放在在线文档里：
@@ -103,7 +109,7 @@
 - 中文文档：<https://espressif2022.github.io/esp_emote_gfx/zh_CN/index.html>
 - English docs: <https://espressif2022.github.io/esp_emote_gfx/en/index.html>
 - Component Registry: <https://components.espressif.com/components/espressif2022/esp_emote_gfx>
-- Scene 包（ARN/GSP）设计与计划：[docs/scene/](docs/scene/README.md)
+- 本地示例、Host 仿真和验证工程：[examples/README.md](examples/README.md)
 
 ## English
 

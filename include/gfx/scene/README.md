@@ -3,7 +3,10 @@
 Headers under `include/gfx/scene/`. Symbols use the `gfx_` prefix
 (`gfx_arena_load`, `gfx_gsp_load`). File names stay short, like `widgets/label.h`.
 
-**Opt-in** — not included by `gfx/all.h`.
+**Experimental / opt-in** — not included by `gfx/all.h`. ARN1 freezes the
+pointer-free package byte layout for versioned decoding. The C runtime structs
+and scene APIs are not ABI-stable yet and may change before Arena becomes a
+stable component surface.
 
 ## Layers
 
@@ -23,4 +26,6 @@ Hand-written UI  →  gfx_*_create
 
 ## Docs
 
-设计 / 计划 / ABI：**[`docs/scene/`](../../../docs/scene/README.md)**
+Architecture and current release boundary:
+[`docs/architecture.md`](../../../docs/architecture.md) and
+[`examples/README.md`](../../../examples/README.md).

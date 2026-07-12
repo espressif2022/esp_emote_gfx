@@ -18,4 +18,5 @@ Keep both files synchronized when any of these change:
 The implementation reference is `include/gfx/scene/gsp.h` plus
 `src/scene/gsp_load.c`.
 
-ARN / 产品默认路径与计划见 [`docs/scene/`](../../../docs/scene/README.md)。
+ARN 运行时入口和验证方式见 [`examples/README.md`](../../README.md) 及
+[`arena_model/README.md`](../arena_model/README.md)。

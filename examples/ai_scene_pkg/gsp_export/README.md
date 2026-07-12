@@ -53,5 +53,5 @@ GSP_HEADLESS=1 SDL_VIDEODRIVER=dummy ./build-host-sdl/gfx_ai_scene_pkg_demo
 ./build-host-sdl/gfx_gsp_to_arena_demo
 ```
 
-Top-level workflow: [`../README.md`](../README.md). Scene docs:
-[`docs/scene/`](../../../docs/scene/README.md)（toolchain / plan / ABI）.
+Top-level workflow: [`examples/README.md`](../../README.md). Package regeneration rules:
+[`SKILL.md`](SKILL.md). Asset format: [`docs/asset_spec.rst`](../../../docs/asset_spec.rst).

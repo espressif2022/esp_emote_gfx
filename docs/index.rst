@@ -15,6 +15,7 @@ Start Here
 * :doc:`backend_architecture` - display backend model, memory backend, and SDL simulation plan
 * :doc:`platform_port` - RTOS/time/heap platform abstraction for ESP-IDF and host ports
 * :doc:`asset_spec` - image payload and font asset specifications
+* :doc:`arena_stability` - Arena release boundary, render contract, and parity gates
 
 Reference
 ---------
@@ -36,6 +37,7 @@ Reference
    backend_architecture
    platform_port
    asset_spec
+   arena_stability
    api/core/index
    api/widgets/index
    motion_mesh_rendering_architecture
